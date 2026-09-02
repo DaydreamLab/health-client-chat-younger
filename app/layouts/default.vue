@@ -5,7 +5,7 @@
         <BrandMark />
         <nav class="flex items-center gap-3 text-sm">
           <AppButton
-            href="#plans"
+            :to="`${localePath('/')}#plans`"
             variant="ghost"
           >
             {{ $t('nav.plans') }}

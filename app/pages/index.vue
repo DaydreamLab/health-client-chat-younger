@@ -62,18 +62,18 @@
       </h2>
       <div class="mt-4 grid gap-4 md:grid-cols-3">
         <article
-          v-for="row in planRows"
-          :key="row.name"
+          v-for="id in planIds"
+          :key="id"
           class="rounded-xl border border-default bg-elevated p-5"
         >
           <h3 class="font-medium text-highlighted">
-            {{ row.name }}
+            {{ $t(`plans.${id}`) }}
           </h3>
           <p class="mt-2 text-sm text-muted">
-            {{ row.who }}
+            {{ $t(`plans.${id}Who`) }}
           </p>
           <p class="mt-1 text-sm text-dimmed">
-            {{ row.gets }}
+            {{ $t(`plans.${id}Gets`) }}
           </p>
         </article>
       </div>
@@ -83,19 +83,6 @@
 
 <script setup lang="ts">
 const localePath = useLocalePath()
-const { t } = useI18n()
 
-const planRows = computed(() => [{
-  name: t('plans.basic'),
-  who: t('plans.basicWho'),
-  gets: t('plans.basicGets')
-}, {
-  name: t('plans.mid'),
-  who: t('plans.midWho'),
-  gets: t('plans.midGets')
-}, {
-  name: t('plans.premium'),
-  who: t('plans.premiumWho'),
-  gets: t('plans.premiumGets')
-}])
+const planIds = ['basic', 'mid', 'premium'] as const
 </script>

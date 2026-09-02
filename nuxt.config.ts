@@ -38,6 +38,11 @@ export default defineNuxtConfig({
     locales: [
       { code: 'zh-TW', language: 'zh-TW', name: '繁體中文', file: 'zh-TW.json' },
       { code: 'en', language: 'en-US', name: 'English', file: 'en.json' }
-    ]
+    ],
+    detectBrowserLanguage: {
+      useCookie: true,
+      cookieKey: 'i18n_redirected',
+      redirectOn: 'root'
+    }
   }
 })

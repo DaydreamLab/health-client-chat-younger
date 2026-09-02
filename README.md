@@ -43,6 +43,13 @@ A 平台客人端（保健／健康數據 + AI 教練）。品牌 UI 走 YOUNGER
 - Chat 第一版只解釋報告與生活建議，不指定商品。
 - 暫無 Logo，畫面用文字 YOUNGER + 品牌色。
 
+## 產品流程（FigJam）
+
+客人路徑與三個方案以 FigJam 為準：
+
+- Live：[A-Y MVP 協作流程 v0](https://www.figma.com/board/nYWKdgK5iX2YaNZf9lEP6p/A-Y-MVP%E5%8D%94%E4%BD%9C%E6%B5%81%E7%A8%8B-v0?node-id=0-1)
+- 專案內快照：[`docs/figjam-mvp-flow.md`](docs/figjam-mvp-flow.md)
+
 ## 常用指令
 
 需要 Node 22（`nvm use`）。

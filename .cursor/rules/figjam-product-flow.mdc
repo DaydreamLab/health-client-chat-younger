@@ -1,0 +1,16 @@
+---
+description: YOUNGER product flow from FigJam — use as design reference for A client app screens
+alwaysApply: true
+---
+
+# Product flow (FigJam)
+
+This repo is the **A client app** (客人端). Design and implement screens against the live FigJam, then the snapshot in `docs/figjam-mvp-flow.md`.
+
+Live board: [A-Y MVP 協作流程 v0](https://www.figma.com/board/nYWKdgK5iX2YaNZf9lEP6p/A-Y-MVP%E5%8D%94%E4%BD%9C%E6%B5%81%E7%A8%8B-v0?node-id=0-1)
+- fileKey: `nYWKdgK5iX2YaNZf9lEP6p`
+- node: `0:1`
+
+When changing home, plans, upload, pay, booking, or handoff: call Figma MCP `get_figjam` with that fileKey, then match `docs/figjam-mvp-flow.md`.
+
+Do not build Y advisor consult UI, A ops dashboard, or MVP1–3 engine work in this app.
