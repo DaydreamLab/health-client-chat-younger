@@ -1,0 +1,65 @@
+{
+  "meta": {
+    "title": "YOUNGER",
+    "description": "個人化保健與健康數據，AI 教練陪你看懂報告。"
+  },
+  "brand": "YOUNGER",
+  "nav": {
+    "home": "首頁",
+    "plans": "方案",
+    "login": "登入",
+    "member": "我的健康",
+    "handoff": "交給顧問",
+    "logout": "登出",
+    "chat": "AI 教練"
+  },
+  "hero": {
+    "title": "看懂身體數據，再決定怎麼補。",
+    "description": "有報告可以先上傳；沒有報告我們協助採檢。逛方案不必登入，要交給顧問或留下資料時才需要會員。",
+    "ctaPlans": "了解方案",
+    "ctaHandoff": "交給顧問"
+  },
+  "paths": {
+    "title": "你現在有血檢報告嗎？",
+    "withReport": "已有報告",
+    "withReportHint": "拍照上傳，可選一般解讀或高級選品。",
+    "withoutReport": "沒有報告",
+    "withoutReportHint": "先選中階採檢或高級選品，付款後安排採檢。"
+  },
+  "plans": {
+    "title": "三個方案",
+    "name": "方案",
+    "who": "誰適合",
+    "gets": "付完得到什麼",
+    "basic": "一般「報告解讀」",
+    "basicWho": "已有紙本血檢",
+    "basicGets": "一次顧問真人解讀",
+    "mid": "中階「協助採檢」",
+    "midWho": "沒報告、要驗血",
+    "midGets": "安排採檢，回來再解讀",
+    "premium": "高級「個人化選品」",
+    "premiumWho": "要顧問選品並出貨",
+    "premiumGets": "諮詢 + 選品出貨"
+  },
+  "login": {
+    "title": "登入後資料才對得到人",
+    "description": "這是假登入，之後會換成 PHP 會員。交給顧問、付款、要保存報告時才需要這一步。",
+    "email": "Email",
+    "submit": "繼續（示範登入）",
+    "guestHint": "還不想登入？可以先回首頁逛方案。"
+  },
+  "member": {
+    "title": "我的健康",
+    "welcome": "已登入。之後這裡會放報告摘要、訂單與預約狀態。",
+    "chatHint": "AI 教練第一版只解釋報告與生活建議，不會指定商品。"
+  },
+  "handoff": {
+    "title": "交給顧問",
+    "body": "這一頁需要會員。沒綁帳號的話，報告與預約會對不到人。之後會把名單轉給顧問端（A 看不到諮詢內容）。"
+  },
+  "chat": {
+    "placeholder": "問問報告數字是什麼意思…",
+    "empty": "先問一題，例如維生素 D 偏低代表什麼。"
+  },
+  "footer": "YOUNGER 客人端 · UI 確認後再接 PHP"
+}

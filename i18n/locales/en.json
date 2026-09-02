@@ -1,0 +1,65 @@
+{
+  "meta": {
+    "title": "YOUNGER",
+    "description": "Personalized wellness data with an AI coach that helps you read your lab report."
+  },
+  "brand": "YOUNGER",
+  "nav": {
+    "home": "Home",
+    "plans": "Plans",
+    "login": "Log in",
+    "member": "My health",
+    "handoff": "Pass to advisor",
+    "logout": "Log out",
+    "chat": "AI coach"
+  },
+  "hero": {
+    "title": "Understand your data before you supplement.",
+    "description": "Upload an existing report, or we help you get tested. Browsing is open; membership is required when we hand you to an advisor or need to keep your records.",
+    "ctaPlans": "See plans",
+    "ctaHandoff": "Pass to advisor"
+  },
+  "paths": {
+    "title": "Do you already have a blood test report?",
+    "withReport": "I have a report",
+    "withReportHint": "Upload a photo. Choose a one-time reading or premium product selection.",
+    "withoutReport": "I don't have a report",
+    "withoutReportHint": "Choose assisted testing or premium selection, then pay before collection."
+  },
+  "plans": {
+    "title": "Three plans",
+    "name": "Plan",
+    "who": "Who it's for",
+    "gets": "What you get",
+    "basic": "Basic: report reading",
+    "basicWho": "You already have paper labs",
+    "basicGets": "One live advisor interpretation",
+    "mid": "Mid: assisted testing",
+    "midWho": "No report; you need a blood test",
+    "midGets": "We arrange collection, then interpret",
+    "premium": "Premium: personalized products",
+    "premiumWho": "You want advisor-picked products shipped",
+    "premiumGets": "Consult + keyed-in shipment"
+  },
+  "login": {
+    "title": "Log in so we can match your records",
+    "description": "This is mock login. PHP auth comes later. You only need it to pass to an advisor, pay, or save a report.",
+    "email": "Email",
+    "submit": "Continue (demo login)",
+    "guestHint": "Not ready? Go back and browse plans."
+  },
+  "member": {
+    "title": "My health",
+    "welcome": "You're signed in. Report summaries, orders, and bookings will live here.",
+    "chatHint": "The first AI coach only explains numbers and lifestyle tips. It will not prescribe products."
+  },
+  "handoff": {
+    "title": "Pass to advisor",
+    "body": "This step requires an account. Without membership we cannot match reports or bookings. The advisor consult stays on the Y system; this app only sees status."
+  },
+  "chat": {
+    "placeholder": "Ask what a lab number means…",
+    "empty": "Try a question, e.g. what a low vitamin D result means."
+  },
+  "footer": "YOUNGER client app · PHP after UI flows are confirmed"
+}

@@ -1,0 +1,117 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+@theme static {
+  --font-sans: "Public Sans", sans-serif;
+
+  /* YOUNGER brand → mapped to Nuxt UI primary */
+  --color-brand-50: #EFFAF8;
+  --color-brand-100: #D8F3EF;
+  --color-brand-200: #AFE9E3;
+  --color-brand-300: #82DED5;
+  --color-brand-400: #4CCEC1;
+  --color-brand-500: #18B7A7;
+  --color-brand-600: #009B8E;
+  --color-brand-700: #00766C;
+  --color-brand-800: #00544D;
+  --color-brand-900: #003A35;
+  --color-brand-950: #002A26;
+
+  /* Green-gray neutral (not generic blue-gray SaaS) */
+  --color-mist-50: #F7FAF9;
+  --color-mist-100: #F0F6F5;
+  --color-mist-200: #DCE8E6;
+  --color-mist-300: #C5D4D1;
+  --color-mist-400: #A6B8B5;
+  --color-mist-500: #829692;
+  --color-mist-600: #55706C;
+  --color-mist-700: #3D5552;
+  --color-mist-800: #1B403B;
+  --color-mist-900: #092824;
+  --color-mist-950: #061C19;
+
+  /* Semantic palettes — quieter than brand teal */
+  --color-forest-50: #E8F7F2;
+  --color-forest-100: #C7EDE1;
+  --color-forest-200: #96DCC7;
+  --color-forest-300: #5DC4A6;
+  --color-forest-400: #2EAB8A;
+  --color-forest-500: #159570;
+  --color-forest-600: #117A5C;
+  --color-forest-700: #0E614A;
+  --color-forest-800: #0C4D3B;
+  --color-forest-900: #0A3B2E;
+  --color-forest-950: #06241C;
+
+  --color-sand-50: #FBF6EA;
+  --color-sand-100: #F4E7C8;
+  --color-sand-200: #EAD29A;
+  --color-sand-300: #E0B96A;
+  --color-sand-400: #D69B32;
+  --color-sand-500: #C48A28;
+  --color-sand-600: #A37120;
+  --color-sand-700: #82591A;
+  --color-sand-800: #644414;
+  --color-sand-900: #4A330F;
+  --color-sand-950: #2C1E08;
+
+  --color-coral-50: #FBECEE;
+  --color-coral-100: #F5D0D4;
+  --color-coral-200: #ECA8B0;
+  --color-coral-300: #E2828C;
+  --color-coral-400: #D85C68;
+  --color-coral-500: #C94A56;
+  --color-coral-600: #A83C47;
+  --color-coral-700: #873038;
+  --color-coral-800: #68252C;
+  --color-coral-900: #4C1B20;
+  --color-coral-950: #2E1014;
+
+  --color-lagoon-50: #EAF4F7;
+  --color-lagoon-100: #CDE4EB;
+  --color-lagoon-200: #A5CDD9;
+  --color-lagoon-300: #77B3C4;
+  --color-lagoon-400: #4A91A8;
+  --color-lagoon-500: #3B7A8F;
+  --color-lagoon-600: #306575;
+  --color-lagoon-700: #27505E;
+  --color-lagoon-800: #1E3E49;
+  --color-lagoon-900: #162E36;
+  --color-lagoon-950: #0C1C21;
+
+  --color-chart-primary: #009B8E;
+  --color-chart-teal: #3BB8AA;
+  --color-chart-blue: #5B9BD5;
+  --color-chart-purple: #8B7FC7;
+  --color-chart-amber: #D9A441;
+  --color-chart-rose: #D86B78;
+  --color-chart-baseline: #A6B8B5;
+}
+
+:root {
+  --ui-bg: #F7FAF9;
+  --ui-bg-muted: #F0F6F5;
+  --ui-bg-elevated: #FFFFFF;
+  --ui-bg-accented: #DCE8E6;
+  --ui-text: #12302D;
+  --ui-text-muted: #55706C;
+  --ui-text-toned: #55706C;
+  --ui-text-dimmed: #829692;
+  --ui-text-highlighted: #12302D;
+  --ui-border: #DCE8E6;
+  --ui-primary: var(--ui-color-primary-600);
+}
+
+.dark {
+  --ui-bg: #061C19;
+  --ui-bg-muted: #092824;
+  --ui-bg-elevated: #0D332E;
+  --ui-bg-accented: #1B403B;
+  --ui-text: #E8F5F2;
+  --ui-text-muted: #A8C1BD;
+  --ui-text-toned: #A8C1BD;
+  --ui-text-dimmed: #718F8A;
+  --ui-text-highlighted: #E8F5F2;
+  --ui-border: #1B403B;
+  --ui-primary: var(--ui-color-primary-400);
+}
