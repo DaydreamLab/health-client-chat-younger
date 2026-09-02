@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "YOUNGER",
-    "description": "個人化保健與健康數據，AI 教練陪你看懂報告。"
+    "description": "看懂身體數據，再決定怎麼補。選方案後先進諮詢，需要時再轉專人客服。"
   },
   "brand": "YOUNGER",
   "nav": {
@@ -9,28 +9,39 @@
     "plans": "方案",
     "login": "登入",
     "member": "我的健康",
-    "handoff": "交給顧問",
+    "chat": "諮詢",
     "logout": "登出",
-    "chat": "AI 教練"
+    "startChat": "開始諮詢"
+  },
+  "colorMode": {
+    "label": "外觀",
+    "day": "日間",
+    "dark": "夜間"
   },
   "hero": {
-    "title": "看懂身體數據，再決定怎麼補。",
-    "description": "有報告可以先上傳；沒有報告我們協助採檢。逛方案不必登入，要交給顧問或留下資料時才需要會員。",
-    "ctaPlans": "了解方案",
-    "ctaHandoff": "交給顧問"
+    "eyebrow": "你的生理數據顧問",
+    "title": "想看清楚自己的健康，\n先從一次對談開始。",
+    "description": "選一個方案，AI 先幫你釐清有沒有報告、下一步怎麼走。\n逛方案不必登入；要專人客服或留下資料時才需要會員。",
+    "ctaChat": "開始諮詢",
+    "ctaPlans": "看方案"
   },
-  "paths": {
-    "title": "你現在有血檢報告嗎？",
-    "withReport": "已有報告",
-    "withReportHint": "拍照上傳，可選一般解讀或高級選品。",
-    "withoutReport": "沒有報告",
-    "withoutReportHint": "先選中階採檢或高級選品，付款後安排採檢。"
+  "steps": {
+    "title": "開始，其實很簡單",
+    "oneTitle": "選方案、線上對談",
+    "oneHint": "AI 先問你有沒有報告、想解決什麼。",
+    "twoTitle": "付款才解鎖後續",
+    "twoHint": "客人只付給這個平台，成功才轉給顧問。",
+    "threeTitle": "顧問端履約",
+    "threeHint": "解讀、採檢或選品在顧問系統進行，這裡看不到諮詢內容。"
   },
   "plans": {
-    "title": "三個方案",
-    "name": "方案",
+    "title": "三個方案，對應你現在的狀況",
+    "subtitle": "點方案會進入諮詢。有沒有報告，對談裡會再幫你對一下。",
+    "cta": "用這個方案開始",
+    "recommended": "推薦",
     "who": "誰適合",
     "gets": "付完得到什麼",
+    "visualHint": "示意面板",
     "basic": "一般「報告解讀」",
     "basicWho": "已有紙本血檢",
     "basicGets": "一次顧問真人解讀",
@@ -41,25 +52,97 @@
     "premiumWho": "要顧問選品並出貨",
     "premiumGets": "諮詢 + 選品出貨"
   },
+  "systems": {
+    "title": "六大功能，一次看懂身體",
+    "subtitle": "之後報告會落在這些系統裡。先逛方案，數字會出現在「我的健康」。",
+    "nutrition": "營養",
+    "nutritionHint": "維他命、礦物質與鐵蛋白",
+    "metabolic": "代謝",
+    "metabolicHint": "血糖、胰島素與血脂",
+    "cardio": "心血管",
+    "cardioHint": "膽固醇、發炎與血管風險",
+    "detox": "排毒",
+    "detoxHint": "肝腎與氧化壓力",
+    "endocrine": "內分泌",
+    "endocrineHint": "甲狀腺、壓力與性荷爾蒙",
+    "immune": "免疫",
+    "immuneHint": "血球、發炎與過敏相關"
+  },
   "login": {
     "title": "登入後資料才對得到人",
-    "description": "這是假登入，之後會換成 PHP 會員。交給顧問、付款、要保存報告時才需要這一步。",
+    "description": "這是假登入，之後會換成 PHP 會員。專人客服、付款、要保存報告時才需要這一步。",
     "email": "Email",
     "submit": "繼續（示範登入）",
-    "guestHint": "還不想登入？可以先回首頁逛方案。"
+    "guestHint": "還不想登入？可以先回首頁逛方案，或繼續跟 AI 對談。"
   },
   "member": {
     "title": "我的健康",
-    "welcome": "已登入。之後這裡會放報告摘要、訂單與預約狀態。",
-    "chatHint": "AI 教練第一版只解釋報告與生活建議，不會指定商品。"
+    "demo": "示範資料",
+    "scoreLabel": "生理分數",
+    "scoreHint": "近一年上升 {delta} 分",
+    "ageLabel": "生理年齡",
+    "ageValue": "{bio} 歲",
+    "ageHint": "實際年齡 {actual} 歲",
+    "markersCount": "追蹤指標",
+    "lastTest": "最近一次檢測",
+    "lastTestValue": "2026-05-12",
+    "currentPlan": "目前方案",
+    "nextCheck": "下次建議追蹤",
+    "nextCheckValue": "2026-08",
+    "trendTitle": "分數趨勢",
+    "trendHint": "示範客戶的四次追蹤",
+    "pieTitle": "系統分布",
+    "pieHint": "依各系統分數權重",
+    "accordionTitle": "各系統指標",
+    "accordionHint": "點開看最佳區間；偏離會標示",
+    "statusOk": "落在區間",
+    "statusLow": "偏低",
+    "statusHigh": "偏高",
+    "range": "最佳值 {range}",
+    "months": {
+      "may": "2025.05",
+      "sep": "2025.09",
+      "jan": "2026.01",
+      "may2": "2026.05"
+    }
   },
-  "handoff": {
-    "title": "交給顧問",
-    "body": "這一頁需要會員。沒綁帳號的話，報告與預約會對不到人。之後會把名單轉給顧問端（A 看不到諮詢內容）。"
+  "markers": {
+    "vitaminD": "維他命 D",
+    "b12": "維他命 B12",
+    "ferritin": "鐵蛋白",
+    "hba1c": "糖化血色素",
+    "homa": "HOMA-IR",
+    "triglyceride": "三酸甘油酯",
+    "ldl": "LDL-C",
+    "hdl": "HDL-C",
+    "hscrp": "hs-CRP",
+    "ggt": "γ-GT",
+    "egfr": "eGFR",
+    "tsh": "TSH",
+    "dheas": "DHEA-S",
+    "wbc": "白血球",
+    "ige": "IgE"
   },
   "chat": {
-    "placeholder": "問問報告數字是什麼意思…",
-    "empty": "先問一題，例如維生素 D 偏低代表什麼。"
+    "title": "諮詢",
+    "placeholder": "告訴我你有沒有報告，或你想先處理什麼…",
+    "send": "送出",
+    "you": "你",
+    "thinking": "正在整理回覆…",
+    "escalate": "專人客服",
+    "escalatedTitle": "已為你轉接專人",
+    "escalatedBody": "名單會轉到顧問端。諮詢在顧問系統進行，這裡不會顯示對話內容。",
+    "escalatedLocked": "轉接後 AI 暫停回覆。若還有問題，請等顧問端聯繫。",
+    "chips": {
+      "hasReport": "我已有血檢報告",
+      "noReport": "我還沒有報告",
+      "plans": "三個方案差在哪？",
+      "next": "接下來要做什麼？"
+    },
+    "greet": "你好，我是 YOUNGER 的諮詢助理。你現在有血檢報告嗎？還是想先了解方案？準備好交給專人時，再按「專人客服」。",
+    "greetBasic": "你選了一般「報告解讀」。這條路適合手上已有紙本血檢的人。你方便先告訴我：報告是最近一次的嗎？有沒有特別想先看的數字？",
+    "greetMid": "你選了中階「協助採檢」。還沒有報告的話，我們會先說明怎麼安排驗血。你比較在意疲勞、代謝，還是想做一次比較完整的檢測？",
+    "greetPremium": "你選了高級「個人化選品」。付完會進入諮詢與選品出貨。你現在有報告，還是需要先採檢？"
   },
-  "footer": "YOUNGER 客人端 · UI 確認後再接 PHP"
+  "footer": "© {year} YOUNGER. 保留所有權利。"
 }

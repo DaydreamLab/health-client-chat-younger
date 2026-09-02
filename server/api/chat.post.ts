@@ -1,20 +1,48 @@
-type ChatMessage = {
-  role: 'user' | 'assistant'
-  content: string
+import { demoAssistantReply } from '../../app/utils/chat-demo'
+import { isPlanId } from '../../app/utils/plans'
+
+type ChatPart = { type: string, text?: string }
+
+type IncomingMessage = {
+  role?: string
+  content?: string
+  parts?: ChatPart[]
+}
+
+function lastUserText(messages: IncomingMessage[] = []) {
+  const lastUser = [...messages].reverse().find(message => message.role === 'user')
+  if (!lastUser) {
+    return ''
+  }
+
+  if (typeof lastUser.content === 'string' && lastUser.content.trim()) {
+    return lastUser.content.trim()
+  }
+
+  const textPart = lastUser.parts?.find(part => part.type === 'text' && part.text)
+  return textPart?.text?.trim() || ''
 }
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody<{ messages?: ChatMessage[] }>(event)
-  const lastUser = [...(body.messages ?? [])]
-    .reverse()
-    .find(message => message.role === 'user')
+  const body = await readBody<{
+    messages?: IncomingMessage[]
+    plan?: string
+    locale?: string
+  }>(event)
 
-  const question = lastUser?.content?.trim() || ''
+  const question = lastUserText(body.messages)
+  const plan = isPlanId(body.plan) ? body.plan : undefined
 
   return {
+    id: crypto.randomUUID(),
     role: 'assistant' as const,
-    content: question
-      ? `（示範回覆）我收到了：「${question}」。正式模型之後會接在這個 /api/chat。第一版只解釋報告與生活建議，不會指定商品。`
-      : '（示範回覆）請先輸入問題。第一版只解釋報告，不會指定商品。'
+    parts: [{
+      type: 'text' as const,
+      text: demoAssistantReply({
+        question,
+        locale: body.locale,
+        plan
+      })
+    }]
   }
 })

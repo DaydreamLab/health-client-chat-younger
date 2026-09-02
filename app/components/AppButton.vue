@@ -1,6 +1,7 @@
 <template>
   <a
     v-if="href"
+    v-bind="attrs"
     :href="href"
     :class="classes"
   >
@@ -8,6 +9,7 @@
   </a>
   <NuxtLink
     v-else-if="to"
+    v-bind="attrs"
     :to="to"
     active-class=""
     exact-active-class=""
@@ -17,6 +19,7 @@
   </NuxtLink>
   <button
     v-else
+    v-bind="attrs"
     :type="type"
     :class="classes"
     @click="emit('click', $event)"
@@ -42,6 +45,8 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   click: [event: MouseEvent]
 }>()
+
+const attrs = useAttrs()
 
 const classes = computed(() => [
   'app-btn',

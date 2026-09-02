@@ -15,12 +15,18 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
 
   colorMode: {
-    preference: 'light',
+    preference: 'system',
     fallback: 'light',
     classSuffix: ''
   },
 
   compatibilityDate: '2026-06-30',
+
+  vite: {
+    resolve: {
+      dedupe: ['vue']
+    }
+  },
 
   eslint: {
     config: {

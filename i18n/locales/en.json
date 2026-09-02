@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "YOUNGER",
-    "description": "Personalized wellness data with an AI coach that helps you read your lab report."
+    "description": "Understand your data before you supplement. Pick a plan, chat first, and bring in a specialist when you need one."
   },
   "brand": "YOUNGER",
   "nav": {
@@ -9,28 +9,39 @@
     "plans": "Plans",
     "login": "Log in",
     "member": "My health",
-    "handoff": "Pass to advisor",
+    "chat": "Consult",
     "logout": "Log out",
-    "chat": "AI coach"
+    "startChat": "Start consult"
+  },
+  "colorMode": {
+    "label": "Appearance",
+    "day": "Day",
+    "dark": "Dark"
   },
   "hero": {
-    "title": "Understand your data before you supplement.",
-    "description": "Upload an existing report, or we help you get tested. Browsing is open; membership is required when we hand you to an advisor or need to keep your records.",
-    "ctaPlans": "See plans",
-    "ctaHandoff": "Pass to advisor"
+    "eyebrow": "Your physiology data advisor",
+    "title": "See your health clearly —\nstart with a conversation.",
+    "description": "Choose a plan. AI first asks whether you already have a report and what to do next.\nBrowsing is open; membership is required for a specialist or to keep your records.",
+    "ctaChat": "Start consult",
+    "ctaPlans": "See plans"
   },
-  "paths": {
-    "title": "Do you already have a blood test report?",
-    "withReport": "I have a report",
-    "withReportHint": "Upload a photo. Choose a one-time reading or premium product selection.",
-    "withoutReport": "I don't have a report",
-    "withoutReportHint": "Choose assisted testing or premium selection, then pay before collection."
+  "steps": {
+    "title": "Getting started is simple",
+    "oneTitle": "Pick a plan and chat",
+    "oneHint": "AI first asks if you have a report and what you want to solve.",
+    "twoTitle": "Payment unlocks the rest",
+    "twoHint": "You pay this platform only. Success is what hands you to the advisor.",
+    "threeTitle": "Advisor fulfills",
+    "threeHint": "Reading, collection, or product picks happen on their system. This app does not show that consult."
   },
   "plans": {
-    "title": "Three plans",
-    "name": "Plan",
+    "title": "Three plans, matched to where you are",
+    "subtitle": "A plan opens consult. Whether you have a report is confirmed in the chat.",
+    "cta": "Start with this plan",
+    "recommended": "Recommended",
     "who": "Who it's for",
     "gets": "What you get",
+    "visualHint": "Preview panel",
     "basic": "Basic: report reading",
     "basicWho": "You already have paper labs",
     "basicGets": "One live advisor interpretation",
@@ -41,25 +52,97 @@
     "premiumWho": "You want advisor-picked products shipped",
     "premiumGets": "Consult + keyed-in shipment"
   },
+  "systems": {
+    "title": "Six systems, one picture of the body",
+    "subtitle": "Reports land in these systems later. Numbers show up in My health after you are a client.",
+    "nutrition": "Nutrition",
+    "nutritionHint": "Vitamins, minerals, and ferritin",
+    "metabolic": "Metabolic",
+    "metabolicHint": "Glucose, insulin, and lipids",
+    "cardio": "Cardiovascular",
+    "cardioHint": "Cholesterol, inflammation, and vessel risk",
+    "detox": "Detox",
+    "detoxHint": "Liver, kidney, and oxidative load",
+    "endocrine": "Endocrine",
+    "endocrineHint": "Thyroid, stress, and sex hormones",
+    "immune": "Immune",
+    "immuneHint": "Blood counts, inflammation, and allergy signals"
+  },
   "login": {
     "title": "Log in so we can match your records",
-    "description": "This is mock login. PHP auth comes later. You only need it to pass to an advisor, pay, or save a report.",
+    "description": "This is mock login. PHP auth comes later. You only need it for a specialist, payment, or saving a report.",
     "email": "Email",
     "submit": "Continue (demo login)",
-    "guestHint": "Not ready? Go back and browse plans."
+    "guestHint": "Not ready? Browse plans on the home page, or keep chatting with AI."
   },
   "member": {
     "title": "My health",
-    "welcome": "You're signed in. Report summaries, orders, and bookings will live here.",
-    "chatHint": "The first AI coach only explains numbers and lifestyle tips. It will not prescribe products."
+    "demo": "Demo data",
+    "scoreLabel": "Physiology score",
+    "scoreHint": "Up {delta} points over the past year",
+    "ageLabel": "Biological age",
+    "ageValue": "{bio} yrs",
+    "ageHint": "Chronological age {actual}",
+    "markersCount": "Tracked markers",
+    "lastTest": "Latest test",
+    "lastTestValue": "2026-05-12",
+    "currentPlan": "Current plan",
+    "nextCheck": "Next suggested follow-up",
+    "nextCheckValue": "2026-08",
+    "trendTitle": "Score trend",
+    "trendHint": "Four follow-ups for the demo client",
+    "pieTitle": "System mix",
+    "pieHint": "Weighted by each system score",
+    "accordionTitle": "Markers by system",
+    "accordionHint": "Open a system to see the optimal range",
+    "statusOk": "In range",
+    "statusLow": "Low",
+    "statusHigh": "High",
+    "range": "Optimal {range}",
+    "months": {
+      "may": "2025.05",
+      "sep": "2025.09",
+      "jan": "2026.01",
+      "may2": "2026.05"
+    }
   },
-  "handoff": {
-    "title": "Pass to advisor",
-    "body": "This step requires an account. Without membership we cannot match reports or bookings. The advisor consult stays on the Y system; this app only sees status."
+  "markers": {
+    "vitaminD": "Vitamin D",
+    "b12": "Vitamin B12",
+    "ferritin": "Ferritin",
+    "hba1c": "HbA1c",
+    "homa": "HOMA-IR",
+    "triglyceride": "Triglycerides",
+    "ldl": "LDL-C",
+    "hdl": "HDL-C",
+    "hscrp": "hs-CRP",
+    "ggt": "γ-GT",
+    "egfr": "eGFR",
+    "tsh": "TSH",
+    "dheas": "DHEA-S",
+    "wbc": "WBC",
+    "ige": "IgE"
   },
   "chat": {
-    "placeholder": "Ask what a lab number means…",
-    "empty": "Try a question, e.g. what a low vitamin D result means."
+    "title": "Consult",
+    "placeholder": "Tell me if you have a report, or what you want to tackle first…",
+    "send": "Send",
+    "you": "You",
+    "thinking": "Putting a reply together…",
+    "escalate": "Talk to a specialist",
+    "escalatedTitle": "Handed to a specialist",
+    "escalatedBody": "Your name list goes to the advisor side. The consult happens on their system; this app does not show that conversation.",
+    "escalatedLocked": "AI replies are paused after handoff. Wait for the advisor side to follow up.",
+    "chips": {
+      "hasReport": "I already have a blood report",
+      "noReport": "I don't have a report yet",
+      "plans": "How do the three plans differ?",
+      "next": "What happens next?"
+    },
+    "greet": "Hi, I'm the YOUNGER consult assistant. Do you already have a blood report, or do you want to look at plans first? When you're ready for a person, tap Talk to a specialist.",
+    "greetBasic": "You picked Basic: report reading. That path is for people who already have paper labs. Is this your latest report, and is there a number you want to look at first?",
+    "greetMid": "You picked Mid: assisted testing. If you don't have a report yet, we'll explain how collection is arranged. Are you more concerned about fatigue, metabolism, or a fuller panel?",
+    "greetPremium": "You picked Premium: personalized products. After payment you get a consult and keyed-in shipment. Do you already have a report, or do you need collection first?"
   },
-  "footer": "YOUNGER client app · PHP after UI flows are confirmed"
+  "footer": "© {year} YOUNGER. All rights reserved."
 }
