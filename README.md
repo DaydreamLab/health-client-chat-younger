@@ -4,6 +4,12 @@
 
 A 平台客人端（保健／健康數據 + AI 教練）。品牌 UI 走 YOUNGER Design System，不是把 Dashboard template 塗綠。
 
+## 線上預覽
+
+https://daydreamlab.github.io/health-client-chat-younger/
+
+推到 `main` 後會自動發 GitHub Pages。這是靜態站，聊天在瀏覽器裡用 demo 回覆；本地 `pnpm dev` 仍走 `/api/chat`。
+
 ## 技術架構
 
 ### 前端（已裝）
@@ -57,6 +63,7 @@ A 平台客人端（保健／健康數據 + AI 教練）。品牌 UI 走 YOUNGER
 ```bash
 pnpm install
 pnpm dev
+pnpm generate   # 靜態站（GitHub Pages）
 pnpm test
 pnpm test:e2e
 ```

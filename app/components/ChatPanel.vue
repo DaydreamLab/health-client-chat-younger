@@ -114,6 +114,7 @@
 </template>
 
 <script setup lang="ts">
+import { demoAssistantReply } from '~/utils/chat-demo'
 import { isPlanId, type PlanId } from '~/utils/plans'
 
 interface ChatUIMessage {
@@ -226,7 +227,11 @@ async function sendText(text: string) {
       parts: reply.parts?.length ? reply.parts : [{ type: 'text', text: t('chat.greet') }]
     })
   } catch {
-    appendMessage('assistant', t('chat.greet'))
+    appendMessage('assistant', demoAssistantReply({
+      question: content,
+      locale: locale.value,
+      plan: selectedPlan.value
+    }))
   } finally {
     pending.value = false
   }

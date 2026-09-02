@@ -22,6 +22,18 @@ export default defineNuxtConfig({
 
   compatibilityDate: '2026-06-30',
 
+  nitro: {
+    prerender: {
+      crawlLinks: true,
+      routes: ['/', '/en']
+    }
+  },
+
+  routeRules: {
+    '/app/**': { prerender: false },
+    '/en/app/**': { prerender: false }
+  },
+
   vite: {
     resolve: {
       dedupe: ['vue']
