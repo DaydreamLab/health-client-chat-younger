@@ -115,3 +115,71 @@
   --ui-border: #1B403B;
   --ui-primary: var(--ui-color-primary-400);
 }
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Click should not leave a random browser outline; keyboard still gets a ring. */
+a:focus:not(:focus-visible),
+button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+@layer components {
+  .app-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 2.5rem;
+    padding-inline: 1rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    box-sizing: border-box;
+    transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+  }
+
+  .app-btn:focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--ui-primary) 45%, transparent);
+    outline-offset: 2px;
+  }
+
+  .app-btn-primary {
+    background-color: var(--ui-primary);
+    color: var(--ui-bg-elevated);
+  }
+
+  .app-btn-primary:hover {
+    background-color: var(--ui-color-primary-700);
+  }
+
+  .dark .app-btn-primary:hover {
+    background-color: var(--ui-color-primary-300);
+  }
+
+  .app-btn-outline {
+    border: 1px solid var(--ui-border);
+    background-color: var(--ui-bg-elevated);
+    color: var(--ui-text-highlighted);
+  }
+
+  .app-btn-outline:hover {
+    background-color: var(--ui-bg-muted);
+  }
+
+  .app-btn-ghost {
+    height: 2.5rem;
+    padding-inline: 0.75rem;
+    color: var(--ui-text-muted);
+  }
+
+  .app-btn-ghost:hover {
+    color: var(--ui-text-highlighted);
+  }
+}

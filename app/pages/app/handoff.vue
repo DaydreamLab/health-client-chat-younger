@@ -1,25 +1,12 @@
 <template>
-  <UDashboardPanel>
-    <template #header>
-      <UDashboardNavbar :title="$t('handoff.title')">
-        <template #right>
-          <LocaleSwitch />
-          <ClientOnly>
-            <UColorModeButton />
-          </ClientOnly>
-        </template>
-      </UDashboardNavbar>
-    </template>
-
-    <template #body>
-      <UPageCard
-        :title="$t('handoff.title')"
-        :description="$t('handoff.body')"
-        icon="i-lucide-handshake"
-        variant="subtle"
-      />
-    </template>
-  </UDashboardPanel>
+  <article class="rounded-xl border border-default bg-elevated p-5">
+    <h1 class="text-xl font-semibold text-highlighted">
+      {{ $t('handoff.title') }}
+    </h1>
+    <p class="mt-2 text-sm text-muted">
+      {{ $t('handoff.body') }}
+    </p>
+  </article>
 </template>
 
 <script setup lang="ts">

@@ -14,18 +14,18 @@
         {{ $t('hero.description') }}
       </p>
       <div class="mt-8 flex flex-wrap gap-3">
-        <NuxtLink
-          :to="localePath('/#plans')"
-          class="inline-flex items-center rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-inverted"
+        <AppButton
+          href="#plans"
+          variant="primary"
         >
           {{ $t('hero.ctaPlans') }}
-        </NuxtLink>
-        <NuxtLink
+        </AppButton>
+        <AppButton
           :to="localePath('/app/handoff')"
-          class="inline-flex items-center rounded-md border border-default px-4 py-2.5 text-sm font-medium text-highlighted"
+          variant="outline"
         >
           {{ $t('hero.ctaHandoff') }}
-        </NuxtLink>
+        </AppButton>
       </div>
     </section>
 
@@ -55,7 +55,7 @@
 
     <section
       id="plans"
-      class="mx-auto max-w-6xl px-4 pb-16 sm:px-6"
+      class="mx-auto max-w-6xl scroll-mt-24 px-4 pb-16 sm:px-6"
     >
       <h2 class="text-xl font-semibold text-highlighted">
         {{ $t('plans.title') }}

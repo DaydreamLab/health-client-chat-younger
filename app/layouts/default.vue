@@ -4,26 +4,26 @@
       <div class="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
         <BrandMark />
         <nav class="flex items-center gap-3 text-sm">
-          <NuxtLink
-            :to="localePath('/#plans')"
-            class="text-muted hover:text-highlighted"
+          <AppButton
+            href="#plans"
+            variant="ghost"
           >
             {{ $t('nav.plans') }}
-          </NuxtLink>
-          <NuxtLink
+          </AppButton>
+          <AppButton
             v-if="auth.isLoggedIn"
             :to="localePath('/app')"
-            class="text-muted hover:text-highlighted"
+            variant="ghost"
           >
             {{ $t('nav.member') }}
-          </NuxtLink>
-          <NuxtLink
+          </AppButton>
+          <AppButton
             v-else
             :to="localePath('/login')"
-            class="text-muted hover:text-highlighted"
+            variant="ghost"
           >
             {{ $t('nav.login') }}
-          </NuxtLink>
+          </AppButton>
           <LocaleSwitch />
         </nav>
       </div>

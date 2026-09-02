@@ -1,7 +1,9 @@
 <template>
   <NuxtLink
     :to="localePath('/')"
-    class="focus-visible:outline-3 outline-primary/25 rounded-md px-1 -ms-1 text-xl font-semibold tracking-tight text-highlighted"
+    active-class=""
+    exact-active-class=""
+    class="rounded-md px-1 text-xl font-semibold tracking-tight text-highlighted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
   >
     <span data-testid="brand">YOUNGER</span>
   </NuxtLink>

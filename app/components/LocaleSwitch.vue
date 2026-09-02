@@ -4,7 +4,7 @@
       v-for="item in localeItems"
       :key="item.code"
       type="button"
-      class="rounded-md px-2 py-1 text-xs"
+      class="inline-flex h-8 items-center rounded-md px-2 text-xs leading-none outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
       :class="locale === item.code ? 'bg-primary/10 text-primary' : 'text-muted'"
       @click="setLocale(item.code)"
     >

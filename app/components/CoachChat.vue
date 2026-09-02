@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col gap-4 rounded-xl border border-default bg-elevated p-4 min-h-80">
+  <div class="flex min-h-80 flex-col gap-4 rounded-xl border border-default bg-elevated p-4">
     <div class="flex-1 space-y-3">
       <p
         v-if="!messages.length"
@@ -18,15 +18,23 @@
       </div>
     </div>
 
-    <UChatPrompt
-      v-model="input"
-      :placeholder="$t('chat.placeholder')"
-      :status="pending ? 'streaming' : 'ready'"
-      variant="subtle"
-      @submit="onSubmit"
+    <form
+      class="flex gap-2"
+      @submit.prevent="onSubmit"
     >
-      <UChatPromptSubmit color="primary" />
-    </UChatPrompt>
+      <input
+        v-model="input"
+        type="text"
+        :placeholder="$t('chat.placeholder')"
+        class="h-10 min-w-0 flex-1 rounded-md border border-default bg-default px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      >
+      <AppButton
+        type="submit"
+        variant="primary"
+      >
+        Send
+      </AppButton>
+    </form>
   </div>
 </template>
 
