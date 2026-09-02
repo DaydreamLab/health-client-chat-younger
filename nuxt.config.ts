@@ -15,9 +15,10 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
 
   colorMode: {
-    preference: 'system',
+    preference: 'light',
     fallback: 'light',
-    classSuffix: ''
+    classSuffix: '',
+    storageKey: 'younger-color-mode'
   },
 
   compatibilityDate: '2026-06-30',

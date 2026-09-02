@@ -37,30 +37,23 @@ interface ColorModeHelper {
   removeColorScheme?: (value: string) => void
 }
 
-const STORAGE_KEY = 'nuxt-color-mode'
+const STORAGE_KEY = 'younger-color-mode'
 const colorMode = useColorMode()
-const selected = ref<Appearance | null>(null)
+const pending = ref<Appearance | null>(null)
 
-const isDark = computed(() => {
-  if (selected.value) {
-    return selected.value === 'dark'
-  }
-
-  return colorMode.value === 'dark'
+const actual = computed<Appearance>(() => {
+  return colorMode.preference === 'dark' || colorMode.value === 'dark' ? 'dark' : 'light'
 })
 
-onMounted(() => {
-  selected.value = document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+const isDark = computed(() => (pending.value ?? actual.value) === 'dark')
+
+watch(actual, (mode) => {
+  if (pending.value === mode) {
+    pending.value = null
+  }
 })
 
-function setMode(mode: Appearance) {
-  selected.value = mode
-  colorMode.preference = mode
-
-  if (!import.meta.client) {
-    return
-  }
-
+function applyClass(mode: Appearance) {
   document.documentElement.classList.remove('light', 'dark')
   document.documentElement.classList.add(mode)
 
@@ -80,4 +73,19 @@ function setMode(mode: Appearance) {
   helper.preference = mode
   helper.value = mode
 }
+
+function setMode(mode: Appearance) {
+  pending.value = mode
+  colorMode.preference = mode
+
+  if (import.meta.client) {
+    applyClass(mode)
+  }
+}
+
+onMounted(() => {
+  if (colorMode.preference !== 'light' && colorMode.preference !== 'dark') {
+    setMode('light')
+  }
+})
 </script>

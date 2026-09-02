@@ -13,6 +13,9 @@ test('guest home page loads', async ({ page, goto }) => {
   await expect(page.getByRole('link', { name: '交給顧問' })).toHaveCount(0)
   await expect(page.getByTestId('color-mode-day')).toBeVisible()
   await expect(page.getByTestId('color-mode-dark')).toBeVisible()
+  await expect(page.getByTestId('color-mode-day')).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByTestId('color-mode-dark')).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.locator('html')).not.toHaveClass(/dark/)
 })
 
 test('EN switch keeps selected style and translates plans', async ({ page, goto }) => {
