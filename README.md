@@ -1,8 +1,8 @@
-# YOUNGER 客人端 App
+# Candor 坦見 客人端 App
 
 路徑：`~/Projects/health-client-chat-younger`
 
-A 平台客人端（保健／健康數據 + AI 教練）。品牌 UI 走 YOUNGER Design System，不是把 Dashboard template 塗綠。
+A 平台客人端（保健／健康數據 + AI 教練）。品牌 UI 走 Candor／坦見 Design System，不是把 Dashboard template 塗綠。
 
 ## 線上預覽
 
@@ -32,7 +32,7 @@ https://daydreamlab.github.io/health-client-chat-younger/
 | 技術 | 現況 |
 | --- | --- |
 | Vitest + Vue Test Utils + @nuxt/test-utils | 單元測試（方案規則） |
-| Playwright | **只寫煙霧測試**：未登入首頁看得到 YOUNGER |
+| Playwright | **只寫煙霧測試**：未登入首頁看得到 坦見 |
 
 ### 後端
 
@@ -47,7 +47,7 @@ https://daydreamlab.github.io/health-client-chat-younger/
 - 交給顧問、付款、要留下資料時強制登入。
 - 未登入與已登入都有畫面。
 - Chat 第一版只解釋報告與生活建議，不指定商品。
-- 暫無 Logo，畫面用文字 YOUNGER + 品牌色。
+- 暫無 Logo，畫面用文字 Candor／坦見 + 品牌色。
 
 ## 產品流程（FigJam）
 

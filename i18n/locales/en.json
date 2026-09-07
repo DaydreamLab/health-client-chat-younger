@@ -1,9 +1,9 @@
 {
   "meta": {
-    "title": "YOUNGER",
+    "title": "Candor",
     "description": "Understand your data before you supplement. Pick a plan, chat first, and bring in a specialist when you need one."
   },
-  "brand": "YOUNGER",
+  "brand": "Candor",
   "nav": {
     "home": "Home",
     "plans": "Plans",
@@ -139,10 +139,10 @@
       "plans": "How do the three plans differ?",
       "next": "What happens next?"
     },
-    "greet": "Hi, I'm the YOUNGER consult assistant. Do you already have a blood report, or do you want to look at plans first? When you're ready for a person, tap Talk to a specialist.",
+    "greet": "Hi, I'm the Candor consult assistant. Do you already have a blood report, or do you want to look at plans first? When you're ready for a person, tap Talk to a specialist.",
     "greetBasic": "You picked Basic: report reading. That path is for people who already have paper labs. Is this your latest report, and is there a number you want to look at first?",
     "greetMid": "You picked Mid: assisted testing. If you don't have a report yet, we'll explain how collection is arranged. Are you more concerned about fatigue, metabolism, or a fuller panel?",
     "greetPremium": "You picked Premium: personalized products. After payment you get a consult and keyed-in shipment. Do you already have a report, or do you need collection first?"
   },
-  "footer": "© {year} YOUNGER. All rights reserved."
+  "footer": "© {year} Candor. All rights reserved."
 }

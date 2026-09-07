@@ -160,7 +160,7 @@ const palettes = buildPalettes()
 const semantic = semanticTokens(palettes)
 
 const themeCss = [
-  '/* YOUNGER brand → mapped to Nuxt UI primary */',
+  '/* Candor brand → mapped to Nuxt UI primary */',
   cssVars('brand', palettes.brand),
   '',
   '/* Blue-gray neutral */',

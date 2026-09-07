@@ -4,7 +4,7 @@
 @theme static {
   --font-sans: "Public Sans", sans-serif;
 
-  /* YOUNGER brand → mapped to Nuxt UI primary. Ramps from scripts/generate-color-ramps.mjs */
+  /* Candor brand → mapped to Nuxt UI primary. Ramps from scripts/generate-color-ramps.mjs */
   --color-brand-50: #F0F7FA;
   --color-brand-100: #DAEDF3;
   --color-brand-200: #B6DBE8;

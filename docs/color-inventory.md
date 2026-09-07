@@ -1,4 +1,4 @@
-# YOUNGER A client 現況配色
+# Candor 坦見 A client 現況配色
 
 給設計師換色、給工程對 token 用。來源：`app/assets/css/main.css`、`app/app.config.ts`。元件幾乎不寫死 hex，換色改 token，不要逐頁改 class。
 
