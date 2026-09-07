@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>YOUNGER A client — 配色清冊 v2</title>
+  <style>
+    :root {
+      --color-brand-50: #F0F7FA;
+      --color-brand-100: #DAEDF3;
+      --color-brand-200: #B6DBE8;
+      --color-brand-300: #8EC7DC;
+      --color-brand-400: #5CAECC;
+      --color-brand-500: #2894BB;
+      --color-brand-600: #0784B1;
+      --color-brand-700: #056487;
+      --color-brand-800: #044860;
+      --color-brand-900: #033142;
+      --color-brand-950: #022430;
+      --color-mist-50: #F7F9FA;
+      --color-mist-100: #F1F4F7;
+      --color-mist-200: #DDE4EA;
+      --color-mist-300: #C2CFDB;
+      --color-mist-400: #9FB3C5;
+      --color-mist-500: #7490AC;
+      --color-mist-600: #42698E;
+      --color-mist-700: #324F6B;
+      --color-mist-800: #213548;
+      --color-mist-900: #131F29;
+      --color-mist-950: #0D151D;
+      --color-forest-50: #EFF9F8;
+      --color-forest-100: #D9F0EE;
+      --color-forest-200: #B4E2DE;
+      --color-forest-300: #8BD2CC;
+      --color-forest-400: #58BDB5;
+      --color-forest-500: #22A89D;
+      --color-forest-600: #009B8E;
+      --color-forest-700: #00766C;
+      --color-forest-800: #00544D;
+      --color-forest-900: #003A35;
+      --color-forest-950: #002A26;
+      --color-sand-50: #FCF9F5;
+      --color-sand-100: #F7F0E6;
+      --color-sand-200: #EFE2CD;
+      --color-sand-300: #E6D2B1;
+      --color-sand-400: #DABD8F;
+      --color-sand-500: #CFA86B;
+      --color-sand-600: #C79B54;
+      --color-sand-700: #977640;
+      --color-sand-800: #6C542E;
+      --color-sand-900: #4A3A1F;
+      --color-sand-950: #362A17;
+      --color-coral-50: #FAF3F4;
+      --color-coral-100: #F2E2E4;
+      --color-coral-200: #E6C6C9;
+      --color-coral-300: #D7A6AB;
+      --color-coral-400: #C67F86;
+      --color-coral-500: #B45660;
+      --color-coral-600: #A83C47;
+      --color-coral-700: #802E36;
+      --color-coral-800: #5B2126;
+      --color-coral-900: #3F161B;
+      --color-coral-950: #2D1013;
+      --color-lagoon-50: #F5F9FD;
+      --color-lagoon-100: #E8F0FA;
+      --color-lagoon-200: #D1E2F6;
+      --color-lagoon-300: #B8D2F1;
+      --color-lagoon-400: #98BFEB;
+      --color-lagoon-500: #77AAE4;
+      --color-lagoon-600: #629DE0;
+      --color-lagoon-700: #4B77AA;
+      --color-lagoon-800: #355579;
+      --color-lagoon-900: #253B54;
+      --color-lagoon-950: #1A2A3C;
+      --color-chart-primary: #0784B1;
+      --color-chart-teal: #3BB8AA;
+      --color-chart-blue: #5B9BD5;
+      --color-chart-purple: #8B7FC7;
+      --color-chart-amber: #D9A441;
+      --color-chart-rose: #D86B78;
+      --color-chart-baseline: #A6B8B5;
+      --ui-bg: #F7F9FA;
+      --ui-bg-muted: #F1F4F7;
+      --ui-bg-elevated: #FFFFFF;
+      --ui-bg-accented: #DDE4EA;
+      --ui-text: #42698E;
+      --ui-text-muted: #7490AC;
+      --ui-text-toned: #7490AC;
+      --ui-text-dimmed: #9FB3C5;
+      --ui-text-highlighted: #42698E;
+      --ui-border: #DDE4EA;
+      --ui-primary: var(--color-brand-600);
+      --ui-success: var(--color-forest-600);
+      --ui-warning: var(--color-sand-600);
+      --ui-error: var(--color-coral-600);
+      --ui-info: var(--color-lagoon-600);
+    }
+
+    html.dark {
+      --ui-bg: #0D151D;
+      --ui-bg-muted: #131F29;
+      --ui-bg-elevated: #182734;
+      --ui-bg-accented: #213548;
+      --ui-text: #F7F9FA;
+      --ui-text-muted: #9FB3C5;
+      --ui-text-toned: #9FB3C5;
+      --ui-text-dimmed: #7490AC;
+      --ui-text-highlighted: #F7F9FA;
+      --ui-border: #213548;
+      --ui-primary: var(--color-brand-400);
+      --ui-success: var(--color-forest-400);
+      --ui-warning: var(--color-sand-400);
+      --ui-error: var(--color-coral-400);
+      --ui-info: var(--color-lagoon-400);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "PingFang TC", "Noto Sans TC", "Helvetica Neue", sans-serif;
+      background: var(--ui-bg);
+      color: var(--ui-text);
+      line-height: 1.5;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--ui-border);
+      background: var(--ui-bg-elevated);
+    }
+    .topbar h1 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 650;
+      color: var(--ui-text-highlighted);
+    }
+    .topbar p {
+      margin: 2px 0 0;
+      font-size: 12px;
+      color: var(--ui-text-muted);
+    }
+    .nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .nav a {
+      color: var(--ui-text-muted);
+      text-decoration: none;
+    }
+    .nav a:hover { color: var(--ui-primary); }
+
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 24px 80px; }
+    h2 {
+      margin: 48px 0 8px;
+      font-size: 22px;
+      color: var(--ui-text-highlighted);
+    }
+    h3 {
+      margin: 28px 0 10px;
+      font-size: 16px;
+      color: var(--ui-text-highlighted);
+    }
+    .lede {
+      margin: 0 0 20px;
+      max-width: 46rem;
+      color: var(--ui-text-muted);
+    }
+    .note {
+      padding: 14px 16px;
+      border: 1px solid var(--ui-border);
+      border-radius: 12px;
+      background: var(--ui-bg-elevated);
+      color: var(--ui-text-muted);
+      font-size: 14px;
+    }
+    .note strong { color: var(--ui-text-highlighted); }
+    .tag {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 1px 7px;
+      border-radius: 999px;
+      background: color-mix(in oklab, var(--ui-primary) 12%, transparent);
+      color: var(--ui-primary);
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .tag.warn {
+      background: color-mix(in oklab, var(--color-sand-500) 16%, transparent);
+      color: var(--color-sand-700);
+    }
+    html.dark .tag.warn { color: var(--color-sand-300); }
+    .tag.mute {
+      background: var(--ui-bg-muted);
+      color: var(--ui-text-muted);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      background: var(--ui-bg-elevated);
+      border: 1px solid var(--ui-border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--ui-border);
+      vertical-align: middle;
+    }
+    th {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ui-text-muted);
+      background: var(--ui-bg-muted);
+    }
+    tr:last-child td { border-bottom: 0; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      color: var(--ui-text-highlighted);
+    }
+    .hex {
+      cursor: pointer;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+    }
+    .hex:hover { color: var(--ui-primary); }
+
+    .swatch {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: 1px solid color-mix(in oklab, var(--ui-text) 12%, transparent);
+      flex: none;
+    }
+    .cell {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .scale {
+      display: grid;
+      grid-template-columns: repeat(11, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .scale button {
+      border: 0;
+      padding: 0;
+      background: transparent;
+      cursor: pointer;
+      text-align: left;
+    }
+    .scale .chip {
+      height: 48px;
+      border-radius: 8px;
+      border: 1px solid color-mix(in oklab, var(--ui-text) 10%, transparent);
+    }
+    .scale .meta {
+      margin-top: 4px;
+      font-size: 10px;
+      color: var(--ui-text-dimmed);
+    }
+    .scale .meta b {
+      display: block;
+      color: var(--ui-text-muted);
+      font-weight: 600;
+    }
+    .scale .used .chip {
+      outline: 2px solid var(--ui-primary);
+      outline-offset: 1px;
+    }
+
+    .preview {
+      padding: 20px;
+      border: 1px solid var(--ui-border);
+      border-radius: 16px;
+      background: var(--ui-bg);
+    }
+    .preview-grid {
+      display: grid;
+      gap: 20px;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 800px) {
+      .preview-grid { grid-template-columns: 1fr 1fr; }
+    }
+    .panel {
+      padding: 16px;
+      border: 1px solid var(--ui-border);
+      border-radius: 12px;
+      background: var(--ui-bg-elevated);
+    }
+    .panel h4 {
+      margin: 0 0 12px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ui-text-muted);
+    }
+
+    .app-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 2.5rem;
+      padding-inline: 1rem;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      border: 0;
+      cursor: default;
+    }
+    .app-btn-primary {
+      background: var(--ui-primary);
+      color: var(--ui-bg-elevated);
+    }
+    html:not(.dark) .app-btn-primary:hover { background: var(--color-brand-700); }
+    html.dark .app-btn-primary:hover { background: var(--color-brand-300); }
+    .app-btn:disabled {
+      cursor: not-allowed;
+      pointer-events: none;
+      opacity: 0.45;
+    }
+    html:not(.dark) .app-btn-primary:disabled { background: var(--color-brand-300); }
+    html.dark .app-btn-primary:disabled { background: var(--color-brand-500); }
+    .app-btn-outline {
+      border: 1px solid var(--ui-border);
+      background: var(--ui-bg-elevated);
+      color: var(--ui-text-highlighted);
+    }
+    .app-btn-ghost {
+      background: transparent;
+      color: var(--ui-text-muted);
+    }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+    .app-segment-switch {
+      display: inline-flex;
+      padding: 2px;
+      border: 1px solid var(--ui-border);
+      border-radius: 0.5rem;
+      background: var(--ui-bg-muted);
+    }
+    .app-locale-btn {
+      min-width: 2.5rem;
+      height: 1.75rem;
+      padding-inline: 0.625rem;
+      border: 0;
+      border-radius: 0.375rem;
+      background: transparent;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--ui-text-muted);
+      cursor: pointer;
+    }
+    .app-locale-btn-active {
+      background: var(--ui-bg-elevated);
+      color: var(--ui-primary);
+      font-weight: 600;
+      box-shadow: 0 1px 2px color-mix(in oklab, var(--ui-text) 14%, transparent);
+    }
+    html.dark .app-locale-btn-active {
+      background: var(--ui-bg-accented);
+      box-shadow: 0 1px 2px rgb(0 0 0 / 0.45);
+    }
+
+    .app-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 2rem;
+      padding: 0.375rem 0.75rem;
+      border: 1px solid var(--ui-border);
+      border-radius: 9999px;
+      background: var(--ui-bg-elevated);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--ui-text-highlighted);
+    }
+    .app-path-card-selected {
+      border-color: var(--ui-primary);
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--ui-primary) 22%, transparent);
+    }
+    .app-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border-radius: 9999px;
+      padding: 0.125rem 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .app-badge-demo {
+      background: color-mix(in oklab, var(--ui-primary) 12%, transparent);
+      color: var(--ui-primary);
+    }
+    .app-badge-started {
+      background: color-mix(in oklab, var(--color-forest-500) 14%, transparent);
+      color: var(--color-forest-700);
+    }
+    html.dark .app-badge-started { color: var(--color-forest-300); }
+    .app-badge-pending {
+      background: var(--ui-bg-muted);
+      color: var(--ui-text-muted);
+    }
+    .app-bubble-user {
+      background: var(--ui-primary);
+      color: var(--ui-bg-elevated);
+    }
+    .bubble {
+      max-width: 80%;
+      border-radius: 1rem;
+      padding: 8px 14px;
+      font-size: 14px;
+    }
+    .bubble-user { background: var(--ui-bg-elevated); color: var(--ui-text-highlighted); }
+    .bubble-ai { background: var(--ui-bg-muted); color: var(--ui-text); }
+    .avatar {
+      display: inline-flex;
+      width: 36px;
+      height: 36px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      background: color-mix(in oklab, var(--ui-primary) 15%, transparent);
+      color: var(--ui-primary);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .input {
+      width: 100%;
+      height: 40px;
+      border: 1px solid var(--ui-border);
+      border-radius: 6px;
+      background: var(--ui-bg-elevated);
+      color: var(--ui-text-highlighted);
+      padding: 0 12px;
+      outline: none;
+    }
+    .input:focus { box-shadow: 0 0 0 2px color-mix(in oklab, var(--ui-primary) 40%, transparent); }
+    .err { color: var(--ui-error); font-size: 13px; }
+    .ok { color: var(--ui-success); }
+    .warn { color: var(--ui-warning); }
+
+    .card {
+      border: 1px solid var(--ui-border);
+      border-radius: 1rem;
+      background: var(--ui-bg-elevated);
+      padding: 16px;
+    }
+    .plan-visual {
+      min-height: 140px;
+      border-radius: 12px;
+      padding: 16px;
+      background:
+        radial-gradient(120% 90% at 10% 10%, color-mix(in oklab, var(--ui-primary) 22%, transparent), transparent 55%),
+        radial-gradient(90% 80% at 90% 90%, color-mix(in oklab, var(--color-lagoon-500) 16%, transparent), transparent 50%),
+        var(--ui-bg-muted);
+      color: var(--ui-primary);
+    }
+    .nav-active {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 8px;
+      color: var(--ui-text-highlighted);
+      background: var(--ui-bg-muted);
+    }
+    .ring {
+      width: 72px;
+      height: 72px;
+      border-radius: 999px;
+      background: conic-gradient(var(--ui-primary) 0 84%, var(--ui-border) 0 100%);
+      display: grid;
+      place-items: center;
+    }
+    .ring span {
+      width: 52px;
+      height: 52px;
+      border-radius: 999px;
+      background: var(--ui-bg-elevated);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      color: var(--ui-text-highlighted);
+    }
+
+    .toast {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: var(--ui-text-highlighted);
+      color: var(--ui-bg);
+      font-size: 12px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 160ms ease;
+    }
+    .toast.show { opacity: 1; }
+
+    @media print {
+      .topbar { position: static; }
+      .no-print { display: none !important; }
+      body { background: #fff; color: #42698E; }
+      a { color: inherit; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>YOUNGER A client 配色 v2</h1>
+      <p>600 錨點生成 11 階 · 點色塊或 hex 可複製 · 2026-09-07 · <a href="younger-color-inventory.html">對比 v1 舊色票</a></p>
+    </div>
+    <nav class="nav">
+      <a href="#how">用法</a>
+      <a href="#algo">演算法</a>
+      <a href="#semantic">語意色</a>
+      <a href="#scales">色階</a>
+      <a href="#charts">圖表色</a>
+      <a href="#preview">元件預覽</a>
+      <a href="#usage">元件對照</a>
+      <a href="#unused">未使用</a>
+    </nav>
+    <div class="app-segment-switch no-print" role="group" aria-label="預覽日間或夜間">
+      <button type="button" class="app-locale-btn app-locale-btn-active" id="btn-light">日間</button>
+      <button type="button" class="app-locale-btn" id="btn-dark">夜間</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="how">
+      <h2>怎麼用這份檔</h2>
+      <p class="lede">這是客人端 app <strong>v2 現行配色</strong>。舊版封存在 <a href="younger-color-inventory.html">younger-color-inventory.html</a>，兩份可並排對比。雙擊用瀏覽器開啟即可。上方切換會讓「元件預覽」跟這份文件的底／字色跟著日間／夜間變。</p>
+      <div class="note">
+        <strong>換色只交 600 錨點。</strong>
+        工程跑 <code>pnpm colors:ramps</code> 生成 50–950，再改 <code>app/assets/css/main.css</code>。不要逐頁改元件。
+        彩色主色日間 600、夜間自動亮化成 400。標了「色階外」的 hex 不會跟著 mist 色階自動變。
+      </div>
+    </section>
+
+    <section id="algo">
+      <h2>600 → 11 階 + 夜間映射</h2>
+      <p class="lede">每個 600 對白做 tint、對黑做 shade。彩色用舊 brand 混色比例；Neutral 用舊 mist 比例。夜間不另做色票，只換階。</p>
+      <table>
+        <thead>
+          <tr><th>用途</th><th>日間</th><th>夜間</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Primary / Success / Warning / Error / Info 主色</td><td>600</td><td>400</td></tr>
+          <tr><td>實心按鈕 Hover</td><td>700</td><td>300</td></tr>
+          <tr><td>Disabled（實心）</td><td>300 + opacity 0.45</td><td>500 + opacity 0.45</td></tr>
+          <tr><td>Neutral 頁面底</td><td>50</td><td>950</td></tr>
+          <tr><td>Neutral 次底 / 邊線</td><td>100 / 200</td><td>900 / 800</td></tr>
+          <tr><td>Neutral 正文</td><td>600</td><td>50</td></tr>
+          <tr><td>Neutral 說明 / 更淡</td><td>500 / 400</td><td>400 / 500</td></tr>
+        </tbody>
+      </table>
+      <h3>設計師 600 錨點</h3>
+      <table>
+        <thead><tr><th>語意</th><th>600</th></tr></thead>
+        <tbody>
+          <tr><td>Primary</td><td><span class="cell"><span class="swatch" style="background:#0784B1"></span><span class="hex" data-hex="#0784B1">#0784B1</span></span></td></tr>
+          <tr><td>Neutral 主內文</td><td><span class="cell"><span class="swatch" style="background:#42698E"></span><span class="hex" data-hex="#42698E">#42698E</span></span></td></tr>
+          <tr><td>Success</td><td><span class="cell"><span class="swatch" style="background:#009B8E"></span><span class="hex" data-hex="#009B8E">#009B8E</span></span></td></tr>
+          <tr><td>Warning</td><td><span class="cell"><span class="swatch" style="background:#C79B54"></span><span class="hex" data-hex="#C79B54">#C79B54</span></span></td></tr>
+          <tr><td>Error（錨點不變）</td><td><span class="cell"><span class="swatch" style="background:#A83C47"></span><span class="hex" data-hex="#A83C47">#A83C47</span></span></td></tr>
+          <tr><td>Info</td><td><span class="cell"><span class="swatch" style="background:#629DE0"></span><span class="hex" data-hex="#629DE0">#629DE0</span></span></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="semantic">
+      <h2>語意色 <span class="tag">換色優先</span></h2>
+      <p class="lede">畫面幾乎都吃這層。Tailwind class 如 <code>bg-default</code>、<code>text-highlighted</code> 對應這裡，不是直接寫 mist-50。</p>
+
+      <h3>背景與邊線</h3>
+      <table>
+        <thead>
+          <tr><th>Token</th><th>Class</th><th>日間</th><th>夜間</th><th>用途</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>--ui-bg</code></td><td><code>bg-default</code></td>
+            <td><span class="cell"><span class="swatch" style="background:#F7F9FA"></span><span class="hex" data-hex="#F7F9FA">#F7F9FA</span></span><br><span class="tag mute">= mist-50</span></td>
+            <td><span class="cell"><span class="swatch" style="background:#0D151D"></span><span class="hex" data-hex="#0D151D">#0D151D</span></span><br><span class="tag mute">= mist-950</span></td>
+            <td>頁面底：layout、聊天區</td>
+          </tr>
+          <tr>
+            <td><code>--ui-bg-muted</code></td><td><code>bg-muted</code></td>
+            <td><span class="cell"><span class="swatch" style="background:#F1F4F7"></span><span class="hex" data-hex="#F1F4F7">#F1F4F7</span></span><br><span class="tag mute">= mist-100</span></td>
+            <td><span class="cell"><span class="swatch" style="background:#131F29"></span><span class="hex" data-hex="#131F29">#131F29</span></span><br><span class="tag mute">= mist-900</span></td>
+            <td>次底、hover、AI 泡泡、nav 選中</td>
+          </tr>
+          <tr>
+            <td><code>--ui-bg-elevated</code></td><td><code>bg-elevated</code></td>
+            <td><span class="cell"><span class="swatch" style="background:#FFFFFF"></span><span class="hex" data-hex="#FFFFFF">#FFFFFF</span></span><br><span class="tag warn">色階外</span></td>
+            <td><span class="cell"><span class="swatch" style="background:#182734"></span><span class="hex" data-hex="#182734">#182734</span></span><br><span class="tag warn">色階外</span></td>
+            <td>卡片、header、input、user 泡泡、主按鈕字色</td>
+          </tr>
+          <tr>
+            <td><code>--ui-bg-accented</code></td><td><code>bg-accented</code></td>
+            <td><span class="cell"><span class="swatch" style="background:#DDE4EA"></span><span class="hex" data-hex="#DDE4EA">#DDE4EA</span></span><br><span class="tag mute">= mist-200</span></td>
+            <td><span class="cell"><span class="swatch" style="background:#213548"></span><span class="hex" data-hex="#213548">#213548</span></span><br><span class="tag mute">= mist-800</span></td>
+            <td>夜間 segmented 選中底</td>
+          </tr>
+          <tr>
+            <td><code>--ui-border</code></td><td><code>border-default</code></td>
+            <td><span class="cell"><span class="swatch" style="background:#DDE4EA"></span><span class="hex" data-hex="#DDE4EA">#DDE4EA</span></span><br><span class="tag mute">= mist-200</span></td>
+            <td><span class="cell"><span class="swatch" style="background:#213548"></span><span class="hex" data-hex="#213548">#213548</span></span><br><span class="tag mute">= mist-800</span></td>
+            <td>分隔線、卡片邊、健康環 track</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>文字與主色</h3>
+      <table>
+        <thead>
+          <tr><th>Token</th><th>Class</th><th>日間</th><th>夜間</th><th>用途</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>--ui-text</code> / <code>--ui-text-highlighted</code></td><td><code>text-default</code> / <code>text-highlighted</code></td>
+            <td><span class="cell"><span class="swatch" style="background:#42698E"></span><span class="hex" data-hex="#42698E">#42698E</span></span><br><span class="tag mute">= mist-600</span></td>
+            <td><span class="cell"><span class="swatch" style="background:#F7F9FA"></span><span class="hex" data-hex="#F7F9FA">#F7F9FA</span></span><br><span class="tag mute">= mist-50</span></td>
+            <td>標題、正文、強調字</td>
+          </tr>
+          <tr>
+            <td><code>--ui-text-muted</code> / <code>--ui-text-toned</code></td><td><code>text-muted</code></td>
+            <td><span class="cell"><span class="swatch" style="background:#7490AC"></span><span class="hex" data-hex="#7490AC">#7490AC</span></span><br><span class="tag mute">= mist-500</span></td>
+            <td><span class="cell"><span class="swatch" style="background:#9FB3C5"></span><span class="hex" data-hex="#9FB3C5">#9FB3C5</span></span><br><span class="tag mute">= mist-400</span></td>
+            <td>說明文字、ghost 按鈕。toned 與 muted 同色</td>
+          </tr>
+          <tr>
+            <td><code>--ui-text-dimmed</code></td><td><code>text-dimmed</code></td>
+            <td><span class="cell"><span class="swatch" style="background:#9FB3C5"></span><span class="hex" data-hex="#9FB3C5">#9FB3C5</span></span><br><span class="tag mute">= mist-400</span></td>
+            <td><span class="cell"><span class="swatch" style="background:#7490AC"></span><span class="hex" data-hex="#7490AC">#7490AC</span></span><br><span class="tag mute">= mist-500</span></td>
+            <td>更淡輔助字、單位、副標</td>
+          </tr>
+          <tr>
+            <td><code>--ui-primary</code></td><td><code>text-primary</code> / <code>bg-primary</code></td>
+            <td><span class="cell"><span class="swatch" style="background:#0784B1"></span><span class="hex" data-hex="#0784B1">#0784B1</span></span><br><span class="tag mute">= brand-600</span></td>
+            <td><span class="cell"><span class="swatch" style="background:#5CAECC"></span><span class="hex" data-hex="#5CAECC">#5CAECC</span></span><br><span class="tag mute">= brand-400</span></td>
+            <td>CTA、連結、focus ring、健康環、推薦 badge</td>
+          </tr>
+          <tr>
+            <td><code>--ui-success</code></td><td><code>text-success</code></td>
+            <td><span class="cell"><span class="swatch" style="background:#009B8E"></span><span class="hex" data-hex="#009B8E">#009B8E</span></span><br><span class="tag mute">= forest-600</span></td>
+            <td><span class="cell"><span class="swatch" style="background:#58BDB5"></span><span class="hex" data-hex="#58BDB5">#58BDB5</span></span><br><span class="tag mute">= forest-400</span></td>
+            <td>指標正常</td>
+          </tr>
+          <tr>
+            <td><code>--ui-warning</code></td><td><code>text-warning</code></td>
+            <td><span class="cell"><span class="swatch" style="background:#C79B54"></span><span class="hex" data-hex="#C79B54">#C79B54</span></span><br><span class="tag mute">= sand-600</span></td>
+            <td><span class="cell"><span class="swatch" style="background:#DABD8F"></span><span class="hex" data-hex="#DABD8F">#DABD8F</span></span><br><span class="tag mute">= sand-400</span></td>
+            <td>指標偏低</td>
+          </tr>
+          <tr>
+            <td><code>--ui-error</code></td><td><code>text-error</code></td>
+            <td><span class="cell"><span class="swatch" style="background:#A83C47"></span><span class="hex" data-hex="#A83C47">#A83C47</span></span><br><span class="tag mute">= coral-600</span></td>
+            <td><span class="cell"><span class="swatch" style="background:#C67F86"></span><span class="hex" data-hex="#C67F86">#C67F86</span></span><br><span class="tag mute">= coral-400</span></td>
+            <td>登入錯誤、指標偏高</td>
+          </tr>
+          <tr>
+            <td><code>--ui-info</code></td><td><code>text-info</code></td>
+            <td><span class="cell"><span class="swatch" style="background:#629DE0"></span><span class="hex" data-hex="#629DE0">#629DE0</span></span><br><span class="tag mute">= lagoon-600</span></td>
+            <td><span class="cell"><span class="swatch" style="background:#98BFEB"></span><span class="hex" data-hex="#98BFEB">#98BFEB</span></span><br><span class="tag mute">= lagoon-400</span></td>
+            <td>資訊／公告</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="scales">
+      <h2>色階 50–950</h2>
+      <p class="lede">Nuxt UI 對應：brand → primary、mist → neutral、forest → success、sand → warning、coral → error、lagoon → info。有外框的 step 是畫面有直接用到的；其餘仍要保留給 hover／元件庫。點色塊可複製 hex。</p>
+
+      <h3>brand · primary</h3>
+      <div class="scale" id="scale-brand"></div>
+      <p class="lede">直接用到：600 日間主色、400 夜間主色、700／300 主按鈕 hover、300／500 disabled。</p>
+
+      <h3>mist · neutral</h3>
+      <div class="scale" id="scale-mist"></div>
+      <p class="lede">直接用到：50／100／200 日間底與邊；400／500／600 字色；800／900／950 夜間底與邊。夜間正文用 50。</p>
+
+      <h3>forest · success</h3>
+      <div class="scale" id="scale-forest"></div>
+      <p class="lede">直接用到：日間 600、夜間 400 指標「正常」字色；未上線 started badge 用 500／700。</p>
+
+      <h3>sand · warning</h3>
+      <div class="scale" id="scale-sand"></div>
+      <p class="lede">直接用到：日間 600、夜間 400 指標「偏低」字色。</p>
+
+      <h3>coral · error</h3>
+      <div class="scale" id="scale-coral"></div>
+      <p class="lede">直接用到：日間 600、夜間 400 登入錯誤與指標「偏高」字色。</p>
+
+      <h3>lagoon · info</h3>
+      <div class="scale" id="scale-lagoon"></div>
+      <p class="lede">直接用到：日間 600、夜間 400；方案視覺區 radial 仍用 info-500。</p>
+    </section>
+
+    <section id="charts">
+      <h2>圖表色 <span class="tag warn">日間夜間同一組</span></h2>
+      <p class="lede">健康儀表板圓餅與趨勢線用。切夜間不會自動變暗。baseline 已定義但未使用。</p>
+      <table>
+        <thead><tr><th></th><th>Token</th><th>Hex</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr><td><span class="swatch" style="background:#0784B1"></span></td><td><code>--color-chart-primary</code></td><td class="hex" data-hex="#0784B1">#0784B1</td><td>營養系統、趨勢線</td></tr>
+          <tr><td><span class="swatch" style="background:#D9A441"></span></td><td><code>--color-chart-amber</code></td><td class="hex" data-hex="#D9A441">#D9A441</td><td>代謝</td></tr>
+          <tr><td><span class="swatch" style="background:#5B9BD5"></span></td><td><code>--color-chart-blue</code></td><td class="hex" data-hex="#5B9BD5">#5B9BD5</td><td>心血管</td></tr>
+          <tr><td><span class="swatch" style="background:#3BB8AA"></span></td><td><code>--color-chart-teal</code></td><td class="hex" data-hex="#3BB8AA">#3BB8AA</td><td>解毒</td></tr>
+          <tr><td><span class="swatch" style="background:#8B7FC7"></span></td><td><code>--color-chart-purple</code></td><td class="hex" data-hex="#8B7FC7">#8B7FC7</td><td>內分泌</td></tr>
+          <tr><td><span class="swatch" style="background:#D86B78"></span></td><td><code>--color-chart-rose</code></td><td class="hex" data-hex="#D86B78">#D86B78</td><td>免疫</td></tr>
+          <tr><td><span class="swatch" style="background:#A6B8B5"></span></td><td><code>--color-chart-baseline</code></td><td class="hex" data-hex="#A6B8B5">#A6B8B5</td><td>未使用</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="preview">
+      <h2>元件預覽</h2>
+      <p class="lede">用現況 token 畫出來的樣子。切上方「日間／夜間」會一起變。標「未上線」的是 CSS 寫了但畫面沒接。</p>
+      <div class="preview">
+        <div class="preview-grid">
+          <div class="panel">
+            <h4>文字層級</h4>
+            <p style="margin:0;font-size:22px;font-weight:650;color:var(--ui-text-highlighted)">標題 highlighted</p>
+            <p style="margin:6px 0 0;color:var(--ui-text)">正文 default</p>
+            <p style="margin:6px 0 0;color:var(--ui-text-muted)">說明 muted</p>
+            <p style="margin:6px 0 0;color:var(--ui-text-dimmed)">輔助 dimmed</p>
+            <p style="margin:6px 0 0;color:var(--ui-primary)">強調 primary</p>
+          </div>
+          <div class="panel">
+            <h4>AppButton</h4>
+            <div class="row">
+              <span class="app-btn app-btn-primary">主按鈕</span>
+              <span class="app-btn app-btn-outline">次按鈕</span>
+              <span class="app-btn app-btn-ghost">Ghost</span>
+              <button type="button" class="app-btn app-btn-primary" disabled>Disabled</button>
+            </div>
+            <p style="margin:12px 0 0;font-size:12px;color:var(--ui-text-dimmed)">Hover：日間 700、夜間 300。Disabled：日間 300、夜間 500 + opacity 0.45</p>
+          </div>
+          <div class="panel">
+            <h4>語系 / 日間夜間開關</h4>
+            <div class="app-segment-switch">
+              <span class="app-locale-btn app-locale-btn-active">中</span>
+              <span class="app-locale-btn">EN</span>
+            </div>
+          </div>
+          <div class="panel">
+            <h4>Chip / Badge</h4>
+            <div class="row">
+              <span class="app-chip">基礎方案</span>
+              <span class="app-chip app-path-card-selected">進階方案</span>
+              <span class="app-badge app-badge-demo">推薦</span>
+              <span class="app-badge app-badge-started">已開始 <span class="tag mute">未上線</span></span>
+              <span class="app-badge app-badge-pending">待處理 <span class="tag mute">未上線</span></span>
+            </div>
+          </div>
+          <div class="panel">
+            <h4>聊天泡泡（現況）</h4>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div class="bubble bubble-ai">AI 回覆 · bg-muted</div>
+              <div class="bubble bubble-user" style="align-self:flex-end">使用者 · bg-elevated</div>
+              <div class="bubble app-bubble-user" style="align-self:flex-end">主色泡泡 class 已寫未接</div>
+            </div>
+          </div>
+          <div class="panel">
+            <h4>登入欄位 / 狀態字</h4>
+            <input class="input" value="you@example.com">
+            <p class="err" style="margin:8px 0 0">請輸入有效 Email</p>
+            <p class="ok" style="margin:4px 0 0">指標正常 success</p>
+            <p class="warn" style="margin:4px 0 0">指標偏低 warning</p>
+          </div>
+          <div class="panel">
+            <h4>卡片 / 方案視覺 / 健康環</h4>
+            <div class="row" style="align-items:stretch">
+              <div class="card" style="flex:1">
+                <div class="ring"><span>84</span></div>
+                <p style="margin:8px 0 0;font-size:13px;color:var(--ui-text-muted)">健康分數</p>
+              </div>
+              <div class="plan-visual" style="flex:1">方案視覺 radial</div>
+            </div>
+            <p class="nav-active" style="margin-top:12px">側欄選中 nav-active</p>
+          </div>
+          <div class="panel">
+            <h4>頭像</h4>
+            <div class="row">
+              <span class="avatar">AY</span>
+              <div>
+                <div style="font-weight:600;color:var(--ui-text-highlighted)">顯示名稱</div>
+                <div style="font-size:12px;color:var(--ui-text-muted)">you@example.com</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="usage">
+      <h2>元件 × 顏色對照</h2>
+      <table>
+        <thead><tr><th>元件 / 畫面</th><th>用到的顏色</th><th>出現位置</th></tr></thead>
+        <tbody>
+          <tr><td>頁面底、正文</td><td>bg-default、text-default</td><td>default / member layout</td></tr>
+          <tr><td>Header / 側欄 / Footer 邊線</td><td>bg-elevated、border-default、text-muted</td><td>layouts、ChatPanel header</td></tr>
+          <tr><td>AppButton primary</td><td>底 primary、字 elevated；hover 700／300；disabled 300／500</td><td>登入送出、多數 CTA、聊天送出</td></tr>
+          <tr><td>AppButton outline</td><td>邊 border、底 elevated、字 highlighted</td><td>聊天「轉真人」</td></tr>
+          <tr><td>AppButton ghost</td><td>字 muted → hover highlighted</td><td>頂部導覽</td></tr>
+          <tr><td>LocaleSwitch / ColorModeSwitch</td><td>容器 muted + border；選中日間 elevated+primary，夜間 accented</td><td>頂部、側欄</td></tr>
+          <tr><td>BrandMark</td><td>text-highlighted；focus ring primary/40</td><td>所有 header</td></tr>
+          <tr><td>首頁 hero / 步驟編號</td><td>text-primary、text-highlighted、text-muted</td><td>index.vue</td></tr>
+          <tr><td>方案 chip tab</td><td>app-chip；選中 app-path-card-selected（primary 邊 + 22% glow）</td><td>index 方案區</td></tr>
+          <tr><td>方案卡</td><td>border-default、bg-elevated；hover border-primary/40；選中 ring-primary/30</td><td>index 方案列表</td></tr>
+          <tr><td>方案 showcase 視覺</td><td>muted 底 + primary／lagoon radial；icon 色 primary</td><td>index</td></tr>
+          <tr><td>推薦 badge</td><td>primary 12% 底 + primary 字</td><td>index、健康頁 demo 標</td></tr>
+          <tr><td>AccountUser 頭像</td><td>bg-primary/15、text-primary</td><td>member 側欄</td></tr>
+          <tr><td>側欄導覽選中</td><td>app-nav-active：highlighted + muted 底</td><td>member layout</td></tr>
+          <tr><td>Chat 泡泡</td><td>user elevated；assistant muted。未用 app-bubble-user</td><td>ChatPanel</td></tr>
+          <tr><td>Chat 快捷 chip</td><td>app-chip</td><td>ChatPanel</td></tr>
+          <tr><td>登入 input</td><td>border-default、bg-elevated；focus ring-primary/40；錯誤 text-error</td><td>login.vue</td></tr>
+          <tr><td>健康環</td><td>track = border；value = primary</td><td>app/index.vue</td></tr>
+          <tr><td>趨勢圖</td><td>chart-primary 線與填色；點 fill elevated</td><td>HealthTrendChart</td></tr>
+          <tr><td>系統圓餅</td><td>六色 chart-*（見上表）</td><td>HealthSystemPie、health-demo.ts</td></tr>
+          <tr><td>指標狀態</td><td>ok success、low warning、high error</td><td>HealthMarkerAccordion</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="unused">
+      <h2>已定義但畫面沒接</h2>
+      <p class="lede">換色時可當備用，或請工程刪掉。不要以為現在畫面上有這些樣子。</p>
+      <table>
+        <thead><tr><th>項目</th><th>說明</th></tr></thead>
+        <tbody>
+          <tr><td><code>.app-path-card</code></td><td>卡片樣式沒人用；只有 <code>.app-path-card-selected</code> 套在 chip 上</td></tr>
+          <tr><td><code>.app-chip-used</code></td><td>已用過的 chip 淡字，未接</td></tr>
+          <tr><td><code>.app-badge-started</code> / <code>.app-badge-pending</code></td><td>狀態 badge，未接</td></tr>
+          <tr><td><code>.app-bubble-user</code></td><td>主色 user 泡泡，聊天改用 elevated 白／深底</td></tr>
+          <tr><td><code>--color-chart-baseline</code></td><td>圖表基準線色，未接</td></tr>
+          <tr><td><code>--ui-text-toned</code></td><td>與 muted 同色</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <div class="toast" id="toast">已複製</div>
+
+  <script>
+    const scales = {
+      brand: { used: ["300", "400", "500", "600", "700"], colors: {
+        50: "#F0F7FA", 100: "#DAEDF3", 200: "#B6DBE8", 300: "#8EC7DC", 400: "#5CAECC",
+        500: "#2894BB", 600: "#0784B1", 700: "#056487", 800: "#044860", 900: "#033142", 950: "#022430"
+      }},
+      mist: { used: ["50", "100", "200", "400", "500", "600", "800", "900", "950"], colors: {
+        50: "#F7F9FA", 100: "#F1F4F7", 200: "#DDE4EA", 300: "#C2CFDB", 400: "#9FB3C5",
+        500: "#7490AC", 600: "#42698E", 700: "#324F6B", 800: "#213548", 900: "#131F29", 950: "#0D151D"
+      }},
+      forest: { used: ["400", "600"], colors: {
+        50: "#EFF9F8", 100: "#D9F0EE", 200: "#B4E2DE", 300: "#8BD2CC", 400: "#58BDB5",
+        500: "#22A89D", 600: "#009B8E", 700: "#00766C", 800: "#00544D", 900: "#003A35", 950: "#002A26"
+      }},
+      sand: { used: ["400", "600"], colors: {
+        50: "#FCF9F5", 100: "#F7F0E6", 200: "#EFE2CD", 300: "#E6D2B1", 400: "#DABD8F",
+        500: "#CFA86B", 600: "#C79B54", 700: "#977640", 800: "#6C542E", 900: "#4A3A1F", 950: "#362A17"
+      }},
+      coral: { used: ["400", "600"], colors: {
+        50: "#FAF3F4", 100: "#F2E2E4", 200: "#E6C6C9", 300: "#D7A6AB", 400: "#C67F86",
+        500: "#B45660", 600: "#A83C47", 700: "#802E36", 800: "#5B2126", 900: "#3F161B", 950: "#2D1013"
+      }},
+      lagoon: { used: ["400", "500", "600"], colors: {
+        50: "#F5F9FD", 100: "#E8F0FA", 200: "#D1E2F6", 300: "#B8D2F1", 400: "#98BFEB",
+        500: "#77AAE4", 600: "#629DE0", 700: "#4B77AA", 800: "#355579", 900: "#253B54", 950: "#1A2A3C"
+      }}
+    };
+
+    function renderScale(id, key) {
+      const host = document.getElementById(id);
+      const { used, colors } = scales[key];
+      host.innerHTML = Object.entries(colors).map(([step, hex]) => `
+        <button type="button" class="${used.includes(step) ? "used" : ""}" data-hex="${hex}" title="${key}-${step} ${hex}">
+          <div class="chip" style="background:${hex}"></div>
+          <div class="meta"><b>${step}</b>${hex}</div>
+        </button>
+      `).join("");
+    }
+    ["brand", "mist", "forest", "sand", "coral", "lagoon"].forEach((k) => renderScale("scale-" + k, k));
+
+    const toast = document.getElementById("toast");
+    let toastTimer;
+    function copyHex(hex) {
+      navigator.clipboard.writeText(hex).then(() => {
+        toast.textContent = "已複製 " + hex;
+        toast.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove("show"), 1200);
+      }).catch(() => {});
+    }
+    document.body.addEventListener("click", (e) => {
+      const el = e.target.closest("[data-hex]");
+      if (!el) return;
+      copyHex(el.getAttribute("data-hex"));
+    });
+
+    const btnLight = document.getElementById("btn-light");
+    const btnDark = document.getElementById("btn-dark");
+    function setMode(mode) {
+      document.documentElement.classList.toggle("dark", mode === "dark");
+      btnLight.classList.toggle("app-locale-btn-active", mode === "light");
+      btnDark.classList.toggle("app-locale-btn-active", mode === "dark");
+    }
+    btnLight.addEventListener("click", () => setMode("light"));
+    btnDark.addEventListener("click", () => setMode("dark"));
+  </script>
+</body>
+</html>

@@ -12,7 +12,8 @@
     "typecheck": "nuxt typecheck",
     "test": "vitest run --project unit",
     "test:watch": "vitest --project unit",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "colors:ramps": "node scripts/generate-color-ramps.mjs"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.127",
