@@ -50,11 +50,11 @@ const BLACK = [0, 0, 0]
 
 function hexToRgb(hex) {
   const h = hex.replace('#', '')
-  return [0, 2, 4].map((i) => Number.parseInt(h.slice(i, i + 2), 16) / 255)
+  return [0, 2, 4].map(i => Number.parseInt(h.slice(i, i + 2), 16) / 255)
 }
 
 function rgbToHex(rgb) {
-  return `#${rgb.map((c) => Math.max(0, Math.min(255, Math.round(c * 255))).toString(16).padStart(2, '0')).join('')}`.toUpperCase()
+  return `#${rgb.map(c => Math.max(0, Math.min(255, Math.round(c * 255))).toString(16).padStart(2, '0')).join('')}`.toUpperCase()
 }
 
 function mix(a, b, t) {
@@ -87,7 +87,7 @@ function buildPalettes() {
 }
 
 function cssVars(name, ramp) {
-  return STEPS.map((step) => `  --color-${name}-${step}: ${ramp[step]};`).join('\n')
+  return STEPS.map(step => `  --color-${name}-${step}: ${ramp[step]};`).join('\n')
 }
 
 function semanticTokens(palettes) {

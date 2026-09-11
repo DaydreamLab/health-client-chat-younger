@@ -1,0 +1,32 @@
+---
+description: Run ESLint before every commit/push so GitHub Actions CI does not fail
+alwaysApply: true
+---
+
+# CI lint before commit
+
+Remote CI runs `pnpm run lint` (`eslint .`) then `pnpm run typecheck` on every push. Do not commit or push until both pass locally. `eslint .` includes `scripts/*.mjs` and `nuxt.config.ts`, not only Vue files.
+
+## Before commit or push
+
+1. Run `pnpm run lint`.
+2. Auto-fix if needed: `pnpm exec eslint . --fix`.
+3. Re-run `pnpm run lint`. If anything is still red, fix it by hand and do not commit.
+4. Run `pnpm run typecheck` as well — CI fails on that next.
+
+## Recurring failures
+
+`@stylistic/arrow-parens`: no parens on a single argument when the body has no braces.
+
+```js
+// ❌ BAD
+steps.map((step) => step.id)
+
+// ✅ GOOD
+steps.map(step => step.id)
+steps.map((step) => { return step.id })
+```
+
+`nuxt/nuxt-config-keys-order`: keep `nuxt.config.ts` keys in plugin order. `routeRules` must come before `compatibilityDate`. Prefer `pnpm exec eslint nuxt.config.ts --fix` over guessing.
+
+Stylistic config lives in `nuxt.config.ts` (`commaDangle: 'never'`, `braceStyle: '1tbs'`). Match existing files; do not add extra parens, dangling commas, or Allman braces.

@@ -21,6 +21,11 @@ export default defineNuxtConfig({
     storageKey: 'younger-color-mode'
   },
 
+  routeRules: {
+    '/app/**': { prerender: false },
+    '/en/app/**': { prerender: false }
+  },
+
   compatibilityDate: '2026-06-30',
 
   nitro: {
@@ -28,11 +33,6 @@ export default defineNuxtConfig({
       crawlLinks: true,
       routes: ['/', '/en']
     }
-  },
-
-  routeRules: {
-    '/app/**': { prerender: false },
-    '/en/app/**': { prerender: false }
   },
 
   vite: {
