@@ -10,10 +10,10 @@
 --ui-text-toned,次級字,#7490AC,#9FB3C5,與 muted 同色,否,僅定義未單獨使用
 --ui-text-dimmed,輔助字,#9FB3C5,#7490AC,更淡輔助字（= mist-400 / mist-500）,是,健康頁副標、方案說明
 --ui-primary,主色,#0784B1,#5CAECC,CTA、連結、focus ring、健康環（= brand-600 / brand-400）,是,按鈕、badge、首頁強調
---ui-success,成功,#009B8E,#58BDB5,指標正常（= forest-600 / forest-400）,是,HealthMarkerAccordion text-success
---ui-warning,警告,#C79B54,#DABD8F,指標偏低（= sand-600 / sand-400）,是,HealthMarkerAccordion text-warning
---ui-error,錯誤,#A83C47,#C67F86,登入錯誤、指標偏高（= coral-600 / coral-400）,是,"login.vue text-error, HealthMarkerAccordion"
---ui-info,資訊,#629DE0,#98BFEB,資訊／公告（= lagoon-600 / lagoon-400）,是,.app-plan-visual 另用 info-500
+--ui-success,成功,#17C114,#67D665,指標正常（= forest-600 / forest-400）,是,HealthMarkerAccordion text-success
+--ui-warning,警告,#F2A01D,#F6C16B,指標偏低（= sand-600 / sand-400）,是,HealthMarkerAccordion text-warning
+--ui-error,錯誤,#E00017,#EB5867,登入錯誤、指標偏高（= coral-600 / coral-400）,是,"login.vue text-error, HealthMarkerAccordion"
+--ui-info,資訊,#278AFB,#71B2FC,資訊／公告（= lagoon-600 / lagoon-400）,是,.app-plan-visual 另用 info-500
 --color-brand-50,primary 50,#F0F7FA,#F0F7FA,Nuxt UI primary 色階,否,色階保留
 --color-brand-100,primary 100,#DAEDF3,#DAEDF3,Nuxt UI primary 色階,否,色階保留
 --color-brand-200,primary 200,#B6DBE8,#B6DBE8,Nuxt UI primary 色階,否,色階保留
@@ -36,50 +36,50 @@
 --color-mist-800,neutral 800,#213548,#213548,夜間邊線與 accented,是,.dark --ui-border / --ui-bg-accented
 --color-mist-900,neutral 900,#131F29,#131F29,夜間次底,是,.dark --ui-bg-muted
 --color-mist-950,neutral 950,#0D151D,#0D151D,夜間頁面底,是,.dark --ui-bg
---color-forest-50,success 50,#EFF9F8,#EFF9F8,Nuxt UI success 色階,否,色階保留
---color-forest-100,success 100,#D9F0EE,#D9F0EE,Nuxt UI success 色階,否,色階保留
---color-forest-200,success 200,#B4E2DE,#B4E2DE,Nuxt UI success 色階,否,色階保留
---color-forest-300,success 300,#8BD2CC,#8BD2CC,Nuxt UI success 色階,否,色階保留
---color-forest-400,success 400,#58BDB5,#58BDB5,夜間 --ui-success,是,.dark --ui-success
---color-forest-500,success 500,#22A89D,#22A89D,未上線 started badge 底,否,.app-badge-started（未接畫面）
---color-forest-600,success 600,#009B8E,#009B8E,日間 --ui-success,是,:root --ui-success
---color-forest-700,success 700,#00766C,#00766C,未上線 started badge 字,否,.app-badge-started（未接畫面）
---color-forest-800,success 800,#00544D,#00544D,Nuxt UI success 色階,否,色階保留
---color-forest-900,success 900,#003A35,#003A35,Nuxt UI success 色階,否,色階保留
---color-forest-950,success 950,#002A26,#002A26,Nuxt UI success 色階,否,色階保留
---color-sand-50,warning 50,#FCF9F5,#FCF9F5,Nuxt UI warning 色階,否,色階保留
---color-sand-100,warning 100,#F7F0E6,#F7F0E6,Nuxt UI warning 色階,否,色階保留
---color-sand-200,warning 200,#EFE2CD,#EFE2CD,Nuxt UI warning 色階,否,色階保留
---color-sand-300,warning 300,#E6D2B1,#E6D2B1,Nuxt UI warning 色階,否,色階保留
---color-sand-400,warning 400,#DABD8F,#DABD8F,夜間 --ui-warning,是,.dark --ui-warning
---color-sand-500,warning 500,#CFA86B,#CFA86B,Nuxt UI warning 色階,否,色階保留
---color-sand-600,warning 600,#C79B54,#C79B54,日間 --ui-warning,是,:root --ui-warning
---color-sand-700,warning 700,#977640,#977640,Nuxt UI warning 色階,否,色階保留
---color-sand-800,warning 800,#6C542E,#6C542E,Nuxt UI warning 色階,否,色階保留
---color-sand-900,warning 900,#4A3A1F,#4A3A1F,Nuxt UI warning 色階,否,色階保留
---color-sand-950,warning 950,#362A17,#362A17,Nuxt UI warning 色階,否,色階保留
---color-coral-50,error 50,#FAF3F4,#FAF3F4,Nuxt UI error 色階,否,色階保留
---color-coral-100,error 100,#F2E2E4,#F2E2E4,Nuxt UI error 色階,否,色階保留
---color-coral-200,error 200,#E6C6C9,#E6C6C9,Nuxt UI error 色階,否,色階保留
---color-coral-300,error 300,#D7A6AB,#D7A6AB,Nuxt UI error 色階,否,色階保留
---color-coral-400,error 400,#C67F86,#C67F86,夜間 --ui-error,是,.dark --ui-error
---color-coral-500,error 500,#B45660,#B45660,Nuxt UI error 色階,否,色階保留
---color-coral-600,error 600,#A83C47,#A83C47,日間 --ui-error,是,:root --ui-error
---color-coral-700,error 700,#802E36,#802E36,Nuxt UI error 色階,否,色階保留
---color-coral-800,error 800,#5B2126,#5B2126,Nuxt UI error 色階,否,色階保留
---color-coral-900,error 900,#3F161B,#3F161B,Nuxt UI error 色階,否,色階保留
---color-coral-950,error 950,#2D1013,#2D1013,Nuxt UI error 色階,否,色階保留
---color-lagoon-50,info 50,#F5F9FD,#F5F9FD,Nuxt UI info 色階,否,色階保留
---color-lagoon-100,info 100,#E8F0FA,#E8F0FA,Nuxt UI info 色階,否,色階保留
---color-lagoon-200,info 200,#D1E2F6,#D1E2F6,Nuxt UI info 色階,否,色階保留
---color-lagoon-300,info 300,#B8D2F1,#B8D2F1,Nuxt UI info 色階,否,色階保留
---color-lagoon-400,info 400,#98BFEB,#98BFEB,夜間 --ui-info,是,.dark --ui-info
---color-lagoon-500,info 500,#77AAE4,#77AAE4,方案視覺區 radial,是,.app-plan-visual
---color-lagoon-600,info 600,#629DE0,#629DE0,日間 --ui-info,是,:root --ui-info
---color-lagoon-700,info 700,#4B77AA,#4B77AA,Nuxt UI info 色階,否,色階保留
---color-lagoon-800,info 800,#355579,#355579,Nuxt UI info 色階,否,色階保留
---color-lagoon-900,info 900,#253B54,#253B54,Nuxt UI info 色階,否,色階保留
---color-lagoon-950,info 950,#1A2A3C,#1A2A3C,Nuxt UI info 色階,否,色階保留
+--color-forest-50,success 50,#F1FBF1,#F1FBF1,Nuxt UI success 色階,否,色階保留
+--color-forest-100,success 100,#DDF6DC,#DDF6DC,Nuxt UI success 色階,否,色階保留
+--color-forest-200,success 200,#BBEDBA,#BBEDBA,Nuxt UI success 色階,否,色階保留
+--color-forest-300,success 300,#95E394,#95E394,Nuxt UI success 色階,否,色階保留
+--color-forest-400,success 400,#67D665,#67D665,夜間 --ui-success,是,.dark --ui-success
+--color-forest-500,success 500,#36C933,#36C933,未上線 started badge 底,否,.app-badge-started（未接畫面）
+--color-forest-600,success 600,#17C114,#17C114,日間 --ui-success,是,:root --ui-success
+--color-forest-700,success 700,#12930F,#12930F,未上線 started badge 字,否,.app-badge-started（未接畫面）
+--color-forest-800,success 800,#0C690B,#0C690B,Nuxt UI success 色階,否,色階保留
+--color-forest-900,success 900,#094807,#094807,Nuxt UI success 色階,否,色階保留
+--color-forest-950,success 950,#063405,#063405,Nuxt UI success 色階,否,色階保留
+--color-sand-50,warning 50,#FEF9F1,#FEF9F1,Nuxt UI warning 色階,否,色階保留
+--color-sand-100,warning 100,#FDF1DE,#FDF1DE,Nuxt UI warning 色階,否,色階保留
+--color-sand-200,warning 200,#FBE3BD,#FBE3BD,Nuxt UI warning 色階,否,色階保留
+--color-sand-300,warning 300,#F9D498,#F9D498,Nuxt UI warning 色階,否,色階保留
+--color-sand-400,warning 400,#F6C16B,#F6C16B,夜間 --ui-warning,是,.dark --ui-warning
+--color-sand-500,warning 500,#F4AD3B,#F4AD3B,Nuxt UI warning 色階,否,色階保留
+--color-sand-600,warning 600,#F2A01D,#F2A01D,日間 --ui-warning,是,:root --ui-warning
+--color-sand-700,warning 700,#B87A16,#B87A16,Nuxt UI warning 色階,否,色階保留
+--color-sand-800,warning 800,#835710,#835710,Nuxt UI warning 色階,否,色階保留
+--color-sand-900,warning 900,#5B3C0B,#5B3C0B,Nuxt UI warning 色階,否,色階保留
+--color-sand-950,warning 950,#412B08,#412B08,Nuxt UI warning 色階,否,色階保留
+--color-coral-50,error 50,#FDEFF1,#FDEFF1,Nuxt UI error 色階,否,色階保留
+--color-coral-100,error 100,#FAD9DD,#FAD9DD,Nuxt UI error 色階,否,色階保留
+--color-coral-200,error 200,#F6B4BB,#F6B4BB,Nuxt UI error 色階,否,色階保留
+--color-coral-300,error 300,#F18B95,#F18B95,Nuxt UI error 色階,否,色階保留
+--color-coral-400,error 400,#EB5867,#EB5867,夜間 --ui-error,是,.dark --ui-error
+--color-coral-500,error 500,#E42236,#E42236,Nuxt UI error 色階,否,色階保留
+--color-coral-600,error 600,#E00017,#E00017,日間 --ui-error,是,:root --ui-error
+--color-coral-700,error 700,#AA0012,#AA0012,Nuxt UI error 色階,否,色階保留
+--color-coral-800,error 800,#79000C,#79000C,Nuxt UI error 色階,否,色階保留
+--color-coral-900,error 900,#540009,#540009,Nuxt UI error 色階,否,色階保留
+--color-coral-950,error 950,#3C0006,#3C0006,Nuxt UI error 色階,否,色階保留
+--color-lagoon-50,info 50,#F2F8FF,#F2F8FF,Nuxt UI info 色階,否,色階保留
+--color-lagoon-100,info 100,#DFEEFE,#DFEEFE,Nuxt UI info 色階,否,色階保留
+--color-lagoon-200,info 200,#C0DDFE,#C0DDFE,Nuxt UI info 色階,否,色階保留
+--color-lagoon-300,info 300,#9DCAFD,#9DCAFD,Nuxt UI info 色階,否,色階保留
+--color-lagoon-400,info 400,#71B2FC,#71B2FC,夜間 --ui-info,是,.dark --ui-info
+--color-lagoon-500,info 500,#449AFC,#449AFC,方案視覺區 radial,是,.app-plan-visual
+--color-lagoon-600,info 600,#278AFB,#278AFB,日間 --ui-info,是,:root --ui-info
+--color-lagoon-700,info 700,#1E69BF,#1E69BF,Nuxt UI info 色階,否,色階保留
+--color-lagoon-800,info 800,#154B88,#154B88,Nuxt UI info 色階,否,色階保留
+--color-lagoon-900,info 900,#0F345E,#0F345E,Nuxt UI info 色階,否,色階保留
+--color-lagoon-950,info 950,#0A2544,#0A2544,Nuxt UI info 色階,否,色階保留
 --color-chart-primary,圖表-營養,#0784B1,#0784B1,營養系統、趨勢線（日間夜間同色）,是,"health-demo.ts, HealthTrendChart.vue"
 --color-chart-amber,圖表-代謝,#D9A441,#D9A441,代謝系統（日間夜間同色）,是,health-demo.ts
 --color-chart-blue,圖表-心血管,#5B9BD5,#5B9BD5,心血管系統（日間夜間同色）,是,health-demo.ts

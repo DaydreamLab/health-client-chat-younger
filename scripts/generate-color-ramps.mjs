@@ -11,10 +11,10 @@
 const ANCHORS = {
   brand: '#0784B1',
   mist: '#42698E',
-  forest: '#009B8E',
-  sand: '#C79B54',
-  coral: '#A83C47',
-  lagoon: '#629DE0'
+  forest: '#17C114',
+  sand: '#F2A01D',
+  coral: '#E00017',
+  lagoon: '#278AFB'
 }
 
 const STEPS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]
