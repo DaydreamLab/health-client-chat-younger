@@ -1,5 +1,48 @@
 <template>
-  <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+  <div
+    v-if="payPhase === 'paying'"
+    class="flex min-h-[calc(100dvh-8rem)] flex-col items-center justify-center px-4 text-center"
+    data-testid="checkout-processing"
+  >
+    <span
+      class="size-10 animate-spin rounded-full border-2 border-muted border-t-primary"
+      aria-hidden="true"
+    />
+    <h1 class="mt-6 text-xl font-semibold text-highlighted">
+      {{ $t('checkout.processing') }}
+    </h1>
+  </div>
+
+  <div
+    v-else-if="payPhase === 'success'"
+    class="mx-auto flex min-h-[calc(100dvh-8rem)] w-full max-w-sm flex-col items-center justify-center px-4 text-center"
+    data-testid="checkout-success"
+  >
+    <span class="flex size-14 items-center justify-center rounded-full bg-success/10 text-success">
+      <UIcon
+        name="i-lucide-circle-check"
+        class="size-8"
+      />
+    </span>
+    <h1 class="mt-6 text-xl font-semibold text-highlighted">
+      {{ $t('checkout.successTitle') }}
+    </h1>
+    <p class="mt-2 text-sm text-muted">
+      {{ $t('checkout.successBody') }}
+    </p>
+    <AppButton
+      class="mt-8 w-full"
+      :to="localePath('/app/orders')"
+      data-testid="checkout-view-orders"
+    >
+      {{ $t('checkout.viewOrders') }}
+    </AppButton>
+  </div>
+
+  <div
+    v-else
+    class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]"
+  >
     <div class="space-y-6">
       <section class="rounded-2xl border border-default bg-elevated p-5">
         <h1 class="text-xl font-semibold text-highlighted">
@@ -262,7 +305,6 @@
         <AppButton
           type="submit"
           class="w-full"
-          :disabled="pending"
           data-testid="checkout-submit"
         >
           {{ $t('checkout.submit') }}
@@ -294,6 +336,8 @@ definePageMeta({
   middleware: 'auth'
 })
 
+const PAY_HOLD_MS = 3000
+
 const { t } = useI18n()
 const localePath = useLocalePath()
 const auth = useAuthStore()
@@ -306,7 +350,7 @@ const address = ref('')
 const delivery = ref<'home'>('home')
 const paymentMethod = ref<PaymentMethod>('card')
 const invoice = ref<InvoiceType>('cloud')
-const pending = ref(false)
+const payPhase = ref<'form' | 'paying' | 'success'>('form')
 const error = ref('')
 const detail = ref<SupplementItem | null>(null)
 
@@ -347,29 +391,30 @@ async function onPay(event: Event) {
     return
   }
 
-  pending.value = true
+  payPhase.value = 'paying'
   error.value = ''
 
   try {
-    const order = await api.createOrder({
-      planId: parsed.data.planId,
-      paymentMethod: parsed.data.paymentMethod,
-      invoice: parsed.data.invoice,
-      recipient: {
-        name: parsed.data.name,
-        phone: parsed.data.phone,
-        address: parsed.data.address,
-        email: auth.user?.email ?? ''
-      },
-      messages: JSON.parse(JSON.stringify(journey.snapshotMessages())) as ChatMessage[]
-    })
-    const path = localePath(`/app/orders/${order.id}`)
-    pending.value = false
-    await navigateTo(path)
+    await Promise.all([
+      api.createOrder({
+        planId: parsed.data.planId,
+        paymentMethod: parsed.data.paymentMethod,
+        invoice: parsed.data.invoice,
+        recipient: {
+          name: parsed.data.name,
+          phone: parsed.data.phone,
+          address: parsed.data.address,
+          email: auth.user?.email ?? ''
+        },
+        messages: JSON.parse(JSON.stringify(journey.snapshotMessages())) as ChatMessage[]
+      }),
+      new Promise(resolve => setTimeout(resolve, PAY_HOLD_MS))
+    ])
+    payPhase.value = 'success'
     journey.clearSession()
   } catch {
     error.value = t('checkout.error')
-    pending.value = false
+    payPhase.value = 'form'
   }
 }
 

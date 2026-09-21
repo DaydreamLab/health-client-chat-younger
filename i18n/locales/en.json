@@ -252,6 +252,10 @@
     "shippingFree": "Free",
     "total": "Total",
     "submit": "Confirm payment (demo)",
+    "processing": "Processing payment…",
+    "successTitle": "Payment successful",
+    "successBody": "Your order is in. Track shipment on the orders page.",
+    "viewOrders": "View my orders",
     "loginToPay": "Log in to pay",
     "error": "Please fill in name, mobile, and address."
   },

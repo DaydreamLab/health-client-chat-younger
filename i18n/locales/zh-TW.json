@@ -252,6 +252,10 @@
     "shippingFree": "免運",
     "total": "總金額",
     "submit": "確認付款（示範）",
+    "processing": "付款處理中…",
+    "successTitle": "付款成功",
+    "successBody": "訂單已成立，可在訂單頁查看出貨進度。",
+    "viewOrders": "檢視我的訂單",
     "loginToPay": "登入後才能付款",
     "error": "請填寫收件姓名、手機與地址。"
   },
