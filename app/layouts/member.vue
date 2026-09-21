@@ -3,42 +3,29 @@
     class="flex bg-default text-default"
     :class="isChat ? 'h-dvh overflow-hidden' : 'min-h-dvh'"
   >
-    <aside class="hidden w-56 shrink-0 flex-col border-e border-default bg-elevated p-4 lg:flex">
-      <BrandMark />
-      <nav class="mt-8 flex flex-col gap-1 text-sm">
-        <AppButton
-          :to="localePath('/app')"
-          variant="ghost"
-          :class="isHealth ? 'justify-start app-nav-active' : 'justify-start'"
-        >
-          {{ $t('nav.member') }}
-        </AppButton>
-        <AppButton
-          :to="localePath('/chat')"
-          variant="ghost"
-          :class="isChat ? 'justify-start app-nav-active' : 'justify-start'"
-          data-testid="nav-chat"
-        >
-          {{ $t('nav.chat') }}
-        </AppButton>
-        <AppButton
-          :to="localePath('/app/orders')"
-          variant="ghost"
-          :class="isOrders ? 'justify-start app-nav-active' : 'justify-start'"
-          data-testid="nav-orders"
-        >
-          {{ $t('nav.orders') }}
-        </AppButton>
-      </nav>
-      <div class="mt-auto min-w-0 space-y-3 border-t border-default pt-4">
-        <AccountUser />
-        <AppButton
-          variant="ghost"
-          class="justify-start"
-          @click="logout"
-        >
-          {{ $t('nav.logout') }}
-        </AppButton>
+    <aside
+      id="member-sidebar"
+      class="hidden w-20 shrink-0 flex-col items-center overflow-hidden border-e border-default bg-elevated p-2 lg:flex"
+      data-testid="member-sidebar"
+      data-collapsed="true"
+    >
+      <BrandMark compact />
+      <UNavigationMenu
+        class="mt-6 w-full"
+        orientation="vertical"
+        collapsed
+        :items="desktopNavItems"
+        :ui="collapsedNavUi"
+      />
+      <div class="mt-auto flex w-full min-w-0 flex-col items-center space-y-3 border-t border-default pt-4">
+        <AccountUser avatar-only />
+        <UNavigationMenu
+          class="w-full"
+          orientation="vertical"
+          collapsed
+          :items="logoutItems"
+          :ui="collapsedNavUi"
+        />
       </div>
     </aside>
 
@@ -62,27 +49,14 @@
       </header>
       <nav class="flex shrink-0 gap-1 border-b border-default px-4 py-2 text-sm lg:hidden">
         <AppButton
-          :to="localePath('/app')"
+          v-for="item in navItems"
+          :key="item.label"
+          :to="navTo(item)"
           variant="ghost"
-          :class="isHealth ? 'app-nav-active' : undefined"
+          :class="item.active ? 'app-nav-active' : undefined"
+          :data-testid="item.mobileTestId"
         >
-          {{ $t('nav.member') }}
-        </AppButton>
-        <AppButton
-          :to="localePath('/chat')"
-          variant="ghost"
-          :class="isChat ? 'app-nav-active' : undefined"
-          data-testid="nav-chat-mobile"
-        >
-          {{ $t('nav.chat') }}
-        </AppButton>
-        <AppButton
-          :to="localePath('/app/orders')"
-          variant="ghost"
-          :class="isOrders ? 'app-nav-active' : undefined"
-          data-testid="nav-orders-mobile"
-        >
-          {{ $t('nav.orders') }}
+          {{ item.label }}
         </AppButton>
         <AppButton
           variant="ghost"
@@ -103,6 +77,13 @@
 </template>
 
 <script setup lang="ts">
+import type { NavigationMenuItem } from '@nuxt/ui'
+
+interface MemberNavItem extends NavigationMenuItem {
+  testId?: string
+  mobileTestId?: string
+}
+
 const localePath = useLocalePath()
 const auth = useAuthStore()
 const journey = useJourneyStore()
@@ -113,6 +94,10 @@ const isChat = computed(() => route.path.includes('/chat'))
 const isOrders = computed(() => route.path.includes('/orders'))
 const isRecommend = computed(() => route.path.includes('/recommend'))
 const isHealth = computed(() => route.path.includes('/app') && !isChat.value && !isOrders.value && !isRecommend.value)
+const collapsedNavUi = {
+  link: 'flex-col gap-1 items-center',
+  linkLabel: 'block text-[10px]/3 text-center'
+}
 const headerTitle = computed(() => {
   if (isChat.value) {
     return t('nav.chat')
@@ -128,6 +113,58 @@ const headerTitle = computed(() => {
 
   return t('nav.member')
 })
+const navItems = computed<MemberNavItem[]>(() => [
+  {
+    label: t('nav.member'),
+    icon: 'i-lucide-heart-pulse',
+    to: localePath('/app'),
+    active: isHealth.value
+  },
+  {
+    label: t('nav.chat'),
+    icon: 'i-lucide-message-circle',
+    to: localePath('/chat'),
+    active: isChat.value,
+    testId: 'nav-chat',
+    mobileTestId: 'nav-chat-mobile'
+  },
+  {
+    label: t('nav.orders'),
+    icon: 'i-lucide-package',
+    to: localePath('/app/orders'),
+    active: isOrders.value,
+    testId: 'nav-orders',
+    mobileTestId: 'nav-orders-mobile'
+  }
+])
+const desktopNavItems = computed<NavigationMenuItem[]>(() => navItems.value.map((item) => {
+  const desktopItem: NavigationMenuItem = {
+    label: item.label,
+    icon: item.icon,
+    to: item.to,
+    active: item.active
+  }
+
+  if (item.testId) {
+    desktopItem['data-testid'] = item.testId
+  }
+
+  return desktopItem
+}))
+const logoutItems = computed<NavigationMenuItem[]>(() => [
+  {
+    label: t('nav.logout'),
+    icon: 'i-lucide-log-out',
+    onSelect(event) {
+      event.preventDefault()
+      logout()
+    }
+  }
+])
+
+function navTo(item: MemberNavItem) {
+  return typeof item.to === 'string' ? item.to : localePath('/app')
+}
 
 function logout() {
   journey.clearSession()

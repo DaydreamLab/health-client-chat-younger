@@ -86,8 +86,9 @@ test('specialist handoff asks for login then shows health dashboard', async ({ p
   await expect(page.getByRole('link', { name: '諮詢' }).first()).toBeVisible()
   await expect(page.getByRole('link', { name: '我的訂單' }).first()).toBeVisible()
   await expect(page.getByRole('link', { name: '交給顧問' })).toHaveCount(0)
-  await expect(page.getByTestId('account-user').filter({ hasText: 'Guest' }).first()).toBeVisible()
-  await expect(page.getByText('guest@example.com')).toBeVisible()
+  await expect(page.getByTestId('member-sidebar')).toHaveAttribute('data-collapsed', 'true')
+  await expect(page.getByTestId('member-sidebar').getByTestId('brand')).toHaveText('C')
+  await expect(page.getByTestId('account-user').first()).toHaveAttribute('title', 'Guest')
 })
 
 test('day dark toggle sets html class', async ({ page, goto }) => {
