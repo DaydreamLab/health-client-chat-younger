@@ -80,6 +80,14 @@
             />
             {{ fileName(message) }}
           </p>
+          <AppButton
+            v-if="showRecommendCta(message)"
+            class="mt-3"
+            data-testid="chat-view-recommend"
+            @click="goRecommend"
+          >
+            {{ $t('chat.viewRecommend') }}
+          </AppButton>
         </div>
       </article>
       <p
@@ -95,17 +103,6 @@
       class="shrink-0 border-t border-default bg-elevated px-4 py-4 sm:px-6"
     >
       <div
-        v-if="journey.hasAnalysis && !escalated"
-        class="mb-3"
-      >
-        <AppButton
-          data-testid="chat-view-recommend"
-          @click="goRecommend"
-        >
-          {{ $t('chat.viewRecommend') }}
-        </AppButton>
-      </div>
-      <div
         v-if="!escalated"
         class="mb-3 flex flex-wrap gap-2"
       >
@@ -117,6 +114,11 @@
           :data-testid="`chat-chip-${key}`"
           @click="onChip(key)"
         >
+          <UIcon
+            v-if="key === 'upload'"
+            name="i-lucide-paperclip"
+            class="size-3.5"
+          />
           {{ $t(`chat.chips.${key}`) }}
         </button>
       </div>
@@ -277,6 +279,14 @@ const lastAssistantId = computed(() => {
   const last = [...messages.value].reverse().find(message => message.role === 'assistant')
   return last?.id
 })
+
+function showRecommendCta(message: ChatMessage) {
+  return !readonly.value
+    && !escalated.value
+    && journey.hasAnalysis
+    && message.role === 'assistant'
+    && message.id === lastAssistantId.value
+}
 
 function messageText(message: ChatMessage) {
   return message.parts.filter(part => part.type === 'text').map(part => part.text).join('\n')

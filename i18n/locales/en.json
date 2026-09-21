@@ -140,7 +140,7 @@
       "noReport": "I don't have a report yet",
       "plans": "How do the two plans differ?",
       "next": "What happens next?",
-      "upload": "Upload a blood report"
+      "upload": "Upload report"
     },
     "greet": "Hi, I'm the Candor consult assistant. Do you already have a blood report, or do you want to look at the one-month plans first? When you're ready for a person, tap Talk to a specialist.",
     "greetBasic": "You picked Basic: report reading. That path is for people who already have paper labs. Is this your latest report, and is there a number you want to look at first?",
@@ -148,7 +148,7 @@
     "greetPremium": "You picked Premium: personalized products. After payment you get a consult and keyed-in shipment. Do you already have a report, or do you need collection first?",
     "greetBasicCare": "You picked Basic Care. Tell me if you have a blood report, or upload it — then you can see the chart and the one-month items.",
     "greetFullTune": "You picked Full Tune, which is Basic Care plus extras. Tell me if you have a report, or upload labs first.",
-    "upload": "Upload labs",
+    "upload": "Upload report",
     "uploaded": "Uploaded {name}",
     "viewRecommend": "See recommended plan",
     "viewOnlyTitle": "Order conversation",

@@ -10,7 +10,9 @@ test('unpaid chat is gone after refresh and never hits localStorage', async ({ p
   await goto('/chat', { waitUntil: 'hydration' })
   await page.evaluate(() => localStorage.removeItem('candor-paid-orders'))
   await page.getByTestId('chat-upload-input').setInputFiles(labsFile)
-  await expect(page.getByTestId('chat-view-recommend')).toBeVisible()
+  await expect(page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend')).toBeVisible()
+  await expect(page.getByTestId('chat-chip-upload')).toBeVisible()
+  await expect(page.getByTestId('chat-escalate')).toBeVisible()
   expect(await page.evaluate(() => localStorage.getItem('candor-paid-orders'))).toBeNull()
 
   await page.reload({ waitUntil: 'domcontentloaded' })
@@ -43,6 +45,7 @@ test('login, labs, month plan, mock pay, timeline, and readonly chat', async ({ 
   await expect(page.getByTestId('nav-chat')).toContainText('諮詢')
   await page.getByTestId('chat-upload-input').setInputFiles(labsFile)
   await expect(page.getByTestId('chat-last-reply')).toContainText('基礎保養')
+  await expect(page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend')).toBeVisible()
   await page.getByTestId('chat-view-recommend').click()
 
   await expect(page.getByRole('heading', { name: '推薦方案' })).toBeVisible()
