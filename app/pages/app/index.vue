@@ -9,12 +9,27 @@
       </span>
       <AppButton
         :to="localePath('/app/recommend')"
-        variant="outline"
+        variant="primary"
         class="ms-auto"
       >
         {{ $t('chat.viewRecommend') }}
       </AppButton>
     </div>
+
+    <section
+      class="relative overflow-hidden rounded-xl bg-primary/10"
+      data-testid="health-ai-summary"
+    >
+      <span class="absolute inset-y-0 start-0 w-1.5 bg-primary" />
+      <div class="px-5 py-4 ps-6">
+        <h2 class="text-sm font-medium text-primary">
+          {{ $t('member.aiTitle') }}
+        </h2>
+        <p class="mt-2 text-sm leading-6 text-default">
+          {{ aiSummary }}
+        </p>
+      </div>
+    </section>
 
     <section class="grid gap-4 lg:grid-cols-[minmax(0,18rem)_1fr]">
       <article
@@ -122,22 +137,42 @@
       </article>
     </section>
 
-    <section>
-      <div class="mb-3">
-        <h2 class="font-semibold text-highlighted">
-          {{ $t('member.accordionTitle') }}
-        </h2>
-        <p class="mt-1 text-sm text-dimmed">
-          {{ $t('member.accordionHint') }}
-        </p>
+    <section data-testid="health-abnormal">
+      <h2 class="mb-3 font-semibold text-highlighted">
+        {{ $t('member.abnormalTitle') }}
+      </h2>
+      <div class="rounded-md bg-error/10 p-4">
+        <HealthMarkerList
+          :markers="abnormalHealthMarkers"
+          tone="abnormal"
+        />
       </div>
-      <HealthMarkerAccordion />
+    </section>
+
+    <section data-testid="health-all-labs">
+      <h2 class="mb-3 font-semibold text-highlighted">
+        {{ $t('member.allLabsTitle') }}
+      </h2>
+      <div class="rounded-md bg-muted p-4">
+        <HealthMarkerList
+          :markers="allHealthMarkers"
+          tone="all"
+        />
+      </div>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { healthAge, healthMarkerCount, healthScore, healthScoreDelta } from '~/utils/health-demo'
+import { mockReportSummary } from '~/utils/first-order'
+import {
+  abnormalHealthMarkers,
+  allHealthMarkers,
+  healthAge,
+  healthMarkerCount,
+  healthScore,
+  healthScoreDelta
+} from '~/utils/health-demo'
 
 definePageMeta({
   layout: 'member',
@@ -145,6 +180,8 @@ definePageMeta({
 })
 
 const localePath = useLocalePath()
+const { locale } = useI18n()
+const aiSummary = computed(() => mockReportSummary(locale.value))
 const ringCircumference = 2 * Math.PI * 52
 const ringOffset = ringCircumference * (1 - healthScore / 100)
 </script>

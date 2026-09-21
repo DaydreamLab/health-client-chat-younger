@@ -92,3 +92,7 @@ export const healthSystems: Array<{
     ]
   }
 ]
+
+export const allHealthMarkers = healthSystems.flatMap(system => system.markers)
+
+export const abnormalHealthMarkers = allHealthMarkers.filter(marker => marker.status !== 'ok')
