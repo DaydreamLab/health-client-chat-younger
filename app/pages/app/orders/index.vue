@@ -58,14 +58,30 @@
         </div>
       </div>
 
-      <ul class="mt-4 space-y-1 text-sm text-muted">
-        <li
-          v-for="itemId in order.itemIds"
-          :key="itemId"
+      <p
+        class="mt-3 inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
+        data-testid="order-status"
+      >
+        {{ $t(`orders.${statusOf(order)}`) }}
+      </p>
+
+      <div class="mt-4">
+        <p class="text-xs text-muted">
+          {{ $t('orders.items') }}
+        </p>
+        <ul
+          class="mt-1 space-y-1 text-sm text-highlighted"
+          data-testid="order-items"
         >
-          {{ $t(`shop.items.${itemId}.name`) }}
-        </li>
-      </ul>
+          <li
+            v-for="itemId in order.itemIds"
+            :key="itemId"
+            :data-testid="`order-item-${itemId}`"
+          >
+            {{ $t(`shop.items.${itemId}.name`) }}
+          </li>
+        </ul>
+      </div>
 
       <div class="mt-5">
         <p class="mb-3 text-sm font-medium text-highlighted">
@@ -94,7 +110,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatTwd, type OrderRecord } from '~/utils/first-order'
+import { formatTwd, timelineStatus, type OrderRecord } from '~/utils/first-order'
 
 definePageMeta({
   layout: 'member',
@@ -107,6 +123,10 @@ const list = ref<OrderRecord[]>([])
 
 function formatWhen(value: string) {
   return value.replace('T', ' ').slice(0, 16).replace(/-/g, '/')
+}
+
+function statusOf(order: OrderRecord) {
+  return timelineStatus(order.timeline)
 }
 
 onMounted(async () => {

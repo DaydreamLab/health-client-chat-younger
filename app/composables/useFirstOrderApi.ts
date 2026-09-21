@@ -1,6 +1,8 @@
 import type { ChatMessage, CreateOrderInput, OrderRecord, ReportAnalysis } from '~/utils/first-order'
 import { mockCatalog, mockCreateOrder, mockReportAnalysis } from '~/utils/first-order'
 
+const FETCH_MS = 4000
+
 export function useFirstOrderApi() {
   const ordersStore = useOrdersStore()
 
@@ -8,7 +10,8 @@ export function useFirstOrderApi() {
     try {
       return await $fetch<ReportAnalysis>('/api/report', {
         method: 'POST',
-        body: input
+        body: input,
+        timeout: FETCH_MS
       })
     } catch {
       return mockReportAnalysis(input.locale)
@@ -17,7 +20,9 @@ export function useFirstOrderApi() {
 
   async function getCatalog() {
     try {
-      return await $fetch<ReturnType<typeof mockCatalog>>('/api/supplements')
+      return await $fetch<ReturnType<typeof mockCatalog>>('/api/supplements', {
+        timeout: FETCH_MS
+      })
     } catch {
       return mockCatalog()
     }
@@ -28,7 +33,8 @@ export function useFirstOrderApi() {
     try {
       order = await $fetch<OrderRecord>('/api/orders', {
         method: 'POST',
-        body: input
+        body: input,
+        timeout: FETCH_MS
       })
     } catch {
       order = mockCreateOrder(input)
@@ -39,26 +45,21 @@ export function useFirstOrderApi() {
   }
 
   async function listOrders() {
-    try {
-      const remote = await $fetch<OrderRecord[]>('/api/orders')
-      for (const order of remote) {
-        ordersStore.add(order)
-      }
-    } catch {
-      ordersStore.hydrate()
-    }
-
+    ordersStore.hydrate()
     return ordersStore.list()
   }
 
   async function getOrder(id: string) {
+    ordersStore.hydrate()
     const local = ordersStore.getById(id)
     if (local) {
       return local
     }
 
     try {
-      const order = await $fetch<OrderRecord>(`/api/orders/${id}`)
+      const order = await $fetch<OrderRecord>(`/api/orders/${id}`, {
+        timeout: FETCH_MS
+      })
       ordersStore.add(order)
       return order
     } catch {
@@ -67,13 +68,16 @@ export function useFirstOrderApi() {
   }
 
   async function getOrderChat(id: string) {
+    ordersStore.hydrate()
     const local = ordersStore.getById(id)
     if (local) {
       return local.messages
     }
 
     try {
-      const payload = await $fetch<{ messages: ChatMessage[] }>(`/api/orders/${id}/chat`)
+      const payload = await $fetch<{ messages: ChatMessage[] }>(`/api/orders/${id}/chat`, {
+        timeout: FETCH_MS
+      })
       return payload.messages
     } catch {
       return []

@@ -1,4 +1,4 @@
-import { memoryGetOrder } from '../../../utils/order-memory'
+import { memoryGetOrder, memoryGetOrderChat } from '../../../utils/order-memory'
 
 export default defineEventHandler((event) => {
   const id = getRouterParam(event, 'id')
@@ -11,5 +11,5 @@ export default defineEventHandler((event) => {
     throw createError({ statusCode: 404, statusMessage: 'Order not found' })
   }
 
-  return { messages: order.messages }
+  return { messages: memoryGetOrderChat(id) }
 })

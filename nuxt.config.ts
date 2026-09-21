@@ -1,4 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import { fileURLToPath } from 'node:url'
+
 export default defineNuxtConfig({
   modules: [
     '@nuxt/eslint',
@@ -37,7 +39,13 @@ export default defineNuxtConfig({
   },
 
   vite: {
+    optimizeDeps: {
+      include: ['decimal.js-light', 'eventemitter3', 'vccs', 'motion-v']
+    },
     resolve: {
+      alias: {
+        'decimal.js-light': fileURLToPath(new URL('./node_modules/decimal.js-light/decimal.mjs', import.meta.url))
+      },
       dedupe: ['vue']
     }
   },

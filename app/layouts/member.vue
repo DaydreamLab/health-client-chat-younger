@@ -25,6 +25,7 @@
           :to="localePath('/app/orders')"
           variant="ghost"
           :class="isOrders ? 'justify-start app-nav-active' : 'justify-start'"
+          data-testid="nav-orders"
         >
           {{ $t('nav.orders') }}
         </AppButton>
@@ -79,6 +80,7 @@
           :to="localePath('/app/orders')"
           variant="ghost"
           :class="isOrders ? 'app-nav-active' : undefined"
+          data-testid="nav-orders-mobile"
         >
           {{ $t('nav.orders') }}
         </AppButton>

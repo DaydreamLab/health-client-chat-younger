@@ -1,4 +1,5 @@
 import { demoAssistantReply } from '../../app/utils/chat-demo'
+import { isSupplementPlanId } from '../../app/utils/first-order'
 import { isPlanId } from '../../app/utils/plans'
 
 type ChatPart = { type: string, text?: string }
@@ -31,7 +32,11 @@ export default defineEventHandler(async (event) => {
   }>(event)
 
   const question = lastUserText(body.messages)
-  const plan = isPlanId(body.plan) ? body.plan : undefined
+  const plan = isSupplementPlanId(body.plan)
+    ? body.plan
+    : isPlanId(body.plan)
+      ? body.plan
+      : undefined
 
   return {
     id: crypto.randomUUID(),

@@ -88,9 +88,15 @@
       >
         {{ $t('chat.thinking') }}
       </p>
+    </div>
+
+    <div
+      v-if="!readonly"
+      class="shrink-0 border-t border-default bg-elevated px-4 py-4 sm:px-6"
+    >
       <div
-        v-if="journey.hasAnalysis && !readonly && !escalated"
-        class="pt-2"
+        v-if="journey.hasAnalysis && !escalated"
+        class="mb-3"
       >
         <AppButton
           data-testid="chat-view-recommend"
@@ -99,12 +105,6 @@
           {{ $t('chat.viewRecommend') }}
         </AppButton>
       </div>
-    </div>
-
-    <div
-      v-if="!readonly"
-      class="shrink-0 border-t border-default bg-elevated px-4 py-4 sm:px-6"
-    >
       <div
         v-if="!escalated"
         class="mb-3 flex flex-wrap gap-2"
@@ -136,7 +136,7 @@
         <button
           type="button"
           class="app-btn app-btn-ghost size-10 shrink-0 px-0"
-          :disabled="escalated || pending"
+          :disabled="!canCompose"
           data-testid="chat-upload"
           :aria-label="$t('chat.upload')"
           @click="pickFile"
@@ -151,13 +151,13 @@
           rows="1"
           class="max-h-32 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-highlighted outline-none placeholder:text-muted"
           :placeholder="$t('chat.placeholder')"
-          :disabled="escalated || pending"
+          :disabled="!canCompose"
           data-testid="chat-input"
           @keydown.enter.exact.prevent="onSubmit"
         />
         <AppButton
           type="submit"
-          :disabled="escalated || pending"
+          :disabled="!canCompose"
           data-testid="chat-send"
         >
           {{ $t('chat.send') }}
@@ -170,7 +170,7 @@
 <script setup lang="ts">
 import { demoAssistantReply } from '~/utils/chat-demo'
 import { isPlanId, type PlanId } from '~/utils/plans'
-import type { ChatMessage } from '~/utils/first-order'
+import { isSupplementPlanId, type ChatMessage, type SupplementPlanId } from '~/utils/first-order'
 
 const chipKeys = ['hasReport', 'noReport', 'plans', 'next', 'upload'] as const
 
@@ -188,23 +188,44 @@ const transcriptEl = useTemplateRef<HTMLElement>('transcriptEl')
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
 const viewMessages = ref<ChatMessage[]>([])
 
-const orderId = computed(() => {
-  const raw = route.query.orderId
+function queryValue(value: unknown) {
+  const raw = Array.isArray(value) ? value[0] : value
   return typeof raw === 'string' ? raw : ''
-})
-
-const readonly = computed(() => Boolean(orderId.value))
+}
 
 function queryPlan(value: unknown): PlanId | undefined {
-  const raw = Array.isArray(value) ? value[0] : value
+  const raw = queryValue(value)
   return isPlanId(raw) ? raw : undefined
 }
 
-const selectedPlan = computed<PlanId | undefined>(() => queryPlan(route.query.plan))
+function queryShopPlan(value: unknown): SupplementPlanId | undefined {
+  const raw = queryValue(value)
+  return isSupplementPlanId(raw) ? raw : undefined
+}
+
+function queryOrderId(value: unknown) {
+  return queryValue(value)
+}
+
+const orderId = computed(() => queryOrderId(route.query.orderId))
+const readonly = computed(() => Boolean(orderId.value))
+const canCompose = computed(() => !readonly.value && !escalated.value && !pending.value)
+
+const selectedPlan = computed<PlanId | SupplementPlanId | undefined>(() => {
+  return queryShopPlan(route.query.plan) ?? queryPlan(route.query.plan)
+})
 
 const messages = computed(() => readonly.value ? viewMessages.value : journey.messages)
 
-function greetingKey(plan?: PlanId) {
+function greetingKey(plan?: PlanId | SupplementPlanId) {
+  if (plan === 'basicCare') {
+    return 'chat.greetBasicCare'
+  }
+
+  if (plan === 'fullTune') {
+    return 'chat.greetFullTune'
+  }
+
   if (plan === 'basic') {
     return 'chat.greetBasic'
   }
@@ -218,6 +239,13 @@ function greetingKey(plan?: PlanId) {
   }
 
   return 'chat.greet'
+}
+
+function applyShopPlanFromQuery() {
+  const shopPlan = queryShopPlan(route.query.plan)
+  if (shopPlan) {
+    journey.selectedPlanId = shopPlan
+  }
 }
 
 function makeMessage(role: ChatMessage['role'], text: string, id?: string, file?: string): ChatMessage {
@@ -234,11 +262,13 @@ function makeMessage(role: ChatMessage['role'], text: string, id?: string, file?
 }
 
 function ensureGreeting() {
+  applyShopPlanFromQuery()
+
   if (readonly.value || journey.messages.length > 0) {
     return
   }
 
-  journey.messages.push(makeMessage('assistant', t(greetingKey(queryPlan(route.query.plan))), 'greet'))
+  journey.messages.push(makeMessage('assistant', t(greetingKey(selectedPlan.value)), 'greet'))
 }
 
 ensureGreeting()
@@ -282,7 +312,7 @@ watch(
 
 async function sendText(text: string) {
   const content = text.trim()
-  if (!content || pending.value || escalated.value || readonly.value) {
+  if (!content || !canCompose.value) {
     return
   }
 
@@ -315,6 +345,10 @@ async function sendText(text: string) {
 }
 
 function onChip(key: typeof chipKeys[number]) {
+  if (!canCompose.value) {
+    return
+  }
+
   if (key === 'upload') {
     pickFile()
     return
@@ -324,6 +358,10 @@ function onChip(key: typeof chipKeys[number]) {
 }
 
 function pickFile() {
+  if (!canCompose.value) {
+    return
+  }
+
   fileInput.value?.click()
 }
 
@@ -331,7 +369,7 @@ async function onFile(event: Event) {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
   target.value = ''
-  if (!file || pending.value || escalated.value || readonly.value) {
+  if (!file || !canCompose.value) {
     return
   }
 
@@ -364,6 +402,10 @@ function onSubmit() {
 }
 
 function escalate() {
+  if (readonly.value) {
+    return
+  }
+
   if (!auth.isLoggedIn) {
     const chatPath = selectedPlan.value
       ? `${localePath('/chat')}?plan=${selectedPlan.value}&handoff=1`
@@ -379,6 +421,10 @@ function escalate() {
 }
 
 function goRecommend() {
+  if (readonly.value || escalated.value) {
+    return
+  }
+
   const path = localePath('/app/recommend')
   if (!auth.isLoggedIn) {
     return navigateTo({
@@ -390,22 +436,27 @@ function goRecommend() {
   return navigateTo(path)
 }
 
+async function loadOrderChat(id: string) {
+  pending.value = false
+  input.value = ''
+  viewMessages.value = await api.getOrderChat(id)
+  await nextTick()
+  scrollToLatest('auto')
+}
+
 watch(orderId, async (id) => {
   if (id) {
-    viewMessages.value = await api.getOrderChat(id)
-    await nextTick()
-    scrollToLatest('auto')
+    await loadOrderChat(id)
     return
   }
 
+  viewMessages.value = []
   ensureGreeting()
 })
 
 onMounted(async () => {
   if (orderId.value) {
-    viewMessages.value = await api.getOrderChat(orderId.value)
-    await nextTick()
-    scrollToLatest('auto')
+    await loadOrderChat(orderId.value)
     return
   }
 

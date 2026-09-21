@@ -3,11 +3,11 @@ import { demoAssistantReply } from '../../app/utils/chat-demo'
 
 describe('demoAssistantReply', () => {
   it('explains plans in Traditional Chinese', () => {
-    expect(demoAssistantReply({ question: '三個方案差在哪？', locale: 'zh-TW' })).toContain('一般適合')
+    expect(demoAssistantReply({ question: '兩個方案差在哪？', locale: 'zh-TW' })).toContain('基礎保養')
   })
 
   it('routes a no-report question to collection guidance', () => {
-    expect(demoAssistantReply({ question: 'I don\'t have a report yet', locale: 'en' })).toContain('Mid arranges collection')
+    expect(demoAssistantReply({ question: 'I don\'t have a report yet', locale: 'en' })).toContain('without a report')
   })
 
   it('reads an uploaded report toward month plans', () => {

@@ -80,7 +80,7 @@
             <CountUpNumber :value="healthMarkerCount" />+
           </p>
           <p class="mt-1 text-sm text-dimmed">
-            {{ $t('plans.premium') }}
+            {{ $t('shop.fullTune') }}
           </p>
         </article>
         <article class="rounded-2xl border border-default bg-elevated p-5">

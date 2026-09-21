@@ -4,6 +4,7 @@ import type { ConfigOptions } from '@nuxt/test-utils/playwright'
 
 export default defineConfig<ConfigOptions>({
   testDir: './test/e2e',
+  workers: 1,
   use: {
     colorScheme: 'light',
     locale: 'zh-TW',

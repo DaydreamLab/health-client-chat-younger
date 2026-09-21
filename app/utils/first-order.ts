@@ -36,6 +36,7 @@ export interface SupplementItem {
 export interface SupplementPlan {
   id: SupplementPlanId
   price: number
+  durationMonths: 1
   itemIds: SupplementItemId[]
 }
 
@@ -143,11 +144,13 @@ export const supplementPlans: Record<SupplementPlanId, SupplementPlan> = {
   basicCare: {
     id: 'basicCare',
     price: 1280,
+    durationMonths: 1,
     itemIds: ['vitaminD', 'iron', 'vitaminC']
   },
   fullTune: {
     id: 'fullTune',
     price: 1980,
+    durationMonths: 1,
     itemIds: ['vitaminD', 'iron', 'vitaminC', 'omega3', 'probiotic', 'magnesium']
   }
 }

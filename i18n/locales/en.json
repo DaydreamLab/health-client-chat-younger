@@ -22,7 +22,7 @@
   "hero": {
     "eyebrow": "Your physiology data advisor",
     "title": "See your health clearly —\nstart with a conversation.",
-    "description": "Choose a plan. AI first asks whether you already have a report and what to do next.\nBrowsing is open; membership is required for a specialist or to keep your records.",
+    "description": "Pick a one-month plan, then chat or upload labs.\nBrowsing is open; membership is required for a specialist or to keep your records.",
     "ctaChat": "Start consult",
     "ctaPlans": "See plans"
   },
@@ -36,8 +36,8 @@
     "threeHint": "Reading, collection, or product picks happen on their system. This app does not show that consult."
   },
   "plans": {
-    "title": "Three plans, matched to where you are",
-    "subtitle": "A plan opens consult. Whether you have a report is confirmed in the chat.",
+    "title": "Two one-month plans",
+    "subtitle": "A plan opens consult. Chat or upload labs, then confirm Basic Care or Full Tune.",
     "cta": "Start with this plan",
     "recommended": "Recommended",
     "who": "Who it's for",
@@ -137,17 +137,19 @@
     "chips": {
       "hasReport": "I already have a blood report",
       "noReport": "I don't have a report yet",
-      "plans": "How do the three plans differ?",
+      "plans": "How do the two plans differ?",
       "next": "What happens next?",
       "upload": "Upload a blood report"
     },
-    "greet": "Hi, I'm the Candor consult assistant. Do you already have a blood report, or do you want to look at plans first? When you're ready for a person, tap Talk to a specialist.",
+    "greet": "Hi, I'm the Candor consult assistant. Do you already have a blood report, or do you want to look at the one-month plans first? When you're ready for a person, tap Talk to a specialist.",
     "greetBasic": "You picked Basic: report reading. That path is for people who already have paper labs. Is this your latest report, and is there a number you want to look at first?",
     "greetMid": "You picked Mid: assisted testing. If you don't have a report yet, we'll explain how collection is arranged. Are you more concerned about fatigue, metabolism, or a fuller panel?",
     "greetPremium": "You picked Premium: personalized products. After payment you get a consult and keyed-in shipment. Do you already have a report, or do you need collection first?",
+    "greetBasicCare": "You picked Basic Care. Tell me if you have a blood report, or upload it — then you can see the chart and the one-month items.",
+    "greetFullTune": "You picked Full Tune, which is Basic Care plus extras. Tell me if you have a report, or upload labs first.",
     "upload": "Upload labs",
     "uploaded": "Uploaded {name}",
-    "viewRecommend": "See chart and plans",
+    "viewRecommend": "See recommended plan",
     "viewOnlyTitle": "Order conversation",
     "viewOnlyBody": "This chat was saved when payment created the order. It is view-only — no editing or uploads."
   },
@@ -158,8 +160,8 @@
     "ref": "Reference"
   },
   "shop": {
-    "title": "One-month supplement plans",
-    "subtitle": "Recommended from this blood test. Items and doses are set by the system — you cannot add or remove them.",
+    "title": "Recommended plan",
+    "subtitle": "Items and doses come from this blood test. You cannot add, remove, or change them.",
     "coreTitle": "Basic Care",
     "coreHint": "Core supplements for the markers that are off",
     "plusTitle": "Full Tune extras",
@@ -167,6 +169,7 @@
     "item": "Item",
     "need": "Why",
     "dose": "Daily dose",
+    "doseLocked": "{count} pack / day",
     "daily": "Per day",
     "monthly": "Per month",
     "planPick": "Choose a one-month plan",
@@ -184,42 +187,42 @@
     "items": {
       "vitaminD": {
         "name": "Vitamin D",
-        "english": "Sunny D3",
+        "english": "Vitamin D",
         "need": "Limited sun exposure may affect bone and immune status.",
         "blurb": "Supports calcium absorption and everyday defense.",
         "usage": "One pack daily with food, one month per fill."
       },
       "iron": {
         "name": "Iron complex",
-        "english": "Red Booster",
+        "english": "Iron",
         "need": "Ferritin is low, which can relate to fatigue and color.",
         "blurb": "A core fill for the low ferritin on this panel.",
         "usage": "One pack daily; avoid tea and coffee around it."
       },
       "vitaminC": {
         "name": "Vitamin C",
-        "english": "Citrus C",
+        "english": "Vitamin C",
         "need": "Baseline antioxidant support and iron absorption.",
         "blurb": "Everyday antioxidant support that also helps iron uptake.",
         "usage": "One pack daily, with or staggered from iron as directed."
       },
       "omega3": {
         "name": "Omega-3",
-        "english": "Marine Omega",
+        "english": "Omega-3",
         "need": "Extra metabolic and cardiovascular support.",
         "blurb": "A Full Tune extra for essential fatty acids.",
         "usage": "One pack daily with food."
       },
       "probiotic": {
         "name": "Probiotic",
-        "english": "Gut Formula",
+        "english": "Probiotic",
         "need": "Extra gut and immune support.",
         "blurb": "A Full Tune extra for everyday gut care.",
         "usage": "One pack daily, empty stomach or at night."
       },
       "magnesium": {
         "name": "Magnesium",
-        "english": "Mag Coat",
+        "english": "Magnesium",
         "need": "Mineral support related to stress and sleep.",
         "blurb": "A Full Tune extra for magnesium.",
         "usage": "One pack daily in the evening."
@@ -263,7 +266,7 @@
     "viewChat": "View previous chat",
     "viewDetail": "Order detail",
     "timeline": "Shipment",
-    "confirmed": "Confirmed",
+    "confirmed": "Confirming",
     "picking": "Picking",
     "shipped": "Shipped",
     "delivered": "Delivered",

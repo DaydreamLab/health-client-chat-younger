@@ -447,25 +447,6 @@ button:focus:not(:focus-visible) {
     }
   }
 
-  .app-shop-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 1rem 1.25rem;
-    border-bottom: 1px solid var(--ui-border);
-  }
-
-  .app-shop-head {
-    padding-bottom: 0.5rem;
-    border-bottom-style: dashed;
-  }
-
-  .app-shop-row:last-child {
-    border-bottom: 0;
-  }
-
   .app-timeline {
     display: flex;
     width: 100%;
@@ -484,15 +465,23 @@ button:focus:not(:focus-visible) {
   }
 
   .app-timeline-dot {
-    width: 0.75rem;
-    height: 0.75rem;
+    display: inline-flex;
+    width: 1rem;
+    height: 1rem;
     flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
     border-radius: 9999px;
     background-color: var(--ui-border);
   }
 
-  .app-timeline-step-done .app-timeline-dot {
+  .app-timeline-step-done .app-timeline-dot,
+  .app-timeline-step-current .app-timeline-dot {
     background-color: var(--ui-primary);
+  }
+
+  .app-timeline-step-current .app-timeline-dot {
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--ui-primary) 22%, transparent);
   }
 
   .app-timeline-line {

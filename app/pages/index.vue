@@ -74,104 +74,37 @@
         {{ $t('plans.subtitle') }}
       </p>
 
-      <div
-        class="mt-5 flex flex-wrap gap-2"
-        role="tablist"
-        :aria-label="$t('nav.plans')"
-      >
-        <button
-          v-for="id in planIds"
-          :key="id"
-          type="button"
-          role="tab"
-          class="app-chip"
-          :class="{ 'app-path-card-selected': selectedPlan === id }"
-          :aria-selected="selectedPlan === id"
-          :data-testid="`plan-tab-${id}`"
-          @click="selectedPlan = id"
-        >
-          {{ $t(`plans.${id}`) }}
-        </button>
-      </div>
-
-      <article class="app-plan-showcase mt-5 md:grid-cols-2">
-        <div class="app-plan-visual">
-          <div class="app-plan-visual-icon">
-            <UIcon
-              :name="planMeta[selectedPlan].icon"
-              class="size-7"
-            />
-          </div>
-          <div>
-            <p class="text-xs font-medium text-primary">
-              {{ $t('plans.visualHint') }}
-            </p>
-            <p class="mt-2 max-w-xs text-lg font-semibold text-highlighted">
-              {{ $t(`plans.${selectedPlan}`) }}
-            </p>
-          </div>
-        </div>
-        <div class="flex flex-col justify-center p-6 sm:p-8">
-          <div class="flex flex-wrap items-center gap-2">
-            <h3 class="text-2xl font-semibold text-highlighted">
-              {{ $t(`plans.${selectedPlan}`) }}
-            </h3>
-            <span
-              v-if="planMeta[selectedPlan].recommended"
-              class="app-badge app-badge-demo"
-            >
-              {{ $t('plans.recommended') }}
-            </span>
-          </div>
-          <p class="mt-4 text-sm text-muted">
-            <span class="font-medium text-highlighted">{{ $t('plans.who') }} · </span>
-            {{ $t(`plans.${selectedPlan}Who`) }}
-          </p>
-          <p class="mt-2 text-sm text-muted">
-            <span class="font-medium text-highlighted">{{ $t('plans.gets') }} · </span>
-            {{ $t(`plans.${selectedPlan}Gets`) }}
-          </p>
-          <div class="mt-6">
-            <AppButton
-              :to="chatPath(selectedPlan)"
-              :data-testid="`plan-cta-${selectedPlan}`"
-            >
-              {{ $t('plans.cta') }}
-            </AppButton>
-          </div>
-        </div>
-      </article>
-
-      <div class="mt-6 grid gap-4 lg:grid-cols-3">
+      <div class="mt-6 grid gap-4 sm:grid-cols-2">
         <NuxtLink
-          v-for="id in planIds"
+          v-for="id in supplementPlanIds"
           :key="id"
           :to="chatPath(id)"
-          class="group rounded-2xl border border-default bg-elevated p-5 transition hover:border-primary/40 hover:shadow-lg"
-          :class="{ 'ring-2 ring-primary/30': selectedPlan === id }"
+          class="app-path-card"
           :data-testid="`plan-${id}`"
-          @click="selectedPlan = id"
+          @click="selectPlan(id)"
         >
-          <UIcon
-            :name="planMeta[id].icon"
-            class="size-8 text-primary"
-          />
-          <div class="mt-3 flex flex-wrap items-center gap-2">
-            <h3 class="font-medium text-highlighted">
-              {{ $t(`plans.${id}`) }}
-            </h3>
+          <div class="flex flex-wrap items-start justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <UIcon
+                :name="id === 'fullTune' ? 'i-lucide-sparkles' : 'i-lucide-file-text'"
+                class="size-5 text-primary"
+              />
+              <h3 class="text-lg font-semibold text-highlighted">
+                {{ $t(`shop.${id}`) }}
+              </h3>
+            </div>
             <span
-              v-if="planMeta[id].recommended"
+              v-if="id === 'fullTune'"
               class="app-badge app-badge-demo"
             >
-              {{ $t('plans.recommended') }}
+              {{ $t('shop.recommended') }}
             </span>
           </div>
-          <p class="mt-2 text-sm text-muted">
-            {{ $t(`plans.${id}Who`) }}
+          <p class="mt-3 text-xl font-semibold text-primary">
+            {{ $t('shop.perMonth', { price: formatTwd(supplementPlans[id].price) }) }}
           </p>
-          <p class="mt-1 text-sm text-dimmed">
-            {{ $t(`plans.${id}Gets`) }}
+          <p class="mt-2 text-sm text-muted">
+            {{ $t(`shop.${id}Hint`, { count: supplementPlans[id].itemIds.length }) }}
           </p>
           <p class="mt-4 text-sm font-medium text-primary">
             {{ $t('plans.cta') }}
@@ -206,14 +139,23 @@
 </template>
 
 <script setup lang="ts">
-import { planIds, planMeta, type PlanId } from '~/utils/plans'
+import {
+  formatTwd,
+  supplementPlanIds,
+  supplementPlans,
+  type SupplementPlanId
+} from '~/utils/first-order'
 
 const localePath = useLocalePath()
-const selectedPlan = ref<PlanId>('premium')
+const journey = useJourneyStore()
 const stepKeys = ['one', 'two', 'three'] as const
 const systemKeys = ['nutrition', 'metabolic', 'cardio', 'detox', 'endocrine', 'immune'] as const
 
-function chatPath(plan: PlanId) {
+function chatPath(plan: SupplementPlanId) {
   return `${localePath('/chat')}?plan=${plan}`
+}
+
+function selectPlan(plan: SupplementPlanId) {
+  journey.selectedPlanId = plan
 }
 </script>
