@@ -9,4 +9,8 @@ describe('demoAssistantReply', () => {
   it('routes a no-report question to collection guidance', () => {
     expect(demoAssistantReply({ question: 'I don\'t have a report yet', locale: 'en' })).toContain('Mid arranges collection')
   })
+
+  it('reads an uploaded report toward month plans', () => {
+    expect(demoAssistantReply({ question: '上傳血檢報告檔', locale: 'zh-TW' })).toContain('基礎保養')
+  })
 })

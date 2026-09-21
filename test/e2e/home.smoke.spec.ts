@@ -81,7 +81,7 @@ test('specialist handoff asks for login then shows health dashboard', async ({ p
   await expect(page.getByRole('heading', { name: '我的健康' })).toBeVisible()
   await expect(page.getByText('示範資料')).toBeVisible()
   await expect(page.getByTestId('health-score')).toBeVisible()
-  await expect(page.getByRole('heading', { name: '分數趨勢' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '血檢數值' })).toBeVisible()
   await expect(page.getByRole('heading', { name: '營養' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'AI 教練' })).toHaveCount(0)
   await expect(page.getByRole('link', { name: '諮詢' }).first()).toBeVisible()

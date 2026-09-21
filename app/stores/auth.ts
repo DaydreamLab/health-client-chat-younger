@@ -26,7 +26,9 @@ function initialsFromName(name: string) {
 
 export const useAuthStore = defineStore('auth', () => {
   const user = useCookie<AuthUser | null>('younger-session', {
-    default: () => null
+    path: '/',
+    sameSite: 'lax',
+    maxAge: 60 * 60 * 24 * 14
   })
 
   const isLoggedIn = computed(() => Boolean(user.value))

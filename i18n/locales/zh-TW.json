@@ -9,6 +9,7 @@
     "plans": "方案",
     "login": "登入",
     "member": "我的健康",
+    "orders": "我的訂單",
     "chat": "諮詢",
     "logout": "登出",
     "startChat": "開始諮詢"
@@ -137,12 +138,138 @@
       "hasReport": "我已有血檢報告",
       "noReport": "我還沒有報告",
       "plans": "三個方案差在哪？",
-      "next": "接下來要做什麼？"
+      "next": "接下來要做什麼？",
+      "upload": "上傳血檢報告"
     },
     "greet": "你好，我是坦見的諮詢助理。你現在有血檢報告嗎？還是想先了解方案？準備好交給專人時，再按「專人客服」。",
     "greetBasic": "你選了一般「報告解讀」。這條路適合手上已有紙本血檢的人。你方便先告訴我：報告是最近一次的嗎？有沒有特別想先看的數字？",
     "greetMid": "你選了中階「協助採檢」。還沒有報告的話，我們會先說明怎麼安排驗血。你比較在意疲勞、代謝，還是想做一次比較完整的檢測？",
-    "greetPremium": "你選了高級「個人化選品」。付完會進入諮詢與選品出貨。你現在有報告，還是需要先採檢？"
+    "greetPremium": "你選了高級「個人化選品」。付完會進入諮詢與選品出貨。你現在有報告，還是需要先採檢？",
+    "upload": "上傳血檢",
+    "uploaded": "已上傳 {name}",
+    "viewRecommend": "查看圖表與推薦方案",
+    "viewOnlyTitle": "訂單對話紀錄",
+    "viewOnlyBody": "這筆對話在付款成立後保存，只能查看，不能編輯或上傳。"
+  },
+  "labChart": {
+    "title": "血檢數值",
+    "hint": "你的數值對照參考區間中點",
+    "yours": "你的數值",
+    "ref": "參考"
+  },
+  "shop": {
+    "title": "一個月保健方案",
+    "subtitle": "依這次血檢推薦。品項與劑量由系統給定，不能自行增減。",
+    "coreTitle": "基礎保養",
+    "coreHint": "對應這次異常指標的基礎補充",
+    "plusTitle": "完整調理加碼",
+    "plusHint": "在基礎保養之外的加強項目",
+    "item": "品項",
+    "need": "需求",
+    "dose": "每日顆數",
+    "daily": "每日費用",
+    "monthly": "每月費用",
+    "planPick": "請選擇一個月方案",
+    "basicCare": "基礎保養",
+    "basicCareHint": "對應異常指標的基礎補充，共 {count} 項",
+    "fullTune": "完整調理",
+    "fullTuneHint": "基礎保養＋加強項目，共 {count} 項",
+    "perMonth": "{price}／月",
+    "recommended": "推薦",
+    "detailTitle": "產品說明",
+    "englishName": "英文名",
+    "usage": "使用方式",
+    "shipping": "配送：宅配到府",
+    "close": "關閉",
+    "items": {
+      "vitaminD": {
+        "name": "維生素 D",
+        "english": "Sunny D3",
+        "need": "日曬時間不足，可能影響骨骼與免疫。",
+        "blurb": "補充維生素 D，協助鈣吸收與日常防護。",
+        "usage": "每日 1 包，隨餐服用，一個月為一份。"
+      },
+      "iron": {
+        "name": "鐵蛋白調理",
+        "english": "Red Booster",
+        "need": "鐵蛋白偏低，可能與疲勞、氣色有關。",
+        "blurb": "針對這次血檢偏低的鐵蛋白做基礎補充。",
+        "usage": "每日 1 包，建議避開茶與咖啡。"
+      },
+      "vitaminC": {
+        "name": "維生素 C",
+        "english": "Citrus C",
+        "need": "抗氧化與鐵吸收的基礎支持。",
+        "blurb": "日常抗氧化，並協助鐵的吸收。",
+        "usage": "每日 1 包，可與鐵劑錯開或同餐依說明。"
+      },
+      "omega3": {
+        "name": "Omega-3",
+        "english": "Marine Omega",
+        "need": "代謝與心血管的加強支持。",
+        "blurb": "完整調理加碼，補充必需脂肪酸。",
+        "usage": "每日 1 包，隨餐服用。"
+      },
+      "probiotic": {
+        "name": "益生菌",
+        "english": "Gut Formula",
+        "need": "腸道與免疫的額外支持。",
+        "blurb": "完整調理加碼，協助日常腸道保養。",
+        "usage": "每日 1 包，空腹或睡前。"
+      },
+      "magnesium": {
+        "name": "鎂",
+        "english": "Mag Coat",
+        "need": "壓力與睡眠相關的礦物質支持。",
+        "blurb": "完整調理加碼，補充鎂。",
+        "usage": "每日 1 包，晚上服用。"
+      }
+    }
+  },
+  "checkout": {
+    "title": "訂閱資訊",
+    "name": "收件姓名",
+    "phone": "手機號碼",
+    "address": "宅配地址",
+    "delivery": "配送方式",
+    "deliveryHome": "宅配到府",
+    "deliveryHint": "出貨後可在訂單頁查看時間軸。",
+    "payment": "付款方式",
+    "card": "信用卡（示範）",
+    "linepay": "LINE Pay（示範）",
+    "atm": "ATM 轉帳（示範）",
+    "invoice": "發票",
+    "cloud": "雲端發票",
+    "company": "公司戶電子發票",
+    "donate": "捐贈發票",
+    "subtotal": "方案金額",
+    "shippingFee": "運費",
+    "shippingFree": "免運",
+    "total": "總金額",
+    "submit": "確認付款（示範）",
+    "loginToPay": "登入後才能付款",
+    "error": "請填寫收件姓名、手機與地址。"
+  },
+  "orders": {
+    "title": "我的訂單",
+    "subtitle": "這裡只會出現已付款的訂單。未付款就離開或重整，對話不會留下。",
+    "empty": "完成第一次付款後，訂單會出現在這裡。未付款的對話不會留下紀錄。",
+    "number": "訂單編號",
+    "date": "訂單日期",
+    "amount": "訂購總額",
+    "payment": "付款方式",
+    "plan": "方案",
+    "items": "品項",
+    "viewChat": "查看先前對話",
+    "viewDetail": "訂單明細",
+    "timeline": "出貨紀錄",
+    "confirmed": "訂單確認中",
+    "picking": "理貨",
+    "shipped": "出貨",
+    "delivered": "已送達",
+    "back": "回到訂單列表",
+    "recipient": "收件人",
+    "address": "地址"
   },
   "footer": "© {year} 坦見。保留所有權利。"
 }

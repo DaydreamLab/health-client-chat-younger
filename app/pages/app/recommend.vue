@@ -1,0 +1,422 @@
+<template>
+  <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+    <div class="space-y-6">
+      <section class="rounded-2xl border border-default bg-elevated p-5">
+        <h1 class="text-xl font-semibold text-highlighted">
+          {{ $t('shop.title') }}
+        </h1>
+        <p class="mt-1 text-sm text-muted">
+          {{ $t('shop.subtitle') }}
+        </p>
+        <div class="mt-4">
+          <h2 class="font-semibold text-highlighted">
+            {{ $t('labChart.title') }}
+          </h2>
+          <p class="mt-1 text-sm text-dimmed">
+            {{ $t('labChart.hint') }}
+          </p>
+          <div class="mt-3">
+            <LabBarChart />
+          </div>
+        </div>
+      </section>
+
+      <section class="overflow-hidden rounded-2xl border border-default bg-elevated">
+        <div class="border-b border-default px-5 py-4">
+          <h2 class="font-semibold text-highlighted">
+            {{ $t('shop.coreTitle') }}
+          </h2>
+          <p class="mt-1 text-sm text-muted">
+            {{ $t('shop.coreHint') }}
+          </p>
+        </div>
+        <div class="app-shop-row app-shop-head">
+          <p class="min-w-0 flex-1 text-xs text-muted">
+            {{ $t('shop.item') }}
+          </p>
+          <div class="grid shrink-0 grid-cols-3 gap-3 text-end text-xs text-muted">
+            <p>{{ $t('shop.dose') }}</p>
+            <p>{{ $t('shop.daily') }}</p>
+            <p>{{ $t('shop.monthly') }}</p>
+          </div>
+        </div>
+        <ul>
+          <li
+            v-for="item in coreItems"
+            :key="item.id"
+            class="app-shop-row"
+          >
+            <button
+              type="button"
+              class="flex min-w-0 flex-1 items-start gap-3 text-start"
+              :data-testid="`shop-item-${item.id}`"
+              @click="detail = item"
+            >
+              <span
+                class="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl text-sm font-semibold text-white"
+                :style="{ backgroundColor: item.swatch }"
+              >
+                {{ item.id.slice(0, 1).toUpperCase() }}
+              </span>
+              <span class="min-w-0">
+                <span class="block font-medium text-highlighted">
+                  {{ $t(`shop.items.${item.id}.name`) }}
+                </span>
+                <span class="mt-0.5 block text-xs text-muted">
+                  {{ $t(`shop.items.${item.id}.english`) }}
+                </span>
+                <span class="mt-1 block text-sm text-muted">
+                  {{ $t(`shop.items.${item.id}.need`) }}
+                </span>
+              </span>
+            </button>
+            <div class="grid shrink-0 grid-cols-3 gap-3 text-end text-sm">
+              <p
+                class="tabular-nums text-highlighted"
+                :data-testid="`shop-dose-${item.id}`"
+              >
+                {{ item.dailyDose }}
+              </p>
+              <p class="tabular-nums text-muted">
+                {{ formatTwd(item.dailyCost) }}
+              </p>
+              <p class="tabular-nums font-medium text-highlighted">
+                {{ formatTwd(item.monthlyCost) }}
+              </p>
+            </div>
+          </li>
+        </ul>
+
+        <template v-if="showPlus">
+          <div class="border-y border-default bg-muted px-5 py-3">
+            <h2 class="font-semibold text-highlighted">
+              {{ $t('shop.plusTitle') }}
+            </h2>
+            <p class="mt-1 text-sm text-muted">
+              {{ $t('shop.plusHint') }}
+            </p>
+          </div>
+          <ul>
+            <li
+              v-for="item in plusItems"
+              :key="item.id"
+              class="app-shop-row"
+            >
+              <button
+                type="button"
+                class="flex min-w-0 flex-1 items-start gap-3 text-start"
+                :data-testid="`shop-item-${item.id}`"
+                @click="detail = item"
+              >
+                <span
+                  class="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl text-sm font-semibold text-white"
+                  :style="{ backgroundColor: item.swatch }"
+                >
+                  {{ item.id.slice(0, 1).toUpperCase() }}
+                </span>
+                <span class="min-w-0">
+                  <span class="block font-medium text-highlighted">
+                    {{ $t(`shop.items.${item.id}.name`) }}
+                  </span>
+                  <span class="mt-0.5 block text-xs text-muted">
+                    {{ $t(`shop.items.${item.id}.english`) }}
+                  </span>
+                  <span class="mt-1 block text-sm text-muted">
+                    {{ $t(`shop.items.${item.id}.need`) }}
+                  </span>
+                </span>
+              </button>
+              <div class="grid shrink-0 grid-cols-3 gap-3 text-end text-sm">
+                <p
+                  class="tabular-nums text-highlighted"
+                  :data-testid="`shop-dose-${item.id}`"
+                >
+                  {{ item.dailyDose }}
+                </p>
+                <p class="tabular-nums text-muted">
+                  {{ formatTwd(item.dailyCost) }}
+                </p>
+                <p class="tabular-nums font-medium text-highlighted">
+                  {{ formatTwd(item.monthlyCost) }}
+                </p>
+              </div>
+            </li>
+          </ul>
+        </template>
+      </section>
+
+      <section class="rounded-2xl border border-default bg-elevated p-5">
+        <h2 class="font-semibold text-highlighted">
+          {{ $t('shop.planPick') }}
+        </h2>
+        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+          <label
+            v-for="plan in planOptions"
+            :key="plan.id"
+            class="app-path-card"
+            :class="{ 'app-path-card-selected': journey.selectedPlanId === plan.id }"
+            :data-testid="`shop-plan-${plan.id}`"
+          >
+            <input
+              v-model="journey.selectedPlanId"
+              type="radio"
+              class="sr-only"
+              :value="plan.id"
+            >
+            <div class="flex items-start justify-between gap-2">
+              <p class="font-medium text-highlighted">
+                {{ $t(`shop.${plan.id}`) }}
+              </p>
+              <span
+                v-if="plan.id === 'fullTune'"
+                class="app-badge app-badge-demo"
+              >
+                {{ $t('shop.recommended') }}
+              </span>
+            </div>
+            <p class="mt-2 text-lg font-semibold text-primary">
+              {{ $t('shop.perMonth', { price: formatTwd(plan.price) }) }}
+            </p>
+            <p class="mt-1 text-sm text-muted">
+              {{ $t(`shop.${plan.id}Hint`, { count: plan.itemIds.length }) }}
+            </p>
+          </label>
+        </div>
+      </section>
+    </div>
+
+    <aside class="h-fit rounded-2xl border border-default bg-elevated p-5 lg:sticky lg:top-6">
+      <h2 class="font-semibold text-highlighted">
+        {{ $t('checkout.title') }}
+      </h2>
+      <dl class="mt-4 space-y-2 text-sm">
+        <div class="flex justify-between gap-3">
+          <dt class="text-muted">
+            {{ $t('checkout.subtotal') }}
+          </dt>
+          <dd class="tabular-nums text-highlighted">
+            {{ formatTwd(selectedPlan.price) }}
+          </dd>
+        </div>
+        <div class="flex justify-between gap-3">
+          <dt class="text-muted">
+            {{ $t('checkout.shippingFee') }}
+          </dt>
+          <dd class="text-highlighted">
+            {{ $t('checkout.shippingFree') }}
+          </dd>
+        </div>
+        <div class="flex justify-between gap-3 border-t border-default pt-2 font-medium">
+          <dt class="text-highlighted">
+            {{ $t('checkout.total') }}
+          </dt>
+          <dd
+            class="tabular-nums text-primary"
+            data-testid="checkout-total"
+          >
+            {{ formatTwd(selectedPlan.price) }}
+          </dd>
+        </div>
+      </dl>
+
+      <form
+        class="mt-5 space-y-3"
+        @submit.prevent="onPay"
+      >
+        <label class="block text-sm">
+          <span class="mb-1 block text-highlighted">{{ $t('checkout.name') }}</span>
+          <input
+            v-model="name"
+            required
+            class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            data-testid="checkout-name"
+          >
+        </label>
+        <label class="block text-sm">
+          <span class="mb-1 block text-highlighted">{{ $t('checkout.phone') }}</span>
+          <input
+            v-model="phone"
+            required
+            type="tel"
+            class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            data-testid="checkout-phone"
+          >
+        </label>
+        <label class="block text-sm">
+          <span class="mb-1 block text-highlighted">{{ $t('checkout.address') }}</span>
+          <input
+            v-model="address"
+            required
+            class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            data-testid="checkout-address"
+          >
+        </label>
+
+        <fieldset>
+          <legend class="mb-2 text-sm font-medium text-highlighted">
+            {{ $t('checkout.delivery') }}
+          </legend>
+          <label class="flex items-center gap-2 text-sm text-highlighted">
+            <input
+              type="radio"
+              checked
+              class="accent-primary"
+            >
+            {{ $t('checkout.deliveryHome') }}
+          </label>
+          <p class="mt-1 text-xs text-dimmed">
+            {{ $t('checkout.deliveryHint') }}
+          </p>
+        </fieldset>
+
+        <fieldset>
+          <legend class="mb-2 text-sm font-medium text-highlighted">
+            {{ $t('checkout.payment') }}
+          </legend>
+          <label
+            v-for="method in paymentMethods"
+            :key="method"
+            class="flex items-center gap-2 text-sm text-highlighted"
+          >
+            <input
+              v-model="paymentMethod"
+              type="radio"
+              class="accent-primary"
+              :value="method"
+            >
+            {{ $t(`checkout.${method}`) }}
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend class="mb-2 text-sm font-medium text-highlighted">
+            {{ $t('checkout.invoice') }}
+          </legend>
+          <label
+            v-for="option in invoiceOptions"
+            :key="option"
+            class="flex items-center gap-2 text-sm text-highlighted"
+          >
+            <input
+              v-model="invoice"
+              type="radio"
+              class="accent-primary"
+              :value="option"
+            >
+            {{ $t(`checkout.${option}`) }}
+          </label>
+        </fieldset>
+
+        <p
+          v-if="error"
+          class="text-sm text-error"
+        >
+          {{ error }}
+        </p>
+
+        <AppButton
+          type="submit"
+          class="w-full"
+          :disabled="pending"
+          data-testid="checkout-submit"
+        >
+          {{ $t('checkout.submit') }}
+        </AppButton>
+      </form>
+    </aside>
+
+    <SupplementDetailModal
+      :item="detail"
+      @close="detail = null"
+    />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { checkoutSchema } from '~/utils/checkout-schema'
+import {
+  formatTwd,
+  itemsForPlan,
+  supplementPlans,
+  type InvoiceType,
+  type PaymentMethod,
+  type SupplementItem
+} from '~/utils/first-order'
+
+definePageMeta({
+  layout: 'member',
+  middleware: 'auth'
+})
+
+const { t } = useI18n()
+const localePath = useLocalePath()
+const auth = useAuthStore()
+const journey = useJourneyStore()
+const api = useFirstOrderApi()
+
+const name = ref(auth.displayName)
+const phone = ref('')
+const address = ref('')
+const paymentMethod = ref<PaymentMethod>('card')
+const invoice = ref<InvoiceType>('cloud')
+const pending = ref(false)
+const error = ref('')
+const detail = ref<SupplementItem | null>(null)
+
+const paymentMethods: PaymentMethod[] = ['card', 'linepay', 'atm']
+const invoiceOptions: InvoiceType[] = ['cloud', 'company', 'donate']
+const planOptions = Object.values(supplementPlans)
+
+const selectedPlan = computed(() => supplementPlans[journey.selectedPlanId])
+const selectedItems = computed(() => itemsForPlan(journey.selectedPlanId))
+const coreItems = computed(() => selectedItems.value.filter(item => item.tier === 'core'))
+const plusItems = computed(() => selectedItems.value.filter(item => item.tier === 'plus'))
+const showPlus = computed(() => plusItems.value.length > 0)
+
+async function onPay() {
+  const parsed = checkoutSchema.safeParse({
+    name: name.value,
+    phone: phone.value,
+    address: address.value,
+    paymentMethod: paymentMethod.value,
+    invoice: invoice.value,
+    planId: journey.selectedPlanId
+  })
+
+  if (!parsed.success) {
+    error.value = t('checkout.error')
+    return
+  }
+
+  pending.value = true
+  error.value = ''
+
+  try {
+    const order = await api.createOrder({
+      planId: parsed.data.planId,
+      paymentMethod: parsed.data.paymentMethod,
+      invoice: parsed.data.invoice,
+      recipient: {
+        name: parsed.data.name,
+        phone: parsed.data.phone,
+        address: parsed.data.address,
+        email: auth.user?.email ?? ''
+      },
+      messages: journey.snapshotMessages()
+    })
+    journey.clearSession()
+    await navigateTo(localePath(`/app/orders/${order.id}`))
+  } catch {
+    error.value = t('checkout.error')
+  } finally {
+    pending.value = false
+  }
+}
+
+onMounted(() => {
+  void api.getCatalog()
+  if (!journey.hasAnalysis) {
+    journey.hasAnalysis = true
+  }
+})
+</script>

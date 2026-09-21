@@ -9,6 +9,7 @@
     "plans": "Plans",
     "login": "Log in",
     "member": "My health",
+    "orders": "My orders",
     "chat": "Consult",
     "logout": "Log out",
     "startChat": "Start consult"
@@ -137,12 +138,138 @@
       "hasReport": "I already have a blood report",
       "noReport": "I don't have a report yet",
       "plans": "How do the three plans differ?",
-      "next": "What happens next?"
+      "next": "What happens next?",
+      "upload": "Upload a blood report"
     },
     "greet": "Hi, I'm the Candor consult assistant. Do you already have a blood report, or do you want to look at plans first? When you're ready for a person, tap Talk to a specialist.",
     "greetBasic": "You picked Basic: report reading. That path is for people who already have paper labs. Is this your latest report, and is there a number you want to look at first?",
     "greetMid": "You picked Mid: assisted testing. If you don't have a report yet, we'll explain how collection is arranged. Are you more concerned about fatigue, metabolism, or a fuller panel?",
-    "greetPremium": "You picked Premium: personalized products. After payment you get a consult and keyed-in shipment. Do you already have a report, or do you need collection first?"
+    "greetPremium": "You picked Premium: personalized products. After payment you get a consult and keyed-in shipment. Do you already have a report, or do you need collection first?",
+    "upload": "Upload labs",
+    "uploaded": "Uploaded {name}",
+    "viewRecommend": "See chart and plans",
+    "viewOnlyTitle": "Order conversation",
+    "viewOnlyBody": "This chat was saved when payment created the order. It is view-only — no editing or uploads."
+  },
+  "labChart": {
+    "title": "Lab values",
+    "hint": "Your numbers against the midpoint of the reference range",
+    "yours": "Yours",
+    "ref": "Reference"
+  },
+  "shop": {
+    "title": "One-month supplement plans",
+    "subtitle": "Recommended from this blood test. Items and doses are set by the system — you cannot add or remove them.",
+    "coreTitle": "Basic Care",
+    "coreHint": "Core supplements for the markers that are off",
+    "plusTitle": "Full Tune extras",
+    "plusHint": "Add-ons on top of Basic Care",
+    "item": "Item",
+    "need": "Why",
+    "dose": "Daily dose",
+    "daily": "Per day",
+    "monthly": "Per month",
+    "planPick": "Choose a one-month plan",
+    "basicCare": "Basic Care",
+    "basicCareHint": "Core supplements for off-range markers, {count} items",
+    "fullTune": "Full Tune",
+    "fullTuneHint": "Basic Care plus extras, {count} items",
+    "perMonth": "{price} / mo",
+    "recommended": "Recommended",
+    "detailTitle": "Product details",
+    "englishName": "English name",
+    "usage": "How to take",
+    "shipping": "Delivery: home delivery",
+    "close": "Close",
+    "items": {
+      "vitaminD": {
+        "name": "Vitamin D",
+        "english": "Sunny D3",
+        "need": "Limited sun exposure may affect bone and immune status.",
+        "blurb": "Supports calcium absorption and everyday defense.",
+        "usage": "One pack daily with food, one month per fill."
+      },
+      "iron": {
+        "name": "Iron complex",
+        "english": "Red Booster",
+        "need": "Ferritin is low, which can relate to fatigue and color.",
+        "blurb": "A core fill for the low ferritin on this panel.",
+        "usage": "One pack daily; avoid tea and coffee around it."
+      },
+      "vitaminC": {
+        "name": "Vitamin C",
+        "english": "Citrus C",
+        "need": "Baseline antioxidant support and iron absorption.",
+        "blurb": "Everyday antioxidant support that also helps iron uptake.",
+        "usage": "One pack daily, with or staggered from iron as directed."
+      },
+      "omega3": {
+        "name": "Omega-3",
+        "english": "Marine Omega",
+        "need": "Extra metabolic and cardiovascular support.",
+        "blurb": "A Full Tune extra for essential fatty acids.",
+        "usage": "One pack daily with food."
+      },
+      "probiotic": {
+        "name": "Probiotic",
+        "english": "Gut Formula",
+        "need": "Extra gut and immune support.",
+        "blurb": "A Full Tune extra for everyday gut care.",
+        "usage": "One pack daily, empty stomach or at night."
+      },
+      "magnesium": {
+        "name": "Magnesium",
+        "english": "Mag Coat",
+        "need": "Mineral support related to stress and sleep.",
+        "blurb": "A Full Tune extra for magnesium.",
+        "usage": "One pack daily in the evening."
+      }
+    }
+  },
+  "checkout": {
+    "title": "Checkout",
+    "name": "Recipient name",
+    "phone": "Mobile number",
+    "address": "Home address",
+    "delivery": "Delivery",
+    "deliveryHome": "Home delivery",
+    "deliveryHint": "Track shipment on the order page after it goes out.",
+    "payment": "Payment",
+    "card": "Card (demo)",
+    "linepay": "LINE Pay (demo)",
+    "atm": "ATM transfer (demo)",
+    "invoice": "Invoice",
+    "cloud": "e-invoice",
+    "company": "Company e-invoice",
+    "donate": "Donate invoice",
+    "subtotal": "Plan",
+    "shippingFee": "Shipping",
+    "shippingFree": "Free",
+    "total": "Total",
+    "submit": "Confirm payment (demo)",
+    "loginToPay": "Log in to pay",
+    "error": "Please fill in name, mobile, and address."
+  },
+  "orders": {
+    "title": "My orders",
+    "subtitle": "Only paid orders are listed. Leave or refresh before paying and the chat is gone.",
+    "empty": "Orders appear here after the first payment. Unpaid chats are not saved.",
+    "number": "Order no.",
+    "date": "Order date",
+    "amount": "Total",
+    "payment": "Payment",
+    "plan": "Plan",
+    "items": "Items",
+    "viewChat": "View previous chat",
+    "viewDetail": "Order detail",
+    "timeline": "Shipment",
+    "confirmed": "Confirmed",
+    "picking": "Picking",
+    "shipped": "Shipped",
+    "delivered": "Delivered",
+    "back": "Back to orders",
+    "recipient": "Recipient",
+    "address": "Address"
   },
   "footer": "© {year} Candor. All rights reserved."
 }

@@ -17,8 +17,16 @@
           :to="localePath('/chat')"
           variant="ghost"
           :class="isChat ? 'justify-start app-nav-active' : 'justify-start'"
+          data-testid="nav-chat"
         >
           {{ $t('nav.chat') }}
+        </AppButton>
+        <AppButton
+          :to="localePath('/app/orders')"
+          variant="ghost"
+          :class="isOrders ? 'justify-start app-nav-active' : 'justify-start'"
+        >
+          {{ $t('nav.orders') }}
         </AppButton>
       </nav>
       <div class="mt-auto min-w-0 space-y-3 border-t border-default pt-4">
@@ -63,8 +71,16 @@
           :to="localePath('/chat')"
           variant="ghost"
           :class="isChat ? 'app-nav-active' : undefined"
+          data-testid="nav-chat-mobile"
         >
           {{ $t('nav.chat') }}
+        </AppButton>
+        <AppButton
+          :to="localePath('/app/orders')"
+          variant="ghost"
+          :class="isOrders ? 'app-nav-active' : undefined"
+        >
+          {{ $t('nav.orders') }}
         </AppButton>
         <AppButton
           variant="ghost"
@@ -87,14 +103,32 @@
 <script setup lang="ts">
 const localePath = useLocalePath()
 const auth = useAuthStore()
+const journey = useJourneyStore()
 const route = useRoute()
 const { t } = useI18n()
 
 const isChat = computed(() => route.path.includes('/chat'))
-const isHealth = computed(() => route.path.includes('/app') && !isChat.value)
-const headerTitle = computed(() => isChat.value ? t('nav.chat') : t('nav.member'))
+const isOrders = computed(() => route.path.includes('/orders'))
+const isRecommend = computed(() => route.path.includes('/recommend'))
+const isHealth = computed(() => route.path.includes('/app') && !isChat.value && !isOrders.value && !isRecommend.value)
+const headerTitle = computed(() => {
+  if (isChat.value) {
+    return t('nav.chat')
+  }
+
+  if (isOrders.value) {
+    return t('nav.orders')
+  }
+
+  if (isRecommend.value) {
+    return t('shop.title')
+  }
+
+  return t('nav.member')
+})
 
 function logout() {
+  journey.clearSession()
   auth.logout()
   navigateTo(localePath('/'))
 }

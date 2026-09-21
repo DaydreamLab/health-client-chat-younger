@@ -5,7 +5,8 @@ export default defineNuxtConfig({
     '@nuxt/ui',
     '@pinia/nuxt',
     '@nuxtjs/i18n',
-    '@nuxt/test-utils/module'
+    '@nuxt/test-utils/module',
+    'nuxt-charts'
   ],
 
   devtools: {

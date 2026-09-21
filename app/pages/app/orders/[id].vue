@@ -1,0 +1,148 @@
+<template>
+  <div
+    v-if="order"
+    class="space-y-6"
+  >
+    <AppButton
+      :to="localePath('/app/orders')"
+      variant="ghost"
+      class="px-0"
+    >
+      ← {{ $t('orders.back') }}
+    </AppButton>
+
+    <section class="rounded-2xl border border-default bg-elevated p-5">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p class="text-xs text-muted">
+            {{ $t('orders.number') }}
+          </p>
+          <h1
+            class="text-2xl font-semibold tabular-nums text-highlighted"
+            data-testid="order-number"
+          >
+            {{ order.number }}
+          </h1>
+        </div>
+        <p class="text-2xl font-semibold tabular-nums text-primary">
+          {{ formatTwd(order.amount) }}
+        </p>
+      </div>
+      <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+        <div>
+          <dt class="text-muted">
+            {{ $t('orders.date') }}
+          </dt>
+          <dd class="mt-1 tabular-nums text-highlighted">
+            {{ formatWhen(order.createdAt) }}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-muted">
+            {{ $t('orders.plan') }}
+          </dt>
+          <dd class="mt-1 text-highlighted">
+            {{ $t(`shop.${order.planId}`) }}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-muted">
+            {{ $t('orders.payment') }}
+          </dt>
+          <dd class="mt-1 text-highlighted">
+            {{ $t(`checkout.${order.paymentMethod}`) }}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-muted">
+            {{ $t('checkout.delivery') }}
+          </dt>
+          <dd class="mt-1 text-highlighted">
+            {{ $t('checkout.deliveryHome') }}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-muted">
+            {{ $t('orders.recipient') }}
+          </dt>
+          <dd class="mt-1 text-highlighted">
+            {{ order.recipient.name }} · {{ order.recipient.phone }}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-muted">
+            {{ $t('orders.address') }}
+          </dt>
+          <dd class="mt-1 text-highlighted">
+            {{ order.recipient.address }}
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="rounded-2xl border border-default bg-elevated p-5">
+      <h2 class="font-semibold text-highlighted">
+        {{ $t('orders.timeline') }}
+      </h2>
+      <div class="mt-4">
+        <ShipmentTimeline :timeline="order.timeline" />
+      </div>
+    </section>
+
+    <section class="rounded-2xl border border-default bg-elevated p-5">
+      <h2 class="font-semibold text-highlighted">
+        {{ $t('orders.items') }}
+      </h2>
+      <ul class="mt-3 divide-y divide-default">
+        <li
+          v-for="itemId in order.itemIds"
+          :key="itemId"
+          class="flex items-center justify-between gap-3 py-3 text-sm"
+        >
+          <span class="text-highlighted">
+            {{ $t(`shop.items.${itemId}.name`) }}
+          </span>
+          <span class="tabular-nums text-muted">
+            {{ formatTwd(supplementItems[itemId].monthlyCost) }}
+          </span>
+        </li>
+      </ul>
+    </section>
+
+    <AppButton
+      :to="`${localePath('/chat')}?orderId=${order.id}`"
+      data-testid="order-view-chat"
+    >
+      {{ $t('orders.viewChat') }}
+    </AppButton>
+  </div>
+  <p
+    v-else
+    class="text-sm text-muted"
+  >
+    {{ $t('orders.empty') }}
+  </p>
+</template>
+
+<script setup lang="ts">
+import { formatTwd, supplementItems, type OrderRecord } from '~/utils/first-order'
+
+definePageMeta({
+  layout: 'member',
+  middleware: 'auth'
+})
+
+const route = useRoute()
+const localePath = useLocalePath()
+const api = useFirstOrderApi()
+const order = ref<OrderRecord | null>(null)
+
+function formatWhen(value: string) {
+  return value.replace('T', ' ').slice(0, 16).replace(/-/g, '/')
+}
+
+onMounted(async () => {
+  const id = String(route.params.id)
+  order.value = await api.getOrder(id)
+})
+</script>

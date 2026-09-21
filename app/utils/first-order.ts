@@ -1,0 +1,259 @@
+export type SupplementPlanId = 'basicCare' | 'fullTune'
+
+export type SupplementItemId
+  = 'vitaminD'
+    | 'iron'
+    | 'vitaminC'
+    | 'omega3'
+    | 'probiotic'
+    | 'magnesium'
+
+export type PaymentMethod = 'card' | 'linepay' | 'atm'
+export type InvoiceType = 'cloud' | 'company' | 'donate'
+export type ShipmentStepId = 'confirmed' | 'picking' | 'shipped' | 'delivered'
+
+export interface ChatPart {
+  type: 'text' | 'file'
+  text?: string
+  name?: string
+}
+
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  parts: ChatPart[]
+}
+
+export interface SupplementItem {
+  id: SupplementItemId
+  swatch: string
+  dailyDose: number
+  dailyCost: number
+  monthlyCost: number
+  tier: 'core' | 'plus'
+}
+
+export interface SupplementPlan {
+  id: SupplementPlanId
+  price: number
+  itemIds: SupplementItemId[]
+}
+
+export interface LabChartRow {
+  key: string
+  yours: number
+  ref: number
+}
+
+export interface ReportAnalysis {
+  score: number
+  abnormalCount: number
+  watchCount: number
+  summary: string
+  chart: LabChartRow[]
+}
+
+export interface OrderRecipient {
+  name: string
+  phone: string
+  address: string
+  email: string
+}
+
+export interface ShipmentStep {
+  id: ShipmentStepId
+  at: string | null
+}
+
+export interface OrderRecord {
+  id: string
+  number: string
+  createdAt: string
+  planId: SupplementPlanId
+  amount: number
+  itemIds: SupplementItemId[]
+  paymentMethod: PaymentMethod
+  delivery: 'home'
+  recipient: OrderRecipient
+  invoice: InvoiceType
+  messages: ChatMessage[]
+  timeline: ShipmentStep[]
+}
+
+export interface CreateOrderInput {
+  planId: SupplementPlanId
+  paymentMethod: PaymentMethod
+  invoice: InvoiceType
+  recipient: OrderRecipient
+  messages: ChatMessage[]
+}
+
+export const supplementItems: Record<SupplementItemId, SupplementItem> = {
+  vitaminD: {
+    id: 'vitaminD',
+    swatch: '#8B7FC7',
+    dailyDose: 1,
+    dailyCost: 9,
+    monthlyCost: 280,
+    tier: 'core'
+  },
+  iron: {
+    id: 'iron',
+    swatch: '#67D665',
+    dailyDose: 1,
+    dailyCost: 17,
+    monthlyCost: 520,
+    tier: 'core'
+  },
+  vitaminC: {
+    id: 'vitaminC',
+    swatch: '#5B9BD5',
+    dailyDose: 1,
+    dailyCost: 16,
+    monthlyCost: 480,
+    tier: 'core'
+  },
+  omega3: {
+    id: 'omega3',
+    swatch: '#D9A441',
+    dailyDose: 1,
+    dailyCost: 9,
+    monthlyCost: 280,
+    tier: 'plus'
+  },
+  probiotic: {
+    id: 'probiotic',
+    swatch: '#8B7FC7',
+    dailyDose: 1,
+    dailyCost: 7,
+    monthlyCost: 220,
+    tier: 'plus'
+  },
+  magnesium: {
+    id: 'magnesium',
+    swatch: '#F6C16B',
+    dailyDose: 1,
+    dailyCost: 7,
+    monthlyCost: 200,
+    tier: 'plus'
+  }
+}
+
+export const supplementPlans: Record<SupplementPlanId, SupplementPlan> = {
+  basicCare: {
+    id: 'basicCare',
+    price: 1280,
+    itemIds: ['vitaminD', 'iron', 'vitaminC']
+  },
+  fullTune: {
+    id: 'fullTune',
+    price: 1980,
+    itemIds: ['vitaminD', 'iron', 'vitaminC', 'omega3', 'probiotic', 'magnesium']
+  }
+}
+
+export const supplementPlanIds: SupplementPlanId[] = ['basicCare', 'fullTune']
+
+export const labChartRows: LabChartRow[] = [
+  { key: 'vitaminD', yours: 28, ref: 45 },
+  { key: 'ferritin', yours: 42, ref: 100 },
+  { key: 'homa', yours: 2.8, ref: 1.4 },
+  { key: 'dheas', yours: 246, ref: 300 },
+  { key: 'hba1c', yours: 5.4, ref: 5.6 },
+  { key: 'ldl', yours: 98, ref: 100 }
+]
+
+export const shipmentStepIds: ShipmentStepId[] = [
+  'confirmed',
+  'picking',
+  'shipped',
+  'delivered'
+]
+
+export function isSupplementPlanId(value: unknown): value is SupplementPlanId {
+  return value === 'basicCare' || value === 'fullTune'
+}
+
+export function itemsForPlan(planId: SupplementPlanId): SupplementItem[] {
+  return supplementPlans[planId].itemIds.map(id => supplementItems[id])
+}
+
+export function formatTwd(amount: number) {
+  return `NT$${amount.toLocaleString('zh-TW')}`
+}
+
+export function formatOrderNumber(date = new Date()) {
+  const stamp = [
+    String(date.getFullYear()).slice(2),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+    String(date.getHours()).padStart(2, '0'),
+    String(date.getMinutes()).padStart(2, '0'),
+    String(date.getSeconds()).padStart(2, '0')
+  ].join('')
+
+  return stamp
+}
+
+export function timelineStatus(timeline: ShipmentStep[]): ShipmentStepId {
+  const reached = [...timeline].reverse().find(step => step.at)
+  return reached?.id ?? 'confirmed'
+}
+
+export function mockReportSummary(locale?: string) {
+  if (locale === 'en') {
+    return 'I read your labs. Vitamin D and ferritin are low; HOMA-IR is a bit high. Open the chart and pick a one-month plan — Basic Care or Full Tune.'
+  }
+
+  return '已讀到你的血檢。維他命 D 與鐵蛋白偏低，HOMA-IR 略高。可以看圖表，並選擇一個月的基礎保養或完整調理。'
+}
+
+export function mockReportAnalysis(locale?: string): ReportAnalysis {
+  return {
+    score: 66,
+    abnormalCount: 4,
+    watchCount: 3,
+    summary: mockReportSummary(locale),
+    chart: labChartRows
+  }
+}
+
+export function mockCatalog() {
+  return {
+    items: Object.values(supplementItems),
+    plans: Object.values(supplementPlans),
+    chart: labChartRows
+  }
+}
+
+export function mockCreateOrder(input: CreateOrderInput): OrderRecord {
+  const now = new Date()
+  const plan = supplementPlans[input.planId]
+
+  return {
+    id: crypto.randomUUID(),
+    number: formatOrderNumber(now),
+    createdAt: now.toISOString(),
+    planId: input.planId,
+    amount: plan.price,
+    itemIds: [...plan.itemIds],
+    paymentMethod: input.paymentMethod,
+    delivery: 'home',
+    recipient: input.recipient,
+    invoice: input.invoice,
+    messages: input.messages.map(message => ({
+      ...message,
+      parts: message.parts.map(part => ({ ...part }))
+    })),
+    timeline: [
+      { id: 'confirmed', at: now.toISOString() },
+      { id: 'picking', at: null },
+      { id: 'shipped', at: null },
+      { id: 'delivered', at: null }
+    ]
+  }
+}
+
+export function shouldPersistChat(input: { paid: boolean }) {
+  return input.paid
+}

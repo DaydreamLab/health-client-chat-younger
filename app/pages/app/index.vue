@@ -7,6 +7,13 @@
       <span class="app-badge app-badge-demo">
         {{ $t('member.demo') }}
       </span>
+      <AppButton
+        :to="localePath('/app/recommend')"
+        variant="outline"
+        class="ms-auto"
+      >
+        {{ $t('chat.viewRecommend') }}
+      </AppButton>
     </div>
 
     <section class="grid gap-4 lg:grid-cols-[minmax(0,18rem)_1fr]">
@@ -93,13 +100,13 @@
     <section class="grid gap-4 lg:grid-cols-2">
       <article class="rounded-2xl border border-default bg-elevated p-5">
         <h2 class="font-semibold text-highlighted">
-          {{ $t('member.trendTitle') }}
+          {{ $t('labChart.title') }}
         </h2>
         <p class="mt-1 text-sm text-dimmed">
-          {{ $t('member.trendHint') }}
+          {{ $t('labChart.hint') }}
         </p>
         <div class="mt-4">
-          <HealthTrendChart />
+          <LabBarChart />
         </div>
       </article>
       <article class="rounded-2xl border border-default bg-elevated p-5">
@@ -137,6 +144,7 @@ definePageMeta({
   middleware: 'auth'
 })
 
+const localePath = useLocalePath()
 const ringCircumference = 2 * Math.PI * 52
 const ringOffset = ringCircumference * (1 - healthScore / 100)
 </script>
