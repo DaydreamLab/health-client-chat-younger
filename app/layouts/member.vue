@@ -9,15 +9,22 @@
       data-testid="member-sidebar"
       data-collapsed="true"
     >
-      <BrandMark compact />
-      <UNavigationMenu
-        class="mt-6 w-full"
-        orientation="vertical"
-        collapsed
-        :items="desktopNavItems"
-        :ui="collapsedNavUi"
+      <BrandMark
+        compact
+        class="shrink-0"
       />
-      <div class="mt-auto flex w-full min-w-0 flex-col items-center space-y-3 border-t border-default pt-4">
+      <div class="mt-6 min-h-0 w-full flex-1 overflow-y-auto">
+        <UNavigationMenu
+          class="w-full"
+          orientation="vertical"
+          collapsed
+          :items="desktopNavItems"
+          :ui="collapsedNavUi"
+        />
+      </div>
+      <div class="mt-auto flex w-full min-w-0 shrink-0 flex-col items-center space-y-2 border-t border-default pt-4">
+        <LocaleSwitch compact />
+        <ColorModeSwitch compact />
         <AccountUser avatar-only />
         <UNavigationMenu
           class="w-full"
@@ -33,15 +40,15 @@
       class="flex min-w-0 flex-1 flex-col"
       :class="isChat ? 'min-h-0' : undefined"
     >
-      <header class="flex h-16 shrink-0 items-center gap-3 border-b border-default px-4 sm:px-6">
-        <BrandMark class="lg:hidden" />
-        <p class="hidden text-sm font-medium text-highlighted lg:block">
-          {{ headerTitle }}
-        </p>
+      <header
+        class="flex h-16 shrink-0 items-center gap-3 border-b border-default px-4 sm:px-6 lg:hidden"
+        data-testid="member-header"
+      >
+        <BrandMark />
         <div class="ms-auto flex items-center gap-2">
           <AccountUser
             compact
-            class="max-w-40 lg:hidden"
+            class="max-w-40"
           />
           <LocaleSwitch />
           <ColorModeSwitch />
@@ -98,21 +105,6 @@ const collapsedNavUi = {
   link: 'flex-col gap-1 items-center',
   linkLabel: 'block text-[10px]/3 text-center'
 }
-const headerTitle = computed(() => {
-  if (isChat.value) {
-    return t('nav.chat')
-  }
-
-  if (isOrders.value) {
-    return t('nav.orders')
-  }
-
-  if (isRecommend.value) {
-    return t('shop.title')
-  }
-
-  return t('nav.member')
-})
 const navItems = computed<MemberNavItem[]>(() => [
   {
     label: t('nav.member'),

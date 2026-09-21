@@ -80,6 +80,8 @@ test('specialist handoff asks for login then shows health dashboard', async ({ p
   await expect(page.getByRole('heading', { name: '我的健康' })).toBeVisible()
   await expect(page.getByText('示範資料')).toBeVisible()
   await expect(page.getByTestId('health-score')).toBeVisible()
+  await expect(page.getByTestId('health-system-pie')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '系統分布' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'AI 總結' })).toBeVisible()
   await expect(page.getByTestId('health-ai-summary')).toContainText('維他命 D')
   await expect(page.getByRole('heading', { name: '血檢數值' })).toBeVisible()
@@ -91,6 +93,9 @@ test('specialist handoff asks for login then shows health dashboard', async ({ p
   await expect(page.getByRole('link', { name: '交給顧問' })).toHaveCount(0)
   await expect(page.getByTestId('member-sidebar')).toHaveAttribute('data-collapsed', 'true')
   await expect(page.getByTestId('member-sidebar').getByTestId('brand')).toHaveText('C')
+  await expect(page.getByTestId('member-header')).toBeHidden()
+  await expect(page.getByTestId('member-sidebar').getByRole('button', { name: '繁中' })).toBeVisible()
+  await expect(page.getByTestId('member-sidebar').getByTestId('color-mode-day')).toBeVisible()
   await expect(page.getByTestId('account-user').first()).toHaveAttribute('title', 'Guest')
 })
 

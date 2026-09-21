@@ -215,6 +215,20 @@ button:focus:not(:focus-visible) {
     background-color: var(--ui-bg-muted);
   }
 
+  .app-switch-stack {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .app-switch-stack .app-locale-btn {
+    min-width: 0;
+    width: 100%;
+    height: 1.5rem;
+    padding-inline: 0.25rem;
+    font-size: 0.625rem;
+  }
+
   .app-locale-btn {
     display: inline-flex;
     align-items: center;
@@ -396,6 +410,7 @@ button:focus:not(:focus-visible) {
     fill: none;
     stroke: var(--ui-primary);
     stroke-linecap: round;
+    filter: drop-shadow(0 0 6px color-mix(in oklab, var(--ui-primary) 45%, transparent));
     transition: stroke-dashoffset 900ms ease;
   }
 

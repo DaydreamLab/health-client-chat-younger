@@ -1,6 +1,7 @@
 <template>
   <div
     class="app-segment-switch"
+    :class="{ 'app-switch-stack': compact }"
     role="group"
     :aria-label="$t('colorMode.label')"
   >
@@ -29,6 +30,12 @@
 
 <script setup lang="ts">
 type Appearance = 'light' | 'dark'
+
+withDefaults(defineProps<{
+  compact?: boolean
+}>(), {
+  compact: false
+})
 
 interface ColorModeHelper {
   preference: string

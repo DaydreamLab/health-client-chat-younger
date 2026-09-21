@@ -1,6 +1,7 @@
 <template>
   <div
     class="app-locale-switch"
+    :class="{ 'app-switch-stack': compact }"
     role="group"
     aria-label="Language"
   >
@@ -20,6 +21,12 @@
 
 <script setup lang="ts">
 type LocaleCode = 'zh-TW' | 'en'
+
+withDefaults(defineProps<{
+  compact?: boolean
+}>(), {
+  compact: false
+})
 
 const { locale, setLocale } = useI18n({ useScope: 'global' })
 const switchLocalePath = useSwitchLocalePath()

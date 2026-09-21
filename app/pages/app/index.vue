@@ -58,7 +58,7 @@
               :stroke-dashoffset="ringOffset"
             />
           </svg>
-          <p class="absolute inset-0 flex items-center justify-center text-3xl font-semibold tabular-nums text-highlighted">
+          <p class="absolute inset-0 flex items-center justify-center text-3xl font-bold tabular-nums text-primary">
             <CountUpNumber :value="healthScore" />
           </p>
         </div>
