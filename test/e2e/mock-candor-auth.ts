@@ -39,6 +39,36 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
   let quizAnswered = false
   let goalsSet = false
 
+  await page.route('**/api/v1/packages', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: {
+          packages: [
+            {
+              code: 'basic',
+              name: '基礎保養',
+              name_en: 'Basic Care',
+              price: 5000,
+              period_days: 30,
+              description: '對應異常指標的基礎補充'
+            },
+            {
+              code: 'advance',
+              name: '完整調理',
+              name_en: 'Full Tune',
+              price: 9000,
+              period_days: 30,
+              description: '基礎保養＋加強項目'
+            }
+          ]
+        }
+      })
+    })
+  })
+
   await page.route('**/api/v1/auth/guest', async (route) => {
     await route.fulfill({
       status: 201,
@@ -112,9 +142,9 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           ...(includePackage
             ? {
                 package: {
-                  code: postData?.package_code || 'care_basic',
+                  code: postData?.package_code || 'basic',
                   name_zh: '基礎保養',
-                  price: 1280,
+                  price: 5000,
                   confirmed: false
                 }
               }
@@ -169,9 +199,9 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         data: {
           id: conversationId,
           package: {
-            code: 'care_basic',
+            code: 'basic',
             name_zh: '基礎保養',
-            price: 1280,
+            price: 5000,
             confirmed: true
           }
         }

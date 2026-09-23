@@ -74,37 +74,57 @@
         {{ $t('plans.subtitle') }}
       </p>
 
-      <div class="mt-6 grid gap-4 sm:grid-cols-2">
+      <p
+        v-if="packagesError"
+        class="mt-6 text-sm text-error"
+        data-testid="packages-error"
+      >
+        {{ packagesError }}
+      </p>
+      <p
+        v-else-if="packagesPending"
+        class="mt-6 text-sm text-muted"
+        data-testid="packages-loading"
+      >
+        {{ $t('plans.loading') }}
+      </p>
+      <div
+        v-else
+        class="mt-6 grid gap-4 sm:grid-cols-2"
+      >
         <NuxtLink
-          v-for="id in supplementPlanIds"
-          :key="id"
-          :to="chatPath(id)"
+          v-for="(pkg, index) in packages"
+          :key="pkg.code"
+          :to="chatPath(pkg.code)"
           class="app-path-card"
-          :data-testid="`plan-${id}`"
-          @click="selectPlan(id)"
+          :data-testid="`package-${pkg.code}`"
+          @click="selectPackage(pkg.code)"
         >
           <div class="flex flex-wrap items-start justify-between gap-2">
             <div class="flex items-center gap-2">
               <UIcon
-                :name="id === 'fullTune' ? 'i-lucide-sparkles' : 'i-lucide-file-text'"
+                :name="index === packages.length - 1 ? 'i-lucide-sparkles' : 'i-lucide-file-text'"
                 class="size-5 text-primary"
               />
               <h3 class="text-lg font-semibold text-highlighted">
-                {{ $t(`shop.${id}`) }}
+                {{ packageTitle(pkg) }}
               </h3>
             </div>
             <span
-              v-if="id === 'fullTune'"
+              v-if="index === packages.length - 1"
               class="app-badge app-badge-demo"
             >
               {{ $t('shop.recommended') }}
             </span>
           </div>
           <p class="mt-3 text-xl font-semibold text-primary">
-            {{ $t('shop.perMonth', { price: formatTwd(supplementPlans[id].price) }) }}
+            {{ $t('shop.perMonth', { price: formatTwd(pkg.price) }) }}
           </p>
-          <p class="mt-2 text-sm text-muted">
-            {{ $t(`shop.${id}Hint`, { count: supplementPlans[id].itemIds.length }) }}
+          <p
+            v-if="pkg.description"
+            class="mt-2 text-sm text-muted"
+          >
+            {{ pkg.description }}
           </p>
           <p class="mt-4 text-sm font-medium text-primary">
             {{ $t('plans.cta') }}
@@ -139,23 +159,45 @@
 </template>
 
 <script setup lang="ts">
-import {
-  formatTwd,
-  supplementPlanIds,
-  supplementPlans,
-  type SupplementPlanId
-} from '~/utils/first-order'
+import type { PublicPackage } from '~/utils/candor-api'
+import { formatTwd } from '~/utils/first-order'
 
+const { t, locale } = useI18n()
 const localePath = useLocalePath()
 const journey = useJourneyStore()
+const candor = useCandorApi()
 const stepKeys = ['one', 'two', 'three'] as const
 const systemKeys = ['nutrition', 'metabolic', 'cardio', 'detox', 'endocrine', 'immune'] as const
 
-function chatPath(plan: SupplementPlanId) {
-  return `${localePath('/chat')}?plan=${plan}`
+const packages = ref<PublicPackage[]>([])
+const packagesPending = ref(true)
+const packagesError = ref<string | null>(null)
+
+function packageTitle(pkg: PublicPackage) {
+  if (locale.value === 'en' && pkg.name_en) {
+    return pkg.name_en
+  }
+  return pkg.name
 }
 
-function selectPlan(plan: SupplementPlanId) {
-  journey.selectedPlanId = plan
+function chatPath(code: string) {
+  return `${localePath('/chat')}?package=${encodeURIComponent(code)}`
 }
+
+function selectPackage(code: string) {
+  journey.selectedPackageCode = code
+}
+
+onMounted(async () => {
+  packagesPending.value = true
+  packagesError.value = null
+  try {
+    const result = await candor.listPackages()
+    packages.value = result.packages
+  } catch {
+    packagesError.value = t('plans.loadError')
+  } finally {
+    packagesPending.value = false
+  }
+})
 </script>

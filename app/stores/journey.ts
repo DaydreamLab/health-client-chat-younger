@@ -7,6 +7,7 @@ interface JourneySnapshot {
   messages: ChatMessage[]
   hasAnalysis: boolean
   selectedPlanId: SupplementPlanId
+  selectedPackageCode: string | null
   conversationId: string | null
   reportId: string | null
   selectedPackage: ConversationPackage | null
@@ -23,6 +24,7 @@ const emptySnapshot = (): JourneySnapshot => ({
   messages: [],
   hasAnalysis: false,
   selectedPlanId: 'fullTune',
+  selectedPackageCode: null,
   conversationId: null,
   reportId: null,
   selectedPackage: null,
@@ -65,6 +67,7 @@ export const useJourneyStore = defineStore('journey', () => {
   const messages = ref<ChatMessage[]>(initial.messages)
   const hasAnalysis = ref(initial.hasAnalysis)
   const selectedPlanId = ref<SupplementPlanId>(initial.selectedPlanId)
+  const selectedPackageCode = ref<string | null>(initial.selectedPackageCode ?? null)
   const conversationId = ref<string | null>(initial.conversationId)
   const reportId = ref<string | null>(initial.reportId)
   const selectedPackage = ref<ConversationPackage | null>(initial.selectedPackage)
@@ -93,6 +96,7 @@ export const useJourneyStore = defineStore('journey', () => {
       messages: snapshotMessages(),
       hasAnalysis: hasAnalysis.value,
       selectedPlanId: selectedPlanId.value,
+      selectedPackageCode: selectedPackageCode.value,
       conversationId: conversationId.value,
       reportId: reportId.value,
       selectedPackage: selectedPackage.value,
@@ -117,6 +121,7 @@ export const useJourneyStore = defineStore('journey', () => {
     messages.value = []
     hasAnalysis.value = false
     selectedPlanId.value = 'fullTune'
+    selectedPackageCode.value = null
     conversationId.value = null
     reportId.value = null
     selectedPackage.value = null
@@ -140,6 +145,7 @@ export const useJourneyStore = defineStore('journey', () => {
     messages.value = stored.messages
     hasAnalysis.value = stored.hasAnalysis
     selectedPlanId.value = stored.selectedPlanId
+    selectedPackageCode.value = stored.selectedPackageCode ?? null
     conversationId.value = stored.conversationId
     reportId.value = stored.reportId
     selectedPackage.value = stored.selectedPackage
@@ -158,6 +164,7 @@ export const useJourneyStore = defineStore('journey', () => {
         messages,
         hasAnalysis,
         selectedPlanId,
+        selectedPackageCode,
         conversationId,
         reportId,
         selectedPackage,
@@ -180,6 +187,7 @@ export const useJourneyStore = defineStore('journey', () => {
     messages,
     hasAnalysis,
     selectedPlanId,
+    selectedPackageCode,
     conversationId,
     reportId,
     selectedPackage,

@@ -33,6 +33,19 @@ export interface ConversationPackage {
   confirmed: boolean
 }
 
+export interface PublicPackage {
+  code: string
+  name: string
+  name_en?: string | null
+  price: number
+  period_days: number
+  description?: string | null
+}
+
+export interface PackagesList {
+  packages: PublicPackage[]
+}
+
 export interface ConversationGreeting {
   message_id: string
   role: string
@@ -173,8 +186,3 @@ export class CandorApiError extends Error {
 }
 
 export const TOKEN_STORAGE_KEY = 'candor.guest.token'
-
-export const PLAN_TO_PACKAGE: Record<string, string> = {
-  basicCare: 'care_basic',
-  fullTune: 'care_full'
-}

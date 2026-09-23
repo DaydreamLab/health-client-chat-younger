@@ -252,7 +252,7 @@ import type {
   HealthReport,
   HealthReportResult
 } from '~/utils/candor-api'
-import { CandorApiError, PLAN_TO_PACKAGE } from '~/utils/candor-api'
+import { CandorApiError } from '~/utils/candor-api'
 import { isPlanId, type PlanId } from '~/utils/plans'
 import { isSupplementPlanId, type ChatMessage, type SupplementPlanId } from '~/utils/first-order'
 import { storeToRefs } from 'pinia'
@@ -310,6 +310,11 @@ function queryShopPlan(value: unknown): SupplementPlanId | undefined {
   return isSupplementPlanId(raw) ? raw : undefined
 }
 
+function queryPackageCode(value: unknown): string | undefined {
+  const raw = queryValue(value).trim()
+  return raw !== '' ? raw : undefined
+}
+
 function queryOrderId(value: unknown) {
   return queryValue(value)
 }
@@ -327,6 +332,8 @@ const canType = computed(() => {
 const selectedPlan = computed<PlanId | SupplementPlanId | undefined>(() => {
   return queryShopPlan(route.query.plan) ?? queryPlan(route.query.plan)
 })
+
+const selectedPackageCodeFromQuery = computed(() => queryPackageCode(route.query.package))
 
 const messages = computed(() => readonly.value ? viewMessages.value : journey.messages)
 
@@ -372,6 +379,10 @@ function isOptionSelected(code: string) {
 }
 
 function applyShopPlanFromQuery() {
+  const packageCode = queryPackageCode(route.query.package)
+  if (packageCode) {
+    journey.selectedPackageCode = packageCode
+  }
   const shopPlan = queryShopPlan(route.query.plan)
   if (shopPlan) {
     journey.selectedPlanId = shopPlan
@@ -470,8 +481,9 @@ async function ensureConversation() {
 
   await auth.ensureSession()
   applyShopPlanFromQuery()
-  const shopPlan = queryShopPlan(route.query.plan)
-  const packageCode = shopPlan ? PLAN_TO_PACKAGE[shopPlan] : undefined
+  const packageCode = selectedPackageCodeFromQuery.value
+    ?? journey.selectedPackageCode
+    ?? undefined
   const created = await candor.createConversation(
     packageCode ? { package_code: packageCode } : {}
   )
@@ -988,9 +1000,11 @@ function escalate() {
   }
 
   if (!auth.hasSession) {
-    const chatPath = selectedPlan.value
-      ? `${localePath('/chat')}?plan=${selectedPlan.value}&handoff=1`
-      : `${localePath('/chat')}?handoff=1`
+    const chatPath = selectedPackageCodeFromQuery.value
+      ? `${localePath('/chat')}?package=${encodeURIComponent(selectedPackageCodeFromQuery.value)}&handoff=1`
+      : selectedPlan.value
+        ? `${localePath('/chat')}?plan=${selectedPlan.value}&handoff=1`
+        : `${localePath('/chat')}?handoff=1`
 
     return navigateTo({
       path: localePath('/login'),

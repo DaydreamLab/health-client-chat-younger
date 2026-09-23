@@ -8,6 +8,7 @@ import type {
   HealthReport,
   HealthReportRetryAck,
   HealthReportUploadAck,
+  PackagesList,
   ProfileAnswerResult,
   ProfileNext,
   StreamMessageResult,
@@ -255,6 +256,9 @@ export function useCandorApi() {
       request<UserSession>('/auth/login', { method: 'POST', body, auth: false }),
     refresh: () => request<UserSession>('/auth/refresh', { method: 'POST' }),
     me: () => request<UserMe>('/users/me'),
+
+    listPackages: () =>
+      request<PackagesList>('/packages', { method: 'GET', auth: false }),
 
     createConversation: (body: {
       report_id?: string

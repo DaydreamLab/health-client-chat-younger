@@ -40,6 +40,8 @@
     "title": "Two one-month plans",
     "subtitle": "A plan opens consult. Chat or upload labs, then confirm Basic Care or Full Tune.",
     "cta": "Start with this plan",
+    "loading": "Loading plans…",
+    "loadError": "Plans are unavailable right now. Please try again later.",
     "recommended": "Recommended",
     "who": "Who it's for",
     "gets": "What you get",
