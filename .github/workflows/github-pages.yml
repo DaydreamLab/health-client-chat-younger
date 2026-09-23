@@ -38,6 +38,7 @@ jobs:
         run: pnpm generate
         env:
           NUXT_APP_BASE_URL: /${{ github.event.repository.name }}/
+          NUXT_PUBLIC_API_BASE: https://candor-core.dev.daydream-lab.com/api/v1
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
