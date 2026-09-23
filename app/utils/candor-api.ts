@@ -26,23 +26,47 @@ export interface GreetingOption {
   label: string
 }
 
+export interface ConversationPackage {
+  code: string
+  name_zh: string
+  price: number
+  confirmed: boolean
+}
+
 export interface ConversationGreeting {
   message_id: string
   role: string
   content: string
   options: GreetingOption[]
+  selected?: string[]
 }
 
 export interface ConversationCreate {
   id: string
   report_id?: string | null
   renewal_of_order_id?: string | null
+  package?: ConversationPackage | null
   greeting: ConversationGreeting
 }
 
 export interface ConversationAttachAck {
   id: string
   report_id: string
+}
+
+export interface ConversationGoalsResult {
+  saved: boolean
+  goals?: string[]
+  diverted?: boolean
+  needs_clarification?: boolean
+  prompt?: string
+  options?: GreetingOption[]
+  selected?: string[]
+}
+
+export interface ConversationPackageConfirm {
+  id: string
+  package: ConversationPackage
 }
 
 export interface HealthReportUploadAck {
@@ -56,6 +80,25 @@ export interface HealthReportRetryAck {
   queued: boolean
 }
 
+export interface HealthReportResult {
+  id: string
+  biomarker_id?: string | null
+  raw_name?: string | null
+  raw_value?: string | null
+  raw_unit?: string | null
+  value_numeric?: number | null
+  unit?: string | null
+  ref_low?: number | null
+  ref_high?: number | null
+  borderline_low?: number | null
+  borderline_high?: number | null
+  critical_low?: number | null
+  critical_high?: number | null
+  confidence?: number | null
+  needs_review?: boolean
+  page?: number | null
+}
+
 export interface HealthReport {
   id: string
   status: string
@@ -63,7 +106,7 @@ export interface HealthReport {
   extraction_confidence?: number | null
   content_type?: string | null
   error?: string | null
-  results?: unknown[] | null
+  results?: HealthReportResult[] | null
 }
 
 export type ProfileAnswerType = 'enum' | 'int' | 'text' | 'multi_enum'
@@ -77,7 +120,7 @@ export interface ProfileNextQuestion {
   gap_code: string
   prompt: string
   answer_type: ProfileAnswerType
-  options?: string[] | null
+  options?: GreetingOption[] | null
 }
 
 export type ProfileNext = ProfileNextDone | ProfileNextQuestion
@@ -89,8 +132,10 @@ export interface ProfileAnswerSaved {
 
 export interface ProfileAnswerNeedsClarification {
   saved: false
-  needs_clarification: true
+  needs_clarification?: true
+  diverted?: boolean
   prompt: string
+  options?: GreetingOption[]
 }
 
 export type ProfileAnswerResult = ProfileAnswerSaved | ProfileAnswerNeedsClarification
@@ -128,3 +173,8 @@ export class CandorApiError extends Error {
 }
 
 export const TOKEN_STORAGE_KEY = 'candor.guest.token'
+
+export const PLAN_TO_PACKAGE: Record<string, string> = {
+  basicCare: 'care_basic',
+  fullTune: 'care_full'
+}

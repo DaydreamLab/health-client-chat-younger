@@ -46,21 +46,15 @@ test('plan CTA opens chat and AI can reply', async ({ page, goto }) => {
 
   await expect(page).toHaveURL(/\/chat\?plan=basicCare/)
   await expect(page.getByRole('heading', { name: '諮詢' })).toBeVisible()
-  await expect(page.getByTestId('chat-last-reply')).toContainText('諮詢助理')
+  await expect(page.getByTestId('chat-last-reply')).toContainText('改善方向')
+  await expect(page.getByTestId('chat-selected-plan')).toContainText('基礎保養')
+  await expect(page.getByTestId('chat-quiz-option-sleep_quality')).toBeVisible()
   await page.getByTestId('chat-chip-plans').click()
   await expect(page.getByTestId('chat-last-reply')).toContainText('基礎保養')
-  await page.getByTestId('chat-chip-next').click()
-  await expect(page.getByTestId('chat-last-reply')).toContainText('基礎保養')
-  await expect(page.getByTestId('chat-last-reply')).toBeInViewport()
-  const transcript = page.getByTestId('chat-transcript')
-  await expect.poll(async () => transcript.evaluate((el) => {
-    return el.scrollTop + el.clientHeight >= el.scrollHeight - 24
-  })).toBe(true)
-
-  await page.getByTestId('chat-input').fill('兩個方案差在哪？')
-  await page.getByTestId('chat-send').click()
+  await page.getByTestId('chat-quiz-option-vitality').click()
+  await page.getByTestId('chat-quiz-confirm').click()
   await expect(page.getByTestId('chat-last-reply')).toBeVisible()
-  await expect(page.getByTestId('chat-last-reply')).toBeInViewport()
+  const transcript = page.getByTestId('chat-transcript')
   await expect.poll(async () => transcript.evaluate((el) => {
     return el.scrollTop + el.clientHeight >= el.scrollHeight - 24
   })).toBe(true)

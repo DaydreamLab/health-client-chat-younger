@@ -16,9 +16,13 @@ test('unpaid chat is gone after refresh and never hits localStorage', async ({ p
   await page.evaluate(() => localStorage.removeItem('candor-paid-orders'))
   await page.getByTestId('chat-upload-input').setInputFiles(labsFile)
   await expect(page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend')).toBeVisible()
-  await expect(page.getByTestId('chat-chip-upload')).toBeVisible()
+  await expect(page.getByTestId('chat-view-report-data')).toBeVisible()
   await expect(page.getByTestId('chat-escalate')).toBeVisible()
   expect(await page.evaluate(() => localStorage.getItem('candor-paid-orders'))).toBeNull()
+
+  await page.getByTestId('chat-view-report-data').click()
+  await expect(page.getByTestId('chat-report-dock')).toBeVisible()
+  await expect(page.getByTestId('chat-report-dock')).toContainText('Vitamin D3')
 
   await page.reload({ waitUntil: 'domcontentloaded' })
   await expect(page.getByRole('heading', { name: '諮詢' })).toBeVisible()
@@ -113,19 +117,22 @@ test.describe('profile quiz gate', () => {
     await mockCandorAuth(page, { profileQuiz: true })
   })
 
-  test('text chip runs profile quiz then SSE', async ({ page, goto }) => {
+  test('goal chips then profile quiz then SSE', async ({ page, goto }) => {
     await goto('/chat', { waitUntil: 'hydration' })
-    await expect(page.getByTestId('chat-last-reply')).toContainText('諮詢助理')
+    await expect(page.getByTestId('chat-last-reply')).toContainText('改善方向')
+    await expect(page.getByTestId('chat-quiz-option-vitality')).toBeVisible()
 
     await page.getByTestId('chat-chip-plans').click()
     await expect(page.getByTestId('chat-transcript')).toContainText('兩個方案差在哪？')
     await expect(page.getByTestId('chat-quiz-options')).toBeVisible()
+
+    await page.getByTestId('chat-quiz-option-vitality').click()
+    await page.getByTestId('chat-quiz-confirm').click()
     await expect(page.getByTestId('chat-transcript')).toContainText('請問您的生理性別？')
-    await expect(page.getByTestId('chat-chip-plans')).toBeDisabled()
+    await expect(page.getByTestId('chat-quiz-option-F')).toBeVisible()
 
     await page.getByTestId('chat-quiz-option-F').click()
-    await expect(page.getByTestId('chat-transcript')).toContainText('F')
+    await expect(page.getByTestId('chat-transcript')).toContainText('女')
     await expect(page.getByTestId('chat-last-reply')).toContainText('基礎保養')
-    await expect(page.getByTestId('chat-chip-plans')).toBeEnabled()
   })
 })

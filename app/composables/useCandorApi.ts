@@ -3,6 +3,8 @@ import type {
   ApiSuccess,
   ConversationAttachAck,
   ConversationCreate,
+  ConversationGoalsResult,
+  ConversationPackageConfirm,
   HealthReport,
   HealthReportRetryAck,
   HealthReportUploadAck,
@@ -254,8 +256,25 @@ export function useCandorApi() {
     refresh: () => request<UserSession>('/auth/refresh', { method: 'POST' }),
     me: () => request<UserMe>('/users/me'),
 
-    createConversation: (body: { report_id?: string, renewal_of_order_id?: string } = {}) =>
+    createConversation: (body: {
+      report_id?: string
+      renewal_of_order_id?: string
+      package_code?: string
+    } = {}) =>
       request<ConversationCreate>('/conversations', { method: 'POST', body }),
+    setConversationGoals: (
+      conversationId: string,
+      body: { goals?: string[], raw_text?: string | null }
+    ) =>
+      request<ConversationGoalsResult>(
+        `/conversations/${encodeURIComponent(conversationId)}/goals`,
+        { method: 'POST', body }
+      ),
+    confirmConversationPackage: (conversationId: string) =>
+      request<ConversationPackageConfirm>(
+        `/conversations/${encodeURIComponent(conversationId)}/package/confirm`,
+        { method: 'POST' }
+      ),
     attachReport: (conversationId: string, reportId: string) =>
       request<ConversationAttachAck>(`/conversations/${encodeURIComponent(conversationId)}`, {
         method: 'PATCH',
@@ -281,7 +300,7 @@ export function useCandorApi() {
       }),
     submitProfileAnswer: (body: {
       gap_code: string
-      value?: string | number | boolean | null
+      value?: string | number | boolean | string[] | null
       raw_text?: string | null
     }) => request<ProfileAnswerResult>('/profile/answers', { method: 'POST', body })
   }

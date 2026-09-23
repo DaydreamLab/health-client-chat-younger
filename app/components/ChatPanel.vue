@@ -43,10 +43,45 @@
     </div>
 
     <div
-      ref="transcriptEl"
-      data-testid="chat-transcript"
-      class="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 py-4 sm:px-6"
+      v-if="selectedPackage && !readonly"
+      class="shrink-0 border-b border-default bg-primary/5 px-4 py-3 sm:px-6"
+      data-testid="chat-selected-plan"
     >
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-medium text-highlighted">
+            {{ selectedPackage.name_zh }}
+            <span class="text-muted">／ {{ selectedPackage.price }} 元／月</span>
+          </p>
+          <p class="mt-0.5 text-xs text-muted">
+            {{ packageConfirmed ? $t('chat.packageConfirmed') : $t('chat.packagePending') }}
+          </p>
+        </div>
+        <AppButton
+          v-if="!packageConfirmed"
+          size="sm"
+          data-testid="chat-confirm-package"
+          :disabled="pending"
+          @click="confirmPackage"
+        >
+          {{ $t('chat.confirmPackage') }}
+        </AppButton>
+      </div>
+    </div>
+
+    <div
+      class="relative min-h-0 flex-1"
+    >
+      <ReportDataDock
+        v-model:open="reportDockOpen"
+        v-model:collapsed="reportDockCollapsed"
+        :results="reportResults"
+      />
+      <div
+        ref="transcriptEl"
+        data-testid="chat-transcript"
+        class="h-full space-y-2 overflow-y-auto px-4 py-4 sm:px-6"
+      >
       <article
         v-for="message in messages"
         :key="message.id"
@@ -64,7 +99,10 @@
         </span>
         <div
           class="max-w-[min(40rem,85%)] rounded-2xl px-4 py-2.5 text-sm leading-relaxed"
-          :class="message.role === 'user' ? 'bg-elevated text-highlighted' : 'bg-muted text-default'"
+          :class="[
+            message.role === 'user' ? 'bg-elevated text-highlighted' : 'bg-muted text-default',
+            message.id === reportDockMessageId ? 'ring-1 ring-primary/40' : ''
+          ]"
           :data-testid="message.id === lastAssistantId ? 'chat-last-reply' : undefined"
         >
           <p class="whitespace-pre-line">
@@ -80,6 +118,15 @@
             />
             {{ fileName(message) }}
           </p>
+          <AppButton
+            v-if="showReportDataCta(message)"
+            class="mt-3"
+            variant="outline"
+            data-testid="chat-view-report-data"
+            @click="openReportDock"
+          >
+            {{ $t('chat.viewReportData') }}
+          </AppButton>
           <AppButton
             v-if="showRecommendCta(message)"
             class="mt-3"
@@ -105,6 +152,7 @@
       >
         {{ $t('chat.thinking') }}
       </p>
+      </div>
     </div>
 
     <div
@@ -112,41 +160,55 @@
       class="shrink-0 border-t border-default bg-elevated px-4 py-4 sm:px-6"
     >
       <div
-        v-if="quizActive && activeQuestion && enumOptions.length"
+        v-if="chipOptions.length || showPlansCompare || showUploadChip"
         class="mb-3 flex flex-wrap gap-2"
         data-testid="chat-quiz-options"
       >
         <button
-          v-for="option in enumOptions"
-          :key="option"
+          v-for="option in chipOptions"
+          :key="option.code"
           type="button"
           class="app-chip"
-          :data-testid="`chat-quiz-option-${option}`"
+          :class="{ 'ring-2 ring-primary': isOptionSelected(option.code) }"
+          :data-testid="`chat-quiz-option-${option.code}`"
           :disabled="pending"
-          @click="answerEnum(option)"
+          @click="onOptionChip(option)"
         >
-          {{ option }}
+          {{ option.label }}
         </button>
-      </div>
-      <div
-        v-if="!escalated"
-        class="mb-3 flex flex-wrap gap-2"
-      >
         <button
-          v-for="key in chipKeys"
-          :key="key"
+          v-if="needsMultiConfirm"
           type="button"
           class="app-chip"
-          :data-testid="`chat-chip-${key}`"
-          :disabled="key === 'upload' ? !canUpload : (!canSendText || quizActive)"
-          @click="onChip(key)"
+          data-testid="chat-quiz-confirm"
+          :disabled="pending || selectedCodes.length === 0"
+          @click="confirmMultiSelection"
+        >
+          {{ $t('chat.confirmSelection') }}
+        </button>
+        <button
+          v-if="showPlansCompare"
+          type="button"
+          class="app-chip"
+          data-testid="chat-chip-plans"
+          :disabled="pending"
+          @click="askPlansCompare"
+        >
+          {{ $t('chat.chips.plans') }}
+        </button>
+        <button
+          v-if="showUploadChip"
+          type="button"
+          class="app-chip"
+          data-testid="chat-chip-upload"
+          :disabled="!canUpload"
+          @click="pickFile"
         >
           <UIcon
-            v-if="key === 'upload'"
             name="i-lucide-paperclip"
             class="size-3.5"
           />
-          {{ $t(`chat.chips.${key}`) }}
+          {{ $t('chat.chips.upload') }}
         </button>
       </div>
       <form
@@ -197,14 +259,22 @@
 </template>
 
 <script setup lang="ts">
-import type { ProfileNextQuestion } from '~/utils/candor-api'
-import { CandorApiError } from '~/utils/candor-api'
+import type {
+  ConversationPackage,
+  GreetingOption,
+  HealthReport,
+  HealthReportResult,
+  ProfileNextQuestion
+} from '~/utils/candor-api'
+import { CandorApiError, PLAN_TO_PACKAGE } from '~/utils/candor-api'
 import { isPlanId, type PlanId } from '~/utils/plans'
 import { isSupplementPlanId, type ChatMessage, type SupplementPlanId } from '~/utils/first-order'
 
-const chipKeys = ['hasReport', 'noReport', 'plans', 'next', 'upload'] as const
 const POLL_INTERVAL_MS = 2000
 const POLL_MAX_ATTEMPTS = 30
+const PLANS_COMPARE_TEXT = '兩個方案差在哪？'
+const LAB_GAP_CODES = new Set(['checkup', 'blood_test'])
+const UPLOADABLE_LAB_CODES = new Set(['1_to_3y', 'within_1y', 'within_6m'])
 
 const { t } = useI18n()
 const localePath = useLocalePath()
@@ -218,10 +288,20 @@ const input = ref('')
 const pending = ref(false)
 const escalated = ref(false)
 const quizActive = ref(false)
+const goalSelectActive = ref(false)
 const activeQuestion = ref<ProfileNextQuestion | null>(null)
+const goalOptions = ref<GreetingOption[]>([])
+const selectedCodes = ref<string[]>([])
+const selectedPackage = ref<ConversationPackage | null>(null)
+const packageConfirmed = ref(false)
+const postQuizGuided = ref(false)
 const pendingUserContent = ref<string | null>(null)
 const reportRetryId = ref<string | null>(null)
 const retryMessageId = ref<string | null>(null)
+const reportResults = ref<HealthReportResult[]>([])
+const reportDockOpen = ref(false)
+const reportDockCollapsed = ref(false)
+const reportDockMessageId = ref<string | null>(null)
 const transcriptEl = useTemplateRef<HTMLElement>('transcriptEl')
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
 const viewMessages = ref<ChatMessage[]>([])
@@ -248,14 +328,9 @@ function queryOrderId(value: unknown) {
 const orderId = computed(() => queryOrderId(route.query.orderId))
 const readonly = computed(() => Boolean(orderId.value))
 const canUpload = computed(() => !readonly.value && !escalated.value && !pending.value)
-const canSendText = computed(() => !readonly.value && !escalated.value && !pending.value && !quizActive.value)
 const canType = computed(() => {
   if (readonly.value || escalated.value || pending.value) {
     return false
-  }
-  if (quizActive.value) {
-    const type = activeQuestion.value?.answer_type
-    return type === 'text' || type === 'int'
   }
   return true
 })
@@ -266,13 +341,48 @@ const selectedPlan = computed<PlanId | SupplementPlanId | undefined>(() => {
 
 const messages = computed(() => readonly.value ? viewMessages.value : journey.messages)
 
-const enumOptions = computed(() => {
-  const question = activeQuestion.value
-  if (!question || (question.answer_type !== 'enum' && question.answer_type !== 'multi_enum')) {
-    return [] as string[]
+const chipOptions = computed((): GreetingOption[] => {
+  if (goalSelectActive.value) {
+    return goalOptions.value
   }
-  return question.options ?? []
+  if (quizActive.value && activeQuestion.value) {
+    const type = activeQuestion.value.answer_type
+    if (type === 'enum' || type === 'multi_enum') {
+      return activeQuestion.value.options ?? []
+    }
+  }
+  return []
 })
+
+const isLabRecencyQuestion = computed(() => {
+  return quizActive.value
+    && activeQuestion.value !== null
+    && LAB_GAP_CODES.has(activeQuestion.value.gap_code)
+})
+
+const needsMultiConfirm = computed(() => {
+  if (goalSelectActive.value) {
+    return true
+  }
+  if (isLabRecencyQuestion.value) {
+    return true
+  }
+  return quizActive.value && activeQuestion.value?.answer_type === 'multi_enum'
+})
+
+const showPlansCompare = computed(() => !readonly.value && !escalated.value && (goalSelectActive.value || quizActive.value))
+
+const showUploadChip = computed(() => {
+  if (!isLabRecencyQuestion.value) {
+    return false
+  }
+  const selected = selectedCodes.value[0]
+  return selected !== undefined && UPLOADABLE_LAB_CODES.has(selected)
+})
+
+function isOptionSelected(code: string) {
+  return selectedCodes.value.includes(code)
+}
 
 function applyShopPlanFromQuery() {
   const shopPlan = queryShopPlan(route.query.plan)
@@ -325,6 +435,13 @@ function showRecommendCta(message: ChatMessage) {
     && !reportRetryId.value
 }
 
+function showReportDataCta(message: ChatMessage) {
+  return !readonly.value
+    && !escalated.value
+    && reportResults.value.length > 0
+    && message.id === reportDockMessageId.value
+}
+
 function showRetryCta(message: ChatMessage) {
   return !readonly.value
     && Boolean(reportRetryId.value)
@@ -366,8 +483,21 @@ async function ensureConversation() {
 
   await auth.ensureSession()
   applyShopPlanFromQuery()
-  const created = await candor.createConversation({})
+  const shopPlan = queryShopPlan(route.query.plan)
+  const packageCode = shopPlan ? PLAN_TO_PACKAGE[shopPlan] : undefined
+  const created = await candor.createConversation(
+    packageCode ? { package_code: packageCode } : {}
+  )
   journey.conversationId = created.id
+  if (created.package) {
+    selectedPackage.value = created.package
+    packageConfirmed.value = created.package.confirmed
+  }
+  postQuizGuided.value = false
+  reportResults.value = []
+  reportDockOpen.value = false
+  reportDockCollapsed.value = false
+  reportDockMessageId.value = null
   if (journey.messages.length === 0) {
     journey.messages.push(makeMessage(
       'assistant',
@@ -375,8 +505,42 @@ async function ensureConversation() {
       created.greeting.message_id || 'greet'
     ))
   }
+  goalOptions.value = created.greeting.options ?? []
+  selectedCodes.value = [...(created.greeting.selected ?? [])]
+  goalSelectActive.value = true
+  quizActive.value = false
+  activeQuestion.value = null
 
   return created.id
+}
+
+async function confirmPackage() {
+  if (!journey.conversationId || !selectedPackage.value || packageConfirmed.value || pending.value) {
+    return
+  }
+  pending.value = true
+  try {
+    const result = await candor.confirmConversationPackage(journey.conversationId)
+    selectedPackage.value = result.package
+    packageConfirmed.value = result.package.confirmed
+    appendMessage('assistant', t('chat.guideAfterPackageConfirm'))
+  } catch {
+    appendMessage('assistant', t('chat.streamError'))
+  } finally {
+    pending.value = false
+  }
+}
+
+function guideAfterQuiz() {
+  if (postQuizGuided.value) {
+    return
+  }
+  postQuizGuided.value = true
+  if (journey.hasAnalysis) {
+    appendMessage('assistant', t('chat.guideRecommendAfterQuiz'))
+    return
+  }
+  appendMessage('assistant', t('chat.guideUploadAfterQuiz'))
 }
 
 async function streamPending() {
@@ -384,8 +548,10 @@ async function streamPending() {
   pendingUserContent.value = null
   quizActive.value = false
   activeQuestion.value = null
+  goalSelectActive.value = false
 
   if (!content) {
+    guideAfterQuiz()
     pending.value = false
     return
   }
@@ -410,6 +576,11 @@ async function streamPending() {
     })
 
     setMessageText(assistantId, result.content || streamed)
+    if (journey.hasAnalysis && reportResults.value.length > 0) {
+      reportDockMessageId.value = assistantId
+      openReportDock()
+    }
+    guideAfterQuiz()
   } catch {
     const existing = journey.messages.find(item => item.id === assistantId)
     if (existing) {
@@ -422,18 +593,36 @@ async function streamPending() {
   }
 }
 
+async function finishQuestionnaire() {
+  if (journey.reportId && !journey.hasAnalysis) {
+    try {
+      const report = await candor.getHealthReport(journey.reportId)
+      rememberReport(report)
+      if (report.status === 'ready' || report.status === 'needs_review') {
+        await bindAndInterpret(report.id)
+        return
+      }
+    } catch {
+      // fall through
+    }
+  }
+  await streamPending()
+}
+
 async function runProfileThenStream() {
   pending.value = true
   try {
     const next = await candor.nextProfileQuestion(journey.reportId)
     if (next.done) {
-      await streamPending()
+      await finishQuestionnaire()
       return
     }
 
     appendMessage('assistant', next.prompt)
     activeQuestion.value = next
     quizActive.value = true
+    goalSelectActive.value = false
+    selectedCodes.value = []
     pending.value = false
   } catch {
     appendMessage('assistant', t('chat.streamError'))
@@ -446,7 +635,7 @@ async function runProfileThenStream() {
 
 async function sendText(text: string) {
   const content = text.trim()
-  if (!content || !canSendText.value) {
+  if (!content || pending.value || readonly.value || escalated.value) {
     return
   }
 
@@ -455,8 +644,144 @@ async function sendText(text: string) {
   await runProfileThenStream()
 }
 
+function onOptionChip(option: GreetingOption) {
+  if (pending.value) {
+    return
+  }
+
+  if (goalSelectActive.value || activeQuestion.value?.answer_type === 'multi_enum') {
+    const noneCodes = ['none', 'none_of_above']
+    if (noneCodes.includes(option.code)) {
+      selectedCodes.value = [option.code]
+      return
+    }
+    const withoutNone = selectedCodes.value.filter(code => !noneCodes.includes(code))
+    selectedCodes.value = withoutNone.includes(option.code)
+      ? withoutNone.filter(code => code !== option.code)
+      : [...withoutNone, option.code]
+    return
+  }
+
+  if (isLabRecencyQuestion.value) {
+    const wasUploadable = selectedCodes.value.some(code => UPLOADABLE_LAB_CODES.has(code))
+    selectedCodes.value = [option.code]
+    if (!wasUploadable && UPLOADABLE_LAB_CODES.has(option.code)) {
+      appendMessage('assistant', t('chat.guideUploadOnLabs'))
+    }
+    return
+  }
+
+  if (quizActive.value && activeQuestion.value) {
+    const label = option.label
+    return submitQuizAnswer({ value: option.code, display: label })
+  }
+}
+
+async function confirmMultiSelection() {
+  if (selectedCodes.value.length === 0 || pending.value) {
+    return
+  }
+
+  if (goalSelectActive.value) {
+    const labels = goalOptions.value
+      .filter(o => selectedCodes.value.includes(o.code))
+      .map(o => o.label)
+    appendMessage('user', labels.join('、'))
+    pending.value = true
+    try {
+      const conversationId = await ensureConversation()
+      const result = await candor.setConversationGoals(conversationId, {
+        goals: selectedCodes.value
+      })
+      if (!result.saved) {
+        appendMessage('assistant', result.prompt || t('chat.streamError'))
+        if (result.options) {
+          goalOptions.value = result.options
+        }
+        pending.value = false
+        return
+      }
+      goalSelectActive.value = false
+      selectedCodes.value = []
+      await runProfileThenStream()
+    } catch {
+      appendMessage('assistant', t('chat.streamError'))
+      pending.value = false
+    }
+    return
+  }
+
+  if (quizActive.value && activeQuestion.value) {
+    if (isLabRecencyQuestion.value) {
+      const code = selectedCodes.value[0]
+      if (!code) {
+        return
+      }
+      const label = (activeQuestion.value.options ?? []).find(o => o.code === code)?.label ?? code
+      return submitQuizAnswer({ value: code, display: label })
+    }
+
+    const labels = (activeQuestion.value.options ?? [])
+      .filter(o => selectedCodes.value.includes(o.code))
+      .map(o => o.label)
+    return submitQuizAnswer({
+      value: selectedCodes.value,
+      display: labels.join('、')
+    })
+  }
+}
+
+async function askPlansCompare() {
+  if (pending.value) {
+    return
+  }
+  appendMessage('user', PLANS_COMPARE_TEXT)
+
+  if (goalSelectActive.value) {
+    pending.value = true
+    try {
+      const conversationId = await ensureConversation()
+      const result = await candor.setConversationGoals(conversationId, {
+        raw_text: PLANS_COMPARE_TEXT
+      })
+      appendMessage('assistant', result.prompt || t('chat.streamError'))
+      if (result.options) {
+        goalOptions.value = result.options
+      }
+    } catch {
+      appendMessage('assistant', t('chat.streamError'))
+    } finally {
+      pending.value = false
+    }
+    return
+  }
+
+  if (quizActive.value && activeQuestion.value) {
+    pending.value = true
+    try {
+      const result = await candor.submitProfileAnswer({
+        gap_code: activeQuestion.value.gap_code,
+        raw_text: PLANS_COMPARE_TEXT
+      })
+      if (!result.saved) {
+        appendMessage('assistant', result.prompt)
+        if (result.options) {
+          activeQuestion.value = {
+            ...activeQuestion.value,
+            options: result.options
+          }
+        }
+      }
+    } catch {
+      appendMessage('assistant', t('chat.streamError'))
+    } finally {
+      pending.value = false
+    }
+  }
+}
+
 async function submitQuizAnswer(payload: {
-  value?: string | number | boolean | null
+  value?: string | number | boolean | string[] | null
   raw_text?: string | null
   display: string
 }) {
@@ -475,15 +800,19 @@ async function submitQuizAnswer(payload: {
       raw_text: payload.raw_text
     })
 
-    if (!result.saved && result.needs_clarification) {
+    if (!result.saved) {
       appendMessage('assistant', result.prompt)
+      if (result.options) {
+        activeQuestion.value = { ...question, options: result.options }
+      }
       pending.value = false
       return
     }
 
+    selectedCodes.value = []
     const next = await candor.nextProfileQuestion(journey.reportId)
     if (next.done) {
-      await streamPending()
+      await finishQuestionnaire()
       return
     }
 
@@ -496,23 +825,6 @@ async function submitQuizAnswer(payload: {
   }
 }
 
-function answerEnum(option: string) {
-  return submitQuizAnswer({ value: option, display: option })
-}
-
-function onChip(key: typeof chipKeys[number]) {
-  if (key === 'upload') {
-    pickFile()
-    return
-  }
-
-  if (!canSendText.value) {
-    return
-  }
-
-  return sendText(t(`chat.chips.${key}`))
-}
-
 function pickFile() {
   if (!canUpload.value) {
     return
@@ -521,12 +833,32 @@ function pickFile() {
   fileInput.value?.click()
 }
 
+function openReportDock() {
+  reportDockCollapsed.value = false
+  reportDockOpen.value = true
+}
+
+function rememberReport(report: HealthReport) {
+  if (Array.isArray(report.results) && report.results.length > 0) {
+    reportResults.value = report.results
+  }
+}
+
 async function pollReport(reportId: string) {
   let lastStatus: string | null = null
   let statusMessageId: string | null = null
 
   for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt++) {
-    const report = await candor.getHealthReport(reportId)
+    let report: HealthReport
+    try {
+      report = await candor.getHealthReport(reportId)
+    } catch {
+      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS))
+      continue
+    }
+
+    rememberReport(report)
+
     if (report.status !== lastStatus) {
       lastStatus = report.status
       const text = t('chat.reportStatus', { status: report.status })
@@ -538,11 +870,11 @@ async function pollReport(reportId: string) {
       }
     }
 
-    if (report.status === 'ready') {
+    if (report.status === 'ready' || report.status === 'needs_review') {
       return report
     }
 
-    if (report.status === 'failed' || report.status === 'needs_review') {
+    if (report.status === 'failed') {
       return report
     }
 
@@ -564,11 +896,21 @@ async function bindAndInterpret(reportId: string) {
     throw error
   }
 
+  if (!reportResults.value.length) {
+    try {
+      const fresh = await candor.getHealthReport(reportId)
+      rememberReport(fresh)
+    } catch {
+      // table may stay empty until reopen
+    }
+  }
+
   journey.reportId = reportId
   journey.hasAnalysis = true
   reportRetryId.value = null
   retryMessageId.value = null
   appendMessage('assistant', t('chat.reportReady'))
+  openReportDock()
 
   const interpret = t('chat.askInterpret')
   appendMessage('user', interpret)
@@ -601,14 +943,12 @@ async function onFile(event: Event) {
       return
     }
 
-    if (report.status === 'ready') {
+    if (report.status === 'ready' || report.status === 'needs_review') {
       await bindAndInterpret(report.id)
       return
     }
 
-    const msg = report.status === 'needs_review'
-      ? t('chat.reportNeedsReview')
-      : t('chat.reportFailed')
+    const msg = t('chat.reportFailed')
     const id = crypto.randomUUID()
     journey.messages.push(makeMessage('assistant', msg, id))
     reportRetryId.value = report.id
@@ -638,13 +978,11 @@ async function retryReport() {
       appendMessage('assistant', t('chat.reportPollTimeout'))
       return
     }
-    if (report.status === 'ready') {
+    if (report.status === 'ready' || report.status === 'needs_review') {
       await bindAndInterpret(report.id)
       return
     }
-    const msg = report.status === 'needs_review'
-      ? t('chat.reportNeedsReview')
-      : t('chat.reportFailed')
+    const msg = t('chat.reportFailed')
     const messageId = crypto.randomUUID()
     journey.messages.push(makeMessage('assistant', msg, messageId))
     reportRetryId.value = report.id
@@ -656,27 +994,45 @@ async function retryReport() {
   }
 }
 
-function onSubmit() {
+async function onSubmit() {
   const content = input.value.trim()
   input.value = ''
-  if (!content) {
+  if (!content || pending.value) {
+    return
+  }
+
+  if (goalSelectActive.value) {
+    appendMessage('user', content)
+    pending.value = true
+    try {
+      const conversationId = await ensureConversation()
+      const result = await candor.setConversationGoals(conversationId, { raw_text: content })
+      if (result.saved) {
+        goalSelectActive.value = false
+        selectedCodes.value = []
+        await runProfileThenStream()
+        return
+      }
+      appendMessage('assistant', result.prompt || t('chat.streamError'))
+      if (result.options) {
+        goalOptions.value = result.options
+      }
+    } catch {
+      appendMessage('assistant', t('chat.streamError'))
+    } finally {
+      pending.value = false
+    }
     return
   }
 
   if (quizActive.value && activeQuestion.value) {
     const type = activeQuestion.value.answer_type
-    if (type === 'text') {
-      return submitQuizAnswer({ raw_text: content, display: content })
-    }
-    if (type === 'int') {
-      const n = Number(content)
-      return submitQuizAnswer({
-        value: Number.isFinite(n) ? n : content,
-        raw_text: content,
-        display: content
-      })
-    }
-    return
+    const n = Number(content)
+    return submitQuizAnswer({
+      value: type === 'int' && Number.isFinite(n) ? n : undefined,
+      raw_text: content,
+      display: content
+    })
   }
 
   return sendText(content)
