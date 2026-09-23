@@ -1,4 +1,9 @@
 import { expect, test } from '@nuxt/test-utils/playwright'
+import { mockCandorAuth } from './mock-candor-auth'
+
+test.beforeEach(async ({ page }) => {
+  await mockCandorAuth(page)
+})
 
 test('guest home page loads', async ({ page, goto }) => {
   await goto('/', { waitUntil: 'hydration' })
@@ -61,18 +66,12 @@ test('plan CTA opens chat and AI can reply', async ({ page, goto }) => {
   })).toBe(true)
 })
 
-test('specialist handoff asks for login then shows health dashboard', async ({ page, goto }) => {
+test('guest escalate and health dashboard without login wall', async ({ page, goto }) => {
   await goto('/', { waitUntil: 'hydration' })
   await page.getByTestId('hero-cta-chat').click()
   await expect(page).toHaveURL(/\/chat\/?/)
 
   await page.getByTestId('chat-escalate').click()
-  await expect(page).toHaveURL(/\/login/)
-
-  await page.getByLabel('Email').fill('guest@example.com')
-  await page.getByRole('button', { name: '繼續（示範登入）' }).click()
-
-  await expect(page).toHaveURL(/\/chat/)
   await expect(page.getByTestId('chat-escalated')).toBeVisible()
 
   await page.getByRole('link', { name: '我的健康' }).first().click()
@@ -91,11 +90,11 @@ test('specialist handoff asks for login then shows health dashboard', async ({ p
   await expect(page.getByRole('link', { name: '諮詢' }).first()).toBeVisible()
   await expect(page.getByRole('link', { name: '我的訂單' }).first()).toBeVisible()
   await expect(page.getByRole('link', { name: '交給顧問' })).toHaveCount(0)
-  await expect(page.getByTestId('member-sidebar')).toHaveAttribute('data-collapsed', 'true')
-  await expect(page.getByTestId('member-sidebar').getByTestId('brand')).toHaveText('C')
-  await expect(page.getByTestId('member-header')).toBeHidden()
-  await expect(page.getByTestId('member-sidebar').getByRole('button', { name: '繁中' })).toBeVisible()
-  await expect(page.getByTestId('member-sidebar').getByTestId('color-mode-day')).toBeVisible()
+  await expect(page.getByTestId('user-sidebar')).toHaveAttribute('data-collapsed', 'true')
+  await expect(page.getByTestId('user-sidebar').getByTestId('brand')).toHaveText('C')
+  await expect(page.getByTestId('user-header')).toBeHidden()
+  await expect(page.getByTestId('user-sidebar').getByRole('button', { name: '繁中' })).toBeVisible()
+  await expect(page.getByTestId('user-sidebar').getByTestId('color-mode-day')).toBeVisible()
   await expect(page.getByTestId('account-user').first()).toHaveAttribute('title', 'Guest')
 })
 

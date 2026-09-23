@@ -1,10 +1,15 @@
 import { expect, test } from '@nuxt/test-utils/playwright'
+import { mockCandorAuth } from './mock-candor-auth'
 
 const labsFile = {
   name: 'labs.pdf',
   mimeType: 'application/pdf',
   buffer: Buffer.from('%PDF-1.4 demo')
 }
+
+test.beforeEach(async ({ page }) => {
+  await mockCandorAuth(page)
+})
 
 test('unpaid chat is gone after refresh and never hits localStorage', async ({ page, goto }) => {
   await goto('/chat', { waitUntil: 'hydration' })
@@ -24,27 +29,25 @@ test('unpaid chat is gone after refresh and never hits localStorage', async ({ p
   expect(await page.evaluate(() => localStorage.getItem('candor-paid-orders'))).toBeNull()
 })
 
-test('recommend requires login', async ({ page, goto }) => {
+test('recommend allows guest without login wall', async ({ page, goto }) => {
   await goto('/app/recommend', { waitUntil: 'hydration' })
-  await expect(page).toHaveURL(/\/login/)
-  await expect(page.getByRole('heading', { name: '登入後資料才對得到人' })).toBeVisible()
+  await expect(page).toHaveURL(/\/app\/recommend/)
+  await expect(page.getByRole('heading', { name: '推薦方案' })).toBeVisible()
 })
 
-test('login, labs, month plan, mock pay, timeline, and readonly chat', async ({ page, goto }) => {
+test('guest labs, month plan, mock pay, timeline, and readonly chat', async ({ page, goto }) => {
   test.setTimeout(90_000)
   await page.setViewportSize({ width: 1280, height: 800 })
 
-  await goto('/login?redirect=/chat', { waitUntil: 'hydration' })
+  await goto('/chat', { waitUntil: 'hydration' })
   await page.evaluate(() => localStorage.removeItem('candor-paid-orders'))
-  await page.getByLabel('Email').fill('guest@example.com')
-  await page.getByRole('button', { name: '繼續（示範登入）' }).click()
   await expect(page.getByRole('heading', { name: '諮詢' })).toBeVisible()
-  await expect(page.getByTestId('member-sidebar')).toHaveAttribute('data-collapsed', 'true')
+  await expect(page.getByTestId('user-sidebar')).toHaveAttribute('data-collapsed', 'true')
   await expect(page.getByTestId('nav-sidebar-toggle')).toHaveCount(0)
-  await expect(page.getByTestId('member-sidebar').getByTestId('brand')).toHaveText('C')
-  await expect(page.getByTestId('member-header')).toBeHidden()
-  await expect(page.getByTestId('member-sidebar').getByRole('button', { name: '繁中' })).toBeVisible()
-  await expect(page.getByTestId('member-sidebar').getByTestId('color-mode-day')).toBeVisible()
+  await expect(page.getByTestId('user-sidebar').getByTestId('brand')).toHaveText('C')
+  await expect(page.getByTestId('user-header')).toBeHidden()
+  await expect(page.getByTestId('user-sidebar').getByRole('button', { name: '繁中' })).toBeVisible()
+  await expect(page.getByTestId('user-sidebar').getByTestId('color-mode-day')).toBeVisible()
   await expect(page.getByTestId('nav-chat')).toContainText('諮詢')
   await page.getByTestId('chat-upload-input').setInputFiles(labsFile)
   await expect(page.getByTestId('chat-last-reply')).toContainText('基礎保養')
@@ -97,11 +100,9 @@ test('login, labs, month plan, mock pay, timeline, and readonly chat', async ({ 
   await expect(page.getByTestId('chat-transcript')).toContainText('labs.pdf')
 })
 
-test('logged-in member sees empty orders until a payment', async ({ page, goto }) => {
-  await goto('/login?redirect=/app/orders', { waitUntil: 'hydration' })
+test('guest sees empty orders until a payment', async ({ page, goto }) => {
+  await goto('/app/orders', { waitUntil: 'hydration' })
   await page.evaluate(() => localStorage.removeItem('candor-paid-orders'))
-  await page.getByLabel('Email').fill('guest@example.com')
-  await page.getByRole('button', { name: '繼續（示範登入）' }).click()
   await expect(page.getByRole('heading', { name: '我的訂單' })).toBeVisible()
   await expect(page.getByTestId('nav-orders')).toBeVisible()
   await expect(page.getByTestId('orders-empty')).toContainText('未付款的對話不會留下紀錄')

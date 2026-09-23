@@ -24,7 +24,7 @@
         v-if="!compact"
         class="truncate text-xs text-muted"
       >
-        {{ auth.user.email }}
+        {{ auth.user.email || auth.user.role }}
       </p>
     </div>
   </div>

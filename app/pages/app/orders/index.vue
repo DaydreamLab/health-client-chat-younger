@@ -113,7 +113,7 @@
 import { formatTwd, timelineStatus, type OrderRecord } from '~/utils/first-order'
 
 definePageMeta({
-  layout: 'member',
+  layout: 'user',
   middleware: 'auth'
 })
 

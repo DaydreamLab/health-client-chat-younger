@@ -1,4 +1,5 @@
-export default defineNuxtRouteMiddleware(() => {
+export default defineNuxtRouteMiddleware(async () => {
   const auth = useAuthStore()
-  setPageLayout(auth.isLoggedIn ? 'member' : 'default')
+  await auth.ensureSession()
+  setPageLayout(auth.hasSession ? 'user' : 'default')
 })

@@ -416,7 +416,7 @@ function escalate() {
     return
   }
 
-  if (!auth.isLoggedIn) {
+  if (!auth.hasSession) {
     const chatPath = selectedPlan.value
       ? `${localePath('/chat')}?plan=${selectedPlan.value}&handoff=1`
       : `${localePath('/chat')}?handoff=1`
@@ -436,7 +436,7 @@ function goRecommend() {
   }
 
   const path = localePath('/app/recommend')
-  if (!auth.isLoggedIn) {
+  if (!auth.hasSession) {
     return navigateTo({
       path: localePath('/login'),
       query: { redirect: path }
@@ -470,7 +470,7 @@ onMounted(async () => {
     return
   }
 
-  if (route.query.handoff === '1' && auth.isLoggedIn) {
+  if (route.query.handoff === '1' && auth.hasSession) {
     escalated.value = true
   }
 

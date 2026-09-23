@@ -24,6 +24,12 @@ export default defineNuxtConfig({
     storageKey: 'younger-color-mode'
   },
 
+  runtimeConfig: {
+    public: {
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8080/api/v1'
+    }
+  },
+
   routeRules: {
     '/app/**': { prerender: false },
     '/en/app/**': { prerender: false }

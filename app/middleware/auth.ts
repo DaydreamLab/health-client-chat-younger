@@ -1,11 +1,10 @@
-export default defineNuxtRouteMiddleware((to) => {
+export default defineNuxtRouteMiddleware(async () => {
   const auth = useAuthStore()
-  const localePath = useLocalePath()
+  await auth.ensureSession()
 
-  if (!auth.isLoggedIn) {
-    return navigateTo({
-      path: localePath('/login'),
-      query: { redirect: to.fullPath }
-    })
+  if (!auth.hasSession) {
+    // Guest issuance failed (core down). Stay on page without forcing /login —
+    // recommend/orders need a token; surface empty until session recovers.
+    return
   }
 })

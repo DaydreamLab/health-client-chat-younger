@@ -4,9 +4,9 @@
     :class="isChat ? 'h-dvh overflow-hidden' : 'min-h-dvh'"
   >
     <aside
-      id="member-sidebar"
+      id="user-sidebar"
       class="hidden w-20 shrink-0 flex-col items-center overflow-hidden border-e border-default bg-elevated p-2 lg:flex"
-      data-testid="member-sidebar"
+      data-testid="user-sidebar"
       data-collapsed="true"
     >
       <BrandMark
@@ -42,7 +42,7 @@
     >
       <header
         class="flex h-16 shrink-0 items-center gap-3 border-b border-default px-4 sm:px-6 lg:hidden"
-        data-testid="member-header"
+        data-testid="user-header"
       >
         <BrandMark />
         <div class="ms-auto flex items-center gap-2">
@@ -86,7 +86,7 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui'
 
-interface MemberNavItem extends NavigationMenuItem {
+interface UserNavItem extends NavigationMenuItem {
   testId?: string
   mobileTestId?: string
 }
@@ -105,7 +105,7 @@ const collapsedNavUi = {
   link: 'flex-col gap-1 items-center',
   linkLabel: 'block text-[10px]/3 text-center'
 }
-const navItems = computed<MemberNavItem[]>(() => [
+const navItems = computed<UserNavItem[]>(() => [
   {
     label: t('nav.member'),
     icon: 'i-lucide-heart-pulse',
@@ -154,7 +154,7 @@ const logoutItems = computed<NavigationMenuItem[]>(() => [
   }
 ])
 
-function navTo(item: MemberNavItem) {
+function navTo(item: UserNavItem) {
   return typeof item.to === 'string' ? item.to : localePath('/app')
 }
 

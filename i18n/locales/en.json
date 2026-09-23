@@ -72,9 +72,18 @@
   },
   "login": {
     "title": "Log in so we can match your records",
-    "description": "This is mock login. PHP auth comes later. You only need it for a specialist, payment, or saving a report.",
+    "registerTitle": "Create an account",
+    "description": "Sign in with email and password. Guests can finish upload and checkout; register to keep the same account across devices.",
+    "registerDescription": "Upgrade your guest session to a member. Reports and chats stay on the same user id.",
     "email": "Email",
-    "submit": "Continue (demo login)",
+    "password": "Password",
+    "submit": "Log in",
+    "registerSubmit": "Register",
+    "switchToRegister": "Need an account? Register",
+    "switchToLogin": "Already registered? Log in",
+    "invalid": "Check your email and password",
+    "invalidCredentials": "Invalid email or password",
+    "alreadyMember": "This email is already a member — please log in",
     "guestHint": "Not ready? Browse plans on the home page, or keep chatting with AI."
   },
   "member": {

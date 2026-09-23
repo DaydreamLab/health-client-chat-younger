@@ -20,14 +20,14 @@
             {{ $t('nav.chat') }}
           </AppButton>
           <AppButton
-            v-if="auth.isLoggedIn"
+            v-if="auth.hasSession"
             :to="localePath('/app')"
             variant="ghost"
           >
             {{ $t('nav.member') }}
           </AppButton>
           <AppButton
-            v-else
+            v-if="!auth.isMember"
             :to="localePath('/login')"
             variant="ghost"
           >

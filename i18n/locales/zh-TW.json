@@ -72,9 +72,18 @@
   },
   "login": {
     "title": "登入後資料才對得到人",
-    "description": "這是假登入，之後會換成 PHP 會員。專人客服、付款、要保存報告時才需要這一步。",
+    "registerTitle": "註冊會員",
+    "description": "用 email 與密碼登入。訪客也能走完上傳與下單；註冊後同一帳號可跨裝置續用。",
+    "registerDescription": "帶著目前訪客身分升級為會員，報告與對話會原地繼承。",
     "email": "Email",
-    "submit": "繼續（示範登入）",
+    "password": "密碼",
+    "submit": "登入",
+    "registerSubmit": "註冊",
+    "switchToRegister": "還沒有帳號？註冊",
+    "switchToLogin": "已有帳號？登入",
+    "invalid": "請檢查 email 與密碼",
+    "invalidCredentials": "帳號或密碼不正確",
+    "alreadyMember": "這個 email 已經是會員，請直接登入",
     "guestHint": "還不想登入？可以先回首頁逛方案，或繼續跟 AI 對談。"
   },
   "member": {

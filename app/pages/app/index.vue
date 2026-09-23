@@ -175,7 +175,7 @@ import {
 } from '~/utils/health-demo'
 
 definePageMeta({
-  layout: 'member',
+  layout: 'user',
   middleware: 'auth'
 })
 
