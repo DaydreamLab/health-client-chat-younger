@@ -146,7 +146,6 @@
     "escalatedBody": "Your name list goes to the advisor side. The consult happens on their system; this app does not show that conversation.",
     "escalatedLocked": "AI replies are paused after handoff. Wait for the advisor side to follow up.",
     "chips": {
-      "plans": "How do the two plans differ?",
       "upload": "Upload report"
     },
     "confirmSelection": "Confirm",
@@ -301,8 +300,8 @@
   },
   "orders": {
     "title": "My orders",
-    "subtitle": "Only paid orders are listed. Leave or refresh before paying and the chat is gone.",
-    "empty": "Orders appear here after the first payment. Unpaid chats are not saved.",
+    "subtitle": "Only paid orders are listed. Unpaid consults stay on this device until checkout.",
+    "empty": "Orders appear here after the first payment. Unpaid consults stay locally so you can continue after refresh.",
     "number": "Order no.",
     "date": "Order date",
     "amount": "Total",

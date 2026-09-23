@@ -1,6 +1,6 @@
 <template>
   <div
-    class="flex bg-default text-default"
+    class="flex flex-row bg-default text-default"
     :class="isChat ? 'h-dvh overflow-hidden' : 'min-h-dvh'"
   >
     <aside

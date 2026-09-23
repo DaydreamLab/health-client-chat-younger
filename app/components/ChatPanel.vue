@@ -69,9 +69,7 @@
       </div>
     </div>
 
-    <div
-      class="relative min-h-0 flex-1"
-    >
+    <div class="relative min-h-0 flex-1">
       <ReportDataDock
         v-model:open="reportDockOpen"
         v-model:collapsed="reportDockCollapsed"
@@ -80,17 +78,17 @@
       <div
         ref="transcriptEl"
         data-testid="chat-transcript"
-        class="h-full space-y-2 overflow-y-auto px-4 py-4 sm:px-6"
+        class="absolute inset-0 space-y-2 overflow-y-auto px-4 py-4 sm:px-6"
       >
       <article
         v-for="message in messages"
         :key="message.id"
-        class="flex items-end gap-2"
+        class="flex items-start gap-2"
         :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
       >
         <span
           v-if="message.role === 'assistant'"
-          class="mb-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-elevated text-primary"
+          class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-elevated text-primary"
         >
           <UIcon
             name="i-lucide-bot"
@@ -160,7 +158,7 @@
       class="shrink-0 border-t border-default bg-elevated px-4 py-4 sm:px-6"
     >
       <div
-        v-if="chipOptions.length || showPlansCompare || showUploadChip"
+        v-if="chipOptions.length || showUploadChip"
         class="mb-3 flex flex-wrap gap-2"
         data-testid="chat-quiz-options"
       >
@@ -185,16 +183,6 @@
           @click="confirmMultiSelection"
         >
           {{ $t('chat.confirmSelection') }}
-        </button>
-        <button
-          v-if="showPlansCompare"
-          type="button"
-          class="app-chip"
-          data-testid="chat-chip-plans"
-          :disabled="pending"
-          @click="askPlansCompare"
-        >
-          {{ $t('chat.chips.plans') }}
         </button>
         <button
           v-if="showUploadChip"
@@ -260,19 +248,17 @@
 
 <script setup lang="ts">
 import type {
-  ConversationPackage,
   GreetingOption,
   HealthReport,
-  HealthReportResult,
-  ProfileNextQuestion
+  HealthReportResult
 } from '~/utils/candor-api'
 import { CandorApiError, PLAN_TO_PACKAGE } from '~/utils/candor-api'
 import { isPlanId, type PlanId } from '~/utils/plans'
 import { isSupplementPlanId, type ChatMessage, type SupplementPlanId } from '~/utils/first-order'
+import { storeToRefs } from 'pinia'
 
 const POLL_INTERVAL_MS = 2000
 const POLL_MAX_ATTEMPTS = 30
-const PLANS_COMPARE_TEXT = '兩個方案差在哪？'
 const LAB_GAP_CODES = new Set(['checkup', 'blood_test'])
 const UPLOADABLE_LAB_CODES = new Set(['1_to_3y', 'within_1y', 'within_6m'])
 
@@ -281,20 +267,22 @@ const localePath = useLocalePath()
 const route = useRoute()
 const auth = useAuthStore()
 const journey = useJourneyStore()
+const {
+  quizActive,
+  goalSelectActive,
+  activeQuestion,
+  goalOptions,
+  selectedCodes,
+  selectedPackage,
+  packageConfirmed,
+  postQuizGuided
+} = storeToRefs(journey)
 const ordersApi = useFirstOrderApi()
 const candor = useCandorApi()
 
 const input = ref('')
 const pending = ref(false)
 const escalated = ref(false)
-const quizActive = ref(false)
-const goalSelectActive = ref(false)
-const activeQuestion = ref<ProfileNextQuestion | null>(null)
-const goalOptions = ref<GreetingOption[]>([])
-const selectedCodes = ref<string[]>([])
-const selectedPackage = ref<ConversationPackage | null>(null)
-const packageConfirmed = ref(false)
-const postQuizGuided = ref(false)
 const pendingUserContent = ref<string | null>(null)
 const reportRetryId = ref<string | null>(null)
 const retryMessageId = ref<string | null>(null)
@@ -369,8 +357,6 @@ const needsMultiConfirm = computed(() => {
   }
   return quizActive.value && activeQuestion.value?.answer_type === 'multi_enum'
 })
-
-const showPlansCompare = computed(() => !readonly.value && !escalated.value && (goalSelectActive.value || quizActive.value))
 
 const showUploadChip = computed(() => {
   if (!isLabRecencyQuestion.value) {
@@ -731,55 +717,6 @@ async function confirmMultiSelection() {
   }
 }
 
-async function askPlansCompare() {
-  if (pending.value) {
-    return
-  }
-  appendMessage('user', PLANS_COMPARE_TEXT)
-
-  if (goalSelectActive.value) {
-    pending.value = true
-    try {
-      const conversationId = await ensureConversation()
-      const result = await candor.setConversationGoals(conversationId, {
-        raw_text: PLANS_COMPARE_TEXT
-      })
-      appendMessage('assistant', result.prompt || t('chat.streamError'))
-      if (result.options) {
-        goalOptions.value = result.options
-      }
-    } catch {
-      appendMessage('assistant', t('chat.streamError'))
-    } finally {
-      pending.value = false
-    }
-    return
-  }
-
-  if (quizActive.value && activeQuestion.value) {
-    pending.value = true
-    try {
-      const result = await candor.submitProfileAnswer({
-        gap_code: activeQuestion.value.gap_code,
-        raw_text: PLANS_COMPARE_TEXT
-      })
-      if (!result.saved) {
-        appendMessage('assistant', result.prompt)
-        if (result.options) {
-          activeQuestion.value = {
-            ...activeQuestion.value,
-            options: result.options
-          }
-        }
-      }
-    } catch {
-      appendMessage('assistant', t('chat.streamError'))
-    } finally {
-      pending.value = false
-    }
-  }
-}
-
 async function submitQuizAnswer(payload: {
   value?: string | number | boolean | string[] | null
   raw_text?: string | null
@@ -1103,6 +1040,8 @@ onMounted(async () => {
     await loadOrderChat(orderId.value)
     return
   }
+
+  journey.hydrate()
 
   if (route.query.handoff === '1' && auth.hasSession) {
     escalated.value = true

@@ -11,14 +11,18 @@ test.beforeEach(async ({ page }) => {
   await mockCandorAuth(page)
 })
 
-test('unpaid chat is gone after refresh and never hits localStorage', async ({ page, goto }) => {
+test('unpaid chat survives refresh via journey storage', async ({ page, goto }) => {
   await goto('/chat', { waitUntil: 'hydration' })
-  await page.evaluate(() => localStorage.removeItem('candor-paid-orders'))
+  await page.evaluate(() => {
+    localStorage.removeItem('candor-paid-orders')
+    localStorage.removeItem('candor.unpaid.journey')
+  })
   await page.getByTestId('chat-upload-input').setInputFiles(labsFile)
   await expect(page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend')).toBeVisible()
   await expect(page.getByTestId('chat-view-report-data')).toBeVisible()
   await expect(page.getByTestId('chat-escalate')).toBeVisible()
   expect(await page.evaluate(() => localStorage.getItem('candor-paid-orders'))).toBeNull()
+  expect(await page.evaluate(() => localStorage.getItem('candor.unpaid.journey'))).toContain('conversationId')
 
   await page.getByTestId('chat-view-report-data').click()
   await expect(page.getByTestId('chat-report-dock')).toBeVisible()
@@ -26,11 +30,11 @@ test('unpaid chat is gone after refresh and never hits localStorage', async ({ p
 
   await page.reload({ waitUntil: 'domcontentloaded' })
   await expect(page.getByRole('heading', { name: '諮詢' })).toBeVisible()
-  await expect(page.getByTestId('chat-view-recommend')).toHaveCount(0)
+  await expect(page.getByTestId('chat-view-recommend')).toBeVisible()
   await expect(page.getByTestId('chat-input')).toBeVisible()
-  await expect(page.getByTestId('chat-chip-plans')).toBeVisible()
+  await expect(page.getByTestId('chat-chip-plans')).toHaveCount(0)
   await expect(page.getByTestId('chat-escalate')).toBeVisible()
-  expect(await page.evaluate(() => localStorage.getItem('candor-paid-orders'))).toBeNull()
+  expect(await page.evaluate(() => localStorage.getItem('candor.unpaid.journey'))).toContain('conversationId')
 })
 
 test('recommend allows guest without login wall', async ({ page, goto }) => {
@@ -109,7 +113,7 @@ test('guest sees empty orders until a payment', async ({ page, goto }) => {
   await page.evaluate(() => localStorage.removeItem('candor-paid-orders'))
   await expect(page.getByRole('heading', { name: '我的訂單' })).toBeVisible()
   await expect(page.getByTestId('nav-orders')).toBeVisible()
-  await expect(page.getByTestId('orders-empty')).toContainText('未付款的對話不會留下紀錄')
+  await expect(page.getByTestId('orders-empty')).toContainText('未結帳前的諮詢會暫存在本機')
 })
 
 test.describe('profile quiz gate', () => {
@@ -121,10 +125,7 @@ test.describe('profile quiz gate', () => {
     await goto('/chat', { waitUntil: 'hydration' })
     await expect(page.getByTestId('chat-last-reply')).toContainText('改善方向')
     await expect(page.getByTestId('chat-quiz-option-vitality')).toBeVisible()
-
-    await page.getByTestId('chat-chip-plans').click()
-    await expect(page.getByTestId('chat-transcript')).toContainText('兩個方案差在哪？')
-    await expect(page.getByTestId('chat-quiz-options')).toBeVisible()
+    await expect(page.getByTestId('chat-chip-plans')).toHaveCount(0)
 
     await page.getByTestId('chat-quiz-option-vitality').click()
     await page.getByTestId('chat-quiz-confirm').click()
