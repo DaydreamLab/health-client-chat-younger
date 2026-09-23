@@ -258,7 +258,6 @@ import { isSupplementPlanId, type ChatMessage, type SupplementPlanId } from '~/u
 import { storeToRefs } from 'pinia'
 
 const POLL_INTERVAL_MS = 2000
-const POLL_MAX_ATTEMPTS = 30
 const LAB_GAP_CODES = new Set(['checkup', 'blood_test'])
 const UPLOADABLE_LAB_CODES = new Set(['1_to_3y', 'within_1y', 'within_6m'])
 
@@ -282,6 +281,7 @@ const candor = useCandorApi()
 
 const input = ref('')
 const pending = ref(false)
+const reportInFlight = ref(false)
 const escalated = ref(false)
 const pendingUserContent = ref<string | null>(null)
 const reportRetryId = ref<string | null>(null)
@@ -293,6 +293,7 @@ const reportDockMessageId = ref<string | null>(null)
 const transcriptEl = useTemplateRef<HTMLElement>('transcriptEl')
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
 const viewMessages = ref<ChatMessage[]>([])
+let pollGeneration = 0
 
 function queryValue(value: unknown) {
   const raw = Array.isArray(value) ? value[0] : value
@@ -315,7 +316,7 @@ function queryOrderId(value: unknown) {
 
 const orderId = computed(() => queryOrderId(route.query.orderId))
 const readonly = computed(() => Boolean(orderId.value))
-const canUpload = computed(() => !readonly.value && !escalated.value && !pending.value)
+const canUpload = computed(() => !readonly.value && !escalated.value && !reportInFlight.value)
 const canType = computed(() => {
   if (readonly.value || escalated.value || pending.value) {
     return false
@@ -781,17 +782,32 @@ function rememberReport(report: HealthReport) {
   }
 }
 
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+async function waitWhileChatPending() {
+  while (pending.value) {
+    await sleep(100)
+  }
+}
+
 async function pollReport(reportId: string) {
+  const generation = ++pollGeneration
   let lastStatus: string | null = null
   let statusMessageId: string | null = null
 
-  for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt++) {
+  while (generation === pollGeneration) {
     let report: HealthReport
     try {
       report = await candor.getHealthReport(reportId)
     } catch {
-      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS))
+      await sleep(POLL_INTERVAL_MS)
       continue
+    }
+
+    if (generation !== pollGeneration) {
+      return null
     }
 
     rememberReport(report)
@@ -807,15 +823,11 @@ async function pollReport(reportId: string) {
       }
     }
 
-    if (report.status === 'ready' || report.status === 'needs_review') {
+    if (report.status === 'ready' || report.status === 'needs_review' || report.status === 'failed') {
       return report
     }
 
-    if (report.status === 'failed') {
-      return report
-    }
-
-    await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS))
+    await sleep(POLL_INTERVAL_MS)
   }
 
   return null
@@ -855,6 +867,22 @@ async function bindAndInterpret(reportId: string) {
   await runProfileThenStream()
 }
 
+async function handleReportTerminal(report: HealthReport) {
+  if (report.status === 'ready' || report.status === 'needs_review') {
+    await waitWhileChatPending()
+    await bindAndInterpret(report.id)
+    return
+  }
+
+  if (report.status === 'failed') {
+    const msg = t('chat.reportFailed')
+    const id = crypto.randomUUID()
+    journey.messages.push(makeMessage('assistant', msg, id))
+    reportRetryId.value = report.id
+    retryMessageId.value = id
+  }
+}
+
 async function onFile(event: Event) {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
@@ -863,8 +891,8 @@ async function onFile(event: Event) {
     return
   }
 
-  appendMessage('user', t('chat.uploaded', { name: file.name }), file.name)
-  pending.value = true
+  appendMessage('user', t('chat.uploaded', { name: file.name }))
+  reportInFlight.value = true
   reportRetryId.value = null
   retryMessageId.value = null
 
@@ -872,62 +900,41 @@ async function onFile(event: Event) {
     await ensureConversation()
     const uploaded = await candor.uploadHealthReport(file)
     journey.reportId = uploaded.id
-    appendMessage('assistant', t('chat.reportStatus', { status: uploaded.status }))
 
     const report = await pollReport(uploaded.id)
     if (!report) {
-      appendMessage('assistant', t('chat.reportPollTimeout'))
       return
     }
 
-    if (report.status === 'ready' || report.status === 'needs_review') {
-      await bindAndInterpret(report.id)
-      return
-    }
-
-    const msg = t('chat.reportFailed')
-    const id = crypto.randomUUID()
-    journey.messages.push(makeMessage('assistant', msg, id))
-    reportRetryId.value = report.id
-    retryMessageId.value = id
+    await handleReportTerminal(report)
   } catch {
     appendMessage('assistant', t('chat.streamError'))
   } finally {
-    pending.value = false
+    reportInFlight.value = false
   }
 }
 
 async function retryReport() {
   const id = reportRetryId.value
-  if (!id || pending.value) {
+  if (!id || reportInFlight.value) {
     return
   }
 
-  pending.value = true
+  reportInFlight.value = true
   reportRetryId.value = null
   retryMessageId.value = null
 
   try {
-    const ack = await candor.retryHealthReport(id)
-    appendMessage('assistant', t('chat.reportStatus', { status: ack.status }))
+    await candor.retryHealthReport(id)
     const report = await pollReport(id)
     if (!report) {
-      appendMessage('assistant', t('chat.reportPollTimeout'))
       return
     }
-    if (report.status === 'ready' || report.status === 'needs_review') {
-      await bindAndInterpret(report.id)
-      return
-    }
-    const msg = t('chat.reportFailed')
-    const messageId = crypto.randomUUID()
-    journey.messages.push(makeMessage('assistant', msg, messageId))
-    reportRetryId.value = report.id
-    retryMessageId.value = messageId
+    await handleReportTerminal(report)
   } catch {
     appendMessage('assistant', t('chat.streamError'))
   } finally {
-    pending.value = false
+    reportInFlight.value = false
   }
 }
 
@@ -1055,5 +1062,9 @@ onMounted(async () => {
     }
   }
   scrollToLatest('auto')
+})
+
+onBeforeUnmount(() => {
+  pollGeneration += 1
 })
 </script>
