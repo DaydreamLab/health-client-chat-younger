@@ -80,76 +80,76 @@
         data-testid="chat-transcript"
         class="absolute inset-0 space-y-2 overflow-y-auto px-4 py-4 sm:px-6"
       >
-      <article
-        v-for="message in messages"
-        :key="message.id"
-        class="flex items-start gap-2"
-        :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
-      >
-        <span
-          v-if="message.role === 'assistant'"
-          class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-elevated text-primary"
+        <article
+          v-for="message in messages"
+          :key="message.id"
+          class="flex items-start gap-2"
+          :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
         >
-          <UIcon
-            name="i-lucide-bot"
-            class="size-4"
-          />
-        </span>
-        <div
-          class="max-w-[min(40rem,85%)] rounded-2xl px-4 py-2.5 text-sm leading-relaxed"
-          :class="[
-            message.role === 'user' ? 'bg-elevated text-highlighted' : 'bg-muted text-default',
-            message.id === reportDockMessageId ? 'ring-1 ring-primary/40' : ''
-          ]"
-          :data-testid="message.id === lastAssistantId ? 'chat-last-reply' : undefined"
-        >
-          <p class="whitespace-pre-line">
-            {{ messageText(message) }}
-          </p>
-          <p
-            v-if="fileName(message)"
-            class="mt-2 inline-flex items-center gap-1 rounded-lg bg-default px-2 py-1 text-xs text-muted"
+          <span
+            v-if="message.role === 'assistant'"
+            class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-elevated text-primary"
           >
             <UIcon
-              name="i-lucide-paperclip"
-              class="size-3.5"
+              name="i-lucide-bot"
+              class="size-4"
             />
-            {{ fileName(message) }}
-          </p>
-          <AppButton
-            v-if="showReportDataCta(message)"
-            class="mt-3"
-            variant="outline"
-            data-testid="chat-view-report-data"
-            @click="openReportDock"
+          </span>
+          <div
+            class="max-w-[min(40rem,85%)] rounded-2xl px-4 py-2.5 text-sm leading-relaxed"
+            :class="[
+              message.role === 'user' ? 'bg-elevated text-highlighted' : 'bg-muted text-default',
+              message.id === reportDockMessageId ? 'ring-1 ring-primary/40' : ''
+            ]"
+            :data-testid="message.id === lastAssistantId ? 'chat-last-reply' : undefined"
           >
-            {{ $t('chat.viewReportData') }}
-          </AppButton>
-          <AppButton
-            v-if="showRecommendCta(message)"
-            class="mt-3"
-            data-testid="chat-view-recommend"
-            @click="goRecommend"
-          >
-            {{ $t('chat.viewRecommend') }}
-          </AppButton>
-          <AppButton
-            v-if="showRetryCta(message)"
-            class="mt-3"
-            variant="outline"
-            data-testid="chat-report-retry"
-            @click="retryReport"
-          >
-            {{ $t('chat.reportRetry') }}
-          </AppButton>
-        </div>
-      </article>
-      <p
-        v-if="pending"
-        class="text-sm text-muted"
-      >
-        {{ $t('chat.thinking') }}
-      </p>
+            <p class="whitespace-pre-line">
+              {{ messageText(message) }}
+            </p>
+            <p
+              v-if="fileName(message)"
+              class="mt-2 inline-flex items-center gap-1 rounded-lg bg-default px-2 py-1 text-xs text-muted"
+            >
+              <UIcon
+                name="i-lucide-paperclip"
+                class="size-3.5"
+              />
+              {{ fileName(message) }}
+            </p>
+            <AppButton
+              v-if="showReportDataCta(message)"
+              class="mt-3"
+              variant="outline"
+              data-testid="chat-view-report-data"
+              @click="openReportDock"
+            >
+              {{ $t('chat.viewReportData') }}
+            </AppButton>
+            <AppButton
+              v-if="showRecommendCta(message)"
+              class="mt-3"
+              data-testid="chat-view-recommend"
+              @click="goRecommend"
+            >
+              {{ $t('chat.viewRecommend') }}
+            </AppButton>
+            <AppButton
+              v-if="showRetryCta(message)"
+              class="mt-3"
+              variant="outline"
+              data-testid="chat-report-retry"
+              @click="retryReport"
+            >
+              {{ $t('chat.reportRetry') }}
+            </AppButton>
+          </div>
+        </article>
+        <p
+          v-if="pending"
+          class="text-sm text-muted"
+        >
+          {{ $t('chat.thinking') }}
+        </p>
       </div>
     </div>
 
@@ -253,8 +253,7 @@ import type {
   HealthReportResult
 } from '~/utils/candor-api'
 import { CandorApiError } from '~/utils/candor-api'
-import { isPlanId, type PlanId } from '~/utils/plans'
-import { isSupplementPlanId, type ChatMessage, type SupplementPlanId } from '~/utils/first-order'
+import type { ChatMessage } from '~/utils/first-order'
 import { storeToRefs } from 'pinia'
 
 const POLL_INTERVAL_MS = 2000
@@ -300,16 +299,6 @@ function queryValue(value: unknown) {
   return typeof raw === 'string' ? raw : ''
 }
 
-function queryPlan(value: unknown): PlanId | undefined {
-  const raw = queryValue(value)
-  return isPlanId(raw) ? raw : undefined
-}
-
-function queryShopPlan(value: unknown): SupplementPlanId | undefined {
-  const raw = queryValue(value)
-  return isSupplementPlanId(raw) ? raw : undefined
-}
-
 function queryPackageCode(value: unknown): string | undefined {
   const raw = queryValue(value).trim()
   return raw !== '' ? raw : undefined
@@ -327,10 +316,6 @@ const canType = computed(() => {
     return false
   }
   return true
-})
-
-const selectedPlan = computed<PlanId | SupplementPlanId | undefined>(() => {
-  return queryShopPlan(route.query.plan) ?? queryPlan(route.query.plan)
 })
 
 const selectedPackageCodeFromQuery = computed(() => queryPackageCode(route.query.package))
@@ -378,14 +363,10 @@ function isOptionSelected(code: string) {
   return selectedCodes.value.includes(code)
 }
 
-function applyShopPlanFromQuery() {
+function applyPackageFromQuery() {
   const packageCode = queryPackageCode(route.query.package)
   if (packageCode) {
     journey.selectedPackageCode = packageCode
-  }
-  const shopPlan = queryShopPlan(route.query.plan)
-  if (shopPlan) {
-    journey.selectedPlanId = shopPlan
   }
 }
 
@@ -480,7 +461,7 @@ async function ensureConversation() {
   }
 
   await auth.ensureSession()
-  applyShopPlanFromQuery()
+  applyPackageFromQuery()
   const packageCode = selectedPackageCodeFromQuery.value
     ?? journey.selectedPackageCode
     ?? undefined
@@ -1002,9 +983,7 @@ function escalate() {
   if (!auth.hasSession) {
     const chatPath = selectedPackageCodeFromQuery.value
       ? `${localePath('/chat')}?package=${encodeURIComponent(selectedPackageCodeFromQuery.value)}&handoff=1`
-      : selectedPlan.value
-        ? `${localePath('/chat')}?plan=${selectedPlan.value}&handoff=1`
-        : `${localePath('/chat')}?handoff=1`
+      : `${localePath('/chat')}?handoff=1`
 
     return navigateTo({
       path: localePath('/login'),

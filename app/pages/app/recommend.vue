@@ -53,42 +53,116 @@
         </p>
         <div class="mt-4">
           <h2 class="font-semibold text-highlighted">
-            {{ $t('labChart.title') }}
+            {{ $t('shop.reportSection') }}
           </h2>
-          <p class="mt-1 text-sm text-dimmed">
-            {{ $t('labChart.hint') }}
+          <p
+            v-if="reportPending"
+            class="mt-2 text-sm text-muted"
+            data-testid="recommend-report-loading"
+          >
+            {{ $t('shop.reportLoading') }}
           </p>
-          <div class="mt-3">
-            <LabBarChart />
+          <p
+            v-else-if="!reportResults.length"
+            class="mt-2 text-sm text-muted"
+            data-testid="recommend-report-empty"
+          >
+            {{ $t('shop.reportEmpty') }}
+          </p>
+          <div
+            v-else
+            class="mt-3"
+          >
+            <ReportResultTable :results="reportResults" />
           </div>
         </div>
       </section>
 
-      <section
-        v-for="section in itemSections"
-        :key="section.id"
-        class="overflow-hidden rounded-2xl border border-default bg-elevated"
-      >
-        <div
-          class="border-b border-default px-5 py-4"
-          :class="section.id === 'plus' ? 'bg-muted' : undefined"
+      <section class="rounded-2xl border border-default bg-elevated p-5">
+        <h2 class="font-semibold text-highlighted">
+          {{ $t('shop.packagePick') }}
+        </h2>
+        <p
+          v-if="recoPending"
+          class="mt-3 text-sm text-muted"
+          data-testid="recommend-loading"
         >
+          {{ $t('shop.recoLoading') }}
+        </p>
+        <p
+          v-else-if="recoError"
+          class="mt-3 text-sm text-error"
+          data-testid="recommend-error"
+        >
+          {{ recoError }}
+        </p>
+        <div
+          v-else
+          class="mt-4 grid gap-3 sm:grid-cols-2"
+        >
+          <label
+            v-for="pkg in packages"
+            :key="pkg.package_code"
+            class="app-path-card"
+            :class="{ 'app-path-card-selected': selectedPackageCode === pkg.package_code }"
+            :data-testid="`shop-package-${pkg.package_code}`"
+          >
+            <input
+              v-model="selectedPackageCode"
+              type="radio"
+              class="sr-only"
+              name="recommend-package"
+              :value="pkg.package_code"
+            >
+            <div class="flex items-start justify-between gap-2">
+              <p class="font-medium text-highlighted">
+                {{ pkg.package_name }}
+              </p>
+            </div>
+            <p class="mt-2 text-lg font-semibold text-primary">
+              {{ $t('shop.perMonth', { price: formatTwd(pkg.price) }) }}
+            </p>
+            <p class="mt-1 text-sm text-muted">
+              {{ $t('shop.itemCountHint', { count: pkg.items.length }) }}
+            </p>
+          </label>
+        </div>
+      </section>
+
+      <section
+        class="overflow-hidden rounded-2xl border border-default bg-elevated"
+        data-testid="recommend-items"
+      >
+        <div class="border-b border-default px-5 py-4">
           <h2 class="font-semibold text-highlighted">
-            {{ $t(`shop.${section.id}Title`) }}
+            {{ $t('shop.itemsTitle') }}
           </h2>
-          <p class="mt-1 text-sm text-muted">
-            {{ $t(`shop.${section.id}Hint`) }}
+          <p
+            v-if="selectedPackage"
+            class="mt-1 text-sm text-muted"
+          >
+            {{ selectedPackage.package_name }}
           </p>
         </div>
-        <ul class="divide-y divide-default">
+        <p
+          v-if="!selectedPackage || !selectedPackage.items.length"
+          class="px-5 py-6 text-sm text-muted"
+          data-testid="recommend-items-empty"
+        >
+          {{ $t('shop.itemsEmpty') }}
+        </p>
+        <ul
+          v-else
+          class="divide-y divide-default"
+        >
           <li
-            v-for="item in section.items"
-            :key="item.id"
+            v-for="item in selectedPackage.items"
+            :key="item.product_id"
           >
             <button
               type="button"
               class="flex w-full items-start gap-3 px-5 py-4 text-start transition hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
-              :data-testid="`shop-item-${item.id}`"
+              :data-testid="`shop-item-${item.code || item.product_id}`"
               @click="detail = item"
             >
               <span class="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -99,66 +173,26 @@
               </span>
               <span class="min-w-0 flex-1">
                 <span class="block font-medium text-highlighted">
-                  {{ $t(`shop.items.${item.id}.name`) }}
+                  {{ item.name }}
                 </span>
                 <span class="mt-1 block text-sm text-muted">
-                  {{ $t(`shop.items.${item.id}.need`) }}
+                  {{ copyFor(item.product_id)?.headline || $t('shop.itemCopyFallback') }}
                 </span>
               </span>
               <span class="flex shrink-0 flex-col items-end gap-1">
                 <span
                   class="app-badge app-badge-pending"
-                  :data-testid="`shop-dose-${item.id}`"
+                  :data-testid="`shop-dose-${item.code || item.product_id}`"
                 >
-                  {{ $t('shop.doseLocked', { count: item.dailyDose }) }}
+                  {{ $t('shop.doseLocked', { count: item.daily_dose }) }}
                 </span>
                 <span class="text-sm tabular-nums text-muted">
-                  {{ formatTwd(item.monthlyCost) }}
+                  {{ formatTwd(item.monthly_cost) }}
                 </span>
               </span>
             </button>
           </li>
         </ul>
-      </section>
-
-      <section class="rounded-2xl border border-default bg-elevated p-5">
-        <h2 class="font-semibold text-highlighted">
-          {{ $t('shop.planPick') }}
-        </h2>
-        <div class="mt-4 grid gap-3 sm:grid-cols-2">
-          <label
-            v-for="plan in planOptions"
-            :key="plan.id"
-            class="app-path-card"
-            :class="{ 'app-path-card-selected': journey.selectedPlanId === plan.id }"
-            :data-testid="`shop-plan-${plan.id}`"
-          >
-            <input
-              v-model="journey.selectedPlanId"
-              type="radio"
-              class="sr-only"
-              name="recommend-plan"
-              :value="plan.id"
-            >
-            <div class="flex items-start justify-between gap-2">
-              <p class="font-medium text-highlighted">
-                {{ $t(`shop.${plan.id}`) }}
-              </p>
-              <span
-                v-if="plan.id === 'fullTune'"
-                class="app-badge app-badge-demo"
-              >
-                {{ $t('shop.recommended') }}
-              </span>
-            </div>
-            <p class="mt-2 text-lg font-semibold text-primary">
-              {{ $t('shop.perMonth', { price: formatTwd(plan.price) }) }}
-            </p>
-            <p class="mt-1 text-sm text-muted">
-              {{ $t(`shop.${plan.id}Hint`, { count: plan.itemIds.length }) }}
-            </p>
-          </label>
-        </div>
       </section>
     </div>
 
@@ -172,7 +206,7 @@
             {{ $t('checkout.subtotal') }}
           </dt>
           <dd class="tabular-nums text-highlighted">
-            {{ formatTwd(selectedPlan.price) }}
+            {{ formatTwd(checkoutPrice) }}
           </dd>
         </div>
         <div class="flex justify-between gap-3">
@@ -191,7 +225,7 @@
             class="tabular-nums text-primary"
             data-testid="checkout-total"
           >
-            {{ formatTwd(selectedPlan.price) }}
+            {{ formatTwd(checkoutPrice) }}
           </dd>
         </div>
       </dl>
@@ -305,6 +339,7 @@
         <AppButton
           type="submit"
           class="w-full"
+          :disabled="!canCheckout"
           data-testid="checkout-submit"
         >
           {{ $t('checkout.submit') }}
@@ -312,23 +347,58 @@
       </form>
     </aside>
 
-    <SupplementDetailModal
-      :item="detail"
-      @close="detail = null"
-    />
+    <Teleport to="body">
+      <div
+        v-if="detail"
+        class="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
+        data-testid="supplement-detail"
+        @click.self="detail = null"
+      >
+        <article class="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl border border-default bg-elevated p-5 shadow-xl">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-semibold text-highlighted">
+                {{ detail.name }}
+              </h2>
+              <p class="mt-1 text-sm text-muted">
+                {{ $t('shop.doseLocked', { count: detail.daily_dose }) }}
+              </p>
+            </div>
+            <AppButton
+              variant="outline"
+              @click="detail = null"
+            >
+              {{ $t('shop.close') }}
+            </AppButton>
+          </div>
+          <p class="mt-4 text-sm text-highlighted">
+            {{ copyFor(detail.product_id)?.headline || $t('shop.itemCopyFallback') }}
+          </p>
+          <p class="mt-2 text-sm text-muted">
+            {{ copyFor(detail.product_id)?.body || '' }}
+          </p>
+          <p class="mt-4 text-xs text-dimmed">
+            {{ copyFor(detail.product_id)?.disclaimer || $t('shop.disclaimer') }}
+          </p>
+        </article>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
 import { checkoutSchema } from '~/utils/checkout-schema'
+import type {
+  HealthReportResult,
+  RecommendationCopy,
+  RecommendationPackageItem,
+  RecommendationResponse
+} from '~/utils/candor-api'
 import {
   formatTwd,
-  itemsForPlan,
-  supplementPlans,
   type ChatMessage,
   type InvoiceType,
-  type PaymentMethod,
-  type SupplementItem
+  type PaymentMethod
 } from '~/utils/first-order'
 
 definePageMeta({
@@ -343,6 +413,7 @@ const localePath = useLocalePath()
 const auth = useAuthStore()
 const journey = useJourneyStore()
 const api = useFirstOrderApi()
+const candor = useCandorApi()
 
 const name = ref(auth.displayName)
 const phone = ref('')
@@ -352,29 +423,95 @@ const paymentMethod = ref<PaymentMethod>('card')
 const invoice = ref<InvoiceType>('cloud')
 const payPhase = ref<'form' | 'paying' | 'success'>('form')
 const error = ref('')
-const detail = ref<SupplementItem | null>(null)
+const detail = ref<RecommendationPackageItem | null>(null)
 
 const paymentMethods: PaymentMethod[] = ['card', 'linepay', 'atm']
 const invoiceOptions: InvoiceType[] = ['cloud', 'company', 'donate']
-const planOptions = Object.values(supplementPlans)
 
-const selectedPlan = computed(() => supplementPlans[journey.selectedPlanId])
-const selectedItems = computed(() => itemsForPlan(journey.selectedPlanId))
-const itemSections = computed(() => {
-  const core = selectedItems.value.filter(item => item.tier === 'core')
-  const plus = selectedItems.value.filter(item => item.tier === 'plus')
-  const sections: Array<{ id: 'core' | 'plus', items: SupplementItem[] }> = [
-    { id: 'core', items: core }
-  ]
+const reportPending = ref(false)
+const reportResults = ref<HealthReportResult[]>([])
+const recoPending = ref(false)
+const recoError = ref('')
+const recommendation = ref<RecommendationResponse | null>(null)
+const selectedPackageCode = ref('')
 
-  if (plus.length) {
-    sections.push({ id: 'plus', items: plus })
+const packages = computed(() => recommendation.value?.packages ?? [])
+const selectedPackage = computed(() =>
+  packages.value.find(pkg => pkg.package_code === selectedPackageCode.value) ?? null
+)
+const checkoutPrice = computed(() => selectedPackage.value?.price ?? 0)
+const canCheckout = computed(() =>
+  Boolean(selectedPackage.value && selectedPackage.value.items.length > 0)
+)
+
+const copyByProductId = computed(() => {
+  const map = new Map<string, RecommendationCopy>()
+  for (const item of recommendation.value?.items ?? []) {
+    map.set(item.product_id, item.copy)
   }
-
-  return sections
+  return map
 })
 
+function copyFor(productId: string): RecommendationCopy | undefined {
+  return copyByProductId.value.get(productId)
+}
+
+watch(selectedPackageCode, (code) => {
+  if (code) {
+    journey.selectedPackageCode = code
+  }
+})
+
+async function loadReport() {
+  const reportId = journey.reportId
+  if (!reportId) {
+    reportResults.value = []
+    return
+  }
+  reportPending.value = true
+  try {
+    const report = await candor.getHealthReport(reportId)
+    reportResults.value = Array.isArray(report.results) ? report.results : []
+  } catch {
+    reportResults.value = []
+  } finally {
+    reportPending.value = false
+  }
+}
+
+async function loadRecommendation() {
+  recoPending.value = true
+  recoError.value = ''
+  try {
+    const body: Parameters<typeof candor.createRecommendation>[0] = {
+      enrich: 'template',
+      limit: 30
+    }
+    if (journey.reportId) {
+      body.report_id = journey.reportId
+    }
+    const result = await candor.createRecommendation(body)
+    recommendation.value = result
+    const preferred = journey.selectedPackageCode
+    const match = result.packages.find(pkg => pkg.package_code === preferred)
+    selectedPackageCode.value = match?.package_code ?? result.packages[0]?.package_code ?? ''
+    if (selectedPackageCode.value) {
+      journey.selectedPackageCode = selectedPackageCode.value
+    }
+  } catch {
+    recoError.value = t('shop.recoError')
+    recommendation.value = null
+  } finally {
+    recoPending.value = false
+  }
+}
+
 async function onPay(event: Event) {
+  if (!canCheckout.value || !selectedPackage.value) {
+    error.value = t('checkout.error')
+    return
+  }
+
   const form = event.target
   const data = form instanceof HTMLFormElement ? new FormData(form) : null
   const parsed = checkoutSchema.safeParse({
@@ -383,7 +520,7 @@ async function onPay(event: Event) {
     address: String(data?.get('address') ?? address.value),
     paymentMethod: data?.get('payment') ?? paymentMethod.value,
     invoice: data?.get('invoice') ?? invoice.value,
-    planId: journey.selectedPlanId
+    packageCode: selectedPackage.value.package_code
   })
 
   if (!parsed.success) {
@@ -394,10 +531,15 @@ async function onPay(event: Event) {
   payPhase.value = 'paying'
   error.value = ''
 
+  const pkg = selectedPackage.value
   try {
     await Promise.all([
       api.createOrder({
-        planId: parsed.data.planId,
+        packageCode: parsed.data.packageCode,
+        packageName: pkg.package_name,
+        amount: pkg.price,
+        productCodes: pkg.items.map(item => item.code || item.product_id),
+        productNames: pkg.items.map(item => item.name),
         paymentMethod: parsed.data.paymentMethod,
         invoice: parsed.data.invoice,
         recipient: {
@@ -419,9 +561,10 @@ async function onPay(event: Event) {
 }
 
 onMounted(() => {
-  void api.getCatalog()
   if (!journey.hasAnalysis) {
     journey.hasAnalysis = true
   }
+  void loadReport()
+  void loadRecommendation()
 })
 </script>

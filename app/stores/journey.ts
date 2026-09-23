@@ -1,4 +1,4 @@
-import type { ChatMessage, SupplementPlanId } from '~/utils/first-order'
+import type { ChatMessage } from '~/utils/first-order'
 import type { ConversationPackage, GreetingOption, ProfileNextQuestion } from '~/utils/candor-api'
 
 export const JOURNEY_STORAGE_KEY = 'candor.unpaid.journey'
@@ -6,7 +6,6 @@ export const JOURNEY_STORAGE_KEY = 'candor.unpaid.journey'
 interface JourneySnapshot {
   messages: ChatMessage[]
   hasAnalysis: boolean
-  selectedPlanId: SupplementPlanId
   selectedPackageCode: string | null
   conversationId: string | null
   reportId: string | null
@@ -23,7 +22,6 @@ interface JourneySnapshot {
 const emptySnapshot = (): JourneySnapshot => ({
   messages: [],
   hasAnalysis: false,
-  selectedPlanId: 'fullTune',
   selectedPackageCode: null,
   conversationId: null,
   reportId: null,
@@ -66,7 +64,6 @@ export const useJourneyStore = defineStore('journey', () => {
 
   const messages = ref<ChatMessage[]>(initial.messages)
   const hasAnalysis = ref(initial.hasAnalysis)
-  const selectedPlanId = ref<SupplementPlanId>(initial.selectedPlanId)
   const selectedPackageCode = ref<string | null>(initial.selectedPackageCode ?? null)
   const conversationId = ref<string | null>(initial.conversationId)
   const reportId = ref<string | null>(initial.reportId)
@@ -95,7 +92,6 @@ export const useJourneyStore = defineStore('journey', () => {
     const payload: JourneySnapshot = {
       messages: snapshotMessages(),
       hasAnalysis: hasAnalysis.value,
-      selectedPlanId: selectedPlanId.value,
       selectedPackageCode: selectedPackageCode.value,
       conversationId: conversationId.value,
       reportId: reportId.value,
@@ -120,7 +116,6 @@ export const useJourneyStore = defineStore('journey', () => {
   function clearSession() {
     messages.value = []
     hasAnalysis.value = false
-    selectedPlanId.value = 'fullTune'
     selectedPackageCode.value = null
     conversationId.value = null
     reportId.value = null
@@ -144,7 +139,6 @@ export const useJourneyStore = defineStore('journey', () => {
     const stored = readStored()
     messages.value = stored.messages
     hasAnalysis.value = stored.hasAnalysis
-    selectedPlanId.value = stored.selectedPlanId
     selectedPackageCode.value = stored.selectedPackageCode ?? null
     conversationId.value = stored.conversationId
     reportId.value = stored.reportId
@@ -163,7 +157,6 @@ export const useJourneyStore = defineStore('journey', () => {
       [
         messages,
         hasAnalysis,
-        selectedPlanId,
         selectedPackageCode,
         conversationId,
         reportId,
@@ -186,7 +179,6 @@ export const useJourneyStore = defineStore('journey', () => {
   return {
     messages,
     hasAnalysis,
-    selectedPlanId,
     selectedPackageCode,
     conversationId,
     reportId,

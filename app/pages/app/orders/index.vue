@@ -42,10 +42,10 @@
         </div>
         <div>
           <p class="text-xs text-muted">
-            {{ $t('orders.plan') }}
+            {{ $t('orders.package') }}
           </p>
           <p class="text-sm text-highlighted">
-            {{ $t(`shop.${order.planId}`) }}
+            {{ order.packageName || order.packageCode }}
           </p>
         </div>
         <div class="text-end">
@@ -74,11 +74,11 @@
           data-testid="order-items"
         >
           <li
-            v-for="itemId in order.itemIds"
-            :key="itemId"
-            :data-testid="`order-item-${itemId}`"
+            v-for="(productCode, index) in order.productCodes"
+            :key="productCode"
+            :data-testid="`order-item-${productCode}`"
           >
-            {{ $t(`shop.items.${itemId}.name`) }}
+            {{ order.productNames?.[index] || productCode }}
           </li>
         </ul>
       </div>

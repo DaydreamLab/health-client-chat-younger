@@ -70,9 +70,11 @@ export interface OrderRecord {
   id: string
   number: string
   createdAt: string
-  planId: SupplementPlanId
+  packageCode: string
+  packageName?: string
   amount: number
-  itemIds: SupplementItemId[]
+  productCodes: string[]
+  productNames?: string[]
   paymentMethod: PaymentMethod
   delivery: 'home'
   recipient: OrderRecipient
@@ -82,7 +84,11 @@ export interface OrderRecord {
 }
 
 export interface CreateOrderInput {
-  planId: SupplementPlanId
+  packageCode: string
+  packageName?: string
+  amount?: number
+  productCodes?: string[]
+  productNames?: string[]
   paymentMethod: PaymentMethod
   invoice: InvoiceType
   recipient: OrderRecipient
@@ -231,15 +237,20 @@ export function mockCatalog() {
 
 export function mockCreateOrder(input: CreateOrderInput): OrderRecord {
   const now = new Date()
-  const plan = supplementPlans[input.planId]
+  const packageCode = input.packageCode || 'basic'
+  const knownPlan = isSupplementPlanId(packageCode) ? supplementPlans[packageCode] : null
+  const amount = input.amount ?? knownPlan?.price ?? 0
+  const productCodes = input.productCodes ?? (knownPlan ? [...knownPlan.itemIds] : [])
 
   return {
     id: crypto.randomUUID(),
     number: formatOrderNumber(now),
     createdAt: now.toISOString(),
-    planId: input.planId,
-    amount: plan.price,
-    itemIds: [...plan.itemIds],
+    packageCode,
+    packageName: input.packageName,
+    amount,
+    productCodes,
+    productNames: input.productNames ? [...input.productNames] : undefined,
     paymentMethod: input.paymentMethod,
     delivery: 'home',
     recipient: input.recipient,

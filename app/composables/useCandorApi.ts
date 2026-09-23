@@ -11,6 +11,7 @@ import type {
   PackagesList,
   ProfileAnswerResult,
   ProfileNext,
+  RecommendationResponse,
   StreamMessageResult,
   UserMe,
   UserSession
@@ -259,6 +260,23 @@ export function useCandorApi() {
 
     listPackages: () =>
       request<PackagesList>('/packages', { method: 'GET', auth: false }),
+
+    createRecommendation: (body: {
+      report_id?: string
+      limit?: number
+      enrich?: 'template' | 'llm'
+      profile?: {
+        sex?: string | null
+        age_years?: number | null
+        diet?: string | null
+        conditions?: string[]
+        goals?: string[]
+      }
+    } = {}) =>
+      request<RecommendationResponse>('/recommendations', {
+        method: 'POST',
+        body
+      }),
 
     createConversation: (body: {
       report_id?: string

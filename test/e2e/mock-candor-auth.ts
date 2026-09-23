@@ -69,6 +69,180 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     })
   })
 
+  await page.route('**/api/v1/recommendations', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: {
+          run_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+          report_id: reportId,
+          weight_set: { id: 'ws-e2e', version: '0.1.0' },
+          generated_at: '2026-01-01T00:00:00Z',
+          copy_mode: 'template',
+          summary: {
+            top_domains: [{ domain_id: 'd1', name: '關節骨骼', severity: 0.7 }],
+            data_gaps: [],
+            profile_gaps: [],
+            strategy_code: 'focus_abnormal',
+            message: null
+          },
+          items: [
+            {
+              rank: 1,
+              product_id: 'prod-vitd',
+              sku: 'VITD-01',
+              name: '維生素 D',
+              score_raw: 1.2,
+              score_norm: 1,
+              tier: 'primary',
+              copy: {
+                headline: '日曬時間不足，可能影響骨骼與免疫。',
+                body: '補充維生素 D，協助鈣吸收與日常防護。',
+                disclaimer: '本建議僅供健康管理參考，非醫療診斷或療效保證。'
+              }
+            },
+            {
+              rank: 2,
+              product_id: 'prod-iron',
+              sku: 'IRON-01',
+              name: '鐵蛋白調理',
+              score_raw: 0.9,
+              score_norm: 0.75,
+              tier: 'primary',
+              copy: {
+                headline: '鐵蛋白偏低，可能與疲勞、氣色有關。',
+                body: '針對這次血檢偏低的鐵蛋白做基礎補充。',
+                disclaimer: '本建議僅供健康管理參考，非醫療診斷或療效保證。'
+              }
+            },
+            {
+              rank: 3,
+              product_id: 'prod-vitc',
+              sku: 'VITC-01',
+              name: '維生素 C',
+              score_raw: 0.6,
+              score_norm: 0.5,
+              tier: 'secondary',
+              copy: {
+                headline: '抗氧化與鐵吸收的基礎支持。',
+                body: '日常抗氧化，並協助鐵的吸收。',
+                disclaimer: '本建議僅供健康管理參考，非醫療診斷或療效保證。'
+              }
+            },
+            {
+              rank: 4,
+              product_id: 'prod-omega',
+              sku: 'OMEGA-01',
+              name: 'Omega-3',
+              score_raw: 0.4,
+              score_norm: 0.33,
+              tier: 'secondary',
+              copy: {
+                headline: '血脂與日常防護的加強項目。',
+                body: '完整調理方案的加強品項。',
+                disclaimer: '本建議僅供健康管理參考，非醫療診斷或療效保證。'
+              }
+            }
+          ],
+          packages: [
+            {
+              package_code: 'basic',
+              package_name: '基礎保養',
+              price: 1280,
+              period_days: 30,
+              items: [
+                {
+                  rank: 1,
+                  product_id: 'prod-vitd',
+                  code: 'vitamin_d',
+                  name: '維生素 D',
+                  unit_price: 9,
+                  daily_dose: 1,
+                  monthly_cost: 280
+                },
+                {
+                  rank: 2,
+                  product_id: 'prod-iron',
+                  code: 'iron',
+                  name: '鐵蛋白調理',
+                  unit_price: 17,
+                  daily_dose: 1,
+                  monthly_cost: 520
+                },
+                {
+                  rank: 3,
+                  product_id: 'prod-vitc',
+                  code: 'vitamin_c',
+                  name: '維生素 C',
+                  unit_price: 16,
+                  daily_dose: 1,
+                  monthly_cost: 480
+                }
+              ],
+              used_amount: 1280,
+              remaining: 0,
+              composition_hash: 'sha256:basic'
+            },
+            {
+              package_code: 'advance',
+              package_name: '完整調理',
+              price: 1980,
+              period_days: 30,
+              items: [
+                {
+                  rank: 1,
+                  product_id: 'prod-vitd',
+                  code: 'vitamin_d',
+                  name: '維生素 D',
+                  unit_price: 9,
+                  daily_dose: 1,
+                  monthly_cost: 280
+                },
+                {
+                  rank: 2,
+                  product_id: 'prod-iron',
+                  code: 'iron',
+                  name: '鐵蛋白調理',
+                  unit_price: 17,
+                  daily_dose: 1,
+                  monthly_cost: 520
+                },
+                {
+                  rank: 3,
+                  product_id: 'prod-vitc',
+                  code: 'vitamin_c',
+                  name: '維生素 C',
+                  unit_price: 16,
+                  daily_dose: 1,
+                  monthly_cost: 480
+                },
+                {
+                  rank: 4,
+                  product_id: 'prod-omega',
+                  code: 'omega3',
+                  name: 'Omega-3',
+                  unit_price: 9,
+                  daily_dose: 1,
+                  monthly_cost: 280
+                }
+              ],
+              used_amount: 1560,
+              remaining: 420,
+              composition_hash: 'sha256:advance'
+            }
+          ],
+          excluded: []
+        }
+      })
+    })
+  })
+
   await page.route('**/api/v1/auth/guest', async (route) => {
     await route.fulfill({
       status: 201,

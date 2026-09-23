@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 export const paymentMethodSchema = z.enum(['card', 'linepay', 'atm'])
 export const invoiceTypeSchema = z.enum(['cloud', 'company', 'donate'])
-export const planIdSchema = z.enum(['basicCare', 'fullTune'])
+export const packageCodeSchema = z.string().trim().min(1)
 
 export const checkoutSchema = z.object({
   name: z.string().trim().min(1),
@@ -10,7 +10,7 @@ export const checkoutSchema = z.object({
   address: z.string().trim().min(1),
   paymentMethod: paymentMethodSchema,
   invoice: invoiceTypeSchema,
-  planId: planIdSchema
+  packageCode: packageCodeSchema
 })
 
 export const recipientSchema = z.object({
@@ -33,7 +33,10 @@ export const chatMessageSchema = z.object({
 })
 
 export const createOrderSchema = z.object({
-  planId: planIdSchema,
+  packageCode: packageCodeSchema,
+  amount: z.number().int().nonnegative().optional(),
+  productCodes: z.array(z.string()).optional(),
+  productNames: z.array(z.string()).optional(),
   paymentMethod: paymentMethodSchema,
   invoice: invoiceTypeSchema,
   recipient: recipientSchema,

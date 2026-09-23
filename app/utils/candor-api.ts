@@ -46,6 +46,64 @@ export interface PackagesList {
   packages: PublicPackage[]
 }
 
+export interface RecommendationCopy {
+  headline: string
+  body: string
+  disclaimer: string
+}
+
+export interface RecommendationItem {
+  rank: number
+  product_id: string
+  sku: string
+  name: string
+  score_raw: number
+  score_norm: number
+  tier: string
+  copy: RecommendationCopy
+  copy_mode?: string
+  warnings?: string[]
+}
+
+export interface RecommendationPackageItem {
+  rank: number
+  product_id: string
+  code: string
+  name: string
+  unit_price: number
+  daily_dose: number
+  monthly_cost: number
+}
+
+export interface RecommendationPackage {
+  package_code: string
+  package_name: string
+  price: number
+  period_days: number
+  items: RecommendationPackageItem[]
+  used_amount: number
+  remaining: number
+  composition_hash: string
+}
+
+export interface RecommendationResponse {
+  run_id: string
+  report_id?: string | null
+  weight_set: { id: string, version: string }
+  generated_at: string
+  copy_mode: string
+  summary: {
+    top_domains: Array<{ domain_id: string, name?: string | null, severity: number }>
+    data_gaps: string[]
+    profile_gaps: string[]
+    strategy_code: string
+    message?: string | null
+  }
+  items: RecommendationItem[]
+  packages: RecommendationPackage[]
+  excluded: Array<{ product_id: string, reason_code: string }>
+}
+
 export interface ConversationGreeting {
   message_id: string
   role: string

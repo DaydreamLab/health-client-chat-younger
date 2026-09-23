@@ -46,7 +46,7 @@ describe('first-order demo', () => {
       parts: [{ type: 'text' as const, text: '已上傳報告' }]
     }]
     const order = mockCreateOrder({
-      planId: 'basicCare',
+      packageCode: 'basicCare',
       paymentMethod: 'card',
       invoice: 'cloud',
       recipient,
@@ -55,7 +55,8 @@ describe('first-order demo', () => {
 
     expect(order.messages).toHaveLength(1)
     expect(order.messages[0]).not.toBe(messages[0])
-    expect(order.itemIds).toEqual(['vitaminD', 'iron', 'vitaminC'])
+    expect(order.packageCode).toBe('basicCare')
+    expect(order.productCodes).toEqual(['vitaminD', 'iron', 'vitaminC'])
     expect(order.timeline.map(step => step.id)).toEqual(shipmentStepIds)
     expect(timelineStatus(order.timeline)).toBe('confirmed')
     expect(order.amount).toBe(1280)
@@ -74,7 +75,7 @@ describe('first-order demo', () => {
     ])).toBe('picking')
   })
 
-  it('exposes both month plans in the catalog', () => {
+  it('exposes both month packages in the catalog', () => {
     const catalog = mockCatalog()
     expect(catalog.plans.map(plan => plan.id)).toEqual(['basicCare', 'fullTune'])
     expect(catalog.chart.length).toBeGreaterThan(0)
@@ -87,14 +88,14 @@ describe('first-order demo', () => {
       address: '台北市',
       paymentMethod: 'card',
       invoice: 'cloud',
-      planId: 'basicCare'
+      packageCode: 'basic'
     })
     expect(parsed.success).toBe(false)
   })
 
   it('accepts createOrder payload and binds messages', () => {
     const parsed = createOrderSchema.parse({
-      planId: 'fullTune',
+      packageCode: 'advance',
       paymentMethod: 'linepay',
       invoice: 'donate',
       recipient,
@@ -105,7 +106,7 @@ describe('first-order demo', () => {
       }]
     })
 
-    expect(parsed.planId).toBe('fullTune')
+    expect(parsed.packageCode).toBe('advance')
     expect(parsed.messages).toHaveLength(1)
   })
 })

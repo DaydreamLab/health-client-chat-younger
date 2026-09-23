@@ -39,10 +39,10 @@
         </div>
         <div>
           <dt class="text-muted">
-            {{ $t('orders.plan') }}
+            {{ $t('orders.package') }}
           </dt>
           <dd class="mt-1 text-highlighted">
-            {{ $t(`shop.${order.planId}`) }}
+            {{ order.packageName || order.packageCode }}
           </dd>
         </div>
         <div>
@@ -95,15 +95,12 @@
       </h2>
       <ul class="mt-3 divide-y divide-default">
         <li
-          v-for="itemId in order.itemIds"
-          :key="itemId"
+          v-for="(productCode, index) in order.productCodes"
+          :key="productCode"
           class="flex items-center justify-between gap-3 py-3 text-sm"
         >
           <span class="text-highlighted">
-            {{ $t(`shop.items.${itemId}.name`) }}
-          </span>
-          <span class="tabular-nums text-muted">
-            {{ formatTwd(supplementItems[itemId].monthlyCost) }}
+            {{ order.productNames?.[index] || productCode }}
           </span>
         </li>
       </ul>
@@ -125,7 +122,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatTwd, supplementItems, type OrderRecord } from '~/utils/first-order'
+import { formatTwd, type OrderRecord } from '~/utils/first-order'
 
 definePageMeta({
   layout: 'user',
