@@ -46,11 +46,11 @@ test('plan CTA opens chat and AI can reply', async ({ page, goto }) => {
 
   await expect(page).toHaveURL(/\/chat\?plan=basicCare/)
   await expect(page.getByRole('heading', { name: '諮詢' })).toBeVisible()
-  await expect(page.getByTestId('chat-last-reply')).toContainText('基礎保養')
+  await expect(page.getByTestId('chat-last-reply')).toContainText('諮詢助理')
   await page.getByTestId('chat-chip-plans').click()
-  await expect(page.getByTestId('chat-last-reply')).toContainText('基礎保養是對應異常指標')
+  await expect(page.getByTestId('chat-last-reply')).toContainText('基礎保養')
   await page.getByTestId('chat-chip-next').click()
-  await expect(page.getByTestId('chat-last-reply')).toContainText('付款才解鎖顧問')
+  await expect(page.getByTestId('chat-last-reply')).toContainText('基礎保養')
   await expect(page.getByTestId('chat-last-reply')).toBeInViewport()
   const transcript = page.getByTestId('chat-transcript')
   await expect.poll(async () => transcript.evaluate((el) => {

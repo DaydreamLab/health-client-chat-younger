@@ -88,6 +88,15 @@
           >
             {{ $t('chat.viewRecommend') }}
           </AppButton>
+          <AppButton
+            v-if="showRetryCta(message)"
+            class="mt-3"
+            variant="outline"
+            data-testid="chat-report-retry"
+            @click="retryReport"
+          >
+            {{ $t('chat.reportRetry') }}
+          </AppButton>
         </div>
       </article>
       <p
@@ -103,6 +112,23 @@
       class="shrink-0 border-t border-default bg-elevated px-4 py-4 sm:px-6"
     >
       <div
+        v-if="quizActive && activeQuestion && enumOptions.length"
+        class="mb-3 flex flex-wrap gap-2"
+        data-testid="chat-quiz-options"
+      >
+        <button
+          v-for="option in enumOptions"
+          :key="option"
+          type="button"
+          class="app-chip"
+          :data-testid="`chat-quiz-option-${option}`"
+          :disabled="pending"
+          @click="answerEnum(option)"
+        >
+          {{ option }}
+        </button>
+      </div>
+      <div
         v-if="!escalated"
         class="mb-3 flex flex-wrap gap-2"
       >
@@ -112,6 +138,7 @@
           type="button"
           class="app-chip"
           :data-testid="`chat-chip-${key}`"
+          :disabled="key === 'upload' ? !canUpload : (!canSendText || quizActive)"
           @click="onChip(key)"
         >
           <UIcon
@@ -138,7 +165,7 @@
         <button
           type="button"
           class="app-btn app-btn-ghost size-10 shrink-0 px-0"
-          :disabled="!canCompose"
+          :disabled="!canUpload"
           data-testid="chat-upload"
           :aria-label="$t('chat.upload')"
           @click="pickFile"
@@ -153,13 +180,13 @@
           rows="1"
           class="max-h-32 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-highlighted outline-none placeholder:text-muted"
           :placeholder="$t('chat.placeholder')"
-          :disabled="!canCompose"
+          :disabled="!canType"
           data-testid="chat-input"
           @keydown.enter.exact.prevent="onSubmit"
         />
         <AppButton
           type="submit"
-          :disabled="!canCompose"
+          :disabled="!canType"
           data-testid="chat-send"
         >
           {{ $t('chat.send') }}
@@ -170,22 +197,31 @@
 </template>
 
 <script setup lang="ts">
-import { demoAssistantReply } from '~/utils/chat-demo'
+import type { ProfileNextQuestion } from '~/utils/candor-api'
+import { CandorApiError } from '~/utils/candor-api'
 import { isPlanId, type PlanId } from '~/utils/plans'
 import { isSupplementPlanId, type ChatMessage, type SupplementPlanId } from '~/utils/first-order'
 
 const chipKeys = ['hasReport', 'noReport', 'plans', 'next', 'upload'] as const
+const POLL_INTERVAL_MS = 2000
+const POLL_MAX_ATTEMPTS = 30
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
 const localePath = useLocalePath()
 const route = useRoute()
 const auth = useAuthStore()
 const journey = useJourneyStore()
-const api = useFirstOrderApi()
+const ordersApi = useFirstOrderApi()
+const candor = useCandorApi()
 
 const input = ref('')
 const pending = ref(false)
 const escalated = ref(false)
+const quizActive = ref(false)
+const activeQuestion = ref<ProfileNextQuestion | null>(null)
+const pendingUserContent = ref<string | null>(null)
+const reportRetryId = ref<string | null>(null)
+const retryMessageId = ref<string | null>(null)
 const transcriptEl = useTemplateRef<HTMLElement>('transcriptEl')
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
 const viewMessages = ref<ChatMessage[]>([])
@@ -211,7 +247,18 @@ function queryOrderId(value: unknown) {
 
 const orderId = computed(() => queryOrderId(route.query.orderId))
 const readonly = computed(() => Boolean(orderId.value))
-const canCompose = computed(() => !readonly.value && !escalated.value && !pending.value)
+const canUpload = computed(() => !readonly.value && !escalated.value && !pending.value)
+const canSendText = computed(() => !readonly.value && !escalated.value && !pending.value && !quizActive.value)
+const canType = computed(() => {
+  if (readonly.value || escalated.value || pending.value) {
+    return false
+  }
+  if (quizActive.value) {
+    const type = activeQuestion.value?.answer_type
+    return type === 'text' || type === 'int'
+  }
+  return true
+})
 
 const selectedPlan = computed<PlanId | SupplementPlanId | undefined>(() => {
   return queryShopPlan(route.query.plan) ?? queryPlan(route.query.plan)
@@ -219,29 +266,13 @@ const selectedPlan = computed<PlanId | SupplementPlanId | undefined>(() => {
 
 const messages = computed(() => readonly.value ? viewMessages.value : journey.messages)
 
-function greetingKey(plan?: PlanId | SupplementPlanId) {
-  if (plan === 'basicCare') {
-    return 'chat.greetBasicCare'
+const enumOptions = computed(() => {
+  const question = activeQuestion.value
+  if (!question || (question.answer_type !== 'enum' && question.answer_type !== 'multi_enum')) {
+    return [] as string[]
   }
-
-  if (plan === 'fullTune') {
-    return 'chat.greetFullTune'
-  }
-
-  if (plan === 'basic') {
-    return 'chat.greetBasic'
-  }
-
-  if (plan === 'mid') {
-    return 'chat.greetMid'
-  }
-
-  if (plan === 'premium') {
-    return 'chat.greetPremium'
-  }
-
-  return 'chat.greet'
-}
+  return question.options ?? []
+})
 
 function applyShopPlanFromQuery() {
   const shopPlan = queryShopPlan(route.query.plan)
@@ -263,17 +294,21 @@ function makeMessage(role: ChatMessage['role'], text: string, id?: string, file?
   }
 }
 
-function ensureGreeting() {
-  applyShopPlanFromQuery()
-
-  if (readonly.value || journey.messages.length > 0) {
+function setMessageText(id: string, text: string) {
+  const message = journey.messages.find(item => item.id === id)
+  if (!message) {
     return
   }
-
-  journey.messages.push(makeMessage('assistant', t(greetingKey(selectedPlan.value)), 'greet'))
+  const file = message.parts.find(part => part.type === 'file')
+  message.parts = [{ type: 'text', text }]
+  if (file) {
+    message.parts.push(file)
+  }
 }
 
-ensureGreeting()
+function appendMessage(role: ChatMessage['role'], text: string, file?: string) {
+  journey.messages.push(makeMessage(role, text, undefined, file))
+}
 
 const lastAssistantId = computed(() => {
   const last = [...messages.value].reverse().find(message => message.role === 'assistant')
@@ -283,9 +318,17 @@ const lastAssistantId = computed(() => {
 function showRecommendCta(message: ChatMessage) {
   return !readonly.value
     && !escalated.value
+    && !quizActive.value
     && journey.hasAnalysis
     && message.role === 'assistant'
     && message.id === lastAssistantId.value
+    && !reportRetryId.value
+}
+
+function showRetryCta(message: ChatMessage) {
+  return !readonly.value
+    && Boolean(reportRetryId.value)
+    && message.id === retryMessageId.value
 }
 
 function messageText(message: ChatMessage) {
@@ -294,10 +337,6 @@ function messageText(message: ChatMessage) {
 
 function fileName(message: ChatMessage) {
   return message.parts.find(part => part.type === 'file')?.name
-}
-
-function appendMessage(role: ChatMessage['role'], text: string, file?: string) {
-  journey.messages.push(makeMessage(role, text, undefined, file))
 }
 
 function scrollToLatest(behavior: ScrollBehavior = 'smooth') {
@@ -310,7 +349,7 @@ function scrollToLatest(behavior: ScrollBehavior = 'smooth') {
 }
 
 watch(
-  () => [messages.value.length, pending.value, lastAssistantId.value, journey.hasAnalysis],
+  () => [messages.value.length, pending.value, lastAssistantId.value, journey.hasAnalysis, quizActive.value],
   async () => {
     await nextTick()
     requestAnimationFrame(() => {
@@ -320,47 +359,154 @@ watch(
   { flush: 'post' }
 )
 
-async function sendText(text: string) {
-  const content = text.trim()
-  if (!content || !canCompose.value) {
+async function ensureConversation() {
+  if (journey.conversationId) {
+    return journey.conversationId
+  }
+
+  await auth.ensureSession()
+  applyShopPlanFromQuery()
+  const created = await candor.createConversation({})
+  journey.conversationId = created.id
+  if (journey.messages.length === 0) {
+    journey.messages.push(makeMessage(
+      'assistant',
+      created.greeting.content,
+      created.greeting.message_id || 'greet'
+    ))
+  }
+
+  return created.id
+}
+
+async function streamPending() {
+  const content = pendingUserContent.value
+  pendingUserContent.value = null
+  quizActive.value = false
+  activeQuestion.value = null
+
+  if (!content) {
+    pending.value = false
     return
   }
 
-  appendMessage('user', content)
   pending.value = true
+  const assistantId = crypto.randomUUID()
+  let streamed = ''
 
   try {
-    const reply = await $fetch<ChatMessage>('/api/chat', {
-      method: 'POST',
-      body: {
-        messages: journey.messages,
-        plan: selectedPlan.value,
-        locale: locale.value
+    const conversationId = await ensureConversation()
+    journey.messages.push(makeMessage('assistant', '', assistantId))
+
+    const result = await candor.streamMessage(conversationId, content, {
+      onDelta: (chunk) => {
+        streamed += chunk
+        setMessageText(assistantId, streamed)
+      },
+      onReplace: (text) => {
+        streamed = text
+        setMessageText(assistantId, streamed)
       }
     })
-    journey.messages.push({
-      id: reply.id || crypto.randomUUID(),
-      role: 'assistant',
-      parts: reply.parts?.length ? reply.parts : [{ type: 'text', text: t('chat.greet') }]
-    })
+
+    setMessageText(assistantId, result.content || streamed)
   } catch {
-    appendMessage('assistant', demoAssistantReply({
-      question: content,
-      locale: locale.value,
-      plan: selectedPlan.value
-    }))
+    const existing = journey.messages.find(item => item.id === assistantId)
+    if (existing) {
+      setMessageText(assistantId, t('chat.streamError'))
+    } else {
+      appendMessage('assistant', t('chat.streamError'))
+    }
   } finally {
     pending.value = false
   }
 }
 
-function onChip(key: typeof chipKeys[number]) {
-  if (!canCompose.value) {
+async function runProfileThenStream() {
+  pending.value = true
+  try {
+    const next = await candor.nextProfileQuestion(journey.reportId)
+    if (next.done) {
+      await streamPending()
+      return
+    }
+
+    appendMessage('assistant', next.prompt)
+    activeQuestion.value = next
+    quizActive.value = true
+    pending.value = false
+  } catch {
+    appendMessage('assistant', t('chat.streamError'))
+    pendingUserContent.value = null
+    quizActive.value = false
+    activeQuestion.value = null
+    pending.value = false
+  }
+}
+
+async function sendText(text: string) {
+  const content = text.trim()
+  if (!content || !canSendText.value) {
     return
   }
 
+  appendMessage('user', content)
+  pendingUserContent.value = content
+  await runProfileThenStream()
+}
+
+async function submitQuizAnswer(payload: {
+  value?: string | number | boolean | null
+  raw_text?: string | null
+  display: string
+}) {
+  const question = activeQuestion.value
+  if (!question || !quizActive.value) {
+    return
+  }
+
+  appendMessage('user', payload.display)
+  pending.value = true
+
+  try {
+    const result = await candor.submitProfileAnswer({
+      gap_code: question.gap_code,
+      value: payload.value,
+      raw_text: payload.raw_text
+    })
+
+    if (!result.saved && result.needs_clarification) {
+      appendMessage('assistant', result.prompt)
+      pending.value = false
+      return
+    }
+
+    const next = await candor.nextProfileQuestion(journey.reportId)
+    if (next.done) {
+      await streamPending()
+      return
+    }
+
+    appendMessage('assistant', next.prompt)
+    activeQuestion.value = next
+    pending.value = false
+  } catch {
+    appendMessage('assistant', t('chat.streamError'))
+    pending.value = false
+  }
+}
+
+function answerEnum(option: string) {
+  return submitQuizAnswer({ value: option, display: option })
+}
+
+function onChip(key: typeof chipKeys[number]) {
   if (key === 'upload') {
     pickFile()
+    return
+  }
+
+  if (!canSendText.value) {
     return
   }
 
@@ -368,38 +514,143 @@ function onChip(key: typeof chipKeys[number]) {
 }
 
 function pickFile() {
-  if (!canCompose.value) {
+  if (!canUpload.value) {
     return
   }
 
   fileInput.value?.click()
 }
 
+async function pollReport(reportId: string) {
+  let lastStatus: string | null = null
+  let statusMessageId: string | null = null
+
+  for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt++) {
+    const report = await candor.getHealthReport(reportId)
+    if (report.status !== lastStatus) {
+      lastStatus = report.status
+      const text = t('chat.reportStatus', { status: report.status })
+      if (statusMessageId) {
+        setMessageText(statusMessageId, text)
+      } else {
+        statusMessageId = crypto.randomUUID()
+        journey.messages.push(makeMessage('assistant', text, statusMessageId))
+      }
+    }
+
+    if (report.status === 'ready') {
+      return report
+    }
+
+    if (report.status === 'failed' || report.status === 'needs_review') {
+      return report
+    }
+
+    await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS))
+  }
+
+  return null
+}
+
+async function bindAndInterpret(reportId: string) {
+  const conversationId = await ensureConversation()
+  try {
+    await candor.attachReport(conversationId, reportId)
+  } catch (error) {
+    if (error instanceof CandorApiError && error.errorCode === 'report_not_ready') {
+      appendMessage('assistant', t('chat.reportStatus', { status: 'processing' }))
+      return
+    }
+    throw error
+  }
+
+  journey.reportId = reportId
+  journey.hasAnalysis = true
+  reportRetryId.value = null
+  retryMessageId.value = null
+  appendMessage('assistant', t('chat.reportReady'))
+
+  const interpret = t('chat.askInterpret')
+  appendMessage('user', interpret)
+  pendingUserContent.value = interpret
+  await runProfileThenStream()
+}
+
 async function onFile(event: Event) {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
   target.value = ''
-  if (!file || !canCompose.value) {
+  if (!file || !canUpload.value) {
     return
   }
 
   appendMessage('user', t('chat.uploaded', { name: file.name }), file.name)
   pending.value = true
+  reportRetryId.value = null
+  retryMessageId.value = null
 
   try {
-    const analysis = await api.analyzeReport({
-      locale: locale.value,
-      fileName: file.name
-    })
-    appendMessage('assistant', analysis.summary)
-    journey.hasAnalysis = true
+    await ensureConversation()
+    const uploaded = await candor.uploadHealthReport(file)
+    journey.reportId = uploaded.id
+    appendMessage('assistant', t('chat.reportStatus', { status: uploaded.status }))
+
+    const report = await pollReport(uploaded.id)
+    if (!report) {
+      appendMessage('assistant', t('chat.reportPollTimeout'))
+      return
+    }
+
+    if (report.status === 'ready') {
+      await bindAndInterpret(report.id)
+      return
+    }
+
+    const msg = report.status === 'needs_review'
+      ? t('chat.reportNeedsReview')
+      : t('chat.reportFailed')
+    const id = crypto.randomUUID()
+    journey.messages.push(makeMessage('assistant', msg, id))
+    reportRetryId.value = report.id
+    retryMessageId.value = id
   } catch {
-    appendMessage('assistant', demoAssistantReply({
-      question: '上傳血檢報告',
-      locale: locale.value,
-      plan: selectedPlan.value
-    }))
-    journey.hasAnalysis = true
+    appendMessage('assistant', t('chat.streamError'))
+  } finally {
+    pending.value = false
+  }
+}
+
+async function retryReport() {
+  const id = reportRetryId.value
+  if (!id || pending.value) {
+    return
+  }
+
+  pending.value = true
+  reportRetryId.value = null
+  retryMessageId.value = null
+
+  try {
+    const ack = await candor.retryHealthReport(id)
+    appendMessage('assistant', t('chat.reportStatus', { status: ack.status }))
+    const report = await pollReport(id)
+    if (!report) {
+      appendMessage('assistant', t('chat.reportPollTimeout'))
+      return
+    }
+    if (report.status === 'ready') {
+      await bindAndInterpret(report.id)
+      return
+    }
+    const msg = report.status === 'needs_review'
+      ? t('chat.reportNeedsReview')
+      : t('chat.reportFailed')
+    const messageId = crypto.randomUUID()
+    journey.messages.push(makeMessage('assistant', msg, messageId))
+    reportRetryId.value = report.id
+    retryMessageId.value = messageId
+  } catch {
+    appendMessage('assistant', t('chat.streamError'))
   } finally {
     pending.value = false
   }
@@ -408,6 +659,26 @@ async function onFile(event: Event) {
 function onSubmit() {
   const content = input.value.trim()
   input.value = ''
+  if (!content) {
+    return
+  }
+
+  if (quizActive.value && activeQuestion.value) {
+    const type = activeQuestion.value.answer_type
+    if (type === 'text') {
+      return submitQuizAnswer({ raw_text: content, display: content })
+    }
+    if (type === 'int') {
+      const n = Number(content)
+      return submitQuizAnswer({
+        value: Number.isFinite(n) ? n : content,
+        raw_text: content,
+        display: content
+      })
+    }
+    return
+  }
+
   return sendText(content)
 }
 
@@ -449,7 +720,10 @@ function goRecommend() {
 async function loadOrderChat(id: string) {
   pending.value = false
   input.value = ''
-  viewMessages.value = await api.getOrderChat(id)
+  quizActive.value = false
+  activeQuestion.value = null
+  pendingUserContent.value = null
+  viewMessages.value = await ordersApi.getOrderChat(id)
   await nextTick()
   scrollToLatest('auto')
 }
@@ -461,7 +735,11 @@ watch(orderId, async (id) => {
   }
 
   viewMessages.value = []
-  ensureGreeting()
+  try {
+    await ensureConversation()
+  } catch {
+    appendMessage('assistant', t('chat.conversationError'))
+  }
 })
 
 onMounted(async () => {
@@ -474,7 +752,13 @@ onMounted(async () => {
     escalated.value = true
   }
 
-  ensureGreeting()
+  try {
+    await ensureConversation()
+  } catch {
+    if (journey.messages.length === 0) {
+      appendMessage('assistant', t('chat.conversationError'))
+    }
+  }
   scrollToLatest('auto')
 })
 </script>

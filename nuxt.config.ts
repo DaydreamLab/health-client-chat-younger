@@ -31,6 +31,8 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
+    '/chat': { prerender: false },
+    '/en/chat': { prerender: false },
     '/app/**': { prerender: false },
     '/en/app/**': { prerender: false }
   },
@@ -40,7 +42,8 @@ export default defineNuxtConfig({
   nitro: {
     prerender: {
       crawlLinks: true,
-      routes: ['/', '/en']
+      routes: ['/', '/en'],
+      ignore: ['/chat', '/en/chat']
     }
   },
 

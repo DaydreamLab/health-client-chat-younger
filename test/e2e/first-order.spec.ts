@@ -107,3 +107,25 @@ test('guest sees empty orders until a payment', async ({ page, goto }) => {
   await expect(page.getByTestId('nav-orders')).toBeVisible()
   await expect(page.getByTestId('orders-empty')).toContainText('未付款的對話不會留下紀錄')
 })
+
+test.describe('profile quiz gate', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockCandorAuth(page, { profileQuiz: true })
+  })
+
+  test('text chip runs profile quiz then SSE', async ({ page, goto }) => {
+    await goto('/chat', { waitUntil: 'hydration' })
+    await expect(page.getByTestId('chat-last-reply')).toContainText('諮詢助理')
+
+    await page.getByTestId('chat-chip-plans').click()
+    await expect(page.getByTestId('chat-transcript')).toContainText('兩個方案差在哪？')
+    await expect(page.getByTestId('chat-quiz-options')).toBeVisible()
+    await expect(page.getByTestId('chat-transcript')).toContainText('請問您的生理性別？')
+    await expect(page.getByTestId('chat-chip-plans')).toBeDisabled()
+
+    await page.getByTestId('chat-quiz-option-F').click()
+    await expect(page.getByTestId('chat-transcript')).toContainText('F')
+    await expect(page.getByTestId('chat-last-reply')).toContainText('基礎保養')
+    await expect(page.getByTestId('chat-chip-plans')).toBeEnabled()
+  })
+})

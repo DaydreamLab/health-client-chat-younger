@@ -4,6 +4,8 @@ export const useJourneyStore = defineStore('journey', () => {
   const messages = ref<ChatMessage[]>([])
   const hasAnalysis = ref(false)
   const selectedPlanId = ref<SupplementPlanId>('fullTune')
+  const conversationId = ref<string | null>(null)
+  const reportId = ref<string | null>(null)
 
   function snapshotMessages(): ChatMessage[] {
     return messages.value.map(message => ({
@@ -17,12 +19,16 @@ export const useJourneyStore = defineStore('journey', () => {
     messages.value = []
     hasAnalysis.value = false
     selectedPlanId.value = 'fullTune'
+    conversationId.value = null
+    reportId.value = null
   }
 
   return {
     messages,
     hasAnalysis,
     selectedPlanId,
+    conversationId,
+    reportId,
     snapshotMessages,
     clearSession
   }
