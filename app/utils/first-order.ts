@@ -77,6 +77,13 @@ export interface ShipmentStep {
   at: string | null
 }
 
+export interface OrderItemLine {
+  code: string
+  name: string
+  dailyDose: number
+  monthlyCost?: number
+}
+
 export interface OrderRecord {
   id: string
   number: string
@@ -86,6 +93,7 @@ export interface OrderRecord {
   amount: number
   productCodes: string[]
   productNames?: string[]
+  items: OrderItemLine[]
   paymentMethod: PaymentMethod
   paymentStatus?: string
   orderStatus?: string
@@ -253,12 +261,35 @@ export function mockCatalog() {
   }
 }
 
+function itemsFromParts(
+  codes: string[],
+  names: string[] | undefined,
+  doses: number[] = []
+): OrderItemLine[] {
+  return codes.map((code, index) => ({
+    code,
+    name: names?.[index] || code,
+    dailyDose: doses[index] ?? 1
+  }))
+}
+
 export function mockCreateOrder(input: CreateOrderInput): OrderRecord {
   const now = new Date()
   const packagePlanCode = input.packagePlanCode || 'basic'
   const knownPlan = isSupplementPlanId(packagePlanCode) ? supplementPlans[packagePlanCode] : null
   const amount = input.amount ?? knownPlan?.price ?? 0
   const productCodes = input.productCodes ?? (knownPlan ? [...knownPlan.itemIds] : [])
+  const productNames = input.productNames ? [...input.productNames] : undefined
+  const items = itemsFromParts(
+    productCodes,
+    productNames,
+    productCodes.map((code) => {
+      if (Object.prototype.hasOwnProperty.call(supplementItems, code)) {
+        return supplementItems[code as SupplementItemId].dailyDose
+      }
+      return 1
+    })
+  )
 
   return {
     id: crypto.randomUUID(),
@@ -268,7 +299,8 @@ export function mockCreateOrder(input: CreateOrderInput): OrderRecord {
     packageName: input.packageName,
     amount,
     productCodes,
-    productNames: input.productNames ? [...input.productNames] : undefined,
+    productNames,
+    items,
     paymentMethod: input.paymentMethod,
     paymentStatus: 'paid',
     orderStatus: 'confirmed',
@@ -314,6 +346,8 @@ export function orderRecordFromCandorCreated(
 ): OrderRecord {
   const createdAt = new Date().toISOString()
   const confirmedAt = created.status === 'confirmed' ? createdAt : null
+  const productCodes = input.productCodes ? [...input.productCodes] : []
+  const productNames = input.productNames ? [...input.productNames] : undefined
   return {
     id: created.id,
     number: created.order_no,
@@ -321,8 +355,9 @@ export function orderRecordFromCandorCreated(
     packagePlanCode: input.packagePlanCode,
     packageName: input.packageName,
     amount: created.amount_total,
-    productCodes: input.productCodes ? [...input.productCodes] : [],
-    productNames: input.productNames ? [...input.productNames] : undefined,
+    productCodes,
+    productNames,
+    items: itemsFromParts(productCodes, productNames),
     paymentMethod: input.paymentMethod,
     paymentStatus: created.payment_status,
     orderStatus: created.status,
@@ -346,8 +381,20 @@ export function orderRecordFromCandorDetail(
   fallback: Partial<CreateOrderInput> = {}
 ): OrderRecord {
   const components = detail.package?.components ?? []
-  const productCodes = components.map(item => item.sellable_item_code)
-  const productNames = components.map(item => item.sellable_item_name)
+  const productCodes = components.length
+    ? components.map(item => item.sellable_item_code)
+    : (fallback.productCodes ?? [])
+  const productNames = components.length
+    ? components.map(item => item.sellable_item_name)
+    : fallback.productNames
+  const items: OrderItemLine[] = components.length
+    ? components.map(item => ({
+        code: item.sellable_item_code,
+        name: item.sellable_item_name,
+        dailyDose: item.daily_dose,
+        monthlyCost: item.monthly_cost
+      }))
+    : itemsFromParts(productCodes, productNames)
   const createdAt = detail.created_at ?? new Date().toISOString()
   const recipient = detail.recipient ?? fallback.recipient ?? {
     name: '',
@@ -370,8 +417,9 @@ export function orderRecordFromCandorDetail(
     packagePlanCode: detail.package?.package_plan_code ?? fallback.packagePlanCode ?? '',
     packageName: detail.package_plan_name ?? detail.package?.package_plan_name ?? fallback.packageName,
     amount: detail.amount_total,
-    productCodes: productCodes.length ? productCodes : (fallback.productCodes ?? []),
-    productNames: productNames.length ? productNames : fallback.productNames,
+    productCodes,
+    productNames,
+    items,
     paymentMethod: fallback.paymentMethod ?? 'card',
     paymentStatus: detail.payment_status,
     orderStatus: detail.status,
@@ -402,6 +450,7 @@ export function orderRecordFromCandorSummary(summary: OrderSummary): OrderRecord
     packageName: summary.package_plan_name ?? undefined,
     amount: summary.amount_total,
     productCodes: [],
+    items: [],
     paymentMethod: 'card',
     paymentStatus: summary.payment_status,
     orderStatus: summary.status,

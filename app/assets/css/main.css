@@ -464,20 +464,73 @@ button:focus:not(:focus-visible) {
   }
 
   .app-timeline {
+    position: relative;
     display: flex;
     width: 100%;
     align-items: flex-start;
+    justify-content: space-between;
     gap: 0;
   }
 
+  .app-timeline::before,
+  .app-timeline::after {
+    content: "";
+    position: absolute;
+    top: 0.4375rem;
+    left: 0.5rem;
+    right: 0.5rem;
+    height: 2px;
+    border-radius: 9999px;
+    pointer-events: none;
+  }
+
+  .app-timeline::before {
+    z-index: 0;
+    background-color: var(--ui-border);
+  }
+
+  .app-timeline::after {
+    z-index: 0;
+    right: auto;
+    width: calc((100% - 1rem) * var(--timeline-progress, 0));
+    background-color: var(--ui-primary);
+  }
+
   .app-timeline-step {
+    position: relative;
+    z-index: 1;
     min-width: 0;
-    flex: 1;
+    flex: 0 1 auto;
+    max-width: 30%;
+  }
+
+  .app-timeline-step-first {
+    text-align: start;
+  }
+
+  .app-timeline-step:not(.app-timeline-step-first):not(.app-timeline-step-last) {
+    text-align: center;
+  }
+
+  .app-timeline-step-last {
+    text-align: end;
   }
 
   .app-timeline-track {
     display: flex;
     align-items: center;
+  }
+
+  .app-timeline-step-first .app-timeline-track {
+    justify-content: flex-start;
+  }
+
+  .app-timeline-step:not(.app-timeline-step-first):not(.app-timeline-step-last) .app-timeline-track {
+    justify-content: center;
+  }
+
+  .app-timeline-step-last .app-timeline-track {
+    justify-content: flex-end;
   }
 
   .app-timeline-dot {
@@ -498,16 +551,5 @@ button:focus:not(:focus-visible) {
 
   .app-timeline-step-current .app-timeline-dot {
     box-shadow: 0 0 0 4px color-mix(in oklab, var(--ui-primary) 22%, transparent);
-  }
-
-  .app-timeline-line {
-    height: 2px;
-    flex: 1;
-    margin-inline: 0.25rem;
-    background-color: var(--ui-border);
-  }
-
-  .app-timeline-line-done {
-    background-color: var(--ui-primary);
   }
 }

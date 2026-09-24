@@ -1,12 +1,17 @@
 <template>
-  <ol class="app-timeline">
+  <ol
+    class="app-timeline"
+    :style="{ '--timeline-progress': String(progress) }"
+  >
     <li
-      v-for="(step, index) in steps"
+      v-for="step in steps"
       :key="step.id"
       class="app-timeline-step"
       :class="{
         'app-timeline-step-done': isDone(step.id),
-        'app-timeline-step-current': isCurrent(step.id)
+        'app-timeline-step-current': isCurrent(step.id),
+        'app-timeline-step-first': step.id === steps[0]?.id,
+        'app-timeline-step-last': step.id === steps[steps.length - 1]?.id
       }"
       :aria-current="isCurrent(step.id) ? 'step' : undefined"
       :data-testid="`timeline-${step.id}`"
@@ -19,11 +24,6 @@
             class="size-2.5 text-white"
           />
         </span>
-        <span
-          v-if="index < steps.length - 1"
-          class="app-timeline-line"
-          :class="{ 'app-timeline-line-done': isReached(steps[index + 1]!.id) }"
-        />
       </div>
       <p
         class="mt-2 text-xs font-medium"
@@ -50,6 +50,15 @@ const steps = computed(() => {
 })
 
 const current = computed(() => timelineStatus(props.timeline))
+
+const progress = computed(() => {
+  const index = shipmentStepIds.indexOf(current.value)
+  const max = shipmentStepIds.length - 1
+  if (max <= 0 || index < 0) {
+    return 0
+  }
+  return Math.min(1, Math.max(0, index / max))
+})
 
 function isReached(id: ShipmentStepId) {
   return shipmentStepIds.indexOf(id) <= shipmentStepIds.indexOf(current.value)

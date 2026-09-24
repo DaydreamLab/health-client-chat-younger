@@ -113,14 +113,21 @@
           {{ $t('orders.viewDetail') }}
         </AppButton>
         <AppButton
-          :to="`${localePath('/chat')}?orderId=${order.id}`"
           variant="ghost"
           :data-testid="`order-chat-${order.id}`"
+          @click="openChat(order)"
         >
           {{ $t('orders.viewChat') }}
         </AppButton>
       </div>
     </article>
+
+    <OrderChatModal
+      :open="chatOpen"
+      :order-id="chatOrderId"
+      :order-number="chatOrderNumber"
+      @close="closeChat"
+    />
   </div>
 </template>
 
@@ -137,6 +144,19 @@ const localePath = useLocalePath()
 const api = useFirstOrderApi()
 const list = ref<OrderRecord[]>([])
 const loadError = ref(false)
+const chatOpen = ref(false)
+const chatOrderId = ref<string | null>(null)
+const chatOrderNumber = ref<string | null>(null)
+
+function openChat(order: OrderRecord) {
+  chatOrderId.value = order.id
+  chatOrderNumber.value = order.number
+  chatOpen.value = true
+}
+
+function closeChat() {
+  chatOpen.value = false
+}
 
 function formatWhen(value: string) {
   return value.replace('T', ' ').slice(0, 16).replace(/-/g, '/')

@@ -739,7 +739,24 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
 
   await page.route('**/api/v1/order/**', async (route) => {
     const url = route.request().url()
-    if (url.includes('/message') || url.includes('/payment') || url.includes('/cancel')) {
+    if (url.includes('/message')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            conversation_id: conversationId,
+            messages: [
+              { id: 'om-1', role: 'assistant', content: '已依你的目標組成一個月方案。', seq: 1 },
+              { id: 'om-2', role: 'user', content: '好，幫我下單。', seq: 2 }
+            ]
+          }
+        })
+      })
+      return
+    }
+    if (url.includes('/payment') || url.includes('/cancel')) {
       await route.fallback()
       return
     }

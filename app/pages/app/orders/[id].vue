@@ -39,14 +39,6 @@
         </div>
         <div>
           <dt class="text-muted">
-            {{ $t('orders.package') }}
-          </dt>
-          <dd class="mt-1 text-highlighted">
-            {{ order.packageName || order.packagePlanCode }}
-          </dd>
-        </div>
-        <div>
-          <dt class="text-muted">
             {{ $t('orders.paymentStatus') }}
           </dt>
           <dd
@@ -100,29 +92,80 @@
       </div>
     </section>
 
-    <section class="rounded-2xl border border-default bg-elevated p-5">
-      <h2 class="font-semibold text-highlighted">
-        {{ $t('orders.items') }}
-      </h2>
-      <ul class="mt-3 divide-y divide-default">
-        <li
-          v-for="(productCode, index) in order.productCodes"
-          :key="productCode"
-          class="flex items-center justify-between gap-3 py-3 text-sm"
+    <section
+      class="overflow-hidden rounded-2xl border border-default bg-elevated"
+      data-testid="order-package-items"
+    >
+      <div class="border-b border-default px-5 py-4">
+        <h2 class="font-semibold text-highlighted">
+          {{ $t('orders.packageItems') }}
+        </h2>
+        <p
+          v-if="order.packageName || order.packagePlanCode"
+          class="mt-1 text-sm text-muted"
         >
-          <span class="text-highlighted">
-            {{ order.productNames?.[index] || productCode }}
+          {{ order.packageName || order.packagePlanCode }}
+          <span class="tabular-nums text-highlighted"> · {{ formatTwd(order.amount) }}</span>
+        </p>
+      </div>
+      <ul
+        v-if="orderItems.length"
+        class="divide-y divide-default"
+      >
+        <li
+          v-for="item in orderItems"
+          :key="item.code"
+          class="flex items-start gap-3 px-5 py-4"
+          :data-testid="`order-item-${item.code}`"
+        >
+          <span class="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <UIcon
+              name="i-lucide-pill"
+              class="size-5"
+            />
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="block font-medium text-highlighted">
+              {{ item.name }}
+            </span>
+          </span>
+          <span class="flex shrink-0 flex-col items-end gap-1">
+            <span
+              class="app-badge app-badge-pending"
+              :data-testid="`order-item-dose-${item.code}`"
+            >
+              {{ doseLabel(item.dailyDose) }}
+            </span>
+            <span
+              v-if="item.monthlyCost != null"
+              class="text-sm tabular-nums text-muted"
+            >
+              {{ formatTwd(item.monthlyCost) }}
+            </span>
           </span>
         </li>
       </ul>
+      <p
+        v-else
+        class="px-5 py-6 text-sm text-muted"
+      >
+        {{ $t('orders.itemsEmpty') }}
+      </p>
     </section>
 
     <AppButton
-      :to="`${localePath('/chat')}?orderId=${order.id}`"
       data-testid="order-view-chat"
+      @click="chatOpen = true"
     >
       {{ $t('orders.viewChat') }}
     </AppButton>
+
+    <OrderChatModal
+      :open="chatOpen"
+      :order-id="order.id"
+      :order-number="order.number"
+      @close="chatOpen = false"
+    />
   </div>
   <p
     v-else
@@ -133,7 +176,7 @@
 </template>
 
 <script setup lang="ts">
-import { formatTwd, type OrderRecord } from '~/utils/first-order'
+import { formatTwd, type OrderItemLine, type OrderRecord } from '~/utils/first-order'
 
 definePageMeta({
   layout: 'user',
@@ -145,9 +188,35 @@ const localePath = useLocalePath()
 const { t } = useI18n()
 const api = useFirstOrderApi()
 const order = ref<OrderRecord | null>(null)
+const chatOpen = ref(false)
+
+const orderItems = computed<OrderItemLine[]>(() => {
+  if (!order.value) {
+    return []
+  }
+  if (order.value.items?.length) {
+    return order.value.items
+  }
+  return order.value.productCodes.map((code, index) => ({
+    code,
+    name: order.value!.productNames?.[index] || code,
+    dailyDose: 1
+  }))
+})
 
 function formatWhen(value: string) {
   return value.replace('T', ' ').slice(0, 16).replace(/-/g, '/')
+}
+
+function formatDoseCount(value: number): string {
+  if (Number.isInteger(value)) {
+    return String(value)
+  }
+  return String(value)
+}
+
+function doseLabel(count: number) {
+  return t('orders.doseLocked', { count: formatDoseCount(count) })
 }
 
 function paymentLabel(current: OrderRecord) {
