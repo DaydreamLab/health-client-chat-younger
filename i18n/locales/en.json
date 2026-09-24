@@ -313,6 +313,7 @@
     "addressDistrict": "District",
     "addressDetail": "Street address",
     "addressDetailPlaceholder": "Street, lane, number, floor",
+    "saveDefaultAddress": "Save as default address for next time",
     "delivery": "Delivery",
     "deliveryHome": "Home delivery",
     "deliveryHint": "Track shipment on the order page after it goes out.",

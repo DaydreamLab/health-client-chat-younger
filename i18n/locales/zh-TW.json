@@ -313,6 +313,7 @@
     "addressDistrict": "區域",
     "addressDetail": "詳細地址",
     "addressDetailPlaceholder": "路／街／巷／弄／號／樓",
+    "saveDefaultAddress": "設為常用地址（下次自動帶入）",
     "delivery": "配送方式",
     "deliveryHome": "宅配到府",
     "deliveryHint": "出貨後可在訂單頁查看時間軸。",

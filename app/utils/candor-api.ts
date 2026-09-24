@@ -7,12 +7,21 @@ export interface UserBrief {
   display_name?: string | null
 }
 
+export interface DefaultRecipient {
+  name: string | null
+  phone: string | null
+  address_city: string | null
+  address_district: string | null
+  address_detail: string | null
+}
+
 export interface UserMe {
   id: string
   role: UserRole
   email?: string | null
   display_name?: string | null
   created_at: string
+  default_recipient?: DefaultRecipient | null
 }
 
 export interface UserSession {

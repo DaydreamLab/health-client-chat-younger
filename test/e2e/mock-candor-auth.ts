@@ -311,12 +311,44 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
   })
 
   await page.route('**/api/v1/users/me', async (route) => {
+    if (route.request().method() === 'PATCH') {
+      const body = route.request().postDataJSON() as {
+        default_recipient?: {
+          name: string
+          phone: string
+          address_city: string
+          address_district: string
+          address_detail: string
+        }
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            ...sessionUser,
+            created_at: '2026-01-01T00:00:00Z',
+            default_recipient: body.default_recipient
+              ? {
+                  name: body.default_recipient.name,
+                  phone: body.default_recipient.phone,
+                  address_city: body.default_recipient.address_city,
+                  address_district: body.default_recipient.address_district,
+                  address_detail: body.default_recipient.address_detail
+                }
+              : null
+          }
+        })
+      })
+      return
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data: { ...sessionUser, created_at: '2026-01-01T00:00:00Z' }
+        data: { ...sessionUser, created_at: '2026-01-01T00:00:00Z', default_recipient: null }
       })
     })
   })

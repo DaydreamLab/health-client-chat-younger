@@ -351,6 +351,19 @@
             data-testid="checkout-address"
           >
         </label>
+        <label
+          v-if="auth.isMember"
+          class="flex items-center gap-2 text-sm text-highlighted"
+        >
+          <input
+            v-model="saveAsDefaultAddress"
+            type="checkbox"
+            name="save_default_address"
+            class="accent-primary"
+            data-testid="checkout-save-default-address"
+          >
+          {{ $t('checkout.saveDefaultAddress') }}
+        </label>
 
         <fieldset class="space-y-1.5">
           <legend class="mb-1.5 text-sm font-medium text-highlighted">
@@ -536,6 +549,8 @@ const phone = ref('')
 const addressCity = ref('')
 const addressDistrict = ref('')
 const addressDetail = ref('')
+const saveAsDefaultAddress = ref(false)
+const hydratingAddress = ref(false)
 const taiwanCities = TAIWAN_CITIES
 const addressDistricts = computed(() => districtsForCity(addressCity.value))
 const delivery = ref<'home'>('home')
@@ -564,8 +579,46 @@ const registerRedirect = computed(() =>
 )
 
 watch(addressCity, () => {
+  if (hydratingAddress.value) {
+    return
+  }
   addressDistrict.value = ''
 })
+
+async function loadDefaultRecipient() {
+  if (!auth.isMember) {
+    return
+  }
+  try {
+    const me = await candor.me()
+    const recipient = me.default_recipient
+    if (!recipient) {
+      return
+    }
+    hydratingAddress.value = true
+    if (recipient.name) {
+      name.value = recipient.name
+    }
+    if (recipient.phone) {
+      phone.value = recipient.phone
+    }
+    if (recipient.address_city) {
+      addressCity.value = recipient.address_city
+    }
+    await nextTick()
+    if (recipient.address_district) {
+      addressDistrict.value = recipient.address_district
+    }
+    if (recipient.address_detail) {
+      addressDetail.value = recipient.address_detail
+    }
+    saveAsDefaultAddress.value = true
+  } catch {
+    // ignore — keep empty form
+  } finally {
+    hydratingAddress.value = false
+  }
+}
 
 watch(invoice, (value) => {
   if (value === 'member') {
@@ -743,6 +796,22 @@ async function onPay(event: Event) {
       recommendationRunId: recommendation.value?.run_id
     })
 
+    if (saveAsDefaultAddress.value && auth.isMember) {
+      try {
+        await candor.patchMe({
+          default_recipient: {
+            name: parsed.data.name,
+            phone: parsed.data.phone,
+            address_city: String(data?.get('address_city') ?? addressCity.value).trim(),
+            address_district: String(data?.get('address_district') ?? addressDistrict.value).trim(),
+            address_detail: String(data?.get('address_detail') ?? addressDetail.value).trim()
+          }
+        })
+      } catch {
+        // order already placed — do not block payment redirect
+      }
+    }
+
     const redirectUrl = 'payment' in created && created.payment?.redirect_url
       ? created.payment.redirect_url
       : null
@@ -786,5 +855,6 @@ onMounted(() => {
   }
   void loadReport()
   void loadRecommendation()
+  void loadDefaultRecipient()
 })
 </script>
