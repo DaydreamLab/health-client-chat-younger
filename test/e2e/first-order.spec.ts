@@ -23,14 +23,11 @@ test.describe('guest session', () => {
     await expect(page.getByTestId('chat-report-loading')).toContainText('報告處理中')
     await expect(page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('chat-report-loading')).toHaveCount(0)
-    await expect(page.getByTestId('chat-view-report-data')).toBeVisible()
+    await expect(page.getByTestId('chat-report-dock')).toBeVisible()
+    await expect(page.getByTestId('chat-report-dock')).toContainText('Vitamin D3')
     await expect(page.getByTestId('chat-escalate')).toBeVisible()
     expect(await page.evaluate(() => localStorage.getItem('candor-paid-orders'))).toBeNull()
     expect(await page.evaluate(() => localStorage.getItem('candor.unpaid.journey'))).toContain('conversationId')
-
-    await page.getByTestId('chat-view-report-data').click()
-    await expect(page.getByTestId('chat-report-dock')).toBeVisible()
-    await expect(page.getByTestId('chat-report-dock')).toContainText('Vitamin D3')
 
     await page.reload({ waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('heading', { name: '諮詢' })).toBeVisible()
@@ -128,6 +125,7 @@ test.describe('profile quiz gate', () => {
     await expect(page.getByTestId('chat-chip-upload')).toHaveCount(0)
 
     await page.getByTestId('chat-quiz-option-vitality').click()
+    await page.getByTestId('chat-quiz-option-sleep_quality').click()
     await page.getByTestId('chat-quiz-confirm').click()
     await expect(page.getByTestId('chat-transcript')).toContainText('請問您的生理性別？')
     await expect(page.getByTestId('chat-quiz-option-F')).toBeVisible()

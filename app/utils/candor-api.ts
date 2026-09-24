@@ -139,6 +139,11 @@ export interface ConversationAttachAck {
   report_id: string
 }
 
+export interface ConversationDetachAck {
+  id: string
+  report_id: null
+}
+
 export interface ConversationGoalsResult {
   saved: boolean
   goals?: string[]

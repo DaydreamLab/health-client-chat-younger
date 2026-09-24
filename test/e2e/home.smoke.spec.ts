@@ -53,12 +53,25 @@ test('plan CTA opens chat and AI can reply', async ({ page, goto }) => {
   await expect(page.getByTestId('chat-quiz-option-sleep_quality')).toBeVisible()
   await expect(page.getByTestId('chat-chip-plans')).toHaveCount(0)
   await page.getByTestId('chat-quiz-option-vitality').click()
+  await page.getByTestId('chat-quiz-option-sleep_quality').click()
   await page.getByTestId('chat-quiz-confirm').click()
   await expect(page.getByTestId('chat-last-reply')).toBeVisible()
   const transcript = page.getByTestId('chat-transcript')
   await expect.poll(async () => transcript.evaluate((el) => {
     return el.scrollTop + el.clientHeight >= el.scrollHeight - 24
   })).toBe(true)
+
+  page.once('dialog', dialog => dialog.accept())
+  await page.getByTestId('chat-reset').click()
+  await expect(page.getByTestId('chat-last-reply')).toContainText('改善方向')
+  await expect(page.getByTestId('chat-quiz-option-vitality')).toBeVisible()
+  expect(await page.evaluate(() => {
+    const raw = localStorage.getItem('candor.unpaid.journey')
+    if (!raw) {
+      return null
+    }
+    return (JSON.parse(raw) as { messages?: unknown[] }).messages?.length ?? null
+  })).toBe(1)
 })
 
 test('guest escalate and health dashboard without login wall', async ({ page, goto }) => {

@@ -382,6 +382,19 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
 
   await page.route(`**/api/v1/conversation/${conversationId}/goals`, async (route) => {
     const body = route.request().postDataJSON() as { goals?: string[], raw_text?: string } | null
+    const goals = body?.goals || []
+    if (goals.length > 0 && goals.length < 2 && !body?.raw_text) {
+      await route.fulfill({
+        status: 422,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'failed',
+          error_message: 'At least 2 valid goals are required.',
+          error_code: 'invalid_request'
+        })
+      })
+      return
+    }
     if (body?.raw_text) {
       await route.fulfill({
         status: 200,
@@ -404,7 +417,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data: { saved: true, goals: body?.goals || ['vitality'] }
+        data: { saved: true, goals: goals.length ? goals : ['vitality', 'sleep_quality'] }
       })
     })
   })

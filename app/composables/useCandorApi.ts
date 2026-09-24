@@ -350,6 +350,11 @@ export function useCandorApi() {
         method: 'PATCH',
         body: { report_id: reportId }
       }),
+    detachReport: (conversationId: string) =>
+      request<ConversationDetachAck>(
+        `/conversation/${encodeURIComponent(conversationId)}/report`,
+        { method: 'DELETE' }
+      ),
     streamMessage,
 
     uploadHealthReport: (file: File) => {

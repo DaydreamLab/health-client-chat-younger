@@ -24,6 +24,15 @@ export default defineNuxtConfig({
     storageKey: 'younger-color-mode'
   },
 
+  // Static GitHub Pages: bundle icons at build time (no Iconify API at runtime).
+  icon: {
+    provider: 'none',
+    clientBundle: {
+      scan: true,
+      sizeLimitKb: 512
+    }
+  },
+
   runtimeConfig: {
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8080/api/v1'

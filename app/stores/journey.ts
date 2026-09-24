@@ -84,7 +84,11 @@ export const useJourneyStore = defineStore('journey', () => {
     return messages.value.map(message => ({
       id: message.id,
       role: message.role,
-      parts: message.parts.map(part => ({ ...part }))
+      parts: message.parts.map(part => ({ ...part })),
+      options: message.options ? message.options.map(option => ({ ...option })) : undefined,
+      turnType: message.turnType,
+      profileQuestion: message.profileQuestion ? { ...message.profileQuestion } : message.profileQuestion,
+      profileGaps: message.profileGaps ? [...message.profileGaps] : undefined
     }))
   }
 

@@ -19,14 +19,27 @@
           {{ $t('chat.viewOnlyBody') }}
         </p>
       </div>
-      <AppButton
-        v-if="!escalated && !readonly"
-        variant="outline"
-        data-testid="chat-escalate"
-        @click="escalate"
+      <div
+        v-if="!readonly"
+        class="flex shrink-0 flex-wrap items-center gap-2"
       >
-        {{ $t('chat.escalate') }}
-      </AppButton>
+        <AppButton
+          variant="ghost"
+          data-testid="chat-reset"
+          :disabled="resetting"
+          @click="resetConversation"
+        >
+          {{ $t('chat.reset') }}
+        </AppButton>
+        <AppButton
+          v-if="!escalated"
+          variant="outline"
+          data-testid="chat-escalate"
+          @click="escalate"
+        >
+          {{ $t('chat.escalate') }}
+        </AppButton>
+      </div>
     </header>
 
     <div
@@ -118,15 +131,6 @@
               {{ fileName(message) }}
             </p>
             <AppButton
-              v-if="showReportDataCta(message)"
-              class="mt-3"
-              variant="outline"
-              data-testid="chat-view-report-data"
-              @click="openReportDock"
-            >
-              {{ $t('chat.viewReportData') }}
-            </AppButton>
-            <AppButton
               v-if="showRecommendCta(message)"
               class="mt-3"
               data-testid="chat-view-recommend"
@@ -191,7 +195,7 @@
           v-if="needsMultiConfirm"
           type="button"
           data-testid="chat-quiz-confirm"
-          :disabled="pending || reportInFlight || selectedCodes.length === 0"
+          :disabled="pending || reportInFlight || selectedCodes.length === 0 || (goalSelectActive && selectedCodes.length < 2)"
           @click="confirmMultiSelection"
         >
           {{ $t('chat.confirmSelection') }}
@@ -296,6 +300,7 @@ const candor = useCandorApi()
 
 const input = ref('')
 const pending = ref(false)
+const resetting = ref(false)
 const reportInFlight = ref(false)
 const escalated = ref(false)
 const pendingUserContent = ref<string | null>(null)
@@ -480,13 +485,6 @@ function showRecommendCta(message: ChatMessage) {
     && !reportRetryId.value
 }
 
-function showReportDataCta(message: ChatMessage) {
-  return !readonly.value
-    && !escalated.value
-    && reportResults.value.length > 0
-    && message.id === reportDockMessageId.value
-}
-
 function showRetryCta(message: ChatMessage) {
   return !readonly.value
     && Boolean(reportRetryId.value)
@@ -529,6 +527,40 @@ watch(
     }
   }
 )
+
+async function resetConversation() {
+  if (readonly.value || resetting.value) {
+    return
+  }
+  if (!window.confirm(t('chat.resetConfirm'))) {
+    return
+  }
+
+  resetting.value = true
+  pollGeneration += 1
+  pending.value = false
+  reportInFlight.value = false
+  escalated.value = false
+  input.value = ''
+  pendingUserContent.value = null
+  reportRetryId.value = null
+  retryMessageId.value = null
+  reportResults.value = []
+  reportDockOpen.value = false
+  reportDockCollapsed.value = false
+  reportDockMessageId.value = null
+  journey.clearSession()
+
+  try {
+    await ensureConversation()
+    await nextTick()
+    scrollToLatest('auto')
+  } catch {
+    appendMessage('assistant', t('chat.conversationError'))
+  } finally {
+    resetting.value = false
+  }
+}
 
 async function ensureConversation() {
   if (journey.conversationId) {
@@ -594,11 +626,15 @@ function guideAfterQuiz() {
   if (profileGaps.value.length > 0) {
     return
   }
+  const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
+  // Still collecting goal clarifications via chips — don't append「問答已完成」.
+  if (last?.options?.length) {
+    return
+  }
   postQuizGuided.value = true
   const text = journey.hasAnalysis
     ? t('chat.guideRecommendAfterQuiz')
     : t('chat.guideUploadAfterQuiz')
-  const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
   if (last) {
     const existing = messageText(last)
     setMessageText(last.id, existing ? `${existing}\n\n${text}` : text)
@@ -785,6 +821,10 @@ async function confirmMultiSelection() {
   }
 
   if (goalSelectActive.value) {
+    if (selectedCodes.value.length < 2) {
+      appendMessage('assistant', t('chat.goalsNeedTwo'))
+      return
+    }
     const labels = goalOptions.value
       .filter(o => selectedCodes.value.includes(o.code))
       .map(o => o.label)
@@ -954,6 +994,17 @@ async function bindAndInterpret(reportId: string) {
   } catch (error) {
     if (error instanceof CandorApiError && error.errorCode === 'report_not_ready') {
       appendMessage('assistant', t('chat.reportStatus', { status: 'processing' }))
+      return
+    }
+    if (error instanceof CandorApiError && error.errorCode === 'report_profile_mismatch') {
+      journey.reportId = null
+      journey.hasAnalysis = false
+      try {
+        await candor.detachReport(conversationId)
+      } catch {
+        // already unbound or never attached
+      }
+      appendMessage('assistant', t('chat.reportSkippedMismatch'))
       return
     }
     throw error
