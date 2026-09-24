@@ -251,7 +251,8 @@
 import type {
   GreetingOption,
   HealthReport,
-  HealthReportResult
+  HealthReportResult,
+  ProfileAnswerType
 } from '~/utils/candor-api'
 import { CandorApiError } from '~/utils/candor-api'
 import type { ChatMessage } from '~/utils/first-order'
@@ -274,7 +275,8 @@ const {
   selectedCodes,
   selectedPackage,
   packageConfirmed,
-  postQuizGuided
+  postQuizGuided,
+  profileGaps
 } = storeToRefs(journey)
 const ordersApi = useFirstOrderApi()
 const candor = useCandorApi()
@@ -327,19 +329,24 @@ const chipOptions = computed((): GreetingOption[] => {
   if (goalSelectActive.value) {
     return goalOptions.value
   }
-  if (quizActive.value && activeQuestion.value) {
-    const type = activeQuestion.value.answer_type
-    if (type === 'enum' || type === 'multi_enum') {
-      return activeQuestion.value.options ?? []
-    }
+  const last = [...messages.value].reverse().find(message => message.role === 'assistant')
+  if (last?.options?.length) {
+    return last.options
   }
   return []
 })
 
+const lastAssistantProfile = computed(() => {
+  const last = [...messages.value].reverse().find(message => message.role === 'assistant')
+  if (!last || last.turnType !== 'profile' || !last.profileQuestion) {
+    return null
+  }
+  return last.profileQuestion
+})
+
 const isLabRecencyQuestion = computed(() => {
-  return quizActive.value
-    && activeQuestion.value !== null
-    && LAB_GAP_CODES.has(activeQuestion.value.gap_code)
+  const gap = lastAssistantProfile.value?.gap_code
+  return gap !== undefined && LAB_GAP_CODES.has(gap)
 })
 
 const needsMultiConfirm = computed(() => {
@@ -349,15 +356,23 @@ const needsMultiConfirm = computed(() => {
   if (isLabRecencyQuestion.value) {
     return true
   }
-  return quizActive.value && activeQuestion.value?.answer_type === 'multi_enum'
+  return lastAssistantProfile.value?.answer_type === 'multi_enum'
 })
 
 const showUploadChip = computed(() => {
-  if (!isLabRecencyQuestion.value) {
+  if (escalated.value || readonly.value) {
     return false
   }
-  const selected = selectedCodes.value[0]
-  return selected !== undefined && UPLOADABLE_LAB_CODES.has(selected)
+  if (isLabRecencyQuestion.value) {
+    const selected = selectedCodes.value[0]
+    return selected !== undefined && UPLOADABLE_LAB_CODES.has(selected)
+  }
+  if (goalSelectActive.value) {
+    return false
+  }
+  return postQuizGuided.value
+    && !journey.hasAnalysis
+    && profileGaps.value.length === 0
 })
 
 function isOptionSelected(code: string) {
@@ -408,7 +423,7 @@ const lastAssistantId = computed(() => {
 function showRecommendCta(message: ChatMessage) {
   return !readonly.value
     && !escalated.value
-    && !quizActive.value
+    && !goalSelectActive.value
     && journey.hasAnalysis
     && message.role === 'assistant'
     && message.id === lastAssistantId.value
@@ -475,6 +490,7 @@ async function ensureConversation() {
     packageConfirmed.value = created.package_plan.confirmed
   }
   postQuizGuided.value = false
+  profileGaps.value = []
   reportResults.value = []
   reportDockOpen.value = false
   reportDockCollapsed.value = false
@@ -516,19 +532,55 @@ function guideAfterQuiz() {
   if (postQuizGuided.value) {
     return
   }
-  postQuizGuided.value = true
-  if (journey.hasAnalysis) {
-    appendMessage('assistant', t('chat.guideRecommendAfterQuiz'))
+  if (profileGaps.value.length > 0) {
     return
   }
-  appendMessage('assistant', t('chat.guideUploadAfterQuiz'))
+  postQuizGuided.value = true
+  const text = journey.hasAnalysis
+    ? t('chat.guideRecommendAfterQuiz')
+    : t('chat.guideUploadAfterQuiz')
+  const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
+  if (last) {
+    const existing = messageText(last)
+    setMessageText(last.id, existing ? `${existing}\n\n${text}` : text)
+    return
+  }
+  appendMessage('assistant', text)
+}
+
+function applyStreamMeta(assistantId: string, result: {
+  options?: ChatMessage['options']
+  turn: { type: string }
+  profile_question: ChatMessage['profileQuestion']
+  profile_gaps: string[]
+}) {
+  const message = journey.messages.find(item => item.id === assistantId)
+  if (message) {
+    message.options = result.options ?? []
+    message.turnType = result.turn.type as ChatMessage['turnType']
+    message.profileQuestion = result.profile_question ?? null
+    message.profileGaps = result.profile_gaps
+  }
+  profileGaps.value = result.profile_gaps
+  selectedCodes.value = []
+  if (result.turn.type === 'profile' && result.profile_question) {
+    activeQuestion.value = {
+      done: false,
+      gap_code: result.profile_question.gap_code,
+      prompt: '',
+      answer_type: result.profile_question.answer_type as ProfileAnswerType,
+      options: result.options ?? []
+    }
+    quizActive.value = true
+  } else {
+    activeQuestion.value = null
+    quizActive.value = false
+  }
 }
 
 async function streamPending() {
   const content = pendingUserContent.value
   pendingUserContent.value = null
-  quizActive.value = false
-  activeQuestion.value = null
   goalSelectActive.value = false
 
   if (!content) {
@@ -557,6 +609,7 @@ async function streamPending() {
     })
 
     setMessageText(assistantId, result.content || streamed)
+    applyStreamMeta(assistantId, result)
     if (journey.hasAnalysis && reportResults.value.length > 0) {
       reportDockMessageId.value = assistantId
       openReportDock()
@@ -574,44 +627,12 @@ async function streamPending() {
   }
 }
 
-async function finishQuestionnaire() {
-  if (journey.reportId && !journey.hasAnalysis) {
-    try {
-      const report = await candor.getHealthReport(journey.reportId)
-      rememberReport(report)
-      if (report.status === 'ready' || report.status === 'needs_review') {
-        await bindAndInterpret(report.id)
-        return
-      }
-    } catch {
-      // fall through
-    }
+async function runProfileThenStream() {
+  if (!pendingUserContent.value) {
+    const lastUser = [...journey.messages].reverse().find(message => message.role === 'user')
+    pendingUserContent.value = lastUser ? messageText(lastUser) : '開始'
   }
   await streamPending()
-}
-
-async function runProfileThenStream() {
-  pending.value = true
-  try {
-    const next = await candor.nextProfileQuestion(journey.reportId)
-    if (next.done) {
-      await finishQuestionnaire()
-      return
-    }
-
-    appendMessage('assistant', next.prompt)
-    activeQuestion.value = next
-    quizActive.value = true
-    goalSelectActive.value = false
-    selectedCodes.value = []
-    pending.value = false
-  } catch {
-    appendMessage('assistant', t('chat.streamError'))
-    pendingUserContent.value = null
-    quizActive.value = false
-    activeQuestion.value = null
-    pending.value = false
-  }
 }
 
 async function sendText(text: string) {
@@ -620,9 +641,45 @@ async function sendText(text: string) {
     return
   }
 
+  const profile = lastAssistantProfile.value
+  if (profile) {
+    appendMessage('user', content)
+    pending.value = true
+    try {
+      const result = await candor.submitProfileAnswer({
+        gap_code: profile.gap_code,
+        raw_text: content
+      })
+      if (result.saved) {
+        profileGaps.value = result.profile_gaps
+        clearLastAssistantOptions()
+        pendingUserContent.value = content
+        await streamPending()
+        return
+      }
+      // diverted / clarification: still chat; keep profile chips
+      pendingUserContent.value = content
+      await streamPending()
+    } catch {
+      appendMessage('assistant', t('chat.streamError'))
+      pending.value = false
+    }
+    return
+  }
+
   appendMessage('user', content)
   pendingUserContent.value = content
-  await runProfileThenStream()
+  await streamPending()
+}
+
+function clearLastAssistantOptions() {
+  const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
+  if (!last) {
+    return
+  }
+  last.options = []
+  last.profileQuestion = null
+  last.turnType = 'message'
 }
 
 function onOptionChip(option: GreetingOption) {
@@ -630,7 +687,7 @@ function onOptionChip(option: GreetingOption) {
     return
   }
 
-  if (goalSelectActive.value || activeQuestion.value?.answer_type === 'multi_enum') {
+  if (goalSelectActive.value || lastAssistantProfile.value?.answer_type === 'multi_enum') {
     const noneCodes = ['none', 'none_of_above']
     if (noneCodes.includes(option.code)) {
       selectedCodes.value = [option.code]
@@ -652,10 +709,13 @@ function onOptionChip(option: GreetingOption) {
     return
   }
 
-  if (quizActive.value && activeQuestion.value) {
-    const label = option.label
-    return submitQuizAnswer({ value: option.code, display: label })
+  if (lastAssistantProfile.value) {
+    return submitProfileChip({ value: option.code, display: option.label })
   }
+
+  // Free-form message options
+  clearLastAssistantOptions()
+  return sendText(option.label)
 }
 
 async function confirmMultiSelection() {
@@ -684,7 +744,8 @@ async function confirmMultiSelection() {
       }
       goalSelectActive.value = false
       selectedCodes.value = []
-      await runProfileThenStream()
+      pendingUserContent.value = labels.join('、')
+      await streamPending()
     } catch {
       appendMessage('assistant', t('chat.streamError'))
       pending.value = false
@@ -692,33 +753,33 @@ async function confirmMultiSelection() {
     return
   }
 
-  if (quizActive.value && activeQuestion.value) {
+  if (lastAssistantProfile.value) {
     if (isLabRecencyQuestion.value) {
       const code = selectedCodes.value[0]
       if (!code) {
         return
       }
-      const label = (activeQuestion.value.options ?? []).find(o => o.code === code)?.label ?? code
-      return submitQuizAnswer({ value: code, display: label })
+      const label = chipOptions.value.find(o => o.code === code)?.label ?? code
+      return submitProfileChip({ value: code, display: label })
     }
 
-    const labels = (activeQuestion.value.options ?? [])
+    const labels = chipOptions.value
       .filter(o => selectedCodes.value.includes(o.code))
       .map(o => o.label)
-    return submitQuizAnswer({
+    return submitProfileChip({
       value: selectedCodes.value,
       display: labels.join('、')
     })
   }
 }
 
-async function submitQuizAnswer(payload: {
+async function submitProfileChip(payload: {
   value?: string | number | boolean | string[] | null
   raw_text?: string | null
   display: string
 }) {
-  const question = activeQuestion.value
-  if (!question || !quizActive.value) {
+  const profile = lastAssistantProfile.value
+  if (!profile) {
     return
   }
 
@@ -727,7 +788,7 @@ async function submitQuizAnswer(payload: {
 
   try {
     const result = await candor.submitProfileAnswer({
-      gap_code: question.gap_code,
+      gap_code: profile.gap_code,
       value: payload.value,
       raw_text: payload.raw_text
     })
@@ -735,22 +796,20 @@ async function submitQuizAnswer(payload: {
     if (!result.saved) {
       appendMessage('assistant', result.prompt)
       if (result.options) {
-        activeQuestion.value = { ...question, options: result.options }
+        const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
+        if (last) {
+          last.options = result.options
+        }
       }
       pending.value = false
       return
     }
 
+    profileGaps.value = result.profile_gaps
+    clearLastAssistantOptions()
     selectedCodes.value = []
-    const next = await candor.nextProfileQuestion(journey.reportId)
-    if (next.done) {
-      await finishQuestionnaire()
-      return
-    }
-
-    appendMessage('assistant', next.prompt)
-    activeQuestion.value = next
-    pending.value = false
+    pendingUserContent.value = payload.display
+    await streamPending()
   } catch {
     appendMessage('assistant', t('chat.streamError'))
     pending.value = false
@@ -948,7 +1007,8 @@ async function onSubmit() {
       if (result.saved) {
         goalSelectActive.value = false
         selectedCodes.value = []
-        await runProfileThenStream()
+        pendingUserContent.value = content
+        await streamPending()
         return
       }
       appendMessage('assistant', result.prompt || t('chat.streamError'))
@@ -961,16 +1021,6 @@ async function onSubmit() {
       pending.value = false
     }
     return
-  }
-
-  if (quizActive.value && activeQuestion.value) {
-    const type = activeQuestion.value.answer_type
-    const n = Number(content)
-    return submitQuizAnswer({
-      value: type === 'int' && Number.isFinite(n) ? n : undefined,
-      raw_text: content,
-      display: content
-    })
   }
 
   return sendText(content)

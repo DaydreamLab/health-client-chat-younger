@@ -20,10 +20,19 @@ export interface ChatPart {
   name?: string
 }
 
+export interface ChatMessageOption {
+  code: string
+  label: string
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   parts: ChatPart[]
+  options?: ChatMessageOption[]
+  turnType?: 'profile' | 'message' | 'external'
+  profileQuestion?: { gap_code: string, answer_type: string } | null
+  profileGaps?: string[]
 }
 
 export interface SupplementItem {

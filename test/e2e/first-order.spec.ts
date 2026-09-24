@@ -128,19 +128,25 @@ test.describe('profile quiz gate', () => {
     await mockCandorAuth(page, { profileQuiz: true })
   })
 
-  test('goal chips then profile quiz then SSE', async ({ page, goto }) => {
+  test('goal chips then profile turn chips then upload chip', async ({ page, goto }) => {
     await goto('/chat', { waitUntil: 'hydration' })
+    await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
     await expect(page.getByTestId('chat-last-reply')).toContainText('改善方向')
     await expect(page.getByTestId('chat-quiz-option-vitality')).toBeVisible()
-    await expect(page.getByTestId('chat-chip-plans')).toHaveCount(0)
+    await expect(page.getByTestId('chat-chip-upload')).toHaveCount(0)
 
     await page.getByTestId('chat-quiz-option-vitality').click()
     await page.getByTestId('chat-quiz-confirm').click()
     await expect(page.getByTestId('chat-transcript')).toContainText('請問您的生理性別？')
     await expect(page.getByTestId('chat-quiz-option-F')).toBeVisible()
+    await expect(page.getByTestId('chat-chip-upload')).toHaveCount(0)
 
     await page.getByTestId('chat-quiz-option-F').click()
     await expect(page.getByTestId('chat-transcript')).toContainText('女')
-    await expect(page.getByTestId('chat-last-reply')).toContainText('基礎保養')
+    await expect(page.getByTestId('chat-quiz-option-opt_1')).toBeVisible()
+    await expect(page.getByTestId('chat-chip-upload')).toBeVisible()
+
+    await page.getByTestId('chat-quiz-option-opt_1').click()
+    await expect(page.getByTestId('chat-transcript')).toContainText('睡眠')
   })
 })

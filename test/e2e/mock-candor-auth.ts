@@ -32,7 +32,7 @@ const goalOptions = [
 ]
 
 export type CandorMockOptions = {
-  /** When true, first questions/next returns a quiz item; after one answer, done. */
+  /** When true, stream after goals returns a profile sex turn until answered. */
   profileQuiz?: boolean
   /** Include package on create conversation. */
   withPackage?: boolean
@@ -42,6 +42,7 @@ export type CandorMockOptions = {
 export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}) {
   let quizAnswered = false
   let goalsSet = false
+  let streamCount = 0
 
   await page.route('**/api/v1/package-plans', async (route) => {
     await route.fulfill({
@@ -403,12 +404,54 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
   })
 
   await page.route(`**/api/v1/conversation/${conversationId}/messages/stream`, async (route) => {
+    streamCount += 1
+    let donePayload: Record<string, unknown> = {
+      message_id: `msg-e2e-${streamCount}`,
+      claim_guard: 'passed',
+      content: '依報告來看，基礎保養會是合適起點。',
+      options: [],
+      turn: { type: 'message' },
+      profile_question: null,
+      external: null,
+      profile_gaps: []
+    }
+
+    if (options.profileQuiz && goalsSet && !quizAnswered) {
+      donePayload = {
+        message_id: `msg-e2e-${streamCount}`,
+        claim_guard: 'passed',
+        content: '請問您的生理性別？',
+        options: [
+          { code: 'M', label: '男' },
+          { code: 'F', label: '女' }
+        ],
+        turn: { type: 'profile' },
+        profile_question: { gap_code: 'sex', answer_type: 'enum' },
+        external: null,
+        profile_gaps: ['sex', 'age', 'diet']
+      }
+    } else if (options.profileQuiz && goalsSet && quizAnswered && streamCount <= 2) {
+      donePayload = {
+        message_id: `msg-e2e-${streamCount}`,
+        claim_guard: 'passed',
+        content: '想先從哪一塊聊起？',
+        options: [
+          { code: 'opt_1', label: '睡眠' },
+          { code: 'opt_2', label: '代謝' }
+        ],
+        turn: { type: 'message' },
+        profile_question: null,
+        external: null,
+        profile_gaps: []
+      }
+    }
+
     const body = [
       'event: delta',
-      'data: {"text":"依報告來看，基礎保養會是合適起點。"}',
+      `data: ${JSON.stringify({ text: donePayload.content })}`,
       '',
       'event: done',
-      `data: {"message_id":"msg-e2e-1","claim_guard":"passed","content":"依報告來看，基礎保養會是合適起點。"}`,
+      `data: ${JSON.stringify(donePayload)}`,
       '',
       ''
     ].join('\n')

@@ -186,6 +186,11 @@ export function useCandorApi() {
     let full = ''
     let messageId = ''
     let claimGuard: StreamMessageResult['claim_guard'] = 'passed'
+    let options: StreamMessageResult['options'] = []
+    let turn: StreamMessageResult['turn'] = { type: 'message' }
+    let profileQuestion: StreamMessageResult['profile_question'] = null
+    let external: StreamMessageResult['external'] = null
+    let profileGaps: string[] = []
 
     while (true) {
       const { done, value } = await reader.read()
@@ -227,6 +232,10 @@ export function useCandorApi() {
           full = String(data.content || '')
           messageId = String(data.message_id || messageId)
           claimGuard = 'blocked'
+          turn = { type: 'message' }
+          profileQuestion = null
+          external = null
+          options = []
           handlers.onReplace?.(full)
         } else if (eventName === 'done') {
           full = String(data.content || full)
@@ -235,6 +244,19 @@ export function useCandorApi() {
           if (guard === 'passed' || guard === 'rewritten' || guard === 'blocked') {
             claimGuard = guard
           }
+          options = Array.isArray(data.options)
+            ? (data.options as StreamMessageResult['options'])
+            : []
+          const turnRaw = data.turn as { type?: string } | undefined
+          const t = turnRaw?.type
+          turn = {
+            type: t === 'profile' || t === 'external' || t === 'message' ? t : 'message'
+          }
+          profileQuestion = (data.profile_question as StreamMessageResult['profile_question']) ?? null
+          external = (data.external as StreamMessageResult['external']) ?? null
+          profileGaps = Array.isArray(data.profile_gaps)
+            ? (data.profile_gaps as string[])
+            : []
           handlers.onReplace?.(full)
         } else if (eventName === 'error') {
           const err = data.error as { code?: string, message?: string } | undefined
@@ -250,7 +272,12 @@ export function useCandorApi() {
     return {
       message_id: messageId || crypto.randomUUID(),
       content: full,
-      claim_guard: claimGuard
+      claim_guard: claimGuard,
+      options,
+      turn,
+      profile_question: profileQuestion,
+      external,
+      profile_gaps: profileGaps
     }
   }
 

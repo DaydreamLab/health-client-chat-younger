@@ -17,6 +17,7 @@ interface JourneySnapshot {
   quizActive: boolean
   activeQuestion: ProfileNextQuestion | null
   postQuizGuided: boolean
+  profileGaps: string[]
 }
 
 const emptySnapshot = (): JourneySnapshot => ({
@@ -32,7 +33,8 @@ const emptySnapshot = (): JourneySnapshot => ({
   selectedCodes: [],
   quizActive: false,
   activeQuestion: null,
-  postQuizGuided: false
+  postQuizGuided: false,
+  profileGaps: []
 })
 
 function readStored(): JourneySnapshot {
@@ -52,7 +54,8 @@ function readStored(): JourneySnapshot {
       ...parsed,
       messages: Array.isArray(parsed.messages) ? parsed.messages : [],
       selectedCodes: Array.isArray(parsed.selectedCodes) ? parsed.selectedCodes : [],
-      goalOptions: Array.isArray(parsed.goalOptions) ? parsed.goalOptions : []
+      goalOptions: Array.isArray(parsed.goalOptions) ? parsed.goalOptions : [],
+      profileGaps: Array.isArray(parsed.profileGaps) ? parsed.profileGaps : []
     }
   } catch {
     return emptySnapshot()
@@ -75,6 +78,7 @@ export const useJourneyStore = defineStore('journey', () => {
   const quizActive = ref(initial.quizActive)
   const activeQuestion = ref<ProfileNextQuestion | null>(initial.activeQuestion)
   const postQuizGuided = ref(initial.postQuizGuided)
+  const profileGaps = ref<string[]>(initial.profileGaps)
 
   function snapshotMessages(): ChatMessage[] {
     return messages.value.map(message => ({
@@ -102,7 +106,8 @@ export const useJourneyStore = defineStore('journey', () => {
       selectedCodes: [...selectedCodes.value],
       quizActive: quizActive.value,
       activeQuestion: activeQuestion.value,
-      postQuizGuided: postQuizGuided.value
+      postQuizGuided: postQuizGuided.value,
+      profileGaps: [...profileGaps.value]
     }
 
     if (!payload.conversationId && payload.messages.length === 0) {
@@ -127,6 +132,7 @@ export const useJourneyStore = defineStore('journey', () => {
     quizActive.value = false
     activeQuestion.value = null
     postQuizGuided.value = false
+    profileGaps.value = []
     if (import.meta.client) {
       localStorage.removeItem(JOURNEY_STORAGE_KEY)
     }
@@ -150,6 +156,7 @@ export const useJourneyStore = defineStore('journey', () => {
     quizActive.value = stored.quizActive
     activeQuestion.value = stored.activeQuestion
     postQuizGuided.value = stored.postQuizGuided
+    profileGaps.value = stored.profileGaps
   }
 
   if (import.meta.client) {
@@ -167,7 +174,8 @@ export const useJourneyStore = defineStore('journey', () => {
         selectedCodes,
         quizActive,
         activeQuestion,
-        postQuizGuided
+        postQuizGuided,
+        profileGaps
       ],
       () => {
         persist()
@@ -190,6 +198,7 @@ export const useJourneyStore = defineStore('journey', () => {
     quizActive,
     activeQuestion,
     postQuizGuided,
+    profileGaps,
     snapshotMessages,
     clearSession,
     persist,

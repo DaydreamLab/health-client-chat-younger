@@ -352,10 +352,30 @@ export type ProfileAnswerResult = ProfileAnswerSaved | ProfileAnswerNeedsClarifi
 
 export type ClaimGuardStatus = 'passed' | 'rewritten' | 'blocked'
 
+export type ChatTurnType = 'profile' | 'message' | 'external'
+
+export interface ChatTurnMeta {
+  type: ChatTurnType
+}
+
+export interface ChatProfileQuestion {
+  gap_code: string
+  answer_type: ProfileAnswerType
+}
+
+export interface ChatExternalPayload {
+  items: Array<{ key: string, value: string }>
+}
+
 export interface StreamMessageResult {
   message_id: string
   content: string
   claim_guard: ClaimGuardStatus
+  options: GreetingOption[]
+  turn: ChatTurnMeta
+  profile_question: ChatProfileQuestion | null
+  external: ChatExternalPayload | null
+  profile_gaps: string[]
 }
 
 export interface ApiSuccess<T> {
