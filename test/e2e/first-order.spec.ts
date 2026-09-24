@@ -139,7 +139,8 @@ test.describe('profile quiz gate', () => {
     await page.getByTestId('chat-quiz-confirm').click()
     await expect(page.getByTestId('chat-transcript')).toContainText('請問您的生理性別？')
     await expect(page.getByTestId('chat-quiz-option-F')).toBeVisible()
-    await expect(page.getByTestId('chat-chip-upload')).toHaveCount(0)
+    // Upload stays available after goals until a report is bound.
+    await expect(page.getByTestId('chat-chip-upload')).toBeVisible()
 
     await page.getByTestId('chat-quiz-option-F').click()
     await expect(page.getByTestId('chat-transcript')).toContainText('女')
@@ -148,5 +149,6 @@ test.describe('profile quiz gate', () => {
 
     await page.getByTestId('chat-quiz-option-opt_1').click()
     await expect(page.getByTestId('chat-transcript')).toContainText('睡眠')
+    await expect(page.getByTestId('chat-chip-upload')).toBeVisible()
   })
 })

@@ -392,19 +392,18 @@ const needsTextInput = computed(() => {
 })
 
 const showUploadChip = computed(() => {
-  if (escalated.value || readonly.value) {
+  if (escalated.value || readonly.value || goalSelectActive.value) {
+    return false
+  }
+  if (journey.hasAnalysis) {
     return false
   }
   if (isLabRecencyQuestion.value) {
     const selected = selectedCodes.value[0]
     return selected !== undefined && UPLOADABLE_LAB_CODES.has(selected)
   }
-  if (goalSelectActive.value) {
-    return false
-  }
-  return postQuizGuided.value
-    && !journey.hasAnalysis
-    && profileGaps.value.length === 0
+  // After goals: keep「上傳報告」until a report is bound (do not wait for all gaps).
+  return Boolean(journey.conversationId)
 })
 
 function isOptionSelected(code: string) {
@@ -452,11 +451,18 @@ const lastAssistantId = computed(() => {
   return last?.id
 })
 
+/** Agent pitched catalog plans / monthly prices — show recommend CTA even without a report. */
+function messagePitchesPackages(message: ChatMessage) {
+  const text = messageText(message)
+  return /(基礎保養|完整調理)/.test(text)
+    || /\d{3,5}\s*元\s*\/?\s*月/.test(text)
+}
+
 function showRecommendCta(message: ChatMessage) {
   return !readonly.value
     && !escalated.value
     && !goalSelectActive.value
-    && journey.hasAnalysis
+    && (journey.hasAnalysis || messagePitchesPackages(message))
     && message.role === 'assistant'
     && message.id === lastAssistantId.value
     && !reportRetryId.value
