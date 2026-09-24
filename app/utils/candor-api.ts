@@ -84,6 +84,8 @@ export interface RecommendationPackageItem {
   name?: string | null
   unit_price: number
   daily_dose: number
+  daily_servings_min?: number | null
+  daily_servings_max?: number | null
   monthly_cost: number
 }
 

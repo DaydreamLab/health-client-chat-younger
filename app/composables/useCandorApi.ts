@@ -304,6 +304,7 @@ export function useCandorApi() {
 
     createRecommendation: (body: {
       report_id?: string
+      conversation_id?: string
       limit?: number
       enrich?: 'template' | 'llm'
       profile?: {

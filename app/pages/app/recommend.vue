@@ -44,42 +44,38 @@
     class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]"
   >
     <div class="space-y-6">
-      <section class="rounded-2xl border border-default bg-elevated p-5">
-        <h1 class="text-xl font-semibold text-highlighted">
-          {{ $t('shop.title') }}
-        </h1>
-        <p class="mt-1 text-sm text-muted">
-          {{ $t('shop.subtitle') }}
+      <section
+        class="rounded-2xl border border-default bg-elevated p-5"
+        data-testid="recommend-report"
+      >
+        <h2 class="font-semibold text-highlighted">
+          {{ $t('shop.reportSection') }}
+        </h2>
+        <p
+          v-if="reportPending"
+          class="mt-2 text-sm text-muted"
+          data-testid="recommend-report-loading"
+        >
+          {{ $t('shop.reportLoading') }}
         </p>
-        <div class="mt-4">
-          <h2 class="font-semibold text-highlighted">
-            {{ $t('shop.reportSection') }}
-          </h2>
-          <p
-            v-if="reportPending"
-            class="mt-2 text-sm text-muted"
-            data-testid="recommend-report-loading"
-          >
-            {{ $t('shop.reportLoading') }}
-          </p>
-          <p
-            v-else-if="!reportResults.length"
-            class="mt-2 text-sm text-muted"
-            data-testid="recommend-report-empty"
-          >
-            {{ $t('shop.reportEmpty') }}
-          </p>
-          <div
-            v-else
-            class="mt-3"
-          >
-            <ReportResultTable :results="reportResults" />
-          </div>
+        <p
+          v-else-if="!reportResults.length"
+          class="mt-2 text-sm text-muted"
+          data-testid="recommend-report-empty"
+        >
+          {{ $t('shop.reportEmpty') }}
+        </p>
+        <div
+          v-else
+          class="mt-3 max-h-80 overflow-y-auto"
+          data-testid="recommend-report-scroll"
+        >
+          <ReportResultTable :results="reportResults" />
         </div>
       </section>
 
       <section class="rounded-2xl border border-default bg-elevated p-5">
-        <h2 class="font-semibold text-highlighted">
+        <h2 class="text-xl font-semibold text-highlighted">
           {{ $t('shop.packagePick') }}
         </h2>
         <p
@@ -175,16 +171,13 @@
                 <span class="block font-medium text-highlighted">
                   {{ item.name }}
                 </span>
-                <span class="mt-1 block text-sm text-muted">
-                  {{ copyFor(item.sellable_item_id)?.headline || $t('shop.itemCopyFallback') }}
-                </span>
               </span>
               <span class="flex shrink-0 flex-col items-end gap-1">
                 <span
                   class="app-badge app-badge-pending"
                   :data-testid="`shop-dose-${item.code || item.sellable_item_id}`"
                 >
-                  {{ $t('shop.doseLocked', { count: item.daily_dose }) }}
+                  {{ doseLabel(item) }}
                 </span>
                 <span class="text-sm tabular-nums text-muted">
                   {{ formatTwd(item.monthly_cost) }}
@@ -361,7 +354,7 @@
                 {{ detail.name }}
               </h2>
               <p class="mt-1 text-sm text-muted">
-                {{ $t('shop.doseLocked', { count: detail.daily_dose }) }}
+                {{ doseLabel(detail) }}
               </p>
             </div>
             <AppButton
@@ -371,11 +364,11 @@
               {{ $t('shop.close') }}
             </AppButton>
           </div>
-          <p class="mt-4 text-sm text-highlighted">
-            {{ copyFor(detail.sellable_item_id)?.headline || $t('shop.itemCopyFallback') }}
-          </p>
-          <p class="mt-2 text-sm text-muted">
-            {{ copyFor(detail.sellable_item_id)?.body || '' }}
+          <p
+            v-if="copyFor(detail.sellable_item_id)?.body"
+            class="mt-4 text-sm text-muted"
+          >
+            {{ copyFor(detail.sellable_item_id)?.body }}
           </p>
           <p class="mt-4 text-xs text-dimmed">
             {{ copyFor(detail.sellable_item_id)?.disclaimer || $t('shop.disclaimer') }}
@@ -456,6 +449,25 @@ function copyFor(sellableItemId: string): RecommendationCopy | undefined {
   return copyByProductId.value.get(sellableItemId)
 }
 
+function formatDoseCount(value: number): string {
+  if (Number.isInteger(value)) {
+    return String(value)
+  }
+  return String(value)
+}
+
+function doseLabel(item: RecommendationPackageItem): string {
+  const min = item.daily_servings_min ?? item.daily_dose
+  const max = item.daily_servings_max ?? item.daily_dose
+  if (min === max) {
+    return t('shop.doseLocked', { count: formatDoseCount(min) })
+  }
+  return t('shop.doseRange', {
+    min: formatDoseCount(min),
+    max: formatDoseCount(max)
+  })
+}
+
 watch(selectedPackageCode, (code) => {
   if (code) {
     journey.selectedPackageCode = code
@@ -489,6 +501,9 @@ async function loadRecommendation() {
     }
     if (journey.reportId) {
       body.report_id = journey.reportId
+    }
+    if (journey.conversationId) {
+      body.conversation_id = journey.conversationId
     }
     const result = await candor.createRecommendation(body)
     recommendation.value = result

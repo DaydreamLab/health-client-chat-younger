@@ -170,6 +170,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   name: '維生素 D',
                   unit_price: 9,
                   daily_dose: 1,
+                  daily_servings_min: 1,
+                  daily_servings_max: 1,
                   monthly_cost: 280
                 },
                 {
@@ -179,6 +181,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   name: '鐵蛋白調理',
                   unit_price: 17,
                   daily_dose: 1,
+                  daily_servings_min: 1,
+                  daily_servings_max: 1,
                   monthly_cost: 520
                 },
                 {
@@ -188,6 +192,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   name: '維生素 C',
                   unit_price: 16,
                   daily_dose: 1,
+                  daily_servings_min: 1,
+                  daily_servings_max: 1,
                   monthly_cost: 480
                 }
               ],
@@ -208,6 +214,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   name: '維生素 D',
                   unit_price: 9,
                   daily_dose: 1,
+                  daily_servings_min: 1,
+                  daily_servings_max: 1,
                   monthly_cost: 280
                 },
                 {
@@ -217,6 +225,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   name: '鐵蛋白調理',
                   unit_price: 17,
                   daily_dose: 1,
+                  daily_servings_min: 1,
+                  daily_servings_max: 1,
                   monthly_cost: 520
                 },
                 {
@@ -226,6 +236,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   name: '維生素 C',
                   unit_price: 16,
                   daily_dose: 1,
+                  daily_servings_min: 1,
+                  daily_servings_max: 1,
                   monthly_cost: 480
                 },
                 {
@@ -235,6 +247,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   name: 'Omega-3',
                   unit_price: 9,
                   daily_dose: 1,
+                  daily_servings_min: 1,
+                  daily_servings_max: 1,
                   monthly_cost: 280
                 }
               ],
