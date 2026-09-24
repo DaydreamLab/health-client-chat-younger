@@ -175,16 +175,15 @@
         >
           {{ option.label }}
         </button>
-        <button
+        <AppButton
           v-if="needsMultiConfirm"
           type="button"
-          class="app-chip"
           data-testid="chat-quiz-confirm"
           :disabled="pending || selectedCodes.length === 0"
           @click="confirmMultiSelection"
         >
           {{ $t('chat.confirmSelection') }}
-        </button>
+        </AppButton>
         <button
           v-if="showUploadChip"
           type="button"
@@ -227,11 +226,13 @@
           />
         </button>
         <textarea
+          ref="chatInput"
           v-model="input"
           rows="1"
           class="max-h-32 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-highlighted outline-none placeholder:text-muted"
           :placeholder="$t('chat.placeholder')"
-          :disabled="!canType"
+          :disabled="inputLocked"
+          :readonly="pending"
           data-testid="chat-input"
           @keydown.enter.exact.prevent="onSubmit"
         />
@@ -294,8 +295,19 @@ const reportDockCollapsed = ref(false)
 const reportDockMessageId = ref<string | null>(null)
 const transcriptEl = useTemplateRef<HTMLElement>('transcriptEl')
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
+const chatInput = useTemplateRef<HTMLTextAreaElement>('chatInput')
 const viewMessages = ref<ChatMessage[]>([])
 let pollGeneration = 0
+
+function focusChatInput() {
+  void nextTick(() => {
+    const el = chatInput.value
+    if (!el || el.disabled) {
+      return
+    }
+    el.focus({ preventScroll: true })
+  })
+}
 
 function queryValue(value: unknown) {
   const raw = Array.isArray(value) ? value[0] : value
@@ -314,8 +326,9 @@ function queryOrderId(value: unknown) {
 const orderId = computed(() => queryOrderId(route.query.orderId))
 const readonly = computed(() => Boolean(orderId.value))
 const canUpload = computed(() => !readonly.value && !escalated.value && !reportInFlight.value)
+const inputLocked = computed(() => readonly.value || escalated.value)
 const canType = computed(() => {
-  if (readonly.value || escalated.value || pending.value) {
+  if (inputLocked.value || pending.value) {
     return false
   }
   return true
@@ -357,6 +370,25 @@ const needsMultiConfirm = computed(() => {
     return true
   }
   return lastAssistantProfile.value?.answer_type === 'multi_enum'
+})
+
+/** Free-text / number answers (or open chat) should keep the composer focused. */
+const needsTextInput = computed(() => {
+  if (readonly.value || escalated.value) {
+    return false
+  }
+  if (goalSelectActive.value) {
+    return true
+  }
+  const profile = lastAssistantProfile.value
+  if (profile) {
+    const type = profile.answer_type
+    if (type === 'int' || type === 'text') {
+      return true
+    }
+    return chipOptions.value.length === 0
+  }
+  return true
 })
 
 const showUploadChip = computed(() => {
@@ -469,6 +501,15 @@ watch(
     })
   },
   { flush: 'post' }
+)
+
+watch(
+  () => [needsTextInput.value, pending.value, inputLocked.value] as const,
+  ([needs, isPending, locked]) => {
+    if (needs && !isPending && !locked) {
+      focusChatInput()
+    }
+  }
 )
 
 async function ensureConversation() {
@@ -624,6 +665,7 @@ async function streamPending() {
     }
   } finally {
     pending.value = false
+    focusChatInput()
   }
 }
 
@@ -663,6 +705,7 @@ async function sendText(text: string) {
     } catch {
       appendMessage('assistant', t('chat.streamError'))
       pending.value = false
+      focusChatInput()
     }
     return
   }
@@ -994,6 +1037,7 @@ async function retryReport() {
 async function onSubmit() {
   const content = input.value.trim()
   input.value = ''
+  focusChatInput()
   if (!content || pending.value) {
     return
   }
@@ -1001,6 +1045,7 @@ async function onSubmit() {
   if (goalSelectActive.value) {
     appendMessage('user', content)
     pending.value = true
+    focusChatInput()
     try {
       const conversationId = await ensureConversation()
       const result = await candor.setConversationGoals(conversationId, { raw_text: content })
@@ -1019,11 +1064,13 @@ async function onSubmit() {
       appendMessage('assistant', t('chat.streamError'))
     } finally {
       pending.value = false
+      focusChatInput()
     }
     return
   }
 
-  return sendText(content)
+  await sendText(content)
+  focusChatInput()
 }
 
 function escalate() {
