@@ -85,13 +85,13 @@ defineProps<{
             <td class="px-2.5 py-2.5 text-xs text-muted">
               {{ formatResultRef(row) }}
             </td>
-            <td class="px-2.5 py-2.5">
+            <td class="overflow-visible px-2.5 py-2.5">
               <div
                 v-if="resultGaugePct(row) != null"
-                class="yr-gauge relative h-2 w-[4.5rem] rounded-full"
+                class="yr-gauge relative h-2 w-[4.5rem] overflow-visible rounded-full"
               >
                 <div
-                  class="absolute top-[-3px] h-3.5 w-0.5 -translate-x-1/2 rounded-sm bg-highlighted"
+                  class="yr-gauge-marker absolute top-[-3px] h-3.5 -translate-x-1/2 rounded-sm"
                   :style="{ left: `${resultGaugePct(row)}%` }"
                 />
               </div>
@@ -150,7 +150,19 @@ defineProps<{
 }
 
 .yr-gauge {
-  background: linear-gradient(90deg, #e35d8c 0%, #e2a23a 28%, #3bb273 50%, #e2a23a 72%, #e35d8c 100%);
-  opacity: 0.85;
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, #e35d8c 85%, transparent) 0%,
+    color-mix(in oklab, #e2a23a 85%, transparent) 28%,
+    color-mix(in oklab, #3bb273 85%, transparent) 50%,
+    color-mix(in oklab, #e2a23a 85%, transparent) 72%,
+    color-mix(in oklab, #e35d8c 85%, transparent) 100%
+  );
+}
+
+.yr-gauge-marker {
+  width: 3px;
+  background: var(--ui-text-highlighted);
+  box-shadow: 0 0 0 1px #fff;
 }
 </style>
