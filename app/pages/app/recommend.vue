@@ -457,15 +457,7 @@ function formatDoseCount(value: number): string {
 }
 
 function doseLabel(item: RecommendationPackageItem): string {
-  const min = item.daily_servings_min ?? item.daily_dose
-  const max = item.daily_servings_max ?? item.daily_dose
-  if (min === max) {
-    return t('shop.doseLocked', { count: formatDoseCount(min) })
-  }
-  return t('shop.doseRange', {
-    min: formatDoseCount(min),
-    max: formatDoseCount(max)
-  })
+  return t('shop.doseLocked', { count: formatDoseCount(item.daily_dose) })
 }
 
 watch(selectedPackageCode, (code) => {
