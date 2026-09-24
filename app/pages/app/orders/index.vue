@@ -45,7 +45,7 @@
             {{ $t('orders.package') }}
           </p>
           <p class="text-sm text-highlighted">
-            {{ order.packageName || order.packageCode }}
+            {{ order.packageName || order.packagePlanCode }}
           </p>
         </div>
         <div class="text-end">

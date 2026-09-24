@@ -8,7 +8,14 @@ import type {
   HealthReport,
   HealthReportRetryAck,
   HealthReportUploadAck,
-  PackagesList,
+  LabServicesList,
+  OrderCreateRequest,
+  OrderCreated,
+  OrderDetail,
+  OrderList,
+  OrderMessages,
+  OrderPaymentCreated,
+  PackagePlansList,
   ProfileAnswerResult,
   ProfileNext,
   RecommendationResponse,
@@ -153,7 +160,7 @@ export function useCandorApi() {
       throw new CandorApiError('Missing token', 401, 'unauthorized')
     }
 
-    const url = `${apiBase()}/conversations/${encodeURIComponent(conversationId)}/messages/stream`
+    const url = `${apiBase()}/conversation/${encodeURIComponent(conversationId)}/messages/stream`
     const res = await fetch(url, {
       method: 'POST',
       headers: {
@@ -258,8 +265,15 @@ export function useCandorApi() {
     refresh: () => request<UserSession>('/auth/refresh', { method: 'POST' }),
     me: () => request<UserMe>('/users/me'),
 
+    listPackagePlans: () =>
+      request<PackagePlansList>('/package-plans', { method: 'GET', auth: false }),
+
+    listLabServices: () =>
+      request<LabServicesList>('/lab-services', { method: 'GET', auth: false }),
+
+    /** @deprecated use listPackagePlans */
     listPackages: () =>
-      request<PackagesList>('/packages', { method: 'GET', auth: false }),
+      request<PackagePlansList>('/package-plans', { method: 'GET', auth: false }),
 
     createRecommendation: (body: {
       report_id?: string
@@ -281,7 +295,7 @@ export function useCandorApi() {
     createConversation: (body: {
       report_id?: string
       renewal_of_order_id?: string
-      package_code?: string
+      package_plan_code?: string
     } = {}) =>
       request<ConversationCreate>('/conversations', { method: 'POST', body }),
     setConversationGoals: (
@@ -289,16 +303,22 @@ export function useCandorApi() {
       body: { goals?: string[], raw_text?: string | null }
     ) =>
       request<ConversationGoalsResult>(
-        `/conversations/${encodeURIComponent(conversationId)}/goals`,
+        `/conversation/${encodeURIComponent(conversationId)}/goals`,
         { method: 'POST', body }
       ),
+    confirmConversationPackagePlan: (conversationId: string) =>
+      request<ConversationPackageConfirm>(
+        `/conversation/${encodeURIComponent(conversationId)}/package-plan/confirm`,
+        { method: 'POST' }
+      ),
+    /** @deprecated use confirmConversationPackagePlan */
     confirmConversationPackage: (conversationId: string) =>
       request<ConversationPackageConfirm>(
-        `/conversations/${encodeURIComponent(conversationId)}/package/confirm`,
+        `/conversation/${encodeURIComponent(conversationId)}/package-plan/confirm`,
         { method: 'POST' }
       ),
     attachReport: (conversationId: string, reportId: string) =>
-      request<ConversationAttachAck>(`/conversations/${encodeURIComponent(conversationId)}`, {
+      request<ConversationAttachAck>(`/conversation/${encodeURIComponent(conversationId)}`, {
         method: 'PATCH',
         body: { report_id: reportId }
       }),
@@ -324,6 +344,35 @@ export function useCandorApi() {
       gap_code: string
       value?: string | number | boolean | string[] | null
       raw_text?: string | null
-    }) => request<ProfileAnswerResult>('/profile/answers', { method: 'POST', body })
+    }) => request<ProfileAnswerResult>('/profile/answers', { method: 'POST', body }),
+
+    createOrder: (body: OrderCreateRequest) =>
+      request<OrderCreated>('/orders', {
+        method: 'POST',
+        body: body as unknown as Record<string, unknown>
+      }),
+
+    listOrders: () => request<OrderList>('/orders', { method: 'GET' }),
+
+    getOrder: (id: string) =>
+      request<OrderDetail>(`/order/${encodeURIComponent(id)}`, { method: 'GET' }),
+
+    createOrderPayment: (
+      id: string,
+      body: { payment_method: OrderCreateRequest['payment_method'] }
+    ) =>
+      request<OrderPaymentCreated>(`/order/${encodeURIComponent(id)}/payment`, {
+        method: 'POST',
+        body
+      }),
+
+    cancelOrder: (id: string, body: { cancel_reason?: string | null } = {}) =>
+      request<OrderDetail>(`/order/${encodeURIComponent(id)}/cancel`, {
+        method: 'POST',
+        body
+      }),
+
+    getOrderMessages: (id: string) =>
+      request<OrderMessages>(`/order/${encodeURIComponent(id)}/message`, { method: 'GET' })
   }
 }

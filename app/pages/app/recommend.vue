@@ -102,21 +102,21 @@
         >
           <label
             v-for="pkg in packages"
-            :key="pkg.package_code"
+            :key="pkg.package_plan_code"
             class="app-path-card"
-            :class="{ 'app-path-card-selected': selectedPackageCode === pkg.package_code }"
-            :data-testid="`shop-package-${pkg.package_code}`"
+            :class="{ 'app-path-card-selected': selectedPackageCode === pkg.package_plan_code }"
+            :data-testid="`shop-package-${pkg.package_plan_code}`"
           >
             <input
               v-model="selectedPackageCode"
               type="radio"
               class="sr-only"
               name="recommend-package"
-              :value="pkg.package_code"
+              :value="pkg.package_plan_code"
             >
             <div class="flex items-start justify-between gap-2">
               <p class="font-medium text-highlighted">
-                {{ pkg.package_name }}
+                {{ pkg.package_plan_name }}
               </p>
             </div>
             <p class="mt-2 text-lg font-semibold text-primary">
@@ -141,7 +141,7 @@
             v-if="selectedPackage"
             class="mt-1 text-sm text-muted"
           >
-            {{ selectedPackage.package_name }}
+            {{ selectedPackage.package_plan_name }}
           </p>
         </div>
         <p
@@ -157,12 +157,12 @@
         >
           <li
             v-for="item in selectedPackage.items"
-            :key="item.product_id"
+            :key="item.sellable_item_id"
           >
             <button
               type="button"
               class="flex w-full items-start gap-3 px-5 py-4 text-start transition hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
-              :data-testid="`shop-item-${item.code || item.product_id}`"
+              :data-testid="`shop-item-${item.code || item.sellable_item_id}`"
               @click="detail = item"
             >
               <span class="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -176,13 +176,13 @@
                   {{ item.name }}
                 </span>
                 <span class="mt-1 block text-sm text-muted">
-                  {{ copyFor(item.product_id)?.headline || $t('shop.itemCopyFallback') }}
+                  {{ copyFor(item.sellable_item_id)?.headline || $t('shop.itemCopyFallback') }}
                 </span>
               </span>
               <span class="flex shrink-0 flex-col items-end gap-1">
                 <span
                   class="app-badge app-badge-pending"
-                  :data-testid="`shop-dose-${item.code || item.product_id}`"
+                  :data-testid="`shop-dose-${item.code || item.sellable_item_id}`"
                 >
                   {{ $t('shop.doseLocked', { count: item.daily_dose }) }}
                 </span>
@@ -372,13 +372,13 @@
             </AppButton>
           </div>
           <p class="mt-4 text-sm text-highlighted">
-            {{ copyFor(detail.product_id)?.headline || $t('shop.itemCopyFallback') }}
+            {{ copyFor(detail.sellable_item_id)?.headline || $t('shop.itemCopyFallback') }}
           </p>
           <p class="mt-2 text-sm text-muted">
-            {{ copyFor(detail.product_id)?.body || '' }}
+            {{ copyFor(detail.sellable_item_id)?.body || '' }}
           </p>
           <p class="mt-4 text-xs text-dimmed">
-            {{ copyFor(detail.product_id)?.disclaimer || $t('shop.disclaimer') }}
+            {{ copyFor(detail.sellable_item_id)?.disclaimer || $t('shop.disclaimer') }}
           </p>
         </article>
       </div>
@@ -437,7 +437,7 @@ const selectedPackageCode = ref('')
 
 const packages = computed(() => recommendation.value?.packages ?? [])
 const selectedPackage = computed(() =>
-  packages.value.find(pkg => pkg.package_code === selectedPackageCode.value) ?? null
+  packages.value.find(pkg => pkg.package_plan_code === selectedPackageCode.value) ?? null
 )
 const checkoutPrice = computed(() => selectedPackage.value?.price ?? 0)
 const canCheckout = computed(() =>
@@ -447,13 +447,13 @@ const canCheckout = computed(() =>
 const copyByProductId = computed(() => {
   const map = new Map<string, RecommendationCopy>()
   for (const item of recommendation.value?.items ?? []) {
-    map.set(item.product_id, item.copy)
+    map.set(item.sellable_item_id, item.copy)
   }
   return map
 })
 
-function copyFor(productId: string): RecommendationCopy | undefined {
-  return copyByProductId.value.get(productId)
+function copyFor(sellableItemId: string): RecommendationCopy | undefined {
+  return copyByProductId.value.get(sellableItemId)
 }
 
 watch(selectedPackageCode, (code) => {
@@ -493,8 +493,8 @@ async function loadRecommendation() {
     const result = await candor.createRecommendation(body)
     recommendation.value = result
     const preferred = journey.selectedPackageCode
-    const match = result.packages.find(pkg => pkg.package_code === preferred)
-    selectedPackageCode.value = match?.package_code ?? result.packages[0]?.package_code ?? ''
+    const match = result.packages.find(pkg => pkg.package_plan_code === preferred)
+    selectedPackageCode.value = match?.package_plan_code ?? result.packages[0]?.package_plan_code ?? ''
     if (selectedPackageCode.value) {
       journey.selectedPackageCode = selectedPackageCode.value
     }
@@ -520,7 +520,7 @@ async function onPay(event: Event) {
     address: String(data?.get('address') ?? address.value),
     paymentMethod: data?.get('payment') ?? paymentMethod.value,
     invoice: data?.get('invoice') ?? invoice.value,
-    packageCode: selectedPackage.value.package_code
+    packagePlanCode: selectedPackage.value.package_plan_code
   })
 
   if (!parsed.success) {
@@ -535,11 +535,11 @@ async function onPay(event: Event) {
   try {
     await Promise.all([
       api.createOrder({
-        packageCode: parsed.data.packageCode,
-        packageName: pkg.package_name,
+        packagePlanCode: parsed.data.packagePlanCode,
+        packageName: pkg.package_plan_name,
         amount: pkg.price,
-        productCodes: pkg.items.map(item => item.code || item.product_id),
-        productNames: pkg.items.map(item => item.name),
+        productCodes: pkg.items.map(item => item.code || item.sellable_item_id),
+        productNames: pkg.items.map(item => item.name ?? item.code),
         paymentMethod: parsed.data.paymentMethod,
         invoice: parsed.data.invoice,
         recipient: {
@@ -548,7 +548,11 @@ async function onPay(event: Event) {
           address: parsed.data.address,
           email: auth.user?.email ?? ''
         },
-        messages: JSON.parse(JSON.stringify(journey.snapshotMessages())) as ChatMessage[]
+        messages: JSON.parse(JSON.stringify(journey.snapshotMessages())) as ChatMessage[],
+        compositionHash: pkg.composition_hash,
+        reportId: recommendation.value?.report_id ?? journey.reportId,
+        conversationId: journey.conversationId,
+        recommendationRunId: recommendation.value?.run_id
       }),
       new Promise(resolve => setTimeout(resolve, PAY_HOLD_MS))
     ])

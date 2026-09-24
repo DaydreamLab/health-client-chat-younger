@@ -27,7 +27,7 @@ export interface GreetingOption {
 }
 
 export interface ConversationPackage {
-  code: string
+  package_plan_code: string
   name_zh: string
   price: number
   confirmed: boolean
@@ -42,8 +42,20 @@ export interface PublicPackage {
   description?: string | null
 }
 
-export interface PackagesList {
-  packages: PublicPackage[]
+export interface PackagePlansList {
+  package_plans: PublicPackage[]
+}
+
+export interface PublicLabService {
+  code: string
+  name: string
+  name_en?: string | null
+  price: number
+  description?: string | null
+}
+
+export interface LabServicesList {
+  lab_services: PublicLabService[]
 }
 
 export interface RecommendationCopy {
@@ -54,9 +66,9 @@ export interface RecommendationCopy {
 
 export interface RecommendationItem {
   rank: number
-  product_id: string
-  sku: string
-  name: string
+  sellable_item_id: string
+  sku?: string | null
+  name?: string | null
   score_raw: number
   score_norm: number
   tier: string
@@ -67,17 +79,17 @@ export interface RecommendationItem {
 
 export interface RecommendationPackageItem {
   rank: number
-  product_id: string
+  sellable_item_id: string
   code: string
-  name: string
+  name?: string | null
   unit_price: number
   daily_dose: number
   monthly_cost: number
 }
 
 export interface RecommendationPackage {
-  package_code: string
-  package_name: string
+  package_plan_code: string
+  package_plan_name: string
   price: number
   period_days: number
   items: RecommendationPackageItem[]
@@ -101,7 +113,7 @@ export interface RecommendationResponse {
   }
   items: RecommendationItem[]
   packages: RecommendationPackage[]
-  excluded: Array<{ product_id: string, reason_code: string }>
+  excluded?: Array<{ sellable_item_id: string, reason_code: string }> | null
 }
 
 export interface ConversationGreeting {
@@ -116,7 +128,7 @@ export interface ConversationCreate {
   id: string
   report_id?: string | null
   renewal_of_order_id?: string | null
-  package?: ConversationPackage | null
+  package_plan?: ConversationPackage | null
   greeting: ConversationGreeting
 }
 
@@ -137,7 +149,134 @@ export interface ConversationGoalsResult {
 
 export interface ConversationPackageConfirm {
   id: string
-  package: ConversationPackage
+  package_plan: ConversationPackage
+}
+
+export type CandorPaymentMethod = 'card' | 'linepay' | 'atm'
+export type CandorInvoiceType = 'cloud' | 'company' | 'donate'
+
+export type OrderLineKind = 'package' | 'lab_service' | 'day_supply'
+
+export interface OrderLineInput {
+  kind: OrderLineKind
+  package_plan_code?: string
+  composition_hash?: string
+  report_id?: string
+  lab_service_code?: string
+  sellable_item_code?: string
+  days?: number
+}
+
+export interface OrderCreateRequest {
+  lines: OrderLineInput[]
+  payment_method: CandorPaymentMethod
+  invoice_type: CandorInvoiceType
+  invoice_carrier?: string
+  recipient: {
+    name: string
+    phone: string
+    address: string
+    email?: string
+  }
+  conversation_id?: string
+  recommendation_run_id?: string
+  renewal_of_order_id?: string
+  report_id?: string
+}
+
+export interface CandorPayment {
+  id: string
+  method: string
+  status: string
+  amount: number
+  redirect_url?: string | null
+}
+
+export interface OrderCreated {
+  id: string
+  order_no: string
+  status: string
+  payment_status: string
+  amount_total: number
+  renewal_of_order_id?: string | null
+  payment: CandorPayment
+}
+
+export interface OrderPaymentCreated {
+  id: string
+  order_no: string
+  status: string
+  payment_status: string
+  payment: CandorPayment
+}
+
+export interface OrderSummary {
+  id: string
+  order_no: string
+  status: string
+  payment_status: string
+  amount_total: number
+  package_plan_name?: string | null
+  period_end?: string | null
+  created_at: string
+}
+
+export interface OrderPackageComponent {
+  id: string
+  sellable_item_id: string
+  sellable_item_code: string
+  sellable_item_name: string
+  unit_price: number
+  daily_dose: number
+  monthly_cost: number
+  rank: number
+}
+
+export interface OrderDetailPackage {
+  id: string
+  package_plan_code: string
+  package_plan_name: string
+  package_plan_price: number
+  period_days: number
+  composition_hash: string
+  used_amount: number
+  remaining: number
+  components: OrderPackageComponent[]
+}
+
+export interface OrderDetail {
+  id: string
+  order_no: string
+  status: string
+  payment_status: string
+  amount_total: number
+  package_plan_name?: string | null
+  package?: OrderDetailPackage | null
+  lines: Array<Record<string, unknown>>
+  recipient?: {
+    name: string
+    phone: string
+    address: string
+    email: string
+  } | null
+  invoice_type?: string | null
+  created_at?: string
+  payments?: CandorPayment[] | null
+}
+
+export interface OrderList {
+  orders: OrderSummary[]
+}
+
+export interface OrderMessage {
+  id: string
+  role: string
+  content: string
+}
+
+export interface OrderMessages {
+  conversation_id: string
+  messages: OrderMessage[]
 }
 
 export interface HealthReportUploadAck {

@@ -192,8 +192,8 @@ onMounted(async () => {
   packagesPending.value = true
   packagesError.value = null
   try {
-    const result = await candor.listPackages()
-    packages.value = result.packages
+    const result = await candor.listPackagePlans()
+    packages.value = result.package_plans
   } catch {
     packagesError.value = t('plans.loadError')
   } finally {

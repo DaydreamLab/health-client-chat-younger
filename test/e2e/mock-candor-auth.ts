@@ -16,6 +16,10 @@ const memberUser = {
 
 const conversationId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
 const reportId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+const sellableVitD = 'dddddddd-dddd-dddd-dddd-dddddddddd01'
+const sellableIron = 'dddddddd-dddd-dddd-dddd-dddddddddd02'
+const sellableVitC = 'dddddddd-dddd-dddd-dddd-dddddddddd03'
+const sellableOmega = 'dddddddd-dddd-dddd-dddd-dddddddddd04'
 
 const goalOptions = [
   { code: 'sleep_quality', label: '睡眠品質' },
@@ -39,14 +43,14 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
   let quizAnswered = false
   let goalsSet = false
 
-  await page.route('**/api/v1/packages', async (route) => {
+  await page.route('**/api/v1/package-plans', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
         data: {
-          packages: [
+          package_plans: [
             {
               code: 'basic',
               name: '基礎保養',
@@ -95,7 +99,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           items: [
             {
               rank: 1,
-              product_id: 'prod-vitd',
+              sellable_item_id: sellableVitD,
               sku: 'VITD-01',
               name: '維生素 D',
               score_raw: 1.2,
@@ -109,7 +113,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
             },
             {
               rank: 2,
-              product_id: 'prod-iron',
+              sellable_item_id: sellableIron,
               sku: 'IRON-01',
               name: '鐵蛋白調理',
               score_raw: 0.9,
@@ -123,7 +127,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
             },
             {
               rank: 3,
-              product_id: 'prod-vitc',
+              sellable_item_id: sellableVitC,
               sku: 'VITC-01',
               name: '維生素 C',
               score_raw: 0.6,
@@ -137,7 +141,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
             },
             {
               rank: 4,
-              product_id: 'prod-omega',
+              sellable_item_id: sellableOmega,
               sku: 'OMEGA-01',
               name: 'Omega-3',
               score_raw: 0.4,
@@ -152,14 +156,14 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           ],
           packages: [
             {
-              package_code: 'basic',
-              package_name: '基礎保養',
+              package_plan_code: 'basic',
+              package_plan_name: '基礎保養',
               price: 1280,
               period_days: 30,
               items: [
                 {
                   rank: 1,
-                  product_id: 'prod-vitd',
+                  sellable_item_id: sellableVitD,
                   code: 'vitamin_d',
                   name: '維生素 D',
                   unit_price: 9,
@@ -168,7 +172,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                 },
                 {
                   rank: 2,
-                  product_id: 'prod-iron',
+                  sellable_item_id: sellableIron,
                   code: 'iron',
                   name: '鐵蛋白調理',
                   unit_price: 17,
@@ -177,7 +181,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                 },
                 {
                   rank: 3,
-                  product_id: 'prod-vitc',
+                  sellable_item_id: sellableVitC,
                   code: 'vitamin_c',
                   name: '維生素 C',
                   unit_price: 16,
@@ -190,14 +194,14 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
               composition_hash: 'sha256:basic'
             },
             {
-              package_code: 'advance',
-              package_name: '完整調理',
+              package_plan_code: 'advance',
+              package_plan_name: '完整調理',
               price: 1980,
               period_days: 30,
               items: [
                 {
                   rank: 1,
-                  product_id: 'prod-vitd',
+                  sellable_item_id: sellableVitD,
                   code: 'vitamin_d',
                   name: '維生素 D',
                   unit_price: 9,
@@ -206,7 +210,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                 },
                 {
                   rank: 2,
-                  product_id: 'prod-iron',
+                  sellable_item_id: sellableIron,
                   code: 'iron',
                   name: '鐵蛋白調理',
                   unit_price: 17,
@@ -215,7 +219,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                 },
                 {
                   rank: 3,
-                  product_id: 'prod-vitc',
+                  sellable_item_id: sellableVitC,
                   code: 'vitamin_c',
                   name: '維生素 C',
                   unit_price: 16,
@@ -224,7 +228,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                 },
                 {
                   rank: 4,
-                  product_id: 'prod-omega',
+                  sellable_item_id: sellableOmega,
                   code: 'omega3',
                   name: 'Omega-3',
                   unit_price: 9,
@@ -303,8 +307,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       await route.fallback()
       return
     }
-    const postData = route.request().postDataJSON() as { package_code?: string } | null
-    const includePackage = options.withPackage || Boolean(postData?.package_code)
+    const postData = route.request().postDataJSON() as { package_plan_code?: string } | null
+    const includePackage = options.withPackage || Boolean(postData?.package_plan_code)
     await route.fulfill({
       status: 201,
       contentType: 'application/json',
@@ -315,8 +319,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           report_id: null,
           ...(includePackage
             ? {
-                package: {
-                  code: postData?.package_code || 'basic',
+                package_plan: {
+                  package_plan_code: postData?.package_plan_code || 'basic',
                   name_zh: '基礎保養',
                   price: 5000,
                   confirmed: false
@@ -335,7 +339,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     })
   })
 
-  await page.route(`**/api/v1/conversations/${conversationId}/goals`, async (route) => {
+  await page.route(`**/api/v1/conversation/${conversationId}/goals`, async (route) => {
     const body = route.request().postDataJSON() as { goals?: string[], raw_text?: string } | null
     if (body?.raw_text) {
       await route.fulfill({
@@ -364,7 +368,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     })
   })
 
-  await page.route(`**/api/v1/conversations/${conversationId}/package/confirm`, async (route) => {
+  await page.route(`**/api/v1/conversation/${conversationId}/package-plan/confirm`, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -372,8 +376,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         status: 'success',
         data: {
           id: conversationId,
-          package: {
-            code: 'basic',
+          package_plan: {
+            package_plan_code: 'basic',
             name_zh: '基礎保養',
             price: 5000,
             confirmed: true
@@ -383,7 +387,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     })
   })
 
-  await page.route(`**/api/v1/conversations/${conversationId}`, async (route) => {
+  await page.route(`**/api/v1/conversation/${conversationId}`, async (route) => {
     if (route.request().method() !== 'PATCH') {
       await route.fallback()
       return
@@ -398,7 +402,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     })
   })
 
-  await page.route(`**/api/v1/conversations/${conversationId}/messages/stream`, async (route) => {
+  await page.route(`**/api/v1/conversation/${conversationId}/messages/stream`, async (route) => {
     const body = [
       'event: delta',
       'data: {"text":"依報告來看，基礎保養會是合適起點。"}',
@@ -525,5 +529,43 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         data: { saved: true, profile_gaps: [] }
       })
     })
+  })
+
+  await page.route('**/api/v1/orders', async (route) => {
+    if (route.request().method() === 'POST') {
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+            order_no: '260101120000',
+            status: 'pending_payment',
+            payment_status: 'unpaid',
+            amount_total: 1280,
+            payment: {
+              id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+              method: 'card',
+              status: 'pending',
+              amount: 1280
+            }
+          }
+        })
+      })
+      return
+    }
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: { orders: [] }
+        })
+      })
+      return
+    }
+    await route.fallback()
   })
 }

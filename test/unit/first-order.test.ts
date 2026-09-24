@@ -46,7 +46,7 @@ describe('first-order demo', () => {
       parts: [{ type: 'text' as const, text: '已上傳報告' }]
     }]
     const order = mockCreateOrder({
-      packageCode: 'basicCare',
+      packagePlanCode: 'basicCare',
       paymentMethod: 'card',
       invoice: 'cloud',
       recipient,
@@ -55,7 +55,7 @@ describe('first-order demo', () => {
 
     expect(order.messages).toHaveLength(1)
     expect(order.messages[0]).not.toBe(messages[0])
-    expect(order.packageCode).toBe('basicCare')
+    expect(order.packagePlanCode).toBe('basicCare')
     expect(order.productCodes).toEqual(['vitaminD', 'iron', 'vitaminC'])
     expect(order.timeline.map(step => step.id)).toEqual(shipmentStepIds)
     expect(timelineStatus(order.timeline)).toBe('confirmed')
@@ -88,14 +88,14 @@ describe('first-order demo', () => {
       address: '台北市',
       paymentMethod: 'card',
       invoice: 'cloud',
-      packageCode: 'basic'
+      packagePlanCode: 'basic'
     })
     expect(parsed.success).toBe(false)
   })
 
   it('accepts createOrder payload and binds messages', () => {
     const parsed = createOrderSchema.parse({
-      packageCode: 'advance',
+      packagePlanCode: 'advance',
       paymentMethod: 'linepay',
       invoice: 'donate',
       recipient,
@@ -106,7 +106,7 @@ describe('first-order demo', () => {
       }]
     })
 
-    expect(parsed.packageCode).toBe('advance')
+    expect(parsed.packagePlanCode).toBe('advance')
     expect(parsed.messages).toHaveLength(1)
   })
 })

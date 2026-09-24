@@ -1,3 +1,5 @@
+import type { OrderCreated, OrderDetail, OrderSummary } from './candor-api'
+
 export type SupplementPlanId = 'basicCare' | 'fullTune'
 
 export type SupplementItemId
@@ -70,7 +72,7 @@ export interface OrderRecord {
   id: string
   number: string
   createdAt: string
-  packageCode: string
+  packagePlanCode: string
   packageName?: string
   amount: number
   productCodes: string[]
@@ -84,7 +86,7 @@ export interface OrderRecord {
 }
 
 export interface CreateOrderInput {
-  packageCode: string
+  packagePlanCode: string
   packageName?: string
   amount?: number
   productCodes?: string[]
@@ -93,6 +95,10 @@ export interface CreateOrderInput {
   invoice: InvoiceType
   recipient: OrderRecipient
   messages: ChatMessage[]
+  compositionHash?: string
+  reportId?: string | null
+  conversationId?: string | null
+  recommendationRunId?: string | null
 }
 
 export const supplementItems: Record<SupplementItemId, SupplementItem> = {
@@ -237,8 +243,8 @@ export function mockCatalog() {
 
 export function mockCreateOrder(input: CreateOrderInput): OrderRecord {
   const now = new Date()
-  const packageCode = input.packageCode || 'basic'
-  const knownPlan = isSupplementPlanId(packageCode) ? supplementPlans[packageCode] : null
+  const packagePlanCode = input.packagePlanCode || 'basic'
+  const knownPlan = isSupplementPlanId(packagePlanCode) ? supplementPlans[packagePlanCode] : null
   const amount = input.amount ?? knownPlan?.price ?? 0
   const productCodes = input.productCodes ?? (knownPlan ? [...knownPlan.itemIds] : [])
 
@@ -246,7 +252,7 @@ export function mockCreateOrder(input: CreateOrderInput): OrderRecord {
     id: crypto.randomUUID(),
     number: formatOrderNumber(now),
     createdAt: now.toISOString(),
-    packageCode,
+    packagePlanCode,
     packageName: input.packageName,
     amount,
     productCodes,
@@ -270,4 +276,96 @@ export function mockCreateOrder(input: CreateOrderInput): OrderRecord {
 
 export function shouldPersistChat(input: { paid: boolean }) {
   return input.paid
+}
+
+function defaultShipmentTimeline(confirmedAt: string): ShipmentStep[] {
+  return [
+    { id: 'confirmed', at: confirmedAt },
+    { id: 'picking', at: null },
+    { id: 'shipped', at: null },
+    { id: 'delivered', at: null }
+  ]
+}
+
+function cloneMessages(messages: ChatMessage[]): ChatMessage[] {
+  return messages.map(message => ({
+    ...message,
+    parts: message.parts.map(part => ({ ...part }))
+  }))
+}
+
+export function orderRecordFromCandorCreated(
+  created: OrderCreated,
+  input: CreateOrderInput
+): OrderRecord {
+  const createdAt = new Date().toISOString()
+  return {
+    id: created.id,
+    number: created.order_no,
+    createdAt,
+    packagePlanCode: input.packagePlanCode,
+    packageName: input.packageName,
+    amount: created.amount_total,
+    productCodes: input.productCodes ? [...input.productCodes] : [],
+    productNames: input.productNames ? [...input.productNames] : undefined,
+    paymentMethod: input.paymentMethod,
+    delivery: 'home',
+    recipient: { ...input.recipient },
+    invoice: input.invoice,
+    messages: cloneMessages(input.messages),
+    timeline: defaultShipmentTimeline(createdAt)
+  }
+}
+
+export function orderRecordFromCandorDetail(
+  detail: OrderDetail,
+  fallback: Partial<CreateOrderInput> = {}
+): OrderRecord {
+  const components = detail.package?.components ?? []
+  const productCodes = components.map(item => item.sellable_item_code)
+  const productNames = components.map(item => item.sellable_item_name)
+  const createdAt = detail.created_at ?? new Date().toISOString()
+  const recipient = detail.recipient ?? fallback.recipient ?? {
+    name: '',
+    phone: '',
+    address: '',
+    email: ''
+  }
+  const invoiceRaw = detail.invoice_type ?? fallback.invoice ?? 'cloud'
+  const invoice = invoiceRaw === 'company' || invoiceRaw === 'donate' ? invoiceRaw : 'cloud'
+
+  return {
+    id: detail.id,
+    number: detail.order_no,
+    createdAt,
+    packagePlanCode: detail.package?.package_plan_code ?? fallback.packagePlanCode ?? '',
+    packageName: detail.package_plan_name ?? detail.package?.package_plan_name ?? fallback.packageName,
+    amount: detail.amount_total,
+    productCodes: productCodes.length ? productCodes : (fallback.productCodes ?? []),
+    productNames: productNames.length ? productNames : fallback.productNames,
+    paymentMethod: fallback.paymentMethod ?? 'card',
+    delivery: 'home',
+    recipient,
+    invoice,
+    messages: fallback.messages ? cloneMessages(fallback.messages) : [],
+    timeline: defaultShipmentTimeline(createdAt)
+  }
+}
+
+export function orderRecordFromCandorSummary(summary: OrderSummary): OrderRecord {
+  return {
+    id: summary.id,
+    number: summary.order_no,
+    createdAt: summary.created_at,
+    packagePlanCode: '',
+    packageName: summary.package_plan_name ?? undefined,
+    amount: summary.amount_total,
+    productCodes: [],
+    paymentMethod: 'card',
+    delivery: 'home',
+    recipient: { name: '', phone: '', address: '', email: '' },
+    invoice: 'cloud',
+    messages: [],
+    timeline: defaultShipmentTimeline(summary.created_at)
+  }
 }

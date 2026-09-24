@@ -51,6 +51,7 @@
         <div class="min-w-0 flex-1">
           <p class="text-sm font-medium text-highlighted">
             {{ selectedPackage.name_zh }}
+            <span class="text-muted">（{{ selectedPackage.package_plan_code }}）</span>
             <span class="text-muted">／ {{ selectedPackage.price }} 元／月</span>
           </p>
           <p class="mt-0.5 text-xs text-muted">
@@ -466,12 +467,12 @@ async function ensureConversation() {
     ?? journey.selectedPackageCode
     ?? undefined
   const created = await candor.createConversation(
-    packageCode ? { package_code: packageCode } : {}
+    packageCode ? { package_plan_code: packageCode } : {}
   )
   journey.conversationId = created.id
-  if (created.package) {
-    selectedPackage.value = created.package
-    packageConfirmed.value = created.package.confirmed
+  if (created.package_plan) {
+    selectedPackage.value = created.package_plan
+    packageConfirmed.value = created.package_plan.confirmed
   }
   postQuizGuided.value = false
   reportResults.value = []
@@ -500,9 +501,9 @@ async function confirmPackage() {
   }
   pending.value = true
   try {
-    const result = await candor.confirmConversationPackage(journey.conversationId)
-    selectedPackage.value = result.package
-    packageConfirmed.value = result.package.confirmed
+    const result = await candor.confirmConversationPackagePlan(journey.conversationId)
+    selectedPackage.value = result.package_plan
+    packageConfirmed.value = result.package_plan.confirmed
     appendMessage('assistant', t('chat.guideAfterPackageConfirm'))
   } catch {
     appendMessage('assistant', t('chat.streamError'))

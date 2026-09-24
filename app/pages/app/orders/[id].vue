@@ -42,7 +42,7 @@
             {{ $t('orders.package') }}
           </dt>
           <dd class="mt-1 text-highlighted">
-            {{ order.packageName || order.packageCode }}
+            {{ order.packageName || order.packagePlanCode }}
           </dd>
         </div>
         <div>

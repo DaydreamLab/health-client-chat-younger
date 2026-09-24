@@ -96,7 +96,7 @@ test('guest labs, month package, mock pay, timeline, and readonly chat', async (
   await expect(page.getByTestId('timeline-shipped')).toContainText('出貨')
   await expect(page.getByTestId('timeline-delivered')).toContainText('已送達')
   const paid = await page.evaluate(() => localStorage.getItem('candor-paid-orders'))
-  expect(paid).toContain('"packageCode":"basic"')
+  expect(paid).toContain('"packagePlanCode":"basic"')
   await expect(page.getByTestId('orders-empty')).toHaveCount(0)
   await expect(page.getByTestId('order-status')).toHaveText('訂單確認中')
   await expect(page.getByTestId('order-items')).toContainText('維生素 D')
