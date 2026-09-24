@@ -92,7 +92,9 @@ test.describe('member checkout', () => {
     await expect(page.getByTestId('checkout-total')).toContainText('1,280')
     await page.getByTestId('checkout-name').fill('林晏婷')
     await page.getByTestId('checkout-phone').fill('0912345678')
-    await page.getByTestId('checkout-address').fill('台北市大安區')
+    await page.getByTestId('checkout-address-city').selectOption('台北市')
+    await page.getByTestId('checkout-address-district').selectOption('大安區')
+    await page.getByTestId('checkout-address').fill('忠孝東路四段1號')
 
     const pending = page.waitForRequest(request =>
       request.url().includes('/api/v1/orders') && request.method() === 'POST'

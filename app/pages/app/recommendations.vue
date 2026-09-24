@@ -283,13 +283,70 @@
             data-testid="checkout-phone"
           >
         </label>
+        <div class="block space-y-1.5">
+          <span class="block text-sm text-highlighted">{{ $t('checkout.addressRegion') }}</span>
+          <div class="grid grid-cols-2 gap-2">
+            <label class="block min-w-0">
+              <span class="sr-only">{{ $t('checkout.addressCity') }}</span>
+              <select
+                v-model="addressCity"
+                name="address_city"
+                required
+                autocomplete="address-level1"
+                class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                data-testid="checkout-address-city"
+              >
+                <option
+                  value=""
+                  disabled
+                >
+                  {{ $t('checkout.addressCity') }}
+                </option>
+                <option
+                  v-for="city in taiwanCities"
+                  :key="city"
+                  :value="city"
+                >
+                  {{ city }}
+                </option>
+              </select>
+            </label>
+            <label class="block min-w-0">
+              <span class="sr-only">{{ $t('checkout.addressDistrict') }}</span>
+              <select
+                v-model="addressDistrict"
+                name="address_district"
+                required
+                :disabled="!addressCity"
+                autocomplete="address-level2"
+                class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50"
+                data-testid="checkout-address-district"
+              >
+                <option
+                  value=""
+                  disabled
+                >
+                  {{ $t('checkout.addressDistrict') }}
+                </option>
+                <option
+                  v-for="district in addressDistricts"
+                  :key="district"
+                  :value="district"
+                >
+                  {{ district }}
+                </option>
+              </select>
+            </label>
+          </div>
+        </div>
         <label class="block">
-          <span class="mb-1.5 block text-sm text-highlighted">{{ $t('checkout.address') }}</span>
+          <span class="mb-1.5 block text-sm text-highlighted">{{ $t('checkout.addressDetail') }}</span>
           <input
-            v-model="address"
-            name="address"
+            v-model="addressDetail"
+            name="address_detail"
             required
             autocomplete="street-address"
+            :placeholder="$t('checkout.addressDetailPlaceholder')"
             class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             data-testid="checkout-address"
           >
@@ -453,6 +510,11 @@ import {
   type InvoiceType,
   type PaymentMethod
 } from '~/utils/first-order'
+import {
+  TAIWAN_CITIES,
+  composeTaiwanAddress,
+  districtsForCity
+} from '~/utils/taiwan-regions'
 
 definePageMeta({
   layout: 'user',
@@ -471,7 +533,11 @@ const candor = useCandorApi()
 
 const name = ref(auth.displayName)
 const phone = ref('')
-const address = ref('')
+const addressCity = ref('')
+const addressDistrict = ref('')
+const addressDetail = ref('')
+const taiwanCities = TAIWAN_CITIES
+const addressDistricts = computed(() => districtsForCity(addressCity.value))
 const delivery = ref<'home'>('home')
 const paymentMethod = ref<PaymentMethod>('card')
 const invoice = ref<InvoiceType>('member')
@@ -496,6 +562,10 @@ const loginRedirect = computed(() =>
 const registerRedirect = computed(() =>
   `${localePath('/login')}?redirect=${encodeURIComponent(route.fullPath)}&mode=register`
 )
+
+watch(addressCity, () => {
+  addressDistrict.value = ''
+})
 
 watch(invoice, (value) => {
   if (value === 'member') {
@@ -625,10 +695,15 @@ async function onPay(event: Event) {
   const carrier = invoice.value === 'member'
     ? (auth.user?.email ?? '')
     : String(data?.get('invoice_carrier') ?? invoiceCarrier.value)
+  const composedAddress = composeTaiwanAddress(
+    String(data?.get('address_city') ?? addressCity.value),
+    String(data?.get('address_district') ?? addressDistrict.value),
+    String(data?.get('address_detail') ?? addressDetail.value)
+  )
   const parsed = checkoutSchema.safeParse({
     name: String(data?.get('name') ?? name.value),
     phone: String(data?.get('phone') ?? phone.value),
-    address: String(data?.get('address') ?? address.value),
+    address: composedAddress,
     paymentMethod: 'card',
     invoice: data?.get('invoice') ?? invoice.value,
     invoiceCarrier: carrier,
@@ -636,7 +711,8 @@ async function onPay(event: Event) {
   })
 
   if (!parsed.success) {
-    error.value = t('checkout.invalidCarrier')
+    const addressIssue = parsed.error.issues.some(issue => issue.path[0] === 'address')
+    error.value = addressIssue ? t('checkout.error') : t('checkout.invalidCarrier')
     return
   }
 
