@@ -1117,7 +1117,7 @@ function goRecommend() {
     return
   }
 
-  const path = localePath('/app/recommend')
+  const path = localePath('/app/recommendations')
   if (!auth.hasSession) {
     return navigateTo({
       path: localePath('/login'),

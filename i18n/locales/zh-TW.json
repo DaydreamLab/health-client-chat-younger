@@ -203,6 +203,23 @@
     "expand": "展開",
     "close": "關閉"
   },
+  "recommendation": {
+    "title": "推薦方案",
+    "subtitle": "依所選方案查看組成品項。",
+    "reportSection": "報告判讀",
+    "reportEmpty": "尚無報告數據。上傳血檢後可在此對照數值。",
+    "reportLoading": "載入報告中…",
+    "recoLoading": "組成建議中…",
+    "recoError": "暫時無法取得建議，請稍後再試。",
+    "itemsTitle": "方案內容",
+    "itemsEmpty": "此方案目前無法組成品項，請改選其他方案或補齊資料。",
+    "doseLocked": "每日 {count} 顆",
+    "packagePick": "推薦方案",
+    "perMonth": "{price}／月",
+    "itemCountHint": "共 {count} 項",
+    "close": "關閉",
+    "disclaimer": "本建議僅供健康管理參考，非醫療診斷或療效保證。"
+  },
   "shop": {
     "title": "推薦方案",
     "subtitle": "依所選方案查看組成品項。",

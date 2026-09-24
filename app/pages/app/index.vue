@@ -8,7 +8,7 @@
         {{ $t('member.demo') }}
       </span>
       <AppButton
-        :to="localePath('/app/recommend')"
+        :to="localePath('/app/recommendations')"
         variant="primary"
         class="ms-auto"
       >

@@ -99,8 +99,8 @@ const { t } = useI18n()
 
 const isChat = computed(() => route.path.includes('/chat'))
 const isOrders = computed(() => route.path.includes('/orders'))
-const isRecommend = computed(() => route.path.includes('/recommend'))
-const isHealth = computed(() => route.path.includes('/app') && !isChat.value && !isOrders.value && !isRecommend.value)
+const isRecommendations = computed(() => route.path.includes('/recommendations'))
+const isHealth = computed(() => route.path.includes('/app') && !isChat.value && !isOrders.value && !isRecommendations.value)
 const collapsedNavUi = {
   link: 'flex-col gap-1 items-center',
   linkLabel: 'block text-[10px]/3 text-center'

@@ -46,29 +46,29 @@
     <div class="space-y-6">
       <section
         class="rounded-2xl border border-default bg-elevated p-5"
-        data-testid="recommend-report"
+        data-testid="health-report"
       >
         <h2 class="font-semibold text-highlighted">
-          {{ $t('shop.reportSection') }}
+          {{ $t('recommendation.reportSection') }}
         </h2>
         <p
           v-if="reportPending"
           class="mt-2 text-sm text-muted"
-          data-testid="recommend-report-loading"
+          data-testid="health-report-loading"
         >
-          {{ $t('shop.reportLoading') }}
+          {{ $t('recommendation.reportLoading') }}
         </p>
         <p
           v-else-if="!reportResults.length"
           class="mt-2 text-sm text-muted"
-          data-testid="recommend-report-empty"
+          data-testid="health-report-empty"
         >
-          {{ $t('shop.reportEmpty') }}
+          {{ $t('recommendation.reportEmpty') }}
         </p>
         <div
           v-else
           class="mt-3 max-h-80 overflow-y-auto"
-          data-testid="recommend-report-scroll"
+          data-testid="health-report-scroll"
         >
           <ReportResultTable :results="reportResults" />
         </div>
@@ -76,19 +76,19 @@
 
       <section class="rounded-2xl border border-default bg-elevated p-5">
         <h2 class="text-xl font-semibold text-highlighted">
-          {{ $t('shop.packagePick') }}
+          {{ $t('recommendation.packagePick') }}
         </h2>
         <p
           v-if="recoPending"
           class="mt-3 text-sm text-muted"
-          data-testid="recommend-loading"
+          data-testid="recommendation-loading"
         >
-          {{ $t('shop.recoLoading') }}
+          {{ $t('recommendation.recoLoading') }}
         </p>
         <p
           v-else-if="recoError"
           class="mt-3 text-sm text-error"
-          data-testid="recommend-error"
+          data-testid="recommendation-error"
         >
           {{ recoError }}
         </p>
@@ -101,13 +101,13 @@
             :key="pkg.package_plan_code"
             class="app-path-card"
             :class="{ 'app-path-card-selected': selectedPackageCode === pkg.package_plan_code }"
-            :data-testid="`shop-package-${pkg.package_plan_code}`"
+            :data-testid="`package-plan-${pkg.package_plan_code}`"
           >
             <input
               v-model="selectedPackageCode"
               type="radio"
               class="sr-only"
-              name="recommend-package"
+              name="recommendation-package-plan"
               :value="pkg.package_plan_code"
             >
             <div class="flex items-start justify-between gap-2">
@@ -116,10 +116,10 @@
               </p>
             </div>
             <p class="mt-2 text-lg font-semibold text-primary">
-              {{ $t('shop.perMonth', { price: formatTwd(pkg.price) }) }}
+              {{ $t('recommendation.perMonth', { price: formatTwd(pkg.price) }) }}
             </p>
             <p class="mt-1 text-sm text-muted">
-              {{ $t('shop.itemCountHint', { count: pkg.items.length }) }}
+              {{ $t('recommendation.itemCountHint', { count: pkg.items.length }) }}
             </p>
           </label>
         </div>
@@ -127,11 +127,11 @@
 
       <section
         class="overflow-hidden rounded-2xl border border-default bg-elevated"
-        data-testid="recommend-items"
+        data-testid="package-items"
       >
         <div class="border-b border-default px-5 py-4">
           <h2 class="font-semibold text-highlighted">
-            {{ $t('shop.itemsTitle') }}
+            {{ $t('recommendation.itemsTitle') }}
           </h2>
           <p
             v-if="selectedPackage"
@@ -143,9 +143,9 @@
         <p
           v-if="!selectedPackage || !selectedPackage.items.length"
           class="px-5 py-6 text-sm text-muted"
-          data-testid="recommend-items-empty"
+          data-testid="package-items-empty"
         >
-          {{ $t('shop.itemsEmpty') }}
+          {{ $t('recommendation.itemsEmpty') }}
         </p>
         <ul
           v-else
@@ -158,7 +158,7 @@
             <button
               type="button"
               class="flex w-full items-start gap-3 px-5 py-4 text-start transition hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
-              :data-testid="`shop-item-${item.code || item.sellable_item_id}`"
+              :data-testid="`sellable-item-${item.code || item.sellable_item_id}`"
               @click="detail = item"
             >
               <span class="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -175,7 +175,7 @@
               <span class="flex shrink-0 flex-col items-end gap-1">
                 <span
                   class="app-badge app-badge-pending"
-                  :data-testid="`shop-dose-${item.code || item.sellable_item_id}`"
+                  :data-testid="`sellable-item-dose-${item.code || item.sellable_item_id}`"
                 >
                   {{ doseLabel(item) }}
                 </span>
@@ -344,7 +344,7 @@
       <div
         v-if="detail"
         class="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center"
-        data-testid="supplement-detail"
+        data-testid="sellable-item-detail"
         @click.self="detail = null"
       >
         <article class="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl border border-default bg-elevated p-5 shadow-xl">
@@ -361,7 +361,7 @@
               variant="outline"
               @click="detail = null"
             >
-              {{ $t('shop.close') }}
+              {{ $t('recommendation.close') }}
             </AppButton>
           </div>
           <p
@@ -371,7 +371,7 @@
             {{ copyFor(detail.sellable_item_id)?.body }}
           </p>
           <p class="mt-4 text-xs text-dimmed">
-            {{ copyFor(detail.sellable_item_id)?.disclaimer || $t('shop.disclaimer') }}
+            {{ copyFor(detail.sellable_item_id)?.disclaimer || $t('recommendation.disclaimer') }}
           </p>
         </article>
       </div>
@@ -437,7 +437,7 @@ const canCheckout = computed(() =>
   Boolean(selectedPackage.value && selectedPackage.value.items.length > 0)
 )
 
-const copyByProductId = computed(() => {
+const copyBySellableItemId = computed(() => {
   const map = new Map<string, RecommendationCopy>()
   for (const item of recommendation.value?.items ?? []) {
     map.set(item.sellable_item_id, item.copy)
@@ -446,7 +446,7 @@ const copyByProductId = computed(() => {
 })
 
 function copyFor(sellableItemId: string): RecommendationCopy | undefined {
-  return copyByProductId.value.get(sellableItemId)
+  return copyBySellableItemId.value.get(sellableItemId)
 }
 
 function formatDoseCount(value: number): string {
@@ -457,7 +457,7 @@ function formatDoseCount(value: number): string {
 }
 
 function doseLabel(item: RecommendationPackageItem): string {
-  return t('shop.doseLocked', { count: formatDoseCount(item.daily_dose) })
+  return t('recommendation.doseLocked', { count: formatDoseCount(item.daily_dose) })
 }
 
 watch(selectedPackageCode, (code) => {
@@ -506,7 +506,7 @@ async function loadRecommendation() {
       journey.selectedPackageCode = selectedPackageCode.value
     }
   } catch {
-    recoError.value = t('shop.recoError')
+    recoError.value = t('recommendation.recoError')
     recommendation.value = null
   } finally {
     recoPending.value = false

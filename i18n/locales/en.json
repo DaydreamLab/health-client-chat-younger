@@ -203,6 +203,23 @@
     "expand": "Expand",
     "close": "Close"
   },
+  "recommendation": {
+    "title": "Recommended plan",
+    "subtitle": "Switch packages to see composition.",
+    "reportSection": "Report reading",
+    "reportEmpty": "No lab results yet. Upload a report to compare values here.",
+    "reportLoading": "Loading report…",
+    "recoLoading": "Building recommendations…",
+    "recoError": "Recommendations are temporarily unavailable. Please try again.",
+    "itemsTitle": "Package contents",
+    "itemsEmpty": "This package has no items yet. Pick another package or complete your profile.",
+    "doseLocked": "{count} capsule / day",
+    "packagePick": "Recommended plan",
+    "perMonth": "{price} / mo",
+    "itemCountHint": "{count} items",
+    "close": "Close",
+    "disclaimer": "For health management reference only. Not a medical diagnosis or efficacy guarantee."
+  },
   "shop": {
     "title": "Recommended plan",
     "subtitle": "Switch packages to see composition.",
