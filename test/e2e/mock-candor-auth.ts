@@ -43,6 +43,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
   let quizAnswered = false
   let goalsSet = false
   let streamCount = 0
+  let reportPollCount = 0
 
   await page.route('**/api/v1/package-plans', async (route) => {
     await route.fulfill({
@@ -480,6 +481,24 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
   await page.route(`**/api/v1/health-reports/${reportId}`, async (route) => {
     if (route.request().method() !== 'GET') {
       await route.fallback()
+      return
+    }
+    reportPollCount += 1
+    if (reportPollCount === 1) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            id: reportId,
+            status: 'processing',
+            page_count: null,
+            extraction_confidence: null,
+            results: []
+          }
+        })
+      })
       return
     }
     await route.fulfill({

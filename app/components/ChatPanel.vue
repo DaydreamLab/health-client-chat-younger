@@ -146,8 +146,20 @@
           </div>
         </article>
         <p
-          v-if="pending"
+          v-if="reportInFlight"
+          class="flex items-center gap-2 text-sm text-muted"
+          data-testid="chat-report-loading"
+        >
+          <span
+            class="size-4 shrink-0 animate-spin rounded-full border-2 border-muted border-t-primary"
+            aria-hidden="true"
+          />
+          {{ $t('chat.reportProcessing') }}
+        </p>
+        <p
+          v-else-if="pending"
           class="text-sm text-muted"
+          data-testid="chat-thinking"
         >
           {{ $t('chat.thinking') }}
         </p>
@@ -170,7 +182,7 @@
           class="app-chip"
           :class="{ 'ring-2 ring-primary': isOptionSelected(option.code) }"
           :data-testid="`chat-quiz-option-${option.code}`"
-          :disabled="pending"
+          :disabled="pending || reportInFlight"
           @click="onOptionChip(option)"
         >
           {{ option.label }}
@@ -179,7 +191,7 @@
           v-if="needsMultiConfirm"
           type="button"
           data-testid="chat-quiz-confirm"
-          :disabled="pending || selectedCodes.length === 0"
+          :disabled="pending || reportInFlight || selectedCodes.length === 0"
           @click="confirmMultiSelection"
         >
           {{ $t('chat.confirmSelection') }}
@@ -326,7 +338,7 @@ function queryOrderId(value: unknown) {
 const orderId = computed(() => queryOrderId(route.query.orderId))
 const readonly = computed(() => Boolean(orderId.value))
 const canUpload = computed(() => !readonly.value && !escalated.value && !reportInFlight.value)
-const inputLocked = computed(() => readonly.value || escalated.value)
+const inputLocked = computed(() => readonly.value || escalated.value || reportInFlight.value)
 const canType = computed(() => {
   if (inputLocked.value || pending.value) {
     return false
@@ -499,7 +511,7 @@ function scrollToLatest(behavior: ScrollBehavior = 'smooth') {
 }
 
 watch(
-  () => [messages.value.length, pending.value, lastAssistantId.value, journey.hasAnalysis, quizActive.value],
+  () => [messages.value.length, pending.value, reportInFlight.value, lastAssistantId.value, journey.hasAnalysis, quizActive.value],
   async () => {
     await nextTick()
     requestAnimationFrame(() => {
@@ -1008,6 +1020,7 @@ async function onFile(event: Event) {
       return
     }
 
+    reportInFlight.value = false
     await handleReportTerminal(report)
   } catch {
     appendMessage('assistant', t('chat.streamError'))
@@ -1032,6 +1045,7 @@ async function retryReport() {
     if (!report) {
       return
     }
+    reportInFlight.value = false
     await handleReportTerminal(report)
   } catch {
     appendMessage('assistant', t('chat.streamError'))

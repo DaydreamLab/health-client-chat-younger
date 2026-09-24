@@ -143,6 +143,7 @@
     "send": "Send",
     "you": "You",
     "thinking": "Putting a reply together…",
+    "reportProcessing": "Processing your report…",
     "escalate": "Talk to a specialist",
     "escalatedTitle": "Handed to a specialist",
     "escalatedBody": "Your name list goes to the advisor side. The consult happens on their system; this app does not show that conversation.",
