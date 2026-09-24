@@ -10,7 +10,14 @@
     </div>
 
     <p
-      v-if="!list.length"
+      v-if="loadError"
+      class="rounded-2xl border border-dashed border-error/40 bg-elevated p-8 text-sm text-error"
+      data-testid="orders-error"
+    >
+      {{ $t('orders.emptyError') }}
+    </p>
+    <p
+      v-else-if="!list.length"
       class="rounded-2xl border border-dashed border-default bg-elevated p-8 text-sm text-muted"
       data-testid="orders-empty"
     >
@@ -58,12 +65,20 @@
         </div>
       </div>
 
-      <p
-        class="mt-3 inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
-        data-testid="order-status"
-      >
-        {{ $t(`orders.${statusOf(order)}`) }}
-      </p>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <p
+          class="inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
+          data-testid="order-status"
+        >
+          {{ $t(`orders.${statusOf(order)}`) }}
+        </p>
+        <p
+          class="inline-flex rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-highlighted"
+          data-testid="order-payment-status"
+        >
+          {{ paymentLabel(order) }}
+        </p>
+      </div>
 
       <div class="mt-4">
         <p class="text-xs text-muted">
@@ -117,19 +132,35 @@ definePageMeta({
   middleware: 'auth'
 })
 
+const { t } = useI18n()
 const localePath = useLocalePath()
 const api = useFirstOrderApi()
 const list = ref<OrderRecord[]>([])
+const loadError = ref(false)
 
 function formatWhen(value: string) {
   return value.replace('T', ' ').slice(0, 16).replace(/-/g, '/')
 }
 
 function statusOf(order: OrderRecord) {
+  if (order.paymentStatus && order.paymentStatus !== 'paid') {
+    return 'awaitingPayment'
+  }
   return timelineStatus(order.timeline)
 }
 
+function paymentLabel(order: OrderRecord) {
+  const status = order.paymentStatus || 'unpaid'
+  const key = `orders.payment${status.charAt(0).toUpperCase()}${status.slice(1)}`
+  return t(key)
+}
+
 onMounted(async () => {
-  list.value = await api.listOrders()
+  try {
+    list.value = await api.listOrders()
+  } catch {
+    loadError.value = true
+    list.value = []
+  }
 })
 </script>

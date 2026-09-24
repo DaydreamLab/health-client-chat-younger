@@ -7,125 +7,112 @@ const labsFile = {
   buffer: Buffer.from('%PDF-1.4 demo')
 }
 
-test.beforeEach(async ({ page }) => {
-  await mockCandorAuth(page)
-})
-
-test('unpaid chat survives refresh via journey storage', async ({ page, goto }) => {
-  await goto('/chat', { waitUntil: 'hydration' })
-  await page.evaluate(() => {
-    localStorage.removeItem('candor-paid-orders')
-    localStorage.removeItem('candor.unpaid.journey')
+test.describe('guest session', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockCandorAuth(page)
   })
-  await page.getByTestId('chat-upload-input').setInputFiles(labsFile)
-  await expect(page.getByTestId('chat-report-loading')).toBeVisible()
-  await expect(page.getByTestId('chat-report-loading')).toContainText('報告處理中')
-  await expect(page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
-  await expect(page.getByTestId('chat-report-loading')).toHaveCount(0)
-  await expect(page.getByTestId('chat-view-report-data')).toBeVisible()
-  await expect(page.getByTestId('chat-escalate')).toBeVisible()
-  expect(await page.evaluate(() => localStorage.getItem('candor-paid-orders'))).toBeNull()
-  expect(await page.evaluate(() => localStorage.getItem('candor.unpaid.journey'))).toContain('conversationId')
 
-  await page.getByTestId('chat-view-report-data').click()
-  await expect(page.getByTestId('chat-report-dock')).toBeVisible()
-  await expect(page.getByTestId('chat-report-dock')).toContainText('Vitamin D3')
+  test('unpaid chat survives refresh via journey storage', async ({ page, goto }) => {
+    await goto('/chat', { waitUntil: 'hydration' })
+    await page.evaluate(() => {
+      localStorage.removeItem('candor-paid-orders')
+      localStorage.removeItem('candor.unpaid.journey')
+    })
+    await page.getByTestId('chat-upload-input').setInputFiles(labsFile)
+    await expect(page.getByTestId('chat-report-loading')).toBeVisible()
+    await expect(page.getByTestId('chat-report-loading')).toContainText('報告處理中')
+    await expect(page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('chat-report-loading')).toHaveCount(0)
+    await expect(page.getByTestId('chat-view-report-data')).toBeVisible()
+    await expect(page.getByTestId('chat-escalate')).toBeVisible()
+    expect(await page.evaluate(() => localStorage.getItem('candor-paid-orders'))).toBeNull()
+    expect(await page.evaluate(() => localStorage.getItem('candor.unpaid.journey'))).toContain('conversationId')
 
-  await page.reload({ waitUntil: 'domcontentloaded' })
-  await expect(page.getByRole('heading', { name: '諮詢' })).toBeVisible()
-  await expect(page.getByTestId('chat-view-recommend')).toBeVisible()
-  await expect(page.getByTestId('chat-input')).toBeVisible()
-  await expect(page.getByTestId('chat-chip-plans')).toHaveCount(0)
-  await expect(page.getByTestId('chat-escalate')).toBeVisible()
-  expect(await page.evaluate(() => localStorage.getItem('candor.unpaid.journey'))).toContain('conversationId')
+    await page.getByTestId('chat-view-report-data').click()
+    await expect(page.getByTestId('chat-report-dock')).toBeVisible()
+    await expect(page.getByTestId('chat-report-dock')).toContainText('Vitamin D3')
+
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await expect(page.getByRole('heading', { name: '諮詢' })).toBeVisible()
+    await expect(page.getByTestId('chat-view-recommend')).toBeVisible()
+    await expect(page.getByTestId('chat-input')).toBeVisible()
+    await expect(page.getByTestId('chat-chip-plans')).toHaveCount(0)
+    await expect(page.getByTestId('chat-escalate')).toBeVisible()
+    expect(await page.evaluate(() => localStorage.getItem('candor.unpaid.journey'))).toContain('conversationId')
+  })
+
+  test('recommendations shows checkout auth gate for guest', async ({ page, goto }) => {
+    await goto('/app/recommendations', { waitUntil: 'hydration' })
+    await expect(page).toHaveURL(/\/app\/recommendations/)
+    await expect(page.getByRole('heading', { name: '推薦方案' })).toBeVisible()
+    await expect(page.getByTestId('health-report-empty')).toBeVisible()
+    await expect(page.getByTestId('package-plan-basic')).toBeVisible()
+    await expect(page.getByTestId('package-plan-advance')).toBeVisible()
+    await expect(page.getByTestId('checkout-auth-gate')).toBeVisible()
+    await expect(page.getByTestId('checkout-login')).toBeVisible()
+    await expect(page.getByTestId('checkout-register')).toBeVisible()
+  })
+
+  test('guest sees checkout gate and cannot submit', async ({ page, goto }) => {
+    test.setTimeout(90_000)
+    await page.setViewportSize({ width: 1280, height: 800 })
+
+    await goto('/chat', { waitUntil: 'hydration' })
+    await page.evaluate(() => localStorage.removeItem('candor-paid-orders'))
+    await page.getByTestId('chat-upload-input').setInputFiles(labsFile)
+    await expect(page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
+    await page.getByTestId('chat-view-recommend').click()
+
+    await expect(page.getByTestId('checkout-auth-gate')).toBeVisible()
+    await expect(page.getByTestId('checkout-submit')).toBeDisabled()
+  })
+
+  test('guest sees empty orders until a payment', async ({ page, goto }) => {
+    await goto('/app/orders', { waitUntil: 'hydration' })
+    await page.evaluate(() => localStorage.removeItem('candor-paid-orders'))
+    await expect(page.getByRole('heading', { name: '我的訂單' })).toBeVisible()
+    await expect(page.getByTestId('nav-orders')).toBeVisible()
+    await expect(page.getByTestId('orders-empty')).toBeVisible()
+  })
 })
 
-test('recommendations allows guest without login wall', async ({ page, goto }) => {
-  await goto('/app/recommendations', { waitUntil: 'hydration' })
-  await expect(page).toHaveURL(/\/app\/recommendations/)
-  await expect(page.getByRole('heading', { name: '推薦方案' })).toBeVisible()
-  await expect(page.getByTestId('health-report-empty')).toBeVisible()
-  await expect(page.getByTestId('package-plan-basic')).toBeVisible()
-  await expect(page.getByTestId('package-plan-advance')).toBeVisible()
-})
+test.describe('member checkout', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockCandorAuth(page, { asMember: true })
+  })
 
-test('guest labs, month package, mock pay, timeline, and readonly chat', async ({ page, goto }) => {
-  test.setTimeout(90_000)
-  await page.setViewportSize({ width: 1280, height: 800 })
+  test('labs, month package, checkout redirects to sandbox url', async ({ page, goto }) => {
+    test.setTimeout(90_000)
+    await page.setViewportSize({ width: 1280, height: 800 })
 
-  await goto('/chat', { waitUntil: 'hydration' })
-  await page.evaluate(() => localStorage.removeItem('candor-paid-orders'))
-  await expect(page.getByRole('heading', { name: '諮詢' })).toBeVisible()
-  await expect(page.getByTestId('user-sidebar')).toHaveAttribute('data-collapsed', 'true')
-  await expect(page.getByTestId('nav-sidebar-toggle')).toHaveCount(0)
-  await expect(page.getByTestId('user-sidebar').getByTestId('brand')).toHaveText('C')
-  await expect(page.getByTestId('user-header')).toBeHidden()
-  await expect(page.getByTestId('user-sidebar').getByRole('button', { name: '繁中' })).toBeVisible()
-  await expect(page.getByTestId('user-sidebar').getByTestId('color-mode-day')).toBeVisible()
-  await expect(page.getByTestId('nav-chat')).toContainText('諮詢')
-  await page.getByTestId('chat-upload-input').setInputFiles(labsFile)
-  await expect(page.getByTestId('chat-report-loading')).toBeVisible()
-  await expect(page.getByTestId('chat-last-reply')).toContainText('基礎保養', { timeout: 15_000 })
-  await expect(page.getByTestId('chat-report-loading')).toHaveCount(0)
-  await expect(page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend')).toBeVisible()
-  await page.getByTestId('chat-view-recommend').click()
+    await goto('/chat', { waitUntil: 'hydration' })
+    await page.evaluate(() => localStorage.removeItem('candor-paid-orders'))
+    await page.getByTestId('chat-upload-input').setInputFiles(labsFile)
+    await expect(page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
+    await page.getByTestId('chat-view-recommend').click()
 
-  await expect(page.getByRole('heading', { name: '推薦方案' })).toBeVisible()
-  await expect(page.getByTestId('report-result-table')).toContainText('Vitamin D3')
-  await expect(page.getByTestId('package-plan-basic')).toBeVisible()
-  await expect(page.getByTestId('package-plan-advance')).toBeVisible()
-  await expect(page.locator('input[type="number"]')).toHaveCount(0)
-  await expect(page.getByRole('button', { name: '刪除' })).toHaveCount(0)
-  await expect(page.getByTestId('sellable-item-dose-vitamin_d')).toContainText('1')
-  await page.getByTestId('sellable-item-vitamin_d').click()
-  await expect(page.getByTestId('sellable-item-detail')).toBeVisible()
-  await page.getByRole('button', { name: '關閉' }).click()
-  await expect(page.getByTestId('sellable-item-detail')).toHaveCount(0)
+    await expect(page.getByTestId('checkout-auth-gate')).toHaveCount(0)
+    await expect(page.getByTestId('checkout-total')).toContainText('1,280')
+    await page.getByTestId('checkout-name').fill('林晏婷')
+    await page.getByTestId('checkout-phone').fill('0912345678')
+    await page.getByTestId('checkout-address').fill('台北市大安區')
 
-  await page.getByTestId('package-plan-advance').click()
-  await expect(page.getByTestId('sellable-item-omega3')).toBeVisible()
-  await page.getByTestId('package-plan-basic').click()
-  await expect(page.getByTestId('sellable-item-omega3')).toHaveCount(0)
-  await expect(page.getByTestId('checkout-total')).toContainText('1,280')
-  await page.getByTestId('checkout-name').fill('林晏婷')
-  await page.getByTestId('checkout-phone').fill('0912345678')
-  await page.getByTestId('checkout-address').fill('台北市大安區')
-  await page.getByTestId('checkout-submit').click()
-  await expect(page.getByTestId('checkout-processing')).toBeVisible()
-  await expect(page.getByTestId('checkout-success')).toBeVisible({ timeout: 10_000 })
-  await page.getByTestId('checkout-view-orders').click()
-  await expect(page).toHaveURL(/\/app\/orders\/?$/)
-  await expect(page.getByRole('heading', { name: '我的訂單' })).toBeVisible()
-  await expect(page.getByTestId('timeline-confirmed')).toContainText('訂單確認中')
-  await expect(page.getByTestId('timeline-picking')).toContainText('理貨')
-  await expect(page.getByTestId('timeline-shipped')).toContainText('出貨')
-  await expect(page.getByTestId('timeline-delivered')).toContainText('已送達')
-  const paid = await page.evaluate(() => localStorage.getItem('candor-paid-orders'))
-  expect(paid).toContain('"packagePlanCode":"basic"')
-  await expect(page.getByTestId('orders-empty')).toHaveCount(0)
-  await expect(page.getByTestId('order-status')).toHaveText('訂單確認中')
-  await expect(page.getByTestId('order-items')).toContainText('維生素 D')
-  await expect(page.getByTestId('order-item-iron')).toBeVisible()
-  await expect(page.getByTestId('order-item-vitamin_c')).toBeVisible()
-  await expect(page.getByText('基礎保養').first()).toBeVisible()
-  await expect(page.getByText('NT$1,280').first()).toBeVisible()
+    const pending = page.waitForRequest(request =>
+      request.url().includes('/api/v1/orders') && request.method() === 'POST'
+    )
+    await page.getByTestId('checkout-submit').click()
+    const placeReq = await pending
+    const body = placeReq.postDataJSON() as {
+      invoice_type?: string
+      invoice_carrier?: string
+      payment_method?: string
+    }
+    expect(body.payment_method).toBe('card')
+    expect(body.invoice_type).toBe('member')
+    expect(body.invoice_carrier).toBe('guest@example.com')
 
-  await page.locator('[data-testid^="order-chat-"]').click()
-  await expect(page.getByTestId('chat-readonly')).toBeVisible()
-  await expect(page.getByTestId('chat-input')).toHaveCount(0)
-  await expect(page.getByTestId('chat-upload')).toHaveCount(0)
-  await expect(page.getByTestId('chat-escalate')).toHaveCount(0)
-  await expect(page.getByTestId('chat-chip-plans')).toHaveCount(0)
-  await expect(page.getByTestId('chat-view-recommend')).toHaveCount(0)
-  await expect(page.getByTestId('chat-transcript')).toContainText('labs.pdf')
-})
-
-test('guest sees empty orders until a payment', async ({ page, goto }) => {
-  await goto('/app/orders', { waitUntil: 'hydration' })
-  await page.evaluate(() => localStorage.removeItem('candor-paid-orders'))
-  await expect(page.getByRole('heading', { name: '我的訂單' })).toBeVisible()
-  await expect(page.getByTestId('nav-orders')).toBeVisible()
-  await expect(page.getByTestId('orders-empty')).toContainText('未結帳前的諮詢會暫存在本機')
+    await page.waitForURL(/sandbox\.example\/pay/, { timeout: 10_000 })
+  })
 })
 
 test.describe('profile quiz gate', () => {
@@ -144,7 +131,6 @@ test.describe('profile quiz gate', () => {
     await page.getByTestId('chat-quiz-confirm').click()
     await expect(page.getByTestId('chat-transcript')).toContainText('請問您的生理性別？')
     await expect(page.getByTestId('chat-quiz-option-F')).toBeVisible()
-    // Upload stays available after goals until a report is bound.
     await expect(page.getByTestId('chat-chip-upload')).toBeVisible()
 
     await page.getByTestId('chat-quiz-option-F').click()

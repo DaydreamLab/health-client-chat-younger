@@ -11,7 +11,7 @@ export type SupplementItemId
     | 'magnesium'
 
 export type PaymentMethod = 'card' | 'linepay' | 'atm'
-export type InvoiceType = 'cloud' | 'company' | 'donate'
+export type InvoiceType = 'member' | 'cloud' | 'company' | 'donate'
 export type ShipmentStepId = 'confirmed' | 'picking' | 'shipped' | 'delivered'
 
 export interface ChatPart {
@@ -87,6 +87,8 @@ export interface OrderRecord {
   productCodes: string[]
   productNames?: string[]
   paymentMethod: PaymentMethod
+  paymentStatus?: string
+  orderStatus?: string
   delivery: 'home'
   recipient: OrderRecipient
   invoice: InvoiceType
@@ -102,6 +104,7 @@ export interface CreateOrderInput {
   productNames?: string[]
   paymentMethod: PaymentMethod
   invoice: InvoiceType
+  invoiceCarrier: string
   recipient: OrderRecipient
   messages: ChatMessage[]
   compositionHash?: string
@@ -267,6 +270,8 @@ export function mockCreateOrder(input: CreateOrderInput): OrderRecord {
     productCodes,
     productNames: input.productNames ? [...input.productNames] : undefined,
     paymentMethod: input.paymentMethod,
+    paymentStatus: 'paid',
+    orderStatus: 'confirmed',
     delivery: 'home',
     recipient: input.recipient,
     invoice: input.invoice,
@@ -308,6 +313,7 @@ export function orderRecordFromCandorCreated(
   input: CreateOrderInput
 ): OrderRecord {
   const createdAt = new Date().toISOString()
+  const confirmedAt = created.status === 'confirmed' ? createdAt : null
   return {
     id: created.id,
     number: created.order_no,
@@ -318,11 +324,20 @@ export function orderRecordFromCandorCreated(
     productCodes: input.productCodes ? [...input.productCodes] : [],
     productNames: input.productNames ? [...input.productNames] : undefined,
     paymentMethod: input.paymentMethod,
+    paymentStatus: created.payment_status,
+    orderStatus: created.status,
     delivery: 'home',
     recipient: { ...input.recipient },
     invoice: input.invoice,
     messages: cloneMessages(input.messages),
-    timeline: defaultShipmentTimeline(createdAt)
+    timeline: confirmedAt
+      ? defaultShipmentTimeline(confirmedAt)
+      : [
+          { id: 'confirmed', at: null },
+          { id: 'picking', at: null },
+          { id: 'shipped', at: null },
+          { id: 'delivered', at: null }
+        ]
   }
 }
 
@@ -340,8 +355,13 @@ export function orderRecordFromCandorDetail(
     address: '',
     email: ''
   }
-  const invoiceRaw = detail.invoice_type ?? fallback.invoice ?? 'cloud'
-  const invoice = invoiceRaw === 'company' || invoiceRaw === 'donate' ? invoiceRaw : 'cloud'
+  const invoiceRaw = detail.invoice_type ?? fallback.invoice ?? 'member'
+  const invoice: InvoiceType = invoiceRaw === 'company' || invoiceRaw === 'donate' || invoiceRaw === 'cloud' || invoiceRaw === 'member'
+    ? invoiceRaw
+    : 'member'
+  const confirmedAt = detail.status === 'confirmed' || detail.status === 'shipped' || detail.status === 'delivered'
+    ? (detail.confirmed_at ?? createdAt)
+    : null
 
   return {
     id: detail.id,
@@ -353,15 +373,27 @@ export function orderRecordFromCandorDetail(
     productCodes: productCodes.length ? productCodes : (fallback.productCodes ?? []),
     productNames: productNames.length ? productNames : fallback.productNames,
     paymentMethod: fallback.paymentMethod ?? 'card',
+    paymentStatus: detail.payment_status,
+    orderStatus: detail.status,
     delivery: 'home',
     recipient,
     invoice,
     messages: fallback.messages ? cloneMessages(fallback.messages) : [],
-    timeline: defaultShipmentTimeline(createdAt)
+    timeline: confirmedAt
+      ? defaultShipmentTimeline(confirmedAt)
+      : [
+          { id: 'confirmed', at: null },
+          { id: 'picking', at: null },
+          { id: 'shipped', at: null },
+          { id: 'delivered', at: null }
+        ]
   }
 }
 
 export function orderRecordFromCandorSummary(summary: OrderSummary): OrderRecord {
+  const confirmedAt = summary.status === 'confirmed' || summary.status === 'shipped' || summary.status === 'delivered'
+    ? summary.created_at
+    : null
   return {
     id: summary.id,
     number: summary.order_no,
@@ -371,10 +403,19 @@ export function orderRecordFromCandorSummary(summary: OrderSummary): OrderRecord
     amount: summary.amount_total,
     productCodes: [],
     paymentMethod: 'card',
+    paymentStatus: summary.payment_status,
+    orderStatus: summary.status,
     delivery: 'home',
     recipient: { name: '', phone: '', address: '', email: '' },
-    invoice: 'cloud',
+    invoice: 'member',
     messages: [],
-    timeline: defaultShipmentTimeline(summary.created_at)
+    timeline: confirmedAt
+      ? defaultShipmentTimeline(confirmedAt)
+      : [
+          { id: 'confirmed', at: null },
+          { id: 'picking', at: null },
+          { id: 'shipped', at: null },
+          { id: 'delivered', at: null }
+        ]
   }
 }

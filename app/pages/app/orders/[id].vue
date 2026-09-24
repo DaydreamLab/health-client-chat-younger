@@ -47,6 +47,17 @@
         </div>
         <div>
           <dt class="text-muted">
+            {{ $t('orders.paymentStatus') }}
+          </dt>
+          <dd
+            class="mt-1 text-highlighted"
+            data-testid="order-payment-status"
+          >
+            {{ paymentLabel(order) }}
+          </dd>
+        </div>
+        <div>
+          <dt class="text-muted">
             {{ $t('orders.payment') }}
           </dt>
           <dd class="mt-1 text-highlighted">
@@ -131,6 +142,7 @@ definePageMeta({
 
 const route = useRoute()
 const localePath = useLocalePath()
+const { t } = useI18n()
 const api = useFirstOrderApi()
 const order = ref<OrderRecord | null>(null)
 
@@ -138,8 +150,18 @@ function formatWhen(value: string) {
   return value.replace('T', ' ').slice(0, 16).replace(/-/g, '/')
 }
 
+function paymentLabel(current: OrderRecord) {
+  const status = current.paymentStatus || 'unpaid'
+  const key = `orders.payment${status.charAt(0).toUpperCase()}${status.slice(1)}`
+  return t(key)
+}
+
 onMounted(async () => {
   const id = String(route.params.id)
-  order.value = await api.getOrder(id)
+  try {
+    order.value = await api.getOrder(id)
+  } catch {
+    order.value = null
+  }
 })
 </script>

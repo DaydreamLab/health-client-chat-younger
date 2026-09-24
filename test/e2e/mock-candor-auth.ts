@@ -36,6 +36,10 @@ export type CandorMockOptions = {
   profileQuiz?: boolean
   /** Include package on create conversation. */
   withPackage?: boolean
+  /** Pretend the session is already a member (email login). */
+  asMember?: boolean
+  /** Seed GET /orders with a paid order after checkout mock. */
+  withOrder?: boolean
 }
 
 /** Mock candor-core auth + chat/report/profile so e2e does not need a live API. */
@@ -44,6 +48,27 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
   let goalsSet = false
   let streamCount = 0
   let reportPollCount = 0
+  const sessionUser = options.asMember ? memberUser : guestUser
+  const sessionToken = options.asMember ? 'e2e-member-token' : 'e2e-guest-token'
+  let placedOrder: {
+    id: string
+    order_no: string
+    status: string
+    payment_status: string
+    amount_total: number
+    package_plan_name: string
+    created_at: string
+  } | null = options.withOrder
+    ? {
+        id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+        order_no: 'ORD-260101-000001',
+        status: 'confirmed',
+        payment_status: 'paid',
+        amount_total: 1280,
+        package_plan_name: '基礎保養',
+        created_at: '2026-01-01T12:00:00Z'
+      }
+    : null
 
   await page.route('**/api/v1/package-plans', async (route) => {
     await route.fulfill({
@@ -269,7 +294,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data: { token: 'e2e-guest-token', expires_in: 3600, user: guestUser }
+        data: { token: sessionToken, expires_in: 3600, user: sessionUser }
       })
     })
   })
@@ -280,7 +305,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data: { token: 'e2e-guest-token', expires_in: 3600, user: guestUser }
+        data: { token: sessionToken, expires_in: 3600, user: sessionUser }
       })
     })
   })
@@ -291,7 +316,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data: { ...guestUser, created_at: '2026-01-01T00:00:00Z' }
+        data: { ...sessionUser, created_at: '2026-01-01T00:00:00Z' }
       })
     })
   })
@@ -609,22 +634,32 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
 
   await page.route('**/api/v1/orders', async (route) => {
     if (route.request().method() === 'POST') {
+      placedOrder = {
+        id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+        order_no: 'ORD-260101-000001',
+        status: 'created',
+        payment_status: 'pending',
+        amount_total: 1280,
+        package_plan_name: '基礎保養',
+        created_at: '2026-01-01T12:00:00Z'
+      }
       await route.fulfill({
         status: 201,
         contentType: 'application/json',
         body: JSON.stringify({
           status: 'success',
           data: {
-            id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
-            order_no: '260101120000',
-            status: 'pending_payment',
-            payment_status: 'unpaid',
+            id: placedOrder.id,
+            order_no: placedOrder.order_no,
+            status: 'created',
+            payment_status: 'pending',
             amount_total: 1280,
             payment: {
               id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
               method: 'card',
               status: 'pending',
-              amount: 1280
+              amount: 1280,
+              redirect_url: 'https://sandbox.example/pay/sbx_e2e'
             }
           }
         })
@@ -637,11 +672,79 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         contentType: 'application/json',
         body: JSON.stringify({
           status: 'success',
-          data: { orders: [] }
+          data: {
+            orders: placedOrder
+              ? [{
+                  id: placedOrder.id,
+                  order_no: placedOrder.order_no,
+                  status: placedOrder.status,
+                  payment_status: placedOrder.payment_status,
+                  amount_total: placedOrder.amount_total,
+                  package_plan_name: placedOrder.package_plan_name,
+                  created_at: placedOrder.created_at
+                }]
+              : []
+          }
         })
       })
       return
     }
     await route.fallback()
+  })
+
+  await page.route('**/api/v1/order/**', async (route) => {
+    const url = route.request().url()
+    if (url.includes('/message') || url.includes('/payment') || url.includes('/cancel')) {
+      await route.fallback()
+      return
+    }
+    if (route.request().method() !== 'GET') {
+      await route.fallback()
+      return
+    }
+    if (!placedOrder) {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'failed', error_message: 'Not found', error_code: 'not_found', error_data: null })
+      })
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: {
+          id: placedOrder.id,
+          order_no: placedOrder.order_no,
+          status: placedOrder.status,
+          payment_status: placedOrder.payment_status,
+          amount_total: placedOrder.amount_total,
+          package_plan_name: placedOrder.package_plan_name,
+          package: {
+            id: 'pkg-1',
+            package_plan_code: 'basic',
+            package_plan_name: '基礎保養',
+            package_plan_price: 1280,
+            period_days: 30,
+            composition_hash: 'sha256:basic',
+            used_amount: 1280,
+            remaining: 0,
+            components: [
+              { id: 'c1', sellable_item_id: sellableVitD, sellable_item_code: 'vitamin_d', sellable_item_name: '維生素 D', unit_price: 9, daily_dose: 1, monthly_cost: 280, rank: 1 },
+              { id: 'c2', sellable_item_id: sellableIron, sellable_item_code: 'iron', sellable_item_name: '鐵蛋白調理', unit_price: 17, daily_dose: 1, monthly_cost: 520, rank: 2 },
+              { id: 'c3', sellable_item_id: sellableVitC, sellable_item_code: 'vitamin_c', sellable_item_name: '維生素 C', unit_price: 16, daily_dose: 1, monthly_cost: 480, rank: 3 }
+            ]
+          },
+          lines: [],
+          recipient: { name: '林晏婷', phone: '0912345678', address: '台北市大安區', email: 'guest@example.com' },
+          invoice_type: 'member',
+          created_at: placedOrder.created_at,
+          confirmed_at: placedOrder.payment_status === 'paid' ? placedOrder.created_at : null,
+          payments: []
+        }
+      })
+    })
   })
 }

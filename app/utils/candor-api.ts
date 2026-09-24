@@ -155,7 +155,7 @@ export interface ConversationPackageConfirm {
 }
 
 export type CandorPaymentMethod = 'card' | 'linepay' | 'atm'
-export type CandorInvoiceType = 'cloud' | 'company' | 'donate'
+export type CandorInvoiceType = 'member' | 'cloud' | 'company' | 'donate'
 
 export type OrderLineKind = 'package' | 'lab_service' | 'day_supply'
 
@@ -263,6 +263,7 @@ export interface OrderDetail {
   } | null
   invoice_type?: string | null
   created_at?: string
+  confirmed_at?: string | null
   payments?: CandorPayment[] | null
 }
 

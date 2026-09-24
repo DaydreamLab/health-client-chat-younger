@@ -288,7 +288,7 @@ export function useCandorApi() {
     register: (body: { email: string, password: string, display_name?: string }) =>
       request<UserSession>('/auth/register', { method: 'POST', body, auth: 'optional' }),
     login: (body: { email: string, password: string }) =>
-      request<UserSession>('/auth/login', { method: 'POST', body, auth: false }),
+      request<UserSession>('/auth/login', { method: 'POST', body, auth: 'optional' }),
     refresh: () => request<UserSession>('/auth/refresh', { method: 'POST' }),
     me: () => request<UserMe>('/users/me'),
 

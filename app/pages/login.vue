@@ -88,7 +88,9 @@ const email = ref('')
 const password = ref('')
 const error = ref('')
 const pending = ref(false)
-const mode = ref<'login' | 'register'>('login')
+const mode = ref<'login' | 'register'>(
+  route.query.mode === 'register' ? 'register' : 'login'
+)
 
 function toggleMode() {
   mode.value = mode.value === 'login' ? 'register' : 'login'

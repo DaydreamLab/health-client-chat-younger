@@ -49,6 +49,7 @@ describe('first-order demo', () => {
       packagePlanCode: 'basicCare',
       paymentMethod: 'card',
       invoice: 'cloud',
+      invoiceCarrier: '/ABC1234',
       recipient,
       messages
     })
@@ -88,9 +89,23 @@ describe('first-order demo', () => {
       address: '台北市',
       paymentMethod: 'card',
       invoice: 'cloud',
+      invoiceCarrier: '/ABC1234',
       packagePlanCode: 'basic'
     })
     expect(parsed.success).toBe(false)
+  })
+
+  it('accepts member invoice with email carrier', () => {
+    const parsed = checkoutSchema.safeParse({
+      name: '林晏婷',
+      phone: '0912345678',
+      address: '台北市',
+      paymentMethod: 'card',
+      invoice: 'member',
+      invoiceCarrier: 'guest@example.com',
+      packagePlanCode: 'basic'
+    })
+    expect(parsed.success).toBe(true)
   })
 
   it('accepts createOrder payload and binds messages', () => {
@@ -98,6 +113,7 @@ describe('first-order demo', () => {
       packagePlanCode: 'advance',
       paymentMethod: 'linepay',
       invoice: 'donate',
+      invoiceCarrier: '12345',
       recipient,
       messages: [{
         id: 'm1',

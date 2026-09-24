@@ -189,7 +189,40 @@
       </section>
     </div>
 
-    <aside class="h-fit max-h-none rounded-2xl border border-default bg-elevated p-5 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto">
+    <aside
+      class="relative h-fit max-h-none rounded-2xl border border-default bg-elevated p-5 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto"
+      data-testid="checkout-card"
+    >
+      <div
+        v-if="!auth.isMember"
+        class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-2xl bg-elevated/80 px-6 text-center backdrop-blur-sm"
+        data-testid="checkout-auth-gate"
+      >
+        <p class="text-sm font-medium text-highlighted">
+          {{ $t('checkout.memberRequired') }}
+        </p>
+        <p class="text-xs text-muted">
+          {{ $t('checkout.memberRequiredHint') }}
+        </p>
+        <div class="mt-2 flex w-full flex-col gap-2">
+          <AppButton
+            class="w-full"
+            :to="loginRedirect"
+            data-testid="checkout-login"
+          >
+            {{ $t('checkout.login') }}
+          </AppButton>
+          <AppButton
+            class="w-full"
+            variant="outline"
+            :to="registerRedirect"
+            data-testid="checkout-register"
+          >
+            {{ $t('checkout.register') }}
+          </AppButton>
+        </div>
+      </div>
+
       <h2 class="font-semibold text-highlighted">
         {{ $t('checkout.title') }}
       </h2>
@@ -288,7 +321,8 @@
           <label
             v-for="method in paymentMethods"
             :key="method"
-            class="flex items-center gap-2 text-sm text-highlighted"
+            class="flex items-center gap-2 text-sm"
+            :class="method === 'card' ? 'text-highlighted' : 'text-dimmed'"
           >
             <input
               v-model="paymentMethod"
@@ -296,8 +330,9 @@
               class="accent-primary"
               name="payment"
               :value="method"
+              :disabled="method !== 'card'"
             >
-            {{ $t(`checkout.${method}`) }}
+            {{ method === 'card' ? $t('checkout.card') : $t(`checkout.${method}ComingSoon`) }}
           </label>
         </fieldset>
 
@@ -318,6 +353,29 @@
               :value="option"
             >
             {{ $t(`checkout.${option}`) }}
+          </label>
+          <p
+            v-if="invoice === 'member'"
+            class="text-xs text-muted"
+            data-testid="checkout-invoice-member-email"
+          >
+            {{ auth.user?.email || $t('checkout.memberCarrierHint') }}
+          </p>
+          <label
+            v-else
+            class="block"
+          >
+            <span class="mb-1.5 block text-sm text-highlighted">
+              {{ $t(`checkout.carrier_${invoice}`) }}
+            </span>
+            <input
+              v-model="invoiceCarrier"
+              name="invoice_carrier"
+              required
+              class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              :placeholder="$t(`checkout.carrierPlaceholder_${invoice}`)"
+              data-testid="checkout-invoice-carrier"
+            >
           </label>
         </fieldset>
 
@@ -384,9 +442,11 @@ import { checkoutSchema } from '~/utils/checkout-schema'
 import type {
   HealthReportResult,
   RecommendationCopy,
+  RecommendationPackage,
   RecommendationPackageItem,
   RecommendationResponse
 } from '~/utils/candor-api'
+import { CandorApiError } from '~/utils/candor-api'
 import {
   formatTwd,
   type ChatMessage,
@@ -403,6 +463,7 @@ const PAY_HOLD_MS = 3000
 
 const { t } = useI18n()
 const localePath = useLocalePath()
+const route = useRoute()
 const auth = useAuthStore()
 const journey = useJourneyStore()
 const api = useFirstOrderApi()
@@ -413,13 +474,14 @@ const phone = ref('')
 const address = ref('')
 const delivery = ref<'home'>('home')
 const paymentMethod = ref<PaymentMethod>('card')
-const invoice = ref<InvoiceType>('cloud')
+const invoice = ref<InvoiceType>('member')
+const invoiceCarrier = ref('')
 const payPhase = ref<'form' | 'paying' | 'success'>('form')
 const error = ref('')
 const detail = ref<RecommendationPackageItem | null>(null)
 
 const paymentMethods: PaymentMethod[] = ['card', 'linepay', 'atm']
-const invoiceOptions: InvoiceType[] = ['cloud', 'company', 'donate']
+const invoiceOptions: InvoiceType[] = ['member', 'cloud', 'company', 'donate']
 
 const reportPending = ref(false)
 const reportResults = ref<HealthReportResult[]>([])
@@ -428,13 +490,34 @@ const recoError = ref('')
 const recommendation = ref<RecommendationResponse | null>(null)
 const selectedPackageCode = ref('')
 
+const loginRedirect = computed(() =>
+  `${localePath('/login')}?redirect=${encodeURIComponent(route.fullPath)}&mode=login`
+)
+const registerRedirect = computed(() =>
+  `${localePath('/login')}?redirect=${encodeURIComponent(route.fullPath)}&mode=register`
+)
+
+watch(invoice, (value) => {
+  if (value === 'member') {
+    invoiceCarrier.value = auth.user?.email ?? ''
+  } else if (invoiceCarrier.value === (auth.user?.email ?? '')) {
+    invoiceCarrier.value = ''
+  }
+})
+
+watch(() => auth.user?.email, (email) => {
+  if (invoice.value === 'member' && email) {
+    invoiceCarrier.value = email
+  }
+}, { immediate: true })
+
 const packages = computed(() => recommendation.value?.packages ?? [])
 const selectedPackage = computed(() =>
   packages.value.find(pkg => pkg.package_plan_code === selectedPackageCode.value) ?? null
 )
 const checkoutPrice = computed(() => selectedPackage.value?.price ?? 0)
 const canCheckout = computed(() =>
-  Boolean(selectedPackage.value && selectedPackage.value.items.length > 0)
+  Boolean(auth.isMember && selectedPackage.value && selectedPackage.value.items.length > 0 && selectedPackage.value.composition_hash)
 )
 
 const copyBySellableItemId = computed(() => {
@@ -513,7 +596,25 @@ async function loadRecommendation() {
   }
 }
 
+function applyCompositionChanged(pkg: RecommendationPackage) {
+  if (!recommendation.value) {
+    return
+  }
+  recommendation.value = {
+    ...recommendation.value,
+    packages: recommendation.value.packages.map(entry =>
+      entry.package_plan_code === pkg.package_plan_code ? { ...entry, ...pkg } : entry
+    )
+  }
+  selectedPackageCode.value = pkg.package_plan_code
+  error.value = t('checkout.compositionChanged')
+}
+
 async function onPay(event: Event) {
+  if (!auth.isMember) {
+    error.value = t('checkout.memberRequired')
+    return
+  }
   if (!canCheckout.value || !selectedPackage.value) {
     error.value = t('checkout.error')
     return
@@ -521,17 +622,21 @@ async function onPay(event: Event) {
 
   const form = event.target
   const data = form instanceof HTMLFormElement ? new FormData(form) : null
+  const carrier = invoice.value === 'member'
+    ? (auth.user?.email ?? '')
+    : String(data?.get('invoice_carrier') ?? invoiceCarrier.value)
   const parsed = checkoutSchema.safeParse({
     name: String(data?.get('name') ?? name.value),
     phone: String(data?.get('phone') ?? phone.value),
     address: String(data?.get('address') ?? address.value),
-    paymentMethod: data?.get('payment') ?? paymentMethod.value,
+    paymentMethod: 'card',
     invoice: data?.get('invoice') ?? invoice.value,
+    invoiceCarrier: carrier,
     packagePlanCode: selectedPackage.value.package_plan_code
   })
 
   if (!parsed.success) {
-    error.value = t('checkout.error')
+    error.value = t('checkout.invalidCarrier')
     return
   }
 
@@ -540,34 +645,62 @@ async function onPay(event: Event) {
 
   const pkg = selectedPackage.value
   try {
-    await Promise.all([
-      api.createOrder({
-        packagePlanCode: parsed.data.packagePlanCode,
-        packageName: pkg.package_plan_name,
-        amount: pkg.price,
-        productCodes: pkg.items.map(item => item.code || item.sellable_item_id),
-        productNames: pkg.items.map(item => item.name ?? item.code),
-        paymentMethod: parsed.data.paymentMethod,
-        invoice: parsed.data.invoice,
-        recipient: {
-          name: parsed.data.name,
-          phone: parsed.data.phone,
-          address: parsed.data.address,
-          email: auth.user?.email ?? ''
-        },
-        messages: JSON.parse(JSON.stringify(journey.snapshotMessages())) as ChatMessage[],
-        compositionHash: pkg.composition_hash,
-        reportId: recommendation.value?.report_id ?? journey.reportId,
-        conversationId: journey.conversationId,
-        recommendationRunId: recommendation.value?.run_id
-      }),
-      new Promise(resolve => setTimeout(resolve, PAY_HOLD_MS))
-    ])
+    const created = await api.createOrder({
+      packagePlanCode: parsed.data.packagePlanCode,
+      packageName: pkg.package_plan_name,
+      amount: pkg.price,
+      productCodes: pkg.items.map(item => item.code || item.sellable_item_id),
+      productNames: pkg.items.map(item => item.name ?? item.code),
+      paymentMethod: 'card',
+      invoice: parsed.data.invoice,
+      invoiceCarrier: parsed.data.invoiceCarrier,
+      recipient: {
+        name: parsed.data.name,
+        phone: parsed.data.phone,
+        address: parsed.data.address,
+        email: auth.user?.email ?? ''
+      },
+      messages: JSON.parse(JSON.stringify(journey.snapshotMessages())) as ChatMessage[],
+      compositionHash: pkg.composition_hash,
+      reportId: recommendation.value?.report_id ?? journey.reportId,
+      conversationId: journey.conversationId,
+      recommendationRunId: recommendation.value?.run_id
+    })
+
+    const redirectUrl = 'payment' in created && created.payment?.redirect_url
+      ? created.payment.redirect_url
+      : null
+    if (redirectUrl) {
+      journey.clearSession()
+      window.location.assign(redirectUrl)
+      return
+    }
+
+    await new Promise(resolve => setTimeout(resolve, PAY_HOLD_MS))
     payPhase.value = 'success'
     journey.clearSession()
-  } catch {
-    error.value = t('checkout.error')
+  } catch (err) {
     payPhase.value = 'form'
+    if (err instanceof CandorApiError) {
+      if (err.errorCode === 'composition_changed') {
+        const packageData = (err.errorData as { package?: RecommendationPackage } | null)?.package
+        if (packageData) {
+          applyCompositionChanged(packageData)
+          return
+        }
+      }
+      if (err.errorCode === 'invalid_invoice_carrier') {
+        error.value = t('checkout.invalidCarrier')
+        return
+      }
+      if (err.errorCode === 'report_not_ready') {
+        error.value = t('checkout.reportNotReady')
+        return
+      }
+      error.value = err.message || t('checkout.errorGeneric')
+      return
+    }
+    error.value = t('checkout.errorGeneric')
   }
 }
 
