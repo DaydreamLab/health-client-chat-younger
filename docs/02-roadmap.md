@@ -1,6 +1,6 @@
 # 02 — Roadmap
 
-里程碑以「可驗收結果」為準，非鎖定日曆。接線狀態定義見 [03-progress.md](03-progress.md)。
+里程碑以「可驗收結果」為準，非鎖定日曆。畫面／接線狀態與功能表見 [03-progress.md](03-progress.md)。
 
 ## M0 — 文件與 Repo
 
@@ -46,11 +46,12 @@
 - `POST /recommendations`、`GET /package-plans`
 - 建單（`lines[]` + `composition_hash`）、列表、詳情、sandbox 導轉
 - 常用收件 `PATCH /users/me`
+- 重新付款、取消訂單的畫面入口（目前僅 client 方法）
 
 **驗收**
 
-- [x] 建議與建單列表詳情 `已接`
-- [ ] 重新付款、取消畫面接上（目前 client 方法在、UI Mock）
+- [x] 建議與建單列表詳情 `已接`（功能表：建議／價格帶／建單、訂單列表／詳情為 `可用`／`已接`）
+- [ ] 重新付款、取消：畫面達 `可用`，接線達 `已接`（功能表對應列）
 
 ## M4 — 續約與收尾 API
 
@@ -61,7 +62,9 @@
 
 **驗收**
 
-- [ ] 上列切片達 `已接` 或明確 `不做`
+- [ ] 續約列表／續約對話：畫面達 `可用`（或明確無入口且標 `不做`），接線達 `已接` 或 `不做`
+- [ ] 訂單反查對話：接線達 `已接` 或明確 `不做`
+- [ ] 擁有者校正、去識別化：畫面達 `可用`（或明確無入口且標 `不做`），接線達 `已接` 或 `不做`
 
 ## M5 — 拆 mock BFF 與舊識別子
 
@@ -78,10 +81,12 @@
 ## Backlog
 
 - OpenAPI codegen（orval／openapi-typescript）
-- 同步 `POST .../messages`（若產品需要非 SSE）
-- `GET /lab-services` 畫面接線
+- 同步 `POST .../messages`（若產品需要非 SSE；功能表列同步訊息）
+- `GET /lab-services` 畫面接線（功能表列血檢主檔）
+
+handoff 殼（`/app/handoff`）不進待做里程碑（功能表接線 `不做`）。
 
 ## 相關
 
-- 進度勾選：[03-progress.md](03-progress.md)
+- 進度勾選與功能表：[03-progress.md](03-progress.md)
 - core M8：[candor-core docs/02](https://github.com/DaydreamLab/candor-core/blob/main/docs/02-roadmap.md)
