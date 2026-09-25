@@ -1,73 +1,59 @@
-# Candor 坦見 客人端 App
+# Candor 坦見 — 消費者前台（YOUNGER）
 
-路徑：`~/Projects/health-client-chat-younger`
-
-A 平台客人端（保健／健康數據 + AI 教練）。品牌 UI 走 Candor／坦見 Design System，不是把 Dashboard template 塗綠。
+A 平台客人端：健檢報告解讀、對話、建議與下單。評分與交易真相在 [candor-core](https://github.com/DaydreamLab/candor-core)；本專案 Browser 直連其 `/api/v1`。
 
 ## 線上預覽
 
 https://daydreamlab.github.io/health-client-chat-younger/
 
-推到 `main` 後會自動發 GitHub Pages。這是靜態站，聊天在瀏覽器裡用 demo 回覆；本地 `pnpm dev` 仍走 `/api/chat`。
+推到 `main` 後自動發 GitHub Pages（靜態站）。本地 `pnpm dev` 搭配 core（`NUXT_PUBLIC_API_BASE`）走真實 API。
 
-## 技術架構
-
-### 前端（已裝）
+## 技術棧
 
 | 技術 | 用途 |
-| --- | --- |
-| Nuxt 4 | 框架（Vue 3、SSR） |
-| Vue 3 | UI |
-| TypeScript | 全專案語法 |
-| Nuxt UI v4 | 元件庫 |
-| Tailwind CSS v4 | utility CSS；品牌色走 `@theme` token |
-| Pinia | 登入與旅程狀態 |
-| Zod | 表單送出時檢查（先用在登入） |
+|------|------|
+| Nuxt 4／Vue 3／TypeScript | 應用框架 |
+| Nuxt UI v4／Tailwind v4 | 元件與品牌 token |
+| Pinia | auth／journey／orders |
+| Zod | 表單驗證 |
 | @nuxtjs/i18n | 繁中預設 + 英文 |
-| pnpm | 套件 |
-| Node 22 | `.nvmrc` |
+| Vitest／Playwright | 單元／e2e |
+| pnpm／Node 22 | 套件與 runtime |
 
-### 測試
+## 文件索引
 
-| 技術 | 現況 |
-| --- | --- |
-| Vitest + Vue Test Utils + @nuxt/test-utils | 單元測試（方案規則） |
-| Playwright | **只寫煙霧測試**：未登入首頁看得到 坦見 |
+| 文件 | 說明 |
+|------|------|
+| [docs/00-overview.md](docs/00-overview.md) | 願景、目標、非目標、名詞 |
+| [docs/01-architecture.md](docs/01-architecture.md) | 直連拓撲、模組邊界 |
+| [docs/02-roadmap.md](docs/02-roadmap.md) | M0–M5 里程碑 |
+| [docs/03-progress.md](docs/03-progress.md) | 接線進度看板（與 core 04 雙寫） |
+| [docs/spec/10-screens.md](docs/spec/10-screens.md) | 路由與畫面 |
+| [docs/spec/11-api-client.md](docs/spec/11-api-client.md) | CandorApi、token、SSE |
+| [docs/figjam-mvp-flow.md](docs/figjam-mvp-flow.md) | FigJam 產品流快照 |
+| [docs/color-inventory.md](docs/color-inventory.md) | 品牌色 |
+| [AGENTS.md](AGENTS.md) | AI／貢獻者硬規則 |
 
-### 後端
+Core 側：串接進度 [04](https://github.com/DaydreamLab/candor-core/blob/main/docs/04-integration-progress.md)、架構 [05](https://github.com/DaydreamLab/candor-core/blob/main/docs/05-integration-architecture.md)、契約 [spec 31](https://github.com/DaydreamLab/candor-core/blob/main/docs/spec/31-client-integration.md)。
 
-| | 現在 | 之後 |
-| --- | --- | --- |
-| 會員、訂單、金流、預約 | Mock | PHP（UI 面板流程確認後進場） |
-| AI Chat | `server/api/chat` 假回覆 | 同一支薄 BFF 再接模型；金鑰不進瀏覽器 |
+## 產品規則（摘要）
 
-### 產品規則
-
-- 逛首頁、看方案可以不登入。
-- 交給顧問、付款、要留下資料時強制登入。
-- 未登入與已登入都有畫面。
-- Chat 第一版只解釋報告與生活建議，不指定商品。
-- 暫無 Logo，畫面用文字 Candor／坦見 + 品牌色。
-
-## 產品流程（FigJam）
-
-客人路徑與三個方案以 FigJam 為準：
-
-- Live：[A-Y MVP 協作流程 v0](https://www.figma.com/board/nYWKdgK5iX2YaNZf9lEP6p/A-Y-MVP%E5%8D%94%E4%BD%9C%E6%B5%81%E7%A8%8B-v0?node-id=0-1)
-- 專案內快照：[`docs/figjam-mvp-flow.md`](docs/figjam-mvp-flow.md)
+- 逛首頁、看方案可以不登入；結帳與留下資料走 guest → member。
+- 建議排序以 core 為準；ClaimGuard `blocked` 原文顯示。
+- 新功能直連 core，不新增 `server/api` mock BFF。
 
 ## 常用指令
 
 需要 Node 22（`nvm use`）。
 
 ```bash
+cp .env.example .env   # NUXT_PUBLIC_API_BASE=http://localhost:8080/api/v1
 pnpm install
 pnpm dev
-pnpm generate   # 靜態站（GitHub Pages）
+pnpm generate          # 靜態站（GitHub Pages）
+pnpm run lint && pnpm run typecheck
 pnpm test
 pnpm test:e2e
 ```
 
 開發網址：http://localhost:3000
-
-未登入首頁先用 Design Token + 原生 HTML，避免 Nuxt UI Primitive 在 Vue 3.5 水合時出錯。登入頁與會員 layout 仍使用 Nuxt UI，之後再把公開頁元件接回去。
