@@ -14,7 +14,7 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 | `/app` | `user` + `auth` | 會員首頁 | `ensureSession`（guest 亦可持有 token） |
 | `/app/recommendations` | `user` + `auth` | 建議與結帳 | `POST /recommendations`、`GET /package-plans`、`POST /orders`、`PATCH /users/me` |
 | `/app/orders` | `user` + `auth` | 訂單列表 | `GET /orders` |
-| `/app/orders/[id]` | `user` + `auth` | 訂單詳情、出貨時間線、對話 modal | `GET /order/{id}`；`GET /order/{id}/message`（接線中） |
+| `/app/orders/[id]` | `user` + `auth` | 訂單詳情、出貨時間線、對話 modal | `GET /order/{id}`；`GET /order/{id}/message`（已接） |
 | `/app/handoff` | `user` + `auth` | 舊 FigJam「交給顧問」殼 | 非 core 主路徑；勿新增假 API |
 
 ## Middleware 行為
