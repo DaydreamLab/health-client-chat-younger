@@ -66,6 +66,10 @@ export const useAuthStore = defineStore('auth', () => {
     expiresAt.value = Date.now() + session.expires_in * 1000
   }
 
+  function applyMe(me: UserMe) {
+    user.value = toBrief(me)
+  }
+
   function clearSession() {
     api.writeToken(null)
     user.value = null
@@ -185,6 +189,7 @@ export const useAuthStore = defineStore('auth', () => {
     register,
     logout,
     clearSession,
-    applySession
+    applySession,
+    applyMe
   }
 })

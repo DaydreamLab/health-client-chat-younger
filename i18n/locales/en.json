@@ -12,6 +12,7 @@
     "member": "My health",
     "orders": "My orders",
     "renewals": "Renewals",
+    "profile": "Profile",
     "chat": "Consult",
     "logout": "Log out",
     "startChat": "Start consult"
@@ -127,6 +128,31 @@
       "jan": "2026.01",
       "may2": "2026.05"
     }
+  },
+  "profile": {
+    "title": "Profile",
+    "subtitle": "Update your display name, password, and default shipping address.",
+    "guestHint": "Register or sign in to save your profile and default recipient.",
+    "register": "Register",
+    "login": "Log in",
+    "accountSection": "Account",
+    "email": "Email",
+    "emailReadonly": "Email is your login identity and cannot be changed here.",
+    "displayName": "Display name",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "newPasswordHint": "At least 10 characters; leave blank to keep",
+    "recipientSection": "Default recipient",
+    "recipientHint": "Fill all five fields to save; leave blank to keep the existing address.",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved.",
+    "loadError": "Could not load your profile. Please try again.",
+    "errorSave": "Could not save. Please try again.",
+    "errorCurrentPassword": "Current password is incorrect.",
+    "errorCurrentPasswordRequired": "Enter your current password to set a new one.",
+    "errorWeakPassword": "New password must be at least 10 characters.",
+    "errorRecipientIncomplete": "Fill all recipient fields, or leave them all blank."
   },
   "renewals": {
     "title": "Renewals due",

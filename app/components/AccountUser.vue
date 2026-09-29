@@ -1,8 +1,9 @@
 <template>
-  <div
+  <NuxtLink
     v-if="auth.user"
+    :to="localePath('/app/me')"
     data-testid="account-user"
-    class="flex min-w-0 items-center gap-2"
+    class="flex min-w-0 items-center gap-2 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
     :class="avatarOnly ? 'justify-center' : undefined"
     :title="avatarOnly ? auth.displayName : undefined"
   >
@@ -27,7 +28,7 @@
         {{ auth.user.email || auth.user.role }}
       </p>
     </div>
-  </div>
+  </NuxtLink>
 </template>
 
 <script setup lang="ts">
@@ -39,5 +40,6 @@ withDefaults(defineProps<{
   avatarOnly: false
 })
 
+const localePath = useLocalePath()
 const auth = useAuthStore()
 </script>

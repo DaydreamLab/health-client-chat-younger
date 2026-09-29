@@ -15,6 +15,7 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 | `/app/recommendations` | `user` + `auth` | 建議與結帳 | `POST /recommendations`、`GET /package-plans`、`POST /orders`、`PATCH /users/me` |
 | `/app/orders` | `user` + `auth` | 訂單列表 | `GET /orders` |
 | `/app/orders/[id]` | `user` + `auth` | 訂單詳情、出貨時間線、對話 modal | `GET /order/{id}`；`GET /order/{id}/message`（已接） |
+| `/app/me` | `user` + `auth` | 個人資料：顯示名稱、密碼、常用收件（email 唯讀） | `GET`／`PATCH /users/me`；guest 引導註冊 |
 | `/app/handoff` | `user` + `auth` | 舊 FigJam「交給顧問」殼 | 非 core 主路徑；勿新增假 API |
 
 ## Middleware 行為
@@ -32,6 +33,7 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 |----|----------|
 | Chat | `pages/chat.vue`、`components/ChatPanel.vue` |
 | 建議／結帳 | `pages/app/recommendations.vue`、`composables/useFirstOrderApi.ts` |
+| 個人資料 | `pages/app/me.vue`、側欄／`AccountUser` |
 | 訂單 | `pages/app/orders/*`、`stores/orders.ts`、`components/ShipmentTimeline.vue`、`OrderChatModal.vue` |
 | 報告表 | `components/ReportResultTable.vue`、`ReportDataDock.vue` |
 

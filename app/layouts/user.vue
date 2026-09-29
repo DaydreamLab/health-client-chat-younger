@@ -101,11 +101,13 @@ const isChat = computed(() => route.path.includes('/chat'))
 const isOrders = computed(() => route.path.includes('/orders'))
 const isRenewals = computed(() => route.path.includes('/renewals'))
 const isRecommendations = computed(() => route.path.includes('/recommendations'))
+const isProfile = computed(() => route.path.includes('/app/me'))
 const isHealth = computed(() => route.path.includes('/app')
   && !isChat.value
   && !isOrders.value
   && !isRenewals.value
-  && !isRecommendations.value)
+  && !isRecommendations.value
+  && !isProfile.value)
 const collapsedNavUi = {
   link: 'flex-col gap-1 items-center',
   linkLabel: 'block text-[10px]/3 text-center'
@@ -140,6 +142,14 @@ const navItems = computed<UserNavItem[]>(() => [
     active: isRenewals.value,
     testId: 'nav-renewals',
     mobileTestId: 'nav-renewals-mobile'
+  },
+  {
+    label: t('nav.profile'),
+    icon: 'i-lucide-user-round',
+    to: localePath('/app/me'),
+    active: isProfile.value,
+    testId: 'nav-profile',
+    mobileTestId: 'nav-profile-mobile'
   }
 ])
 const desktopNavItems = computed<NavigationMenuItem[]>(() => navItems.value.map((item) => {

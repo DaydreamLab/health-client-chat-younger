@@ -295,13 +295,18 @@ export function useCandorApi() {
       request<UserSession>('/auth/login', { method: 'POST', body, auth: 'optional' }),
     refresh: () => request<UserSession>('/auth/refresh', { method: 'POST' }),
     me: () => request<UserMe>('/users/me'),
-    patchMe: (body: { default_recipient: {
-      name: string
-      phone: string
-      address_city: string
-      address_district: string
-      address_detail: string
-    } }) => request<UserMe>('/users/me', { method: 'PATCH', body }),
+    patchMe: (body: {
+      display_name?: string | null
+      password?: string
+      current_password?: string
+      default_recipient?: {
+        name: string
+        phone: string
+        address_city: string
+        address_district: string
+        address_detail: string
+      }
+    }) => request<UserMe>('/users/me', { method: 'PATCH', body }),
 
     listPackagePlans: () =>
       request<PackagePlansList>('/package-plans', { method: 'GET', auth: false }),
