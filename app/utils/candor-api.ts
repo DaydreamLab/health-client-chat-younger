@@ -336,6 +336,34 @@ export interface HealthReport {
   results?: HealthReportResult[] | null
 }
 
+export interface HealthReportPatchResultRequest {
+  value_numeric?: number | null
+  unit?: string | null
+  biomarker_id?: string | null
+  confirm?: boolean | null
+}
+
+export interface RenewalDueItem {
+  order_id: string
+  order_no: string
+  package_code: string
+  package_name: string
+  period_end: string
+  days_left: number
+  expired: boolean
+}
+
+export interface RenewalsDueList {
+  renewals: RenewalDueItem[]
+}
+
+export interface AnonymizeAccepted {
+  status: string
+  anonymized_at: string
+  scheduled?: string[]
+  user_id?: string | null
+}
+
 export type ProfileAnswerType = 'enum' | 'int' | 'text' | 'multi_enum'
 
 export interface ProfileNextDone {

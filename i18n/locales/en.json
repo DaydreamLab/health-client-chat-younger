@@ -11,6 +11,7 @@
     "login": "Log in",
     "member": "My health",
     "orders": "My orders",
+    "renewals": "Renewals",
     "chat": "Consult",
     "logout": "Log out",
     "startChat": "Start consult"
@@ -113,12 +114,30 @@
     "statusLow": "Low",
     "statusHigh": "High",
     "range": "Optimal {range}",
+    "privacyTitle": "Privacy & data",
+    "privacyHint": "You can request anonymization of your personal data. Records that cannot identify you may be kept; hard deletion of every file is not promised.",
+    "anonymize": "Anonymize my data",
+    "anonymizeConfirm": "This clears your session and local drafts, and anonymizes account data. It cannot be undone.",
+    "anonymizeConfirmAction": "Confirm anonymization",
+    "anonymizeDismiss": "Cancel",
+    "anonymizeError": "Could not anonymize your data. Please try again.",
     "months": {
       "may": "2025.05",
       "sep": "2025.09",
       "jan": "2026.01",
       "may2": "2026.05"
     }
+  },
+  "renewals": {
+    "title": "Renewals due",
+    "subtitle": "Open a renewal chat around period end to continue or adjust your plan.",
+    "loading": "Loading…",
+    "empty": "No renewals due right now.",
+    "loadError": "Could not load renewals. Please try again.",
+    "daysLeft": "{days} days left",
+    "expired": "Expired {days} days ago (still in grace)",
+    "startChat": "Start renewal chat",
+    "startError": "Could not start a renewal chat. Please try again."
   },
   "markers": {
     "vitaminD": "Vitamin D",
@@ -203,7 +222,11 @@
     "position": "Position",
     "collapse": "Collapse",
     "expand": "Expand",
-    "close": "Close"
+    "close": "Close",
+    "correct": "Correct",
+    "correctConfirm": "Confirm",
+    "correctInvalid": "Enter a valid number.",
+    "correctError": "Could not save the correction. Please try again."
   },
   "recommendation": {
     "title": "Recommended plan",
@@ -245,10 +268,10 @@
     "daily": "Per day",
     "monthly": "Per month",
     "packagePick": "Recommended plan",
-    "basicCare": "Basic Care",
-    "basicCareHint": "Core supplements for off-range markers, {count} items",
-    "fullTune": "Full Tune",
-    "fullTuneHint": "Basic Care plus extras, {count} items",
+    "basicPlan": "Basic Care",
+    "basicPlanHint": "Core supplements for off-range markers, {count} items",
+    "advancePlan": "Full Tune",
+    "advancePlanHint": "Basic Care plus extras, {count} items",
     "perMonth": "{price} / mo",
     "itemCountHint": "{count} items",
     "recommended": "Recommended",
@@ -389,7 +412,16 @@
     "awaitingPayment": "Awaiting payment",
     "back": "Back to orders",
     "recipient": "Recipient",
-    "address": "Address"
+    "address": "Address",
+    "repay": "Pay again",
+    "repayError": "Could not start payment. Please try again.",
+    "cancel": "Cancel order",
+    "cancelTitle": "Cancel this order?",
+    "cancelHint": "Only unpaid orders can be cancelled. This cannot be undone.",
+    "cancelReasonPlaceholder": "Reason (optional)",
+    "cancelConfirm": "Confirm cancel",
+    "cancelDismiss": "Keep order",
+    "cancelError": "Could not cancel the order. Please try again."
   },
   "footer": "© {year} Candor. All rights reserved."
 }

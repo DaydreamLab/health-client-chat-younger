@@ -43,11 +43,19 @@ export const useOrdersStore = defineStore('orders', () => {
     return orders.value.find(item => item.id === id)
   }
 
+  function clear() {
+    orders.value = []
+    if (import.meta.client) {
+      localStorage.removeItem(STORAGE_KEY)
+    }
+  }
+
   return {
     orders,
     hydrate,
     add,
     list,
-    getById
+    getById,
+    clear
   }
 })

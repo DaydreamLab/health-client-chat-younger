@@ -99,8 +99,13 @@ const { t } = useI18n()
 
 const isChat = computed(() => route.path.includes('/chat'))
 const isOrders = computed(() => route.path.includes('/orders'))
+const isRenewals = computed(() => route.path.includes('/renewals'))
 const isRecommendations = computed(() => route.path.includes('/recommendations'))
-const isHealth = computed(() => route.path.includes('/app') && !isChat.value && !isOrders.value && !isRecommendations.value)
+const isHealth = computed(() => route.path.includes('/app')
+  && !isChat.value
+  && !isOrders.value
+  && !isRenewals.value
+  && !isRecommendations.value)
 const collapsedNavUi = {
   link: 'flex-col gap-1 items-center',
   linkLabel: 'block text-[10px]/3 text-center'
@@ -127,6 +132,14 @@ const navItems = computed<UserNavItem[]>(() => [
     active: isOrders.value,
     testId: 'nav-orders',
     mobileTestId: 'nav-orders-mobile'
+  },
+  {
+    label: t('nav.renewals'),
+    icon: 'i-lucide-refresh-cw',
+    to: localePath('/app/renewals'),
+    active: isRenewals.value,
+    testId: 'nav-renewals',
+    mobileTestId: 'nav-renewals-mobile'
   }
 ])
 const desktopNavItems = computed<NavigationMenuItem[]>(() => navItems.value.map((item) => {

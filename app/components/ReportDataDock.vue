@@ -5,11 +5,13 @@ const props = defineProps<{
   open: boolean
   collapsed: boolean
   results: HealthReportResult[]
+  reportId?: string | null
 }>()
 
 const emit = defineEmits<{
   'update:open': [value: boolean]
   'update:collapsed': [value: boolean]
+  'updated': [results: HealthReportResult[]]
 }>()
 
 function toggle() {
@@ -19,6 +21,10 @@ function toggle() {
 function close() {
   emit('update:open', false)
   emit('update:collapsed', false)
+}
+
+function onUpdated(results: HealthReportResult[]) {
+  emit('updated', results)
 }
 </script>
 
@@ -57,7 +63,11 @@ function close() {
       v-show="!collapsed"
       class="report-dock-body min-h-0 flex-1 overflow-auto px-3 py-3 sm:px-4"
     >
-      <ReportResultTable :results="results" />
+      <ReportResultTable
+        :results="results"
+        :report-id="reportId"
+        @updated="onUpdated"
+      />
     </div>
   </div>
 </template>

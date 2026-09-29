@@ -14,7 +14,7 @@
 ## 硬規則
 
 1. **命名以 candor-core domain 為準。** TypeScript 識別子、composables、Pinia store、路由 path／name、元件檔名使用 core 詞。禁止長期以 `AuthUser`、`plan`／`supplementPlan`／`basicCare`／`fullTune`、`supplementItem` 當識別子（對照 → `user`、`package_plan`／`package`、`sellable_item`）。使用者可見中文文案可用「方案」「會員」。
-2. **Browser 直連 core。** 新功能經 `useCandorApi`／`$fetch` 打 `NUXT_PUBLIC_API_BASE`（預設 `http://localhost:8080/api/v1`）。**不得**為新能力新增或擴充 `server/api/*` mock BFF。既有 `server/api/*` 僅過渡，退役見 [docs/02-roadmap.md](docs/02-roadmap.md) M5。
+2. **Browser 直連 core。** 新功能經 `useCandorApi`／`$fetch` 打 `NUXT_PUBLIC_API_BASE`（預設 `http://localhost:8080/api/v1`）。**不得**新增 `server/api/*` mock BFF（M5 已退役）。
 3. **Token 只放 `localStorage`。** 鍵 `candor.guest.token`（guest／member 共用 user 管道）。禁止寫入 URL query／hash、前端 log 或可分享連結。
 4. **不實作 payment webhook。** 不得呼叫或代理 `POST /payments/{provider}/callback`；sandbox／真實 provider 的 callback 只打 core。
 5. **ClaimGuard 原文呈現。** `claim_guard` 為 `blocked` 時顯示安全提示原文，不得改寫、隱藏或以本地文案覆蓋；SSE 收到 `blocked` 須清空先前 delta。
@@ -41,7 +41,6 @@ health-client-chat-younger/
 │   ├── plugins/
 │   ├── stores/           # auth、journey、orders
 │   └── utils/            # candor-api 型別、checkout-schema 等
-├── server/api/           # 殘留 mock；新功能禁止擴充
 ├── test/                 # unit（Vitest）、e2e（Playwright）
 ├── i18n/locales/
 ├── .cursor/rules/        # CI lint、FigJam 產品流

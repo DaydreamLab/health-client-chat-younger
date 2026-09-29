@@ -2,7 +2,7 @@
 
 對應 [02-roadmap.md](02-roadmap.md)。完成時改 `[ ]` → `[x]`；接線切片用狀態欄。
 
-**里程碑總覽**：M0–M2 完成；M3 進行中（建議／建單／查單已接，重新付款／取消未接）；M4 進行中（反查已接，續約／校正／去識別化未接）；M5 未開始。細項見下方勾選與功能表。
+**里程碑總覽**：M0–M5 完成（Younger 主路徑已接；同步訊息與 lab-services 畫面仍 Backlog）。Admin 不在本 repo。細項見下方勾選與功能表。
 
 **同步規則**：本檔與 [candor-core docs/04-integration-progress.md](https://github.com/DaydreamLab/candor-core/blob/main/docs/04-integration-progress.md) 的 Younger 區必須一致。功能表的**接線**欄變更時，須與本檔下方 API 切片及 candor-core `04` 一起改；**畫面**欄只改本 repo。
 
@@ -40,7 +40,7 @@
 
 ## M2 — Auth、報告、對話直連
 
-- [x] Auth 主路徑 `已接`（去識別化除外）
+- [x] Auth 主路徑 `已接`（含去識別化）
 - [x] 報告上傳／輪詢／retry `已接`
 - [x] Profile 問卷 `已接`
 - [x] SSE 對話（建立／綁定／目標／價格帶）`已接`
@@ -49,18 +49,18 @@
 
 - [x] 建議／價格帶／建單／常用收件 `已接`
 - [x] 訂單列表／詳情／出貨時間線 `已接`
-- [ ] 重新付款、取消：畫面 `可用`、接線 `已接`
+- [x] 重新付款、取消：畫面 `可用`、接線 `已接`
 
 ## M4 — 續約與收尾
 
 - [x] 訂單反查對話 `已接`
-- [ ] 續約列表／續約對話
-- [ ] 擁有者校正、去識別化
+- [x] 續約列表／續約對話
+- [x] 擁有者校正、去識別化
 
 ## M5 — 拆 mock BFF 與舊識別子
 
-- [ ] 無禁止識別子（`plan`／`supplementPlan`／`basicCare`／`fullTune`／`supplementItem` 等）
-- [ ] 正式旅程不依賴 `server/api/*` mock
+- [x] 無禁止識別子（`plan`／`supplementPlan`／`basicCare`／`fullTune`／`supplementItem` 等）
+- [x] 正式旅程不依賴 `server/api/*` mock
 
 ## 功能（使用者可見）
 
@@ -70,9 +70,9 @@
 |------|------------|------|------|--------|
 | 逛站首頁 | `/` | 可用 | 不需 | 完成 |
 | 登入／註冊／身份／常用收件 | `/login`、結帳收件 | 可用 | 已接 | 完成 |
-| 去識別化 | — | 無 | Mock | M4 |
+| 去識別化 | `/app` 隱私區 | 可用 | 已接 | 完成 |
 | 報告上傳／輪詢／重試 | `/chat` | 可用 | 已接 | 完成 |
-| 擁有者校正結果 | — | 無 | Mock | M4 |
+| 擁有者校正結果 | `/chat` 報告 dock | 可用 | 已接 | 完成 |
 | Profile 問卷 | `/chat` | 可用 | 已接 | 完成 |
 | 對話（建立／綁定／目標／價格帶／SSE） | `/chat` | 可用 | 已接 | 完成 |
 | 同步訊息（非 SSE） | — | 無 | Mock | Backlog |
@@ -81,9 +81,9 @@
 | 血檢主檔列表 | — | 無 | 接線中 | Backlog |
 | 訂單列表／詳情／出貨時間線 | `/app/orders`、`/app/orders/[id]` | 可用 | 已接 | 完成 |
 | 訂單反查對話 | 訂單詳情 modal | 可用 | 已接 | 完成 |
-| 重新付款 | — | 無 | Mock | M3 |
-| 取消訂單 | — | 無 | Mock | M3 |
-| 續約列表／續約對話 | — | 無 | Mock | M4 |
+| 重新付款 | `/app/orders/[id]` | 可用 | 已接 | 完成 |
+| 取消訂單 | `/app/orders/[id]` | 可用 | 已接 | 完成 |
+| 續約列表／續約對話 | `/app/renewals` → `/chat` | 可用 | 已接 | 完成 |
 | 舊 handoff 殼 | `/app/handoff` | 殼（導向 `/chat`） | 不做 | 不做 |
 
 ## 接線切片（對齊 core 04）
@@ -98,7 +98,7 @@
 | 換票 | `POST /auth/refresh` | 已接 |
 | 目前身份 | `GET /users/me` | 已接 |
 | 常用收件 | `PATCH /users/me` | 已接 |
-| 去識別化 | `DELETE /users/me/data` | Mock |
+| 去識別化 | `DELETE /users/me/data` | 已接 |
 
 ### 健康報告
 
@@ -107,7 +107,7 @@
 | 上傳 | `POST /health-reports` | 已接 |
 | 輪詢詳情 | `GET /health-reports/{id}` | 已接 |
 | 重試擷取 | `POST /health-reports/{id}/retry` | 已接 |
-| 擁有者校正 | `PATCH /health-reports/{id}/results/{result_id}` | Mock |
+| 擁有者校正 | `PATCH /health-reports/{id}/results/{result_id}` | 已接 |
 
 ### Profile 問卷
 
@@ -143,8 +143,8 @@
 | 建單（`lines[]`） | `POST /orders` | 已接 |
 | 列表 | `GET /orders` | 已接 |
 | 詳情 | `GET /order/{id}` | 已接 |
-| 重新付款 | `POST /order/{id}/payment` | Mock |
-| 取消 | `POST /order/{id}/cancel` | Mock |
+| 重新付款 | `POST /order/{id}/payment` | 已接 |
+| 取消 | `POST /order/{id}/cancel` | 已接 |
 | 反查對話 | `GET /order/{id}/message` | 已接 |
 | Provider webhook | `POST /payments/{provider}/callback` | 不做 |
 
@@ -152,23 +152,23 @@
 
 | 能力 | 端點 | 狀態 |
 |------|------|------|
-| 待續約列表 | `GET /renewals/due` | Mock |
-| 續約對話 | `POST /conversations`（`renewal_of_order_id`） | Mock |
+| 待續約列表 | `GET /renewals/due` | 已接 |
+| 續約對話 | `POST /conversations`（`renewal_of_order_id`） | 已接 |
 
 ### 命名改接
 
 | 檢查項 | 狀態 |
 |--------|------|
 | 無 `AuthUser` 當識別子（實體用 `user`） | 已接 |
-| 無 `plan`／`supplementPlan`／`basicCare`／`fullTune`（→ `package_plan`） | 接線中 |
-| 無 `supplementItem`（→ `sellable_item`） | 接線中 |
+| 無 `plan`／`supplementPlan`／`basicCare`／`fullTune`（→ `package_plan`） | 已接 |
+| 無 `supplementItem`（→ `sellable_item`） | 已接 |
 
 ### 技術債
 
 | 項目 | 狀態 |
 |------|------|
-| `server/api/*` mock BFF 退役 | 未完成（M5） |
+| `server/api/*` mock BFF 退役 | 已完成（M5；目錄已刪） |
 
 ---
 
-**最後更新**：2026-09-25（補 M2–M5 勾選與總覽；訂單反查對話已接；建議建單查單已接；續約、重新付款、取消仍 Mock）
+**最後更新**：2026-09-29（M3–M5 收尾：重新付款／取消、續約、校正、去識別化已接；mock BFF 與禁止識別子清除）

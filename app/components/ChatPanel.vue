@@ -88,6 +88,8 @@
         v-model:open="reportDockOpen"
         v-model:collapsed="reportDockCollapsed"
         :results="reportResults"
+        :report-id="journey.reportId"
+        @updated="onReportResultsUpdated"
       />
       <div
         ref="transcriptEl"
@@ -432,6 +434,10 @@ function applyPackageFromQuery() {
   if (packageCode) {
     journey.selectedPackageCode = packageCode
   }
+}
+
+function onReportResultsUpdated(results: HealthReportResult[]) {
+  reportResults.value = results
 }
 
 function makeMessage(role: ChatMessage['role'], text: string, id?: string, file?: string): ChatMessage {

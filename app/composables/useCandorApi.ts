@@ -1,11 +1,14 @@
 import type {
+  AnonymizeAccepted,
   ApiFailed,
   ApiSuccess,
   ConversationAttachAck,
   ConversationCreate,
+  ConversationDetachAck,
   ConversationGoalsResult,
   ConversationPackageConfirm,
   HealthReport,
+  HealthReportPatchResultRequest,
   HealthReportRetryAck,
   HealthReportUploadAck,
   LabServicesList,
@@ -19,6 +22,7 @@ import type {
   ProfileAnswerResult,
   ProfileNext,
   RecommendationResponse,
+  RenewalsDueList,
   StreamMessageResult,
   UserMe,
   UserSession
@@ -375,6 +379,15 @@ export function useCandorApi() {
       request<HealthReportRetryAck>(`/health-reports/${encodeURIComponent(id)}/retry`, {
         method: 'POST'
       }),
+    patchHealthReportResult: (
+      reportId: string,
+      resultId: string,
+      body: HealthReportPatchResultRequest
+    ) =>
+      request<HealthReport>(
+        `/health-reports/${encodeURIComponent(reportId)}/results/${encodeURIComponent(resultId)}`,
+        { method: 'PATCH', body: body as Record<string, unknown> }
+      ),
 
     nextProfileQuestion: (reportId?: string | null) =>
       request<ProfileNext>('/profile/questions/next', {
@@ -413,6 +426,12 @@ export function useCandorApi() {
       }),
 
     getOrderMessages: (id: string) =>
-      request<OrderMessages>(`/order/${encodeURIComponent(id)}/message`, { method: 'GET' })
+      request<OrderMessages>(`/order/${encodeURIComponent(id)}/message`, { method: 'GET' }),
+
+    listRenewalsDue: () =>
+      request<RenewalsDueList>('/renewals/due', { method: 'GET' }),
+
+    anonymizeMe: () =>
+      request<AnonymizeAccepted>('/users/me/data', { method: 'DELETE' })
   }
 }

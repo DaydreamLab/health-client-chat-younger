@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { checkoutSchema, createOrderSchema } from '../../app/utils/checkout-schema'
 import {
+  buildDemoOrder,
+  demoPackagePlans,
   formatTwd,
-  itemsForPlan,
-  mockCatalog,
-  mockCreateOrder,
+  itemsForPackagePlan,
   shipmentStepIds,
   shouldPersistChat,
-  supplementPlans,
   timelineStatus
 } from '../../app/utils/first-order'
 
@@ -19,17 +18,17 @@ const recipient = {
 }
 
 describe('first-order demo', () => {
-  it('prices one-month Basic Care below Full Tune', () => {
-    expect(supplementPlans.basicCare.price).toBe(1280)
-    expect(supplementPlans.fullTune.price).toBe(1980)
-    expect(supplementPlans.basicCare.durationMonths).toBe(1)
-    expect(supplementPlans.fullTune.durationMonths).toBe(1)
+  it('prices one-month basic below advance', () => {
+    expect(demoPackagePlans.basic.price).toBe(1280)
+    expect(demoPackagePlans.advance.price).toBe(1980)
+    expect(demoPackagePlans.basic.durationMonths).toBe(1)
+    expect(demoPackagePlans.advance.durationMonths).toBe(1)
     expect(formatTwd(1280)).toBe('NT$1,280')
   })
 
-  it('does not let Full Tune drop core items', () => {
-    const coreIds = itemsForPlan('basicCare').map(item => item.id)
-    const fullIds = itemsForPlan('fullTune').map(item => item.id)
+  it('does not let advance drop core items', () => {
+    const coreIds = itemsForPackagePlan('basic').map(item => item.id)
+    const fullIds = itemsForPackagePlan('advance').map(item => item.id)
     expect(fullIds).toEqual(expect.arrayContaining(coreIds))
     expect(fullIds.length).toBeGreaterThan(coreIds.length)
   })
@@ -45,8 +44,8 @@ describe('first-order demo', () => {
       role: 'user' as const,
       parts: [{ type: 'text' as const, text: '已上傳報告' }]
     }]
-    const order = mockCreateOrder({
-      packagePlanCode: 'basicCare',
+    const order = buildDemoOrder({
+      packagePlanCode: 'basic',
       paymentMethod: 'card',
       invoice: 'cloud',
       invoiceCarrier: '/ABC1234',
@@ -56,7 +55,7 @@ describe('first-order demo', () => {
 
     expect(order.messages).toHaveLength(1)
     expect(order.messages[0]).not.toBe(messages[0])
-    expect(order.packagePlanCode).toBe('basicCare')
+    expect(order.packagePlanCode).toBe('basic')
     expect(order.productCodes).toEqual(['vitaminD', 'iron', 'vitaminC'])
     expect(order.timeline.map(step => step.id)).toEqual(shipmentStepIds)
     expect(timelineStatus(order.timeline)).toBe('confirmed')
@@ -76,10 +75,8 @@ describe('first-order demo', () => {
     ])).toBe('picking')
   })
 
-  it('exposes both month packages in the catalog', () => {
-    const catalog = mockCatalog()
-    expect(catalog.plans.map(plan => plan.id)).toEqual(['basicCare', 'fullTune'])
-    expect(catalog.chart.length).toBeGreaterThan(0)
+  it('exposes both month package plans in the demo catalog', () => {
+    expect(Object.keys(demoPackagePlans)).toEqual(['basic', 'advance'])
   })
 
   it('rejects checkout without a recipient phone', () => {

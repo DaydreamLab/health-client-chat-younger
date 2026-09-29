@@ -11,6 +11,7 @@
     "login": "登入",
     "member": "我的健康",
     "orders": "我的訂單",
+    "renewals": "續約",
     "chat": "諮詢",
     "logout": "登出",
     "startChat": "開始諮詢"
@@ -113,12 +114,30 @@
     "statusLow": "偏低",
     "statusHigh": "偏高",
     "range": "最佳值 {range}",
+    "privacyTitle": "隱私與資料",
+    "privacyHint": "你可以申請去識別化個人資料。系統會保留無法辨識你的紀錄，不會承諾硬刪全部檔案。",
+    "anonymize": "去識別化我的資料",
+    "anonymizeConfirm": "確認後會清除登入狀態與本機暫存，並對帳號資料去識別化。此動作無法復原。",
+    "anonymizeConfirmAction": "確認去識別化",
+    "anonymizeDismiss": "取消",
+    "anonymizeError": "無法完成去識別化，請稍後再試。",
     "months": {
       "may": "2025.05",
       "sep": "2025.09",
       "jan": "2026.01",
       "may2": "2026.05"
     }
+  },
+  "renewals": {
+    "title": "待續約",
+    "subtitle": "到期前後可開啟續約對話，延續或調整方案。",
+    "loading": "載入中…",
+    "empty": "目前沒有待續約的訂單。",
+    "loadError": "無法載入待續約清單，請稍後再試。",
+    "daysLeft": "還有 {days} 天到期",
+    "expired": "已過期 {days} 天（仍在寬限期）",
+    "startChat": "開啟續約對話",
+    "startError": "無法建立續約對話，請稍後再試。"
   },
   "markers": {
     "vitaminD": "維他命 D",
@@ -203,7 +222,11 @@
     "position": "位置",
     "collapse": "收合",
     "expand": "展開",
-    "close": "關閉"
+    "close": "關閉",
+    "correct": "校正",
+    "correctConfirm": "確認",
+    "correctInvalid": "請輸入有效數值。",
+    "correctError": "無法儲存校正，請稍後再試。"
   },
   "recommendation": {
     "title": "推薦方案",
@@ -245,10 +268,10 @@
     "daily": "每日費用",
     "monthly": "每月費用",
     "packagePick": "推薦方案",
-    "basicCare": "基礎保養",
-    "basicCareHint": "對應異常指標的基礎補充，共 {count} 項",
-    "fullTune": "完整調理",
-    "fullTuneHint": "基礎保養＋加強項目，共 {count} 項",
+    "basicPlan": "基礎保養",
+    "basicPlanHint": "對應異常指標的基礎補充，共 {count} 項",
+    "advancePlan": "完整調理",
+    "advancePlanHint": "基礎保養＋加強項目，共 {count} 項",
     "perMonth": "{price}／月",
     "itemCountHint": "共 {count} 項",
     "recommended": "推薦",
@@ -389,7 +412,16 @@
     "awaitingPayment": "等待付款",
     "back": "回到訂單列表",
     "recipient": "收件人",
-    "address": "地址"
+    "address": "地址",
+    "repay": "重新付款",
+    "repayError": "無法重新發起付款，請稍後再試。",
+    "cancel": "取消訂單",
+    "cancelTitle": "確認取消這筆訂單？",
+    "cancelHint": "僅未付款的訂單可取消。取消後無法復原。",
+    "cancelReasonPlaceholder": "取消原因（選填）",
+    "cancelConfirm": "確認取消",
+    "cancelDismiss": "再想想",
+    "cancelError": "無法取消訂單，請稍後再試。"
   },
   "footer": "© {year} 坦見。保留所有權利。"
 }

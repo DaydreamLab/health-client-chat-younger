@@ -23,7 +23,7 @@ Browser／Nuxt **直連** candor-core，不經產品 BFF。細節見 [candor-cor
 | **composables/useCandorApi** | `$fetch`、Bearer、envelope、SSE | 新增 Nitro mock 當正式後端 |
 | **utils/candor-api** | DTO／錯誤型別／token 鍵常數 | 定義與 OpenAPI 相反的欄位語意 |
 | **middleware** | auth／chat-layout | 伺服端假裝已登入（token 僅 client） |
-| **server/api/*** | 殘留 demo／記憶體 mock | **新功能禁止擴充**；退役見 roadmap M5 |
+| **server/api/*** | （已退役） | M5 已刪除；不得再新增 mock BFF |
 | **i18n** | 繁中／EN 文案 | 用翻譯鍵當 API 識別子 |
 
 ## 資料流（主路徑）

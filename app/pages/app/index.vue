@@ -17,6 +17,62 @@
     </div>
 
     <section
+      class="rounded-2xl border border-default bg-elevated p-5"
+      data-testid="member-privacy"
+    >
+      <h2 class="font-semibold text-highlighted">
+        {{ $t('member.privacyTitle') }}
+      </h2>
+      <p class="mt-1 text-sm text-muted">
+        {{ $t('member.privacyHint') }}
+      </p>
+      <div
+        v-if="!anonymizeOpen"
+        class="mt-4"
+      >
+        <AppButton
+          variant="outline"
+          data-testid="member-anonymize"
+          @click="anonymizeOpen = true"
+        >
+          {{ $t('member.anonymize') }}
+        </AppButton>
+      </div>
+      <div
+        v-else
+        class="mt-4 space-y-3"
+        data-testid="member-anonymize-panel"
+      >
+        <p class="text-sm text-highlighted">
+          {{ $t('member.anonymizeConfirm') }}
+        </p>
+        <div class="flex flex-wrap gap-2">
+          <AppButton
+            data-testid="member-anonymize-confirm"
+            :disabled="anonymizePending"
+            @click="onAnonymize"
+          >
+            {{ $t('member.anonymizeConfirmAction') }}
+          </AppButton>
+          <AppButton
+            variant="ghost"
+            :disabled="anonymizePending"
+            @click="anonymizeOpen = false"
+          >
+            {{ $t('member.anonymizeDismiss') }}
+          </AppButton>
+        </div>
+        <p
+          v-if="anonymizeError"
+          class="text-sm text-red-600 dark:text-red-400"
+          data-testid="member-anonymize-error"
+        >
+          {{ anonymizeError }}
+        </p>
+      </div>
+    </section>
+
+    <section
       class="relative overflow-hidden rounded-xl bg-primary/10"
       data-testid="health-ai-summary"
     >
@@ -95,7 +151,7 @@
             <CountUpNumber :value="healthMarkerCount" />+
           </p>
           <p class="mt-1 text-sm text-dimmed">
-            {{ $t('shop.fullTune') }}
+            {{ $t('shop.advancePlan') }}
           </p>
         </article>
         <article class="rounded-2xl border border-default bg-elevated p-5">
@@ -164,7 +220,7 @@
 </template>
 
 <script setup lang="ts">
-import { mockReportSummary } from '~/utils/first-order'
+import { demoReportSummary } from '~/utils/first-order'
 import {
   abnormalHealthMarkers,
   allHealthMarkers,
@@ -180,8 +236,35 @@ definePageMeta({
 })
 
 const localePath = useLocalePath()
-const { locale } = useI18n()
-const aiSummary = computed(() => mockReportSummary(locale.value))
+const { locale, t } = useI18n()
+const auth = useAuthStore()
+const journey = useJourneyStore()
+const ordersStore = useOrdersStore()
+const candor = useCandorApi()
+const aiSummary = computed(() => demoReportSummary(locale.value))
 const ringCircumference = 2 * Math.PI * 52
 const ringOffset = ringCircumference * (1 - healthScore / 100)
+
+const anonymizeOpen = ref(false)
+const anonymizePending = ref(false)
+const anonymizeError = ref('')
+
+async function onAnonymize() {
+  if (anonymizePending.value) {
+    return
+  }
+  anonymizePending.value = true
+  anonymizeError.value = ''
+  try {
+    await candor.anonymizeMe()
+    journey.clearSession()
+    ordersStore.clear()
+    auth.logout()
+    await navigateTo(localePath('/'))
+  } catch {
+    anonymizeError.value = t('member.anonymizeError')
+  } finally {
+    anonymizePending.value = false
+  }
+}
 </script>

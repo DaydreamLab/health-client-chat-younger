@@ -1,8 +1,9 @@
 import type { OrderCreated, OrderDetail, OrderSummary } from './candor-api'
 
-export type SupplementPlanId = 'basicCare' | 'fullTune'
+/** Demo catalog codes (not live API identifiers). */
+export type DemoPackagePlanId = 'basic' | 'advance'
 
-export type SupplementItemId
+export type DemoSellableItemId
   = 'vitaminD'
     | 'iron'
     | 'vitaminC'
@@ -35,8 +36,8 @@ export interface ChatMessage {
   profileGaps?: string[]
 }
 
-export interface SupplementItem {
-  id: SupplementItemId
+export interface DemoSellableItem {
+  id: DemoSellableItemId
   swatch: string
   dailyDose: number
   dailyCost: number
@@ -44,11 +45,11 @@ export interface SupplementItem {
   tier: 'core' | 'plus'
 }
 
-export interface SupplementPlan {
-  id: SupplementPlanId
+export interface DemoPackagePlan {
+  id: DemoPackagePlanId
   price: number
   durationMonths: 1
-  itemIds: SupplementItemId[]
+  itemIds: DemoSellableItemId[]
 }
 
 export interface LabChartRow {
@@ -121,7 +122,7 @@ export interface CreateOrderInput {
   recommendationRunId?: string | null
 }
 
-export const supplementItems: Record<SupplementItemId, SupplementItem> = {
+export const demoSellableItems: Record<DemoSellableItemId, DemoSellableItem> = {
   vitaminD: {
     id: 'vitaminD',
     swatch: '#8B7FC7',
@@ -172,22 +173,22 @@ export const supplementItems: Record<SupplementItemId, SupplementItem> = {
   }
 }
 
-export const supplementPlans: Record<SupplementPlanId, SupplementPlan> = {
-  basicCare: {
-    id: 'basicCare',
+export const demoPackagePlans: Record<DemoPackagePlanId, DemoPackagePlan> = {
+  basic: {
+    id: 'basic',
     price: 1280,
     durationMonths: 1,
     itemIds: ['vitaminD', 'iron', 'vitaminC']
   },
-  fullTune: {
-    id: 'fullTune',
+  advance: {
+    id: 'advance',
     price: 1980,
     durationMonths: 1,
     itemIds: ['vitaminD', 'iron', 'vitaminC', 'omega3', 'probiotic', 'magnesium']
   }
 }
 
-export const supplementPlanIds: SupplementPlanId[] = ['basicCare', 'fullTune']
+export const demoPackagePlanIds: DemoPackagePlanId[] = ['basic', 'advance']
 
 export const labChartRows: LabChartRow[] = [
   { key: 'vitaminD', yours: 28, ref: 45 },
@@ -205,12 +206,12 @@ export const shipmentStepIds: ShipmentStepId[] = [
   'delivered'
 ]
 
-export function isSupplementPlanId(value: unknown): value is SupplementPlanId {
-  return value === 'basicCare' || value === 'fullTune'
+export function isDemoPackagePlanId(value: unknown): value is DemoPackagePlanId {
+  return value === 'basic' || value === 'advance'
 }
 
-export function itemsForPlan(planId: SupplementPlanId): SupplementItem[] {
-  return supplementPlans[planId].itemIds.map(id => supplementItems[id])
+export function itemsForPackagePlan(planId: DemoPackagePlanId): DemoSellableItem[] {
+  return demoPackagePlans[planId].itemIds.map(id => demoSellableItems[id])
 }
 
 export function formatTwd(amount: number) {
@@ -235,31 +236,16 @@ export function timelineStatus(timeline: ShipmentStep[]): ShipmentStepId {
   return reached?.id ?? 'confirmed'
 }
 
-export function mockReportSummary(locale?: string) {
+export function demoReportSummary(locale?: string) {
   if (locale === 'en') {
-    return 'I read your labs. Vitamin D and ferritin are low; HOMA-IR is a bit high. Open the chart and pick a one-month plan — Basic Care or Full Tune.'
+    return 'I read your labs. Vitamin D and ferritin are low; HOMA-IR is a bit high. Open the chart and pick a one-month plan.'
   }
 
-  return '已讀到你的血檢。維他命 D 與鐵蛋白偏低，HOMA-IR 略高。可以看圖表，並選擇一個月的基礎保養或完整調理。'
+  return '已讀到你的血檢。維他命 D 與鐵蛋白偏低，HOMA-IR 略高。可以看圖表，並選擇一個月方案。'
 }
 
-export function mockReportAnalysis(locale?: string): ReportAnalysis {
-  return {
-    score: 66,
-    abnormalCount: 4,
-    watchCount: 3,
-    summary: mockReportSummary(locale),
-    chart: labChartRows
-  }
-}
-
-export function mockCatalog() {
-  return {
-    items: Object.values(supplementItems),
-    plans: Object.values(supplementPlans),
-    chart: labChartRows
-  }
-}
+/** @deprecated use demoReportSummary */
+export const mockReportSummary = demoReportSummary
 
 function itemsFromParts(
   codes: string[],
@@ -273,10 +259,11 @@ function itemsFromParts(
   }))
 }
 
-export function mockCreateOrder(input: CreateOrderInput): OrderRecord {
+/** Test helper: build a local order record without calling Nitro or core. */
+export function buildDemoOrder(input: CreateOrderInput): OrderRecord {
   const now = new Date()
   const packagePlanCode = input.packagePlanCode || 'basic'
-  const knownPlan = isSupplementPlanId(packagePlanCode) ? supplementPlans[packagePlanCode] : null
+  const knownPlan = isDemoPackagePlanId(packagePlanCode) ? demoPackagePlans[packagePlanCode] : null
   const amount = input.amount ?? knownPlan?.price ?? 0
   const productCodes = input.productCodes ?? (knownPlan ? [...knownPlan.itemIds] : [])
   const productNames = input.productNames ? [...input.productNames] : undefined
@@ -284,8 +271,8 @@ export function mockCreateOrder(input: CreateOrderInput): OrderRecord {
     productCodes,
     productNames,
     productCodes.map((code) => {
-      if (Object.prototype.hasOwnProperty.call(supplementItems, code)) {
-        return supplementItems[code as SupplementItemId].dailyDose
+      if (Object.prototype.hasOwnProperty.call(demoSellableItems, code)) {
+        return demoSellableItems[code as DemoSellableItemId].dailyDose
       }
       return 1
     })
