@@ -79,9 +79,9 @@
 | Profile 問卷 | `/chat` | 可用 | 已接 | 完成 |
 | 對話（建立／綁定／目標／價格帶／SSE） | `/chat` | 可用 | 已接 | 完成 |
 | 同步訊息（非 SSE） | — | 無 | Mock | Backlog |
-| 建議／價格帶／建單 | `/app/recommendations` | 可用 | 已接 | 完成 |
+| 建議／價格帶／建單（品項顯示 `image_url`） | `/app/recommendations` | 可用 | 已接 | 完成 |
 | 血檢主檔列表 | — | 無 | 接線中 | Backlog |
-| 訂單列表／詳情／出貨時間線 | `/app/orders`、`/app/orders/[id]` | 可用 | 已接 | 完成 |
+| 訂單列表／詳情／出貨時間線（明細顯示 `image_url`） | `/app/orders`、`/app/orders/[id]` | 可用 | 已接 | 完成 |
 | 訂單反查對話 | 訂單詳情 modal | 可用 | 已接 | 完成 |
 | 重新付款 | `/app/orders/[id]` | 可用 | 已接 | 完成 |
 | 取消訂單 | `/app/orders/[id]` | 可用 | 已接 | 完成 |
@@ -175,4 +175,4 @@
 
 ---
 
-**最後更新**：2026-09-29（M3–M5 收尾：重新付款／取消、續約、校正、去識別化已接；mock BFF 與禁止識別子清除）
+**最後更新**：2026-09-30（建議頁與訂單明細顯示目錄 `image_url`；接線切片與 candor-core `docs/04` Younger 區一致）

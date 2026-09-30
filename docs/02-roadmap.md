@@ -35,7 +35,7 @@
 
 **驗收**
 
-- [x] Auth 主路徑 `已接`（去識別化除外）
+- [x] Auth 主路徑 `已接`（含去識別化，見 M4）
 - [x] 報告上傳／輪詢／retry `已接`
 - [x] SSE 對話 `已接`（同步 messages 仍可 Mock）
 
@@ -46,7 +46,7 @@
 - `POST /recommendations`、`GET /package-plans`
 - 建單（`lines[]` + `composition_hash`）、列表、詳情、sandbox 導轉
 - 常用收件 `PATCH /users/me`
-- 重新付款、取消訂單的畫面入口（目前僅 client 方法）
+- 重新付款、取消訂單（畫面與接線已完成，見下方驗收）
 
 **驗收**
 
