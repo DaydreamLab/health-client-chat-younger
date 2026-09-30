@@ -8,6 +8,7 @@ import type {
   ConversationGoalsResult,
   ConversationPackageConfirm,
   HealthReport,
+  HealthReportList,
   HealthReportPatchResultRequest,
   HealthReportRetryAck,
   HealthReportUploadAck,
@@ -24,6 +25,7 @@ import type {
   RecommendationResponse,
   RenewalsDueList,
   StreamMessageResult,
+  UserHealthProfile,
   UserMe,
   UserSession
 } from '~/utils/candor-api'
@@ -378,6 +380,8 @@ export function useCandorApi() {
       form.append('file', file)
       return request<HealthReportUploadAck>('/health-reports', { method: 'POST', body: form })
     },
+    listHealthReports: () =>
+      request<HealthReportList>('/health-reports'),
     getHealthReport: (id: string) =>
       request<HealthReport>(`/health-reports/${encodeURIComponent(id)}`),
     retryHealthReport: (id: string) =>
@@ -394,6 +398,7 @@ export function useCandorApi() {
         { method: 'PATCH', body: body as Record<string, unknown> }
       ),
 
+    getProfile: () => request<UserHealthProfile>('/profile'),
     nextProfileQuestion: (reportId?: string | null) =>
       request<ProfileNext>('/profile/questions/next', {
         query: reportId ? { report_id: reportId } : undefined

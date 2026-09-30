@@ -207,7 +207,7 @@
           type="button"
           class="app-chip"
           data-testid="chat-chip-upload"
-          :disabled="!canUpload"
+          :disabled="!canOfferUpload"
           @click="pickFile"
         >
           <UIcon
@@ -233,7 +233,7 @@
         <button
           type="button"
           class="app-btn app-btn-ghost size-10 shrink-0 px-0"
-          :disabled="!canUpload"
+          :disabled="!canOfferUpload"
           data-testid="chat-upload"
           :aria-label="$t('chat.upload')"
           @click="pickFile"
@@ -344,7 +344,8 @@ function queryOrderId(value: unknown) {
 
 const orderId = computed(() => queryOrderId(route.query.orderId))
 const readonly = computed(() => Boolean(orderId.value))
-const canUpload = computed(() => !readonly.value && !escalated.value && !reportInFlight.value)
+const canOfferUpload = computed(() => !readonly.value && !escalated.value && !reportInFlight.value)
+const canUpload = computed(() => canOfferUpload.value && auth.isMember)
 const inputLocked = computed(() => readonly.value || escalated.value || reportInFlight.value)
 const canType = computed(() => {
   if (inputLocked.value || pending.value) {
@@ -924,7 +925,13 @@ async function submitProfileChip(payload: {
 }
 
 function pickFile() {
-  if (!canUpload.value) {
+  if (!canOfferUpload.value) {
+    return
+  }
+  if (!auth.isMember) {
+    void navigateTo(
+      `${localePath('/login')}?redirect=${encodeURIComponent(route.fullPath)}&mode=login`
+    )
     return
   }
 

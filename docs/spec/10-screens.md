@@ -10,12 +10,13 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 |------|--------------------|----------|-------------------|
 | `/` | default | 逛站、方案入口 | 可無 token；進旅程時 guest |
 | `/login` | default | 登入／註冊 | `POST /auth/login`、`/auth/register` |
-| `/chat` | `user` + `chat-layout` | 上傳報告、對話 SSE、目標／價格帶 | guest；report／conversation／profile／stream |
-| `/app` | `user` + `auth` | 會員首頁 | `ensureSession`（guest 亦可持有 token） |
+| `/chat` | `user` + `chat-layout` | 對話 SSE、目標／價格帶；上傳報告僅 member（guest 導向登入） | guest 可對話；`POST /health-reports` 需 member |
+| `/app` | `user` + `auth` | 我的健康：profile 摘要卡＋報告列表（最新一筆展開判讀表）；guest 顯示登入門檻 | `GET /profile`；`GET /health-reports`；展開時 `GET /health-reports/{id}`（member） |
+| `/app/wearables` | `user` + `auth` | 穿戴裝置即將上線佔位 | 無（殼） |
 | `/app/recommendations` | `user` + `auth` | 建議與結帳 | `POST /recommendations`、`GET /package-plans`、`POST /orders`、`PATCH /users/me` |
 | `/app/orders` | `user` + `auth` | 訂單列表 | `GET /orders` |
 | `/app/orders/[id]` | `user` + `auth` | 訂單詳情、出貨時間線、對話 modal | `GET /order/{id}`；`GET /order/{id}/message`（已接） |
-| `/app/me` | `user` + `auth` | 個人資料：顯示名稱、密碼、常用收件（email 唯讀） | `GET`／`PATCH /users/me`；guest 引導註冊 |
+| `/app/me` | `user` + `auth` | 個人資料：顯示名稱、密碼、常用收件（email 唯讀）；guest 顯示登入門檻 | `GET`／`PATCH /users/me`（member） |
 | `/app/handoff` | `user` + `auth` | 舊 FigJam「交給顧問」殼 | 非 core 主路徑；勿新增假 API |
 
 ## Middleware 行為

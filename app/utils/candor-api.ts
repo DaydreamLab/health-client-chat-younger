@@ -338,6 +338,28 @@ export interface HealthReport {
   results?: HealthReportResult[] | null
 }
 
+export interface HealthReportSummary {
+  id: string
+  status: string
+  created_at: string
+  content_type?: string | null
+  page_count?: number | null
+  error?: string | null
+}
+
+export interface HealthReportList {
+  reports: HealthReportSummary[]
+}
+
+export interface UserHealthProfile {
+  sex: string | null
+  age_years: number | null
+  height_cm: number | null
+  weight_kg: number | null
+  diet: string | null
+  goals: string[]
+}
+
 export interface HealthReportPatchResultRequest {
   value_numeric?: number | null
   unit?: string | null

@@ -56,14 +56,20 @@
       </header>
       <nav class="flex shrink-0 gap-1 border-b border-default px-4 py-2 text-sm lg:hidden">
         <AppButton
-          v-for="item in navItems"
+          v-for="item in mobileNavItems"
           :key="item.label"
-          :to="navTo(item)"
+          :to="item.to"
           variant="ghost"
           :class="item.active ? 'app-nav-active' : undefined"
           :data-testid="item.mobileTestId"
         >
           {{ item.label }}
+          <span
+            v-if="item.badge"
+            class="app-badge app-badge-pending ms-1 scale-90"
+          >
+            {{ item.badge }}
+          </span>
         </AppButton>
         <AppButton
           variant="ghost"
@@ -102,12 +108,14 @@ const isOrders = computed(() => route.path.includes('/orders'))
 const isRenewals = computed(() => route.path.includes('/renewals'))
 const isRecommendations = computed(() => route.path.includes('/recommendations'))
 const isProfile = computed(() => route.path.includes('/app/me'))
+const isWearable = computed(() => route.path.includes('/app/wearables'))
 const isHealth = computed(() => route.path.includes('/app')
   && !isChat.value
   && !isOrders.value
   && !isRenewals.value
   && !isRecommendations.value
-  && !isProfile.value)
+  && !isProfile.value
+  && !isWearable.value)
 const collapsedNavUi = {
   link: 'flex-col gap-1 items-center',
   linkLabel: 'block text-[10px]/3 text-center'
@@ -118,6 +126,15 @@ const navItems = computed<UserNavItem[]>(() => [
     icon: 'i-lucide-heart-pulse',
     to: localePath('/app'),
     active: isHealth.value
+  },
+  {
+    label: t('nav.wearable'),
+    icon: 'i-lucide-watch',
+    to: localePath('/app/wearables'),
+    active: isWearable.value,
+    badge: t('nav.wearableSoon'),
+    testId: 'nav-wearable',
+    mobileTestId: 'nav-wearable-mobile'
   },
   {
     label: t('nav.chat'),
@@ -157,7 +174,8 @@ const desktopNavItems = computed<NavigationMenuItem[]>(() => navItems.value.map(
     label: item.label,
     icon: item.icon,
     to: item.to,
-    active: item.active
+    active: item.active,
+    badge: item.badge
   }
 
   if (item.testId) {
@@ -166,6 +184,13 @@ const desktopNavItems = computed<NavigationMenuItem[]>(() => navItems.value.map(
 
   return desktopItem
 }))
+const mobileNavItems = computed(() => navItems.value.map(item => ({
+  label: item.label,
+  to: typeof item.to === 'string' ? item.to : localePath('/app'),
+  active: Boolean(item.active),
+  badge: typeof item.badge === 'string' ? item.badge : undefined,
+  mobileTestId: item.mobileTestId
+})))
 const logoutItems = computed<NavigationMenuItem[]>(() => [
   {
     label: t('nav.logout'),
@@ -176,10 +201,6 @@ const logoutItems = computed<NavigationMenuItem[]>(() => [
     }
   }
 ])
-
-function navTo(item: UserNavItem) {
-  return typeof item.to === 'string' ? item.to : localePath('/app')
-}
 
 function logout() {
   journey.clearSession()

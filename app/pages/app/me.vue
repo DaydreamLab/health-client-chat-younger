@@ -1,5 +1,5 @@
 <template>
-  <div class="mx-auto w-full max-w-lg space-y-6">
+  <div class="space-y-6">
     <div>
       <h1 class="text-2xl font-semibold text-highlighted">
         {{ $t('profile.title') }}
@@ -9,202 +9,220 @@
       </p>
     </div>
 
-    <section
-      v-if="!auth.isMember"
-      class="rounded-2xl border border-default bg-elevated p-5"
-      data-testid="profile-guest"
+    <div
+      class="relative"
+      data-testid="profile-body"
     >
-      <p class="text-sm text-highlighted">
-        {{ $t('profile.guestHint') }}
-      </p>
-      <div class="mt-4 flex flex-wrap gap-2">
-        <AppButton
-          :to="registerRedirect"
-          variant="primary"
-          data-testid="profile-register"
-        >
-          {{ $t('profile.register') }}
-        </AppButton>
-        <AppButton
-          :to="loginRedirect"
-          variant="outline"
-          data-testid="profile-login"
-        >
-          {{ $t('profile.login') }}
-        </AppButton>
-      </div>
-    </section>
-
-    <form
-      v-else
-      class="space-y-6"
-      data-testid="profile-form"
-      @submit.prevent="onSave"
-    >
-      <section class="space-y-4 rounded-2xl border border-default bg-elevated p-5">
-        <h2 class="font-semibold text-highlighted">
-          {{ $t('profile.accountSection') }}
-        </h2>
-        <label class="block">
-          <span class="mb-1.5 block text-sm text-highlighted">{{ $t('profile.email') }}</span>
-          <input
-            :value="email"
-            type="email"
-            disabled
-            readonly
-            class="h-10 w-full rounded-md border border-default bg-muted px-3 text-sm text-muted outline-none"
-            data-testid="profile-email"
-          >
-          <span class="mt-1 block text-xs text-muted">{{ $t('profile.emailReadonly') }}</span>
-        </label>
-        <label class="block">
-          <span class="mb-1.5 block text-sm text-highlighted">{{ $t('profile.displayName') }}</span>
-          <input
-            v-model="displayName"
-            name="display_name"
-            autocomplete="nickname"
-            class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            data-testid="profile-display-name"
-          >
-        </label>
-        <label class="block">
-          <span class="mb-1.5 block text-sm text-highlighted">{{ $t('profile.currentPassword') }}</span>
-          <input
-            v-model="currentPassword"
-            name="current_password"
-            type="password"
-            autocomplete="current-password"
-            class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            data-testid="profile-current-password"
-          >
-        </label>
-        <label class="block">
-          <span class="mb-1.5 block text-sm text-highlighted">{{ $t('profile.newPassword') }}</span>
-          <input
-            v-model="newPassword"
-            name="password"
-            type="password"
-            autocomplete="new-password"
-            :placeholder="$t('profile.newPasswordHint')"
-            class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            data-testid="profile-new-password"
-          >
-        </label>
-      </section>
-
-      <section class="space-y-4 rounded-2xl border border-default bg-elevated p-5">
-        <h2 class="font-semibold text-highlighted">
-          {{ $t('profile.recipientSection') }}
-        </h2>
-        <p class="text-sm text-muted">
-          {{ $t('profile.recipientHint') }}
+      <div
+        v-if="!auth.isMember"
+        class="absolute inset-0 z-10 flex min-h-72 flex-col items-center justify-center gap-3 rounded-2xl bg-elevated/85 px-6 py-12 text-center backdrop-blur-sm"
+        data-testid="profile-auth-gate"
+      >
+        <span class="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20">
+          <UIcon
+            name="i-lucide-user-round"
+            class="size-7"
+          />
+        </span>
+        <p class="text-base font-semibold text-highlighted">
+          {{ $t('profile.guestRequired') }}
         </p>
-        <label class="block">
-          <span class="mb-1.5 block text-sm text-highlighted">{{ $t('checkout.name') }}</span>
-          <input
-            v-model="recipientName"
-            name="name"
-            autocomplete="name"
-            class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            data-testid="profile-recipient-name"
+        <p class="max-w-sm text-sm leading-6 text-muted">
+          {{ $t('profile.guestRequiredHint') }}
+        </p>
+        <div class="mt-2 flex w-full max-w-xs flex-col gap-2 sm:flex-row">
+          <AppButton
+            class="w-full"
+            :to="loginRedirect"
+            data-testid="profile-login"
           >
-        </label>
-        <label class="block">
-          <span class="mb-1.5 block text-sm text-highlighted">{{ $t('checkout.phone') }}</span>
-          <input
-            v-model="recipientPhone"
-            name="phone"
-            type="tel"
-            autocomplete="tel"
-            class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            data-testid="profile-recipient-phone"
+            {{ $t('profile.login') }}
+          </AppButton>
+          <AppButton
+            class="w-full"
+            variant="outline"
+            :to="registerRedirect"
+            data-testid="profile-register"
           >
-        </label>
-        <div class="block space-y-1.5">
-          <span class="block text-sm text-highlighted">{{ $t('checkout.addressRegion') }}</span>
-          <div class="grid grid-cols-2 gap-2">
-            <label class="block min-w-0">
-              <span class="sr-only">{{ $t('checkout.addressCity') }}</span>
-              <select
-                v-model="addressCity"
-                name="address_city"
-                autocomplete="address-level1"
-                class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                data-testid="profile-address-city"
-              >
-                <option value="">
-                  {{ $t('checkout.addressCity') }}
-                </option>
-                <option
-                  v-for="city in taiwanCities"
-                  :key="city"
-                  :value="city"
-                >
-                  {{ city }}
-                </option>
-              </select>
-            </label>
-            <label class="block min-w-0">
-              <span class="sr-only">{{ $t('checkout.addressDistrict') }}</span>
-              <select
-                v-model="addressDistrict"
-                name="address_district"
-                :disabled="!addressCity"
-                autocomplete="address-level2"
-                class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50"
-                data-testid="profile-address-district"
-              >
-                <option value="">
-                  {{ $t('checkout.addressDistrict') }}
-                </option>
-                <option
-                  v-for="district in addressDistricts"
-                  :key="district"
-                  :value="district"
-                >
-                  {{ district }}
-                </option>
-              </select>
-            </label>
-          </div>
+            {{ $t('profile.register') }}
+          </AppButton>
         </div>
-        <label class="block">
-          <span class="mb-1.5 block text-sm text-highlighted">{{ $t('checkout.addressDetail') }}</span>
-          <input
-            v-model="addressDetail"
-            name="address_detail"
-            autocomplete="street-address"
-            :placeholder="$t('checkout.addressDetailPlaceholder')"
-            class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            data-testid="profile-address-detail"
-          >
-        </label>
-      </section>
+      </div>
 
-      <p
-        v-if="error"
-        class="text-sm text-red-600 dark:text-red-400"
-        data-testid="profile-error"
+      <form
+        class="space-y-6"
+        :class="!auth.isMember ? 'pointer-events-none select-none opacity-40' : undefined"
+        :aria-hidden="!auth.isMember || undefined"
+        data-testid="profile-form"
+        @submit.prevent="onSave"
       >
-        {{ error }}
-      </p>
-      <p
-        v-if="success"
-        class="text-sm text-success"
-        data-testid="profile-success"
-      >
-        {{ $t('profile.saved') }}
-      </p>
+        <div class="grid gap-6 lg:grid-cols-2">
+          <section class="space-y-4 rounded-2xl border border-default bg-elevated p-5">
+            <h2 class="font-semibold text-highlighted">
+              {{ $t('profile.accountSection') }}
+            </h2>
+            <label class="block">
+              <span class="mb-1.5 block text-sm text-highlighted">{{ $t('profile.email') }}</span>
+              <input
+                :value="email"
+                type="email"
+                disabled
+                readonly
+                class="h-10 w-full rounded-md border border-default bg-muted px-3 text-sm text-muted outline-none"
+                data-testid="profile-email"
+              >
+              <span class="mt-1 block text-xs text-muted">{{ $t('profile.emailReadonly') }}</span>
+            </label>
+            <label class="block">
+              <span class="mb-1.5 block text-sm text-highlighted">{{ $t('profile.displayName') }}</span>
+              <input
+                v-model="displayName"
+                name="display_name"
+                autocomplete="nickname"
+                class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                data-testid="profile-display-name"
+              >
+            </label>
+            <label class="block">
+              <span class="mb-1.5 block text-sm text-highlighted">{{ $t('profile.currentPassword') }}</span>
+              <input
+                v-model="currentPassword"
+                name="current_password"
+                type="password"
+                autocomplete="current-password"
+                class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                data-testid="profile-current-password"
+              >
+            </label>
+            <label class="block">
+              <span class="mb-1.5 block text-sm text-highlighted">{{ $t('profile.newPassword') }}</span>
+              <input
+                v-model="newPassword"
+                name="password"
+                type="password"
+                autocomplete="new-password"
+                :placeholder="$t('profile.newPasswordHint')"
+                class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                data-testid="profile-new-password"
+              >
+            </label>
+          </section>
 
-      <AppButton
-        type="submit"
-        variant="primary"
-        :disabled="saving"
-        data-testid="profile-save"
-      >
-        {{ saving ? $t('profile.saving') : $t('profile.save') }}
-      </AppButton>
-    </form>
+          <section class="space-y-4 rounded-2xl border border-default bg-elevated p-5">
+            <h2 class="font-semibold text-highlighted">
+              {{ $t('profile.recipientSection') }}
+            </h2>
+            <p class="text-sm text-muted">
+              {{ $t('profile.recipientHint') }}
+            </p>
+            <label class="block">
+              <span class="mb-1.5 block text-sm text-highlighted">{{ $t('checkout.name') }}</span>
+              <input
+                v-model="recipientName"
+                name="name"
+                autocomplete="name"
+                class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                data-testid="profile-recipient-name"
+              >
+            </label>
+            <label class="block">
+              <span class="mb-1.5 block text-sm text-highlighted">{{ $t('checkout.phone') }}</span>
+              <input
+                v-model="recipientPhone"
+                name="phone"
+                type="tel"
+                autocomplete="tel"
+                class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                data-testid="profile-recipient-phone"
+              >
+            </label>
+            <div class="block space-y-1.5">
+              <span class="block text-sm text-highlighted">{{ $t('checkout.addressRegion') }}</span>
+              <div class="grid grid-cols-2 gap-2">
+                <label class="block min-w-0">
+                  <span class="sr-only">{{ $t('checkout.addressCity') }}</span>
+                  <select
+                    v-model="addressCity"
+                    name="address_city"
+                    autocomplete="address-level1"
+                    class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                    data-testid="profile-address-city"
+                  >
+                    <option value="">
+                      {{ $t('checkout.addressCity') }}
+                    </option>
+                    <option
+                      v-for="city in taiwanCities"
+                      :key="city"
+                      :value="city"
+                    >
+                      {{ city }}
+                    </option>
+                  </select>
+                </label>
+                <label class="block min-w-0">
+                  <span class="sr-only">{{ $t('checkout.addressDistrict') }}</span>
+                  <select
+                    v-model="addressDistrict"
+                    name="address_district"
+                    :disabled="!addressCity"
+                    autocomplete="address-level2"
+                    class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50"
+                    data-testid="profile-address-district"
+                  >
+                    <option value="">
+                      {{ $t('checkout.addressDistrict') }}
+                    </option>
+                    <option
+                      v-for="district in addressDistricts"
+                      :key="district"
+                      :value="district"
+                    >
+                      {{ district }}
+                    </option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            <label class="block">
+              <span class="mb-1.5 block text-sm text-highlighted">{{ $t('checkout.addressDetail') }}</span>
+              <input
+                v-model="addressDetail"
+                name="address_detail"
+                autocomplete="street-address"
+                :placeholder="$t('checkout.addressDetailPlaceholder')"
+                class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                data-testid="profile-address-detail"
+              >
+            </label>
+          </section>
+        </div>
+
+        <p
+          v-if="error"
+          class="text-sm text-red-600 dark:text-red-400"
+          data-testid="profile-error"
+        >
+          {{ error }}
+        </p>
+        <p
+          v-if="success"
+          class="text-sm text-success"
+          data-testid="profile-success"
+        >
+          {{ $t('profile.saved') }}
+        </p>
+
+        <AppButton
+          type="submit"
+          variant="primary"
+          :disabled="saving || !auth.isMember"
+          data-testid="profile-save"
+        >
+          {{ saving ? $t('profile.saving') : $t('profile.save') }}
+        </AppButton>
+      </form>
+    </div>
   </div>
 </template>
 
@@ -319,6 +337,9 @@ async function onSave() {
   error.value = ''
   success.value = false
 
+  if (!auth.isMember) {
+    return
+  }
   if (newPassword.value && !currentPassword.value) {
     error.value = t('profile.errorCurrentPasswordRequired')
     return

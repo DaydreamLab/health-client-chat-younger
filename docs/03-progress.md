@@ -72,12 +72,13 @@
 | 登入／註冊／身份／常用收件 | `/login`、結帳收件、`/app/me` | 可用 | 已接 | 完成 |
 | 個人資料（顯示名稱／密碼／常用收件） | `/app/me` | 可用 | 已接 | 完成 |
 | 去識別化 | `/app` 隱私區 | 可用 | 已接 | 完成 |
-| 報告上傳／輪詢／重試 | `/chat` | 可用 | 已接 | 完成 |
+| 我的健康（profile 卡＋報告列表） | `/app` | 可用 | 已接 | 完成 |
+| 穿戴裝置 | `/app/wearables` | 殼（即將上線） | 不做 | Backlog |
+| 報告上傳／輪詢／重試 | `/chat`（上傳需 member） | 可用 | 已接 | 完成 |
 | 擁有者校正結果 | `/chat` 報告 dock | 可用 | 已接 | 完成 |
 | Profile 問卷 | `/chat` | 可用 | 已接 | 完成 |
 | 對話（建立／綁定／目標／價格帶／SSE） | `/chat` | 可用 | 已接 | 完成 |
 | 同步訊息（非 SSE） | — | 無 | Mock | Backlog |
-| 會員首頁 | `/app` | 殼（demo 徽章） | 不需 | 完成（殼） |
 | 建議／價格帶／建單 | `/app/recommendations` | 可用 | 已接 | 完成 |
 | 血檢主檔列表 | — | 無 | 接線中 | Backlog |
 | 訂單列表／詳情／出貨時間線 | `/app/orders`、`/app/orders/[id]` | 可用 | 已接 | 完成 |
@@ -105,7 +106,8 @@
 
 | 能力 | 端點 | 狀態 |
 |------|------|------|
-| 上傳 | `POST /health-reports` | 已接 |
+| 上傳 | `POST /health-reports`（僅 member） | 已接 |
+| 列表 | `GET /health-reports` | 已接 |
 | 輪詢詳情 | `GET /health-reports/{id}` | 已接 |
 | 重試擷取 | `POST /health-reports/{id}/retry` | 已接 |
 | 擁有者校正 | `PATCH /health-reports/{id}/results/{result_id}` | 已接 |
@@ -114,6 +116,7 @@
 
 | 能力 | 端點 | 狀態 |
 |------|------|------|
+| 摘要讀取 | `GET /profile` | 已接 |
 | 下一題 | `GET /profile/questions/next` | 已接 |
 | 作答 | `POST /profile/answers` | 已接 |
 

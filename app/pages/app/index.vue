@@ -4,10 +4,8 @@
       <h1 class="text-2xl font-semibold text-highlighted">
         {{ $t('member.title') }}
       </h1>
-      <span class="app-badge app-badge-demo">
-        {{ $t('member.demo') }}
-      </span>
       <AppButton
+        v-if="auth.isMember"
         :to="localePath('/app/recommendations')"
         variant="primary"
         class="ms-auto"
@@ -16,219 +14,230 @@
       </AppButton>
     </div>
 
-    <section
-      class="rounded-2xl border border-default bg-elevated p-5"
-      data-testid="member-privacy"
+    <div
+      class="relative"
+      data-testid="health-body"
     >
-      <h2 class="font-semibold text-highlighted">
-        {{ $t('member.privacyTitle') }}
-      </h2>
-      <p class="mt-1 text-sm text-muted">
-        {{ $t('member.privacyHint') }}
-      </p>
       <div
-        v-if="!anonymizeOpen"
-        class="mt-4"
+        v-if="!auth.isMember"
+        class="absolute inset-0 z-10 flex min-h-72 flex-col items-center justify-center gap-3 rounded-2xl bg-elevated/85 px-6 py-12 text-center backdrop-blur-sm"
+        data-testid="health-auth-gate"
       >
-        <AppButton
-          variant="outline"
-          data-testid="member-anonymize"
-          @click="anonymizeOpen = true"
-        >
-          {{ $t('member.anonymize') }}
-        </AppButton>
-      </div>
-      <div
-        v-else
-        class="mt-4 space-y-3"
-        data-testid="member-anonymize-panel"
-      >
-        <p class="text-sm text-highlighted">
-          {{ $t('member.anonymizeConfirm') }}
+        <span class="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20">
+          <UIcon
+            name="i-lucide-heart-pulse"
+            class="size-7"
+          />
+        </span>
+        <p class="text-base font-semibold text-highlighted">
+          {{ $t('member.guestRequired') }}
         </p>
-        <div class="flex flex-wrap gap-2">
+        <p class="max-w-sm text-sm leading-6 text-muted">
+          {{ $t('member.guestRequiredHint') }}
+        </p>
+        <div class="mt-2 flex w-full max-w-xs flex-col gap-2 sm:flex-row">
           <AppButton
-            data-testid="member-anonymize-confirm"
-            :disabled="anonymizePending"
-            @click="onAnonymize"
+            class="w-full"
+            :to="loginRedirect"
+            data-testid="health-login"
           >
-            {{ $t('member.anonymizeConfirmAction') }}
+            {{ $t('member.login') }}
           </AppButton>
           <AppButton
-            variant="ghost"
-            :disabled="anonymizePending"
-            @click="anonymizeOpen = false"
+            class="w-full"
+            variant="outline"
+            :to="registerRedirect"
+            data-testid="health-register"
           >
-            {{ $t('member.anonymizeDismiss') }}
+            {{ $t('member.register') }}
           </AppButton>
         </div>
+      </div>
+
+      <div
+        class="space-y-6"
+        :class="!auth.isMember ? 'pointer-events-none select-none opacity-40' : undefined"
+        :aria-hidden="!auth.isMember || undefined"
+      >
+        <section
+          class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          data-testid="health-profile-cards"
+        >
+          <article
+            v-for="card in profileCards"
+            :key="card.key"
+            class="rounded-2xl border border-default bg-elevated p-5"
+            :data-testid="`health-stat-${card.key}`"
+          >
+            <p class="text-sm text-muted">
+              {{ card.label }}
+            </p>
+            <p class="mt-2 text-xl font-semibold text-highlighted">
+              {{ card.value }}
+            </p>
+          </article>
+        </section>
+
         <p
-          v-if="anonymizeError"
+          v-if="profileError"
           class="text-sm text-red-600 dark:text-red-400"
-          data-testid="member-anonymize-error"
+          data-testid="health-profile-error"
         >
-          {{ anonymizeError }}
+          {{ profileError }}
         </p>
-      </div>
-    </section>
 
-    <section
-      class="relative overflow-hidden rounded-xl bg-primary/10"
-      data-testid="health-ai-summary"
-    >
-      <span class="absolute inset-y-0 start-0 w-1.5 bg-primary" />
-      <div class="px-5 py-4 ps-6">
-        <h2 class="text-sm font-medium text-primary">
-          {{ $t('member.aiTitle') }}
-        </h2>
-        <p class="mt-2 text-sm leading-6 text-default">
-          {{ aiSummary }}
-        </p>
-      </div>
-    </section>
-
-    <section class="grid gap-4 lg:grid-cols-[minmax(0,18rem)_1fr]">
-      <article
-        class="flex items-center gap-4 rounded-2xl border border-default bg-elevated p-5"
-        data-testid="health-score"
-      >
-        <div class="relative size-28 shrink-0">
-          <svg
-            class="app-health-ring size-28"
-            viewBox="0 0 120 120"
+        <section
+          class="space-y-3"
+          data-testid="health-reports"
+        >
+          <h2 class="font-semibold text-highlighted">
+            {{ $t('member.reportsTitle') }}
+          </h2>
+          <p
+            v-if="reportsLoading"
+            class="text-sm text-muted"
+            data-testid="health-reports-loading"
           >
-            <circle
-              class="app-health-ring-track"
-              cx="60"
-              cy="60"
-              r="52"
-              stroke-width="10"
-            />
-            <circle
-              class="app-health-ring-value"
-              cx="60"
-              cy="60"
-              r="52"
-              stroke-width="10"
-              :stroke-dasharray="ringCircumference"
-              :stroke-dashoffset="ringOffset"
-            />
-          </svg>
-          <p class="absolute inset-0 flex items-center justify-center text-3xl font-bold tabular-nums text-primary">
-            <CountUpNumber :value="healthScore" />
+            {{ $t('member.reportsLoading') }}
           </p>
-        </div>
-        <div>
-          <p class="text-sm text-muted">
-            {{ $t('member.scoreLabel') }}
+          <p
+            v-else-if="reportsError"
+            class="text-sm text-red-600 dark:text-red-400"
+            data-testid="health-reports-error"
+          >
+            {{ reportsError }}
           </p>
-          <p class="mt-1 text-sm text-dimmed">
-            {{ $t('member.scoreHint', { delta: healthScoreDelta }) }}
+          <p
+            v-else-if="!reports.length"
+            class="text-sm text-muted"
+            data-testid="health-reports-empty"
+          >
+            {{ $t('member.reportsEmpty') }}
           </p>
-        </div>
-      </article>
+          <div
+            v-else
+            class="space-y-3"
+          >
+            <article
+              v-for="report in reports"
+              :key="report.id"
+              class="overflow-hidden rounded-2xl border border-default bg-elevated"
+              :data-testid="`health-report-${report.id}`"
+            >
+              <button
+                type="button"
+                class="flex w-full items-center gap-3 px-5 py-4 text-start"
+                :aria-expanded="expandedId === report.id"
+                data-testid="health-report-toggle"
+                @click="toggleReport(report.id)"
+              >
+                <div class="min-w-0 flex-1">
+                  <p class="font-medium text-highlighted">
+                    {{ formatReportDate(report.created_at) }}
+                  </p>
+                  <p class="mt-0.5 text-sm text-muted">
+                    {{ statusLabel(report.status) }}
+                    <span
+                      v-if="report.error"
+                      class="text-red-600 dark:text-red-400"
+                    > · {{ report.error }}</span>
+                  </p>
+                </div>
+                <UIcon
+                  :name="expandedId === report.id ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                  class="size-4 shrink-0 text-muted"
+                />
+              </button>
+              <div
+                v-if="expandedId === report.id"
+                class="border-t border-default px-5 py-4"
+                data-testid="health-report-detail"
+              >
+                <p
+                  v-if="detailLoadingId === report.id"
+                  class="text-sm text-muted"
+                >
+                  {{ $t('member.reportDetailLoading') }}
+                </p>
+                <p
+                  v-else-if="detailErrorById[report.id]"
+                  class="text-sm text-red-600 dark:text-red-400"
+                >
+                  {{ detailErrorById[report.id] }}
+                </p>
+                <div
+                  v-else
+                  class="max-h-80 overflow-y-auto"
+                >
+                  <ReportResultTable :results="resultsById[report.id] ?? []" />
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
 
-      <div class="grid gap-4 sm:grid-cols-3">
-        <article class="rounded-2xl border border-default bg-elevated p-5">
-          <p class="text-sm text-muted">
-            {{ $t('member.ageLabel') }}
-          </p>
-          <p class="mt-2 text-2xl font-semibold tabular-nums text-highlighted">
-            {{ $t('member.ageValue', { bio: healthAge.biological }) }}
-          </p>
-          <p class="mt-1 text-sm text-dimmed">
-            {{ $t('member.ageHint', { actual: healthAge.actual }) }}
-          </p>
-        </article>
-        <article
+        <section
           class="rounded-2xl border border-default bg-elevated p-5"
-          data-testid="health-stat-markers"
+          data-testid="member-privacy"
         >
-          <p class="text-sm text-muted">
-            {{ $t('member.markersCount') }}
+          <h2 class="font-semibold text-highlighted">
+            {{ $t('member.privacyTitle') }}
+          </h2>
+          <p class="mt-1 text-sm text-muted">
+            {{ $t('member.privacyHint') }}
           </p>
-          <p class="mt-2 text-2xl font-semibold tabular-nums text-highlighted">
-            <CountUpNumber :value="healthMarkerCount" />+
-          </p>
-          <p class="mt-1 text-sm text-dimmed">
-            {{ $t('shop.advancePlan') }}
-          </p>
-        </article>
-        <article class="rounded-2xl border border-default bg-elevated p-5">
-          <p class="text-sm text-muted">
-            {{ $t('member.lastTest') }}
-          </p>
-          <p class="mt-2 text-xl font-semibold text-highlighted">
-            {{ $t('member.lastTestValue') }}
-          </p>
-          <p class="mt-1 text-sm text-dimmed">
-            {{ $t('member.nextCheck') }} · {{ $t('member.nextCheckValue') }}
-          </p>
-        </article>
+          <div
+            v-if="!anonymizeOpen"
+            class="mt-4"
+          >
+            <AppButton
+              variant="outline"
+              data-testid="member-anonymize"
+              @click="anonymizeOpen = true"
+            >
+              {{ $t('member.anonymize') }}
+            </AppButton>
+          </div>
+          <div
+            v-else
+            class="mt-4 space-y-3"
+            data-testid="member-anonymize-panel"
+          >
+            <p class="text-sm text-highlighted">
+              {{ $t('member.anonymizeConfirm') }}
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <AppButton
+                data-testid="member-anonymize-confirm"
+                :disabled="anonymizePending"
+                @click="onAnonymize"
+              >
+                {{ $t('member.anonymizeConfirmAction') }}
+              </AppButton>
+              <AppButton
+                variant="ghost"
+                :disabled="anonymizePending"
+                @click="anonymizeOpen = false"
+              >
+                {{ $t('member.anonymizeDismiss') }}
+              </AppButton>
+            </div>
+            <p
+              v-if="anonymizeError"
+              class="text-sm text-red-600 dark:text-red-400"
+              data-testid="member-anonymize-error"
+            >
+              {{ anonymizeError }}
+            </p>
+          </div>
+        </section>
       </div>
-    </section>
-
-    <section class="grid gap-4 lg:grid-cols-2">
-      <article class="rounded-2xl border border-default bg-elevated p-5">
-        <h2 class="font-semibold text-highlighted">
-          {{ $t('labChart.title') }}
-        </h2>
-        <p class="mt-1 text-sm text-dimmed">
-          {{ $t('labChart.hint') }}
-        </p>
-        <div class="mt-4">
-          <LabBarChart />
-        </div>
-      </article>
-      <article class="rounded-2xl border border-default bg-elevated p-5">
-        <h2 class="font-semibold text-highlighted">
-          {{ $t('member.pieTitle') }}
-        </h2>
-        <p class="mt-1 text-sm text-dimmed">
-          {{ $t('member.pieHint') }}
-        </p>
-        <div class="mt-4">
-          <HealthSystemPie />
-        </div>
-      </article>
-    </section>
-
-    <section data-testid="health-abnormal">
-      <h2 class="mb-3 font-semibold text-highlighted">
-        {{ $t('member.abnormalTitle') }}
-      </h2>
-      <div class="rounded-md bg-error/10 p-4">
-        <HealthMarkerList
-          :markers="abnormalHealthMarkers"
-          tone="abnormal"
-        />
-      </div>
-    </section>
-
-    <section data-testid="health-all-labs">
-      <h2 class="mb-3 font-semibold text-highlighted">
-        {{ $t('member.allLabsTitle') }}
-      </h2>
-      <div class="rounded-md bg-muted p-4">
-        <HealthMarkerList
-          :markers="allHealthMarkers"
-          tone="all"
-        />
-      </div>
-    </section>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { demoReportSummary } from '~/utils/first-order'
-import {
-  abnormalHealthMarkers,
-  allHealthMarkers,
-  healthAge,
-  healthMarkerCount,
-  healthScore,
-  healthScoreDelta
-} from '~/utils/health-demo'
+import type { HealthReportResult, HealthReportSummary, UserHealthProfile } from '~/utils/candor-api'
 
 definePageMeta({
   layout: 'user',
@@ -236,18 +245,185 @@ definePageMeta({
 })
 
 const localePath = useLocalePath()
-const { locale, t } = useI18n()
+const route = useRoute()
+const { t, locale } = useI18n()
 const auth = useAuthStore()
 const journey = useJourneyStore()
 const ordersStore = useOrdersStore()
 const candor = useCandorApi()
-const aiSummary = computed(() => demoReportSummary(locale.value))
-const ringCircumference = 2 * Math.PI * 52
-const ringOffset = ringCircumference * (1 - healthScore / 100)
+
+const profile = ref<UserHealthProfile | null>(null)
+const profileError = ref('')
+const reports = ref<HealthReportSummary[]>([])
+const reportsLoading = ref(false)
+const reportsError = ref('')
+const expandedId = ref<string | null>(null)
+const detailLoadingId = ref<string | null>(null)
+const resultsById = ref<Record<string, HealthReportResult[]>>({})
+const detailErrorById = ref<Record<string, string>>({})
 
 const anonymizeOpen = ref(false)
 const anonymizePending = ref(false)
 const anonymizeError = ref('')
+
+const loginRedirect = computed(() =>
+  `${localePath('/login')}?redirect=${encodeURIComponent(route.fullPath)}&mode=login`
+)
+const registerRedirect = computed(() =>
+  `${localePath('/login')}?redirect=${encodeURIComponent(route.fullPath)}&mode=register`
+)
+
+const profileCards = computed(() => {
+  const p = profile.value
+  return [
+    {
+      key: 'sex',
+      label: t('member.statSex'),
+      value: formatSex(p?.sex)
+    },
+    {
+      key: 'age',
+      label: t('member.statAge'),
+      value: p?.age_years != null ? t('member.statAgeValue', { age: p.age_years }) : t('member.statEmpty')
+    },
+    {
+      key: 'height',
+      label: t('member.statHeight'),
+      value: p?.height_cm != null ? t('member.statHeightValue', { cm: p.height_cm }) : t('member.statEmpty')
+    },
+    {
+      key: 'weight',
+      label: t('member.statWeight'),
+      value: p?.weight_kg != null ? t('member.statWeightValue', { kg: p.weight_kg }) : t('member.statEmpty')
+    },
+    {
+      key: 'diet',
+      label: t('member.statDiet'),
+      value: formatDiet(p?.diet)
+    },
+    {
+      key: 'goals',
+      label: t('member.statGoals'),
+      value: formatGoals(p?.goals ?? [])
+    }
+  ]
+})
+
+function formatSex(sex: string | null | undefined) {
+  if (sex === 'F') {
+    return t('member.sexFemale')
+  }
+  if (sex === 'M') {
+    return t('member.sexMale')
+  }
+  return t('member.statEmpty')
+}
+
+function formatDiet(diet: string | null | undefined) {
+  if (!diet) {
+    return t('member.statEmpty')
+  }
+  const key = `member.diet.${diet}`
+  const label = t(key)
+  return label === key ? diet : label
+}
+
+function formatGoals(goals: string[]) {
+  if (!goals.length) {
+    return t('member.statEmpty')
+  }
+  return goals.map((code) => {
+    const key = `member.goal.${code}`
+    const label = t(key)
+    return label === key ? code : label
+  }).join('、')
+}
+
+function statusLabel(status: string) {
+  const key = `member.reportStatus.${status}`
+  const label = t(key)
+  return label === key ? status : label
+}
+
+function formatReportDate(iso: string) {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) {
+    return iso
+  }
+  return new Intl.DateTimeFormat(locale.value === 'en' ? 'en-US' : 'zh-TW', {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }).format(date)
+}
+
+async function loadProfile() {
+  if (!auth.isMember) {
+    profile.value = null
+    profileError.value = ''
+    return
+  }
+  profileError.value = ''
+  try {
+    profile.value = await candor.getProfile()
+  } catch {
+    profileError.value = t('member.profileLoadError')
+  }
+}
+
+async function loadReportDetail(reportId: string) {
+  if (resultsById.value[reportId]) {
+    return
+  }
+  detailLoadingId.value = reportId
+  detailErrorById.value = { ...detailErrorById.value, [reportId]: '' }
+  try {
+    const detail = await candor.getHealthReport(reportId)
+    resultsById.value = {
+      ...resultsById.value,
+      [reportId]: detail.results ?? []
+    }
+  } catch {
+    detailErrorById.value = {
+      ...detailErrorById.value,
+      [reportId]: t('member.reportDetailError')
+    }
+  } finally {
+    detailLoadingId.value = null
+  }
+}
+
+async function loadReports() {
+  if (!auth.isMember) {
+    reports.value = []
+    reportsLoading.value = false
+    reportsError.value = ''
+    return
+  }
+  reportsLoading.value = true
+  reportsError.value = ''
+  try {
+    const list = await candor.listHealthReports()
+    reports.value = list.reports ?? []
+    const latest = reports.value[0]
+    if (latest) {
+      expandedId.value = latest.id
+      await loadReportDetail(latest.id)
+    }
+  } catch {
+    reportsError.value = t('member.reportsLoadError')
+  } finally {
+    reportsLoading.value = false
+  }
+}
+
+function toggleReport(reportId: string) {
+  if (expandedId.value === reportId) {
+    expandedId.value = null
+    return
+  }
+  expandedId.value = reportId
+  void loadReportDetail(reportId)
+}
 
 async function onAnonymize() {
   if (anonymizePending.value) {
@@ -267,4 +443,19 @@ async function onAnonymize() {
     anonymizePending.value = false
   }
 }
+
+function loadHealth() {
+  void loadProfile()
+  void loadReports()
+}
+
+onMounted(() => {
+  loadHealth()
+})
+
+watch(() => auth.isMember, (member) => {
+  if (member) {
+    loadHealth()
+  }
+})
 </script>

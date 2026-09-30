@@ -12,6 +12,39 @@ test.describe('guest session', () => {
     await mockCandorAuth(page)
   })
 
+  test('guest upload redirects to login', async ({ page, goto }) => {
+    await goto('/chat', { waitUntil: 'hydration' })
+    await page.getByTestId('chat-upload').click()
+    await expect(page).toHaveURL(/\/login/)
+    expect(page.url()).toContain('redirect=')
+  })
+
+  test('recommendations shows checkout auth gate for guest', async ({ page, goto }) => {
+    await goto('/app/recommendations', { waitUntil: 'hydration' })
+    await expect(page).toHaveURL(/\/app\/recommendations/)
+    await expect(page.getByRole('heading', { name: '推薦方案' })).toBeVisible()
+    await expect(page.getByTestId('health-report-empty')).toBeVisible()
+    await expect(page.getByTestId('package-plan-basic')).toBeVisible()
+    await expect(page.getByTestId('package-plan-advance')).toBeVisible()
+    await expect(page.getByTestId('checkout-auth-gate')).toBeVisible()
+    await expect(page.getByTestId('checkout-login')).toBeVisible()
+    await expect(page.getByTestId('checkout-register')).toBeVisible()
+  })
+
+  test('guest sees empty orders until a payment', async ({ page, goto }) => {
+    await goto('/app/orders', { waitUntil: 'hydration' })
+    await page.evaluate(() => localStorage.removeItem('candor-paid-orders'))
+    await expect(page.getByRole('heading', { name: '我的訂單' })).toBeVisible()
+    await expect(page.getByTestId('nav-orders')).toBeVisible()
+    await expect(page.getByTestId('orders-empty')).toBeVisible()
+  })
+})
+
+test.describe('member checkout', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockCandorAuth(page, { asMember: true })
+  })
+
   test('unpaid chat survives refresh via journey storage', async ({ page, goto }) => {
     await goto('/chat', { waitUntil: 'hydration' })
     await page.evaluate(() => {
@@ -36,46 +69,6 @@ test.describe('guest session', () => {
     await expect(page.getByTestId('chat-chip-plans')).toHaveCount(0)
     await expect(page.getByTestId('chat-escalate')).toBeVisible()
     expect(await page.evaluate(() => localStorage.getItem('candor.unpaid.journey'))).toContain('conversationId')
-  })
-
-  test('recommendations shows checkout auth gate for guest', async ({ page, goto }) => {
-    await goto('/app/recommendations', { waitUntil: 'hydration' })
-    await expect(page).toHaveURL(/\/app\/recommendations/)
-    await expect(page.getByRole('heading', { name: '推薦方案' })).toBeVisible()
-    await expect(page.getByTestId('health-report-empty')).toBeVisible()
-    await expect(page.getByTestId('package-plan-basic')).toBeVisible()
-    await expect(page.getByTestId('package-plan-advance')).toBeVisible()
-    await expect(page.getByTestId('checkout-auth-gate')).toBeVisible()
-    await expect(page.getByTestId('checkout-login')).toBeVisible()
-    await expect(page.getByTestId('checkout-register')).toBeVisible()
-  })
-
-  test('guest sees checkout gate and cannot submit', async ({ page, goto }) => {
-    test.setTimeout(90_000)
-    await page.setViewportSize({ width: 1280, height: 800 })
-
-    await goto('/chat', { waitUntil: 'hydration' })
-    await page.evaluate(() => localStorage.removeItem('candor-paid-orders'))
-    await page.getByTestId('chat-upload-input').setInputFiles(labsFile)
-    await expect(page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
-    await page.getByTestId('chat-view-recommend').click()
-
-    await expect(page.getByTestId('checkout-auth-gate')).toBeVisible()
-    await expect(page.getByTestId('checkout-submit')).toBeDisabled()
-  })
-
-  test('guest sees empty orders until a payment', async ({ page, goto }) => {
-    await goto('/app/orders', { waitUntil: 'hydration' })
-    await page.evaluate(() => localStorage.removeItem('candor-paid-orders'))
-    await expect(page.getByRole('heading', { name: '我的訂單' })).toBeVisible()
-    await expect(page.getByTestId('nav-orders')).toBeVisible()
-    await expect(page.getByTestId('orders-empty')).toBeVisible()
-  })
-})
-
-test.describe('member checkout', () => {
-  test.beforeEach(async ({ page }) => {
-    await mockCandorAuth(page, { asMember: true })
   })
 
   test('labs, month package, checkout redirects to sandbox url', async ({ page, goto }) => {
@@ -116,7 +109,7 @@ test.describe('member checkout', () => {
 
 test.describe('profile quiz gate', () => {
   test.beforeEach(async ({ page }) => {
-    await mockCandorAuth(page, { profileQuiz: true })
+    await mockCandorAuth(page, { profileQuiz: true, asMember: true })
   })
 
   test('goal chips then profile turn chips then upload chip', async ({ page, goto }) => {

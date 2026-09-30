@@ -548,8 +548,33 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
   })
 
   await page.route('**/api/v1/health-reports', async (route) => {
-    if (route.request().method() !== 'POST') {
+    const method = route.request().method()
+    const path = new URL(route.request().url()).pathname.replace(/\/$/, '')
+    if (method === 'GET' && path.endsWith('/health-reports')) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: { reports: [] }
+        })
+      })
+      return
+    }
+    if (method !== 'POST' || !path.endsWith('/health-reports')) {
       await route.fallback()
+      return
+    }
+    if (!options.asMember) {
+      await route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'failed',
+          error_code: 'member_required',
+          error_message: 'Member authentication required to upload reports.'
+        })
+      })
       return
     }
     await route.fulfill({
@@ -558,6 +583,29 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       body: JSON.stringify({
         status: 'success',
         data: { id: reportId, status: 'uploaded' }
+      })
+    })
+  })
+
+  await page.route('**/api/v1/profile', async (route) => {
+    const path = new URL(route.request().url()).pathname.replace(/\/$/, '')
+    if (route.request().method() !== 'GET' || !path.endsWith('/profile')) {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: {
+          sex: null,
+          age_years: null,
+          height_cm: null,
+          weight_kg: null,
+          diet: null,
+          goals: []
+        }
       })
     })
   })
