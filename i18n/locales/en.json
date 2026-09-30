@@ -250,9 +250,6 @@
     "escalatedTitle": "Handed to a specialist",
     "escalatedBody": "Your name list goes to the advisor side. The consult happens on their system; this app does not show that conversation.",
     "escalatedLocked": "AI replies are paused after handoff. Wait for the advisor side to follow up.",
-    "chips": {
-      "upload": "Upload report"
-    },
     "confirmSelection": "Confirm",
     "confirmPackage": "Confirm plan",
     "packagePending": "Selected plan — please confirm",

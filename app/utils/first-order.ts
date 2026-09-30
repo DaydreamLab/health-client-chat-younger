@@ -34,6 +34,8 @@ export interface ChatMessage {
   turnType?: 'profile' | 'message' | 'external'
   profileQuestion?: { gap_code: string, answer_type: string } | null
   profileGaps?: string[]
+  /** Assistant invited upload; show in-bubble upload button. */
+  uploadOffer?: boolean
 }
 
 export interface DemoSellableItem {

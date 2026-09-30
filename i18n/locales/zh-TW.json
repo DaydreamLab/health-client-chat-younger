@@ -250,15 +250,12 @@
     "escalatedTitle": "已為你轉接專人",
     "escalatedBody": "名單會轉到顧問端。諮詢在顧問系統進行，這裡不會顯示對話內容。",
     "escalatedLocked": "轉接後 AI 暫停回覆。若還有問題，請等顧問端聯繫。",
-    "chips": {
-      "upload": "上傳報告"
-    },
     "confirmSelection": "確認",
     "confirmPackage": "確認方案",
     "packagePending": "所選方案，請確認",
     "packageConfirmed": "已確認方案",
     "guideAfterPackageConfirm": "方案已確認。請繼續完成問答；若有近期健檢或血檢，選「有」後可上傳報告對照數值。報告就緒後再按「查看推薦方案」組成一個月品項並下單。",
-    "guideUploadAfterQuiz": "問答已完成。若手上有近期健檢或血檢報告，可按上傳對照數值；有報告後就能查看推薦方案並下單。",
+    "guideUploadAfterQuiz": "問答已完成。若手上有近期健檢或血檢報告，可上傳報告對照數值；有報告後就能查看推薦方案並下單。",
     "guideRecommendAfterQuiz": "問答與報告都就緒了。可以按「查看推薦方案」確認一個月品項並下單。",
     "guideUploadOnLabs": "若方便，可現在上傳報告對照數值；沒有檔案也可先按「確認」繼續。",
     "greet": "你好，我是坦見的諮詢助理。你現在有血檢報告嗎？還是想先了解一個月方案？準備好交給專人時，再按「專人客服」。",

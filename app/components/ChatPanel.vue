@@ -133,6 +133,16 @@
               {{ fileName(message) }}
             </p>
             <AppButton
+              v-if="showUploadCta(message)"
+              class="mt-3"
+              variant="outline"
+              data-testid="chat-message-upload"
+              :disabled="!canOfferUpload"
+              @click="pickFile"
+            >
+              {{ $t('chat.upload') }}
+            </AppButton>
+            <AppButton
               v-if="showRecommendCta(message)"
               class="mt-3"
               data-testid="chat-view-recommend"
@@ -177,7 +187,7 @@
       class="shrink-0 border-t border-default bg-elevated px-4 py-4 sm:px-6"
     >
       <div
-        v-if="chipOptions.length || showUploadChip"
+        v-if="chipOptions.length"
         class="mb-3 flex flex-wrap gap-2"
         data-testid="chat-quiz-options"
       >
@@ -188,7 +198,7 @@
           class="app-chip"
           :class="{ 'ring-2 ring-primary': isOptionSelected(option.code) }"
           :data-testid="`chat-quiz-option-${option.code}`"
-          :disabled="pending || reportInFlight"
+          :disabled="pending"
           @click="onOptionChip(option)"
         >
           {{ option.label }}
@@ -197,25 +207,11 @@
           v-if="needsMultiConfirm"
           type="button"
           data-testid="chat-quiz-confirm"
-          :disabled="pending || reportInFlight || selectedCodes.length === 0 || (goalSelectActive && selectedCodes.length < 2)"
+          :disabled="pending || selectedCodes.length === 0 || (goalSelectActive && selectedCodes.length < 2)"
           @click="confirmMultiSelection"
         >
           {{ $t('chat.confirmSelection') }}
         </AppButton>
-        <button
-          v-if="showUploadChip"
-          type="button"
-          class="app-chip"
-          data-testid="chat-chip-upload"
-          :disabled="!canOfferUpload"
-          @click="pickFile"
-        >
-          <UIcon
-            name="i-lucide-paperclip"
-            class="size-3.5"
-          />
-          {{ $t('chat.chips.upload') }}
-        </button>
       </div>
       <form
         v-if="!escalated"
@@ -239,7 +235,7 @@
           @click="pickFile"
         >
           <UIcon
-            name="i-lucide-paperclip"
+            name="i-lucide-plus"
             class="size-4"
           />
         </button>
@@ -346,7 +342,7 @@ const orderId = computed(() => queryOrderId(route.query.orderId))
 const readonly = computed(() => Boolean(orderId.value))
 const canOfferUpload = computed(() => !readonly.value && !escalated.value && !reportInFlight.value)
 const canUpload = computed(() => canOfferUpload.value && auth.isMember)
-const inputLocked = computed(() => readonly.value || escalated.value || reportInFlight.value)
+const inputLocked = computed(() => readonly.value || escalated.value)
 const canType = computed(() => {
   if (inputLocked.value || pending.value) {
     return false
@@ -411,20 +407,13 @@ const needsTextInput = computed(() => {
   return true
 })
 
-const showUploadChip = computed(() => {
-  if (escalated.value || readonly.value || goalSelectActive.value) {
-    return false
-  }
-  if (journey.hasAnalysis) {
-    return false
-  }
-  if (isLabRecencyQuestion.value) {
-    const selected = selectedCodes.value[0]
-    return selected !== undefined && UPLOADABLE_LAB_CODES.has(selected)
-  }
-  // After goals: keep「上傳報告」until a report is bound (do not wait for all gaps).
-  return Boolean(journey.conversationId)
-})
+function showUploadCta(message: ChatMessage) {
+  return !readonly.value
+    && !escalated.value
+    && !journey.hasAnalysis
+    && message.role === 'assistant'
+    && Boolean(message.uploadOffer)
+}
 
 function isOptionSelected(code: string) {
   return selectedCodes.value.includes(code)
@@ -454,6 +443,18 @@ function makeMessage(role: ChatMessage['role'], text: string, id?: string, file?
   }
 }
 
+function markUploadOffer(message: ChatMessage, text: string) {
+  if (message.role !== 'assistant') {
+    return
+  }
+  if (journey.hasAnalysis || readonly.value || escalated.value) {
+    return
+  }
+  if (text.includes('上傳報告') || text.includes('Upload report')) {
+    message.uploadOffer = true
+  }
+}
+
 function setMessageText(id: string, text: string) {
   const message = journey.messages.find(item => item.id === id)
   if (!message) {
@@ -464,10 +465,17 @@ function setMessageText(id: string, text: string) {
   if (file) {
     message.parts.push(file)
   }
+  markUploadOffer(message, text)
 }
 
-function appendMessage(role: ChatMessage['role'], text: string, file?: string) {
-  journey.messages.push(makeMessage(role, text, undefined, file))
+function appendMessage(role: ChatMessage['role'], text: string, file?: string, uploadOffer = false) {
+  const message = makeMessage(role, text, undefined, file)
+  if (uploadOffer) {
+    message.uploadOffer = true
+  } else {
+    markUploadOffer(message, text)
+  }
+  journey.messages.push(message)
 }
 
 const lastAssistantId = computed(() => {
@@ -645,9 +653,12 @@ function guideAfterQuiz() {
   if (last) {
     const existing = messageText(last)
     setMessageText(last.id, existing ? `${existing}\n\n${text}` : text)
+    if (!journey.hasAnalysis) {
+      last.uploadOffer = true
+    }
     return
   }
-  appendMessage('assistant', text)
+  appendMessage('assistant', text, undefined, !journey.hasAnalysis)
 }
 
 function applyStreamMeta(assistantId: string, result: {
@@ -808,7 +819,7 @@ function onOptionChip(option: GreetingOption) {
     const wasUploadable = selectedCodes.value.some(code => UPLOADABLE_LAB_CODES.has(code))
     selectedCodes.value = [option.code]
     if (!wasUploadable && UPLOADABLE_LAB_CODES.has(option.code)) {
-      appendMessage('assistant', t('chat.guideUploadOnLabs'))
+      appendMessage('assistant', t('chat.guideUploadOnLabs'), undefined, true)
     }
     return
   }
