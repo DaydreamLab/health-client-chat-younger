@@ -116,11 +116,17 @@ export const useAuthStore = defineStore('auth', () => {
       return
     }
 
+    /** True when an existing identity was dropped on 401 and we will mint a fresh guest. */
+    let clearJourneyBeforeGuest = false
+
     if (ready.value && hasSession.value) {
       try {
         await refreshIfNeeded()
-      } catch {
+      } catch (error) {
         // refreshIfNeeded clears on 401; fall through to guest below if needed
+        if (error instanceof CandorApiError && error.statusCode === 401) {
+          clearJourneyBeforeGuest = true
+        }
       }
       if (hasSession.value) {
         return
@@ -136,8 +142,11 @@ export const useAuthStore = defineStore('auth', () => {
           user.value = toBrief(me)
           try {
             await refreshIfNeeded()
-          } catch {
+          } catch (error) {
             // ignore; 401 cleared token
+            if (error instanceof CandorApiError && error.statusCode === 401) {
+              clearJourneyBeforeGuest = true
+            }
           }
           if (api.readToken() && user.value) {
             return
@@ -145,12 +154,17 @@ export const useAuthStore = defineStore('auth', () => {
         } catch (error) {
           if (error instanceof CandorApiError && error.statusCode === 401) {
             clearSession()
+            clearJourneyBeforeGuest = true
           } else {
-            clearSession()
+            // Keep token and journey on transient failures; retry later.
+            return
           }
         }
       }
 
+      if (clearJourneyBeforeGuest) {
+        useJourneyStore().clearSession()
+      }
       applySession(await api.guest())
     } finally {
       bootstrapping.value = false
