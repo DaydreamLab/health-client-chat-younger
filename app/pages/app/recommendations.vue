@@ -161,11 +161,24 @@
               :data-testid="`sellable-item-${item.code || item.sellable_item_id}`"
               @click="detail = item"
             >
-              <span class="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <UIcon
-                  name="i-lucide-pill"
-                  class="size-5"
-                />
+              <span class="mt-0.5 size-10 shrink-0 overflow-hidden rounded-xl bg-primary/10 text-primary">
+                <img
+                  v-if="item.image_url"
+                  :src="item.image_url"
+                  :alt="item.name || ''"
+                  class="size-full object-cover"
+                  loading="lazy"
+                  data-testid="sellable-item-image"
+                >
+                <span
+                  v-else
+                  class="flex size-full items-center justify-center"
+                >
+                  <UIcon
+                    name="i-lucide-pill"
+                    class="size-5"
+                  />
+                </span>
               </span>
               <span class="min-w-0 flex-1">
                 <span class="block font-medium text-highlighted">
@@ -477,13 +490,33 @@
       >
         <article class="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-2xl border border-default bg-elevated p-5 shadow-xl">
           <div class="flex items-start justify-between gap-3">
-            <div>
-              <h2 class="text-lg font-semibold text-highlighted">
-                {{ detail.name }}
-              </h2>
-              <p class="mt-1 text-sm text-muted">
-                {{ doseLabel(detail) }}
-              </p>
+            <div class="flex min-w-0 items-start gap-3">
+              <span class="size-16 shrink-0 overflow-hidden rounded-2xl bg-primary/10 text-primary">
+                <img
+                  v-if="detail.image_url"
+                  :src="detail.image_url"
+                  :alt="detail.name || ''"
+                  class="size-full object-cover"
+                  data-testid="sellable-item-detail-image"
+                >
+                <span
+                  v-else
+                  class="flex size-full items-center justify-center"
+                >
+                  <UIcon
+                    name="i-lucide-pill"
+                    class="size-7"
+                  />
+                </span>
+              </span>
+              <div class="min-w-0">
+                <h2 class="text-lg font-semibold text-highlighted">
+                  {{ detail.name }}
+                </h2>
+                <p class="mt-1 text-sm text-muted">
+                  {{ doseLabel(detail) }}
+                </p>
+              </div>
             </div>
             <AppButton
               variant="outline"

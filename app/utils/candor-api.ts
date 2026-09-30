@@ -81,6 +81,7 @@ export interface RecommendationItem {
   score_raw: number
   score_norm: number
   tier: string
+  image_url?: string | null
   copy: RecommendationCopy
   copy_mode?: string
   warnings?: string[]
@@ -96,6 +97,7 @@ export interface RecommendationPackageItem {
   daily_servings_min?: number | null
   daily_servings_max?: number | null
   monthly_cost: number
+  image_url?: string | null
 }
 
 export interface RecommendationPackage {
