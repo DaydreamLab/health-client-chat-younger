@@ -7,6 +7,7 @@ import {
   itemsForPackagePlan,
   shipmentStepIds,
   shouldPersistChat,
+  snapshotChatMessage,
   timelineStatus
 } from '../../app/utils/first-order'
 
@@ -121,5 +122,22 @@ describe('first-order demo', () => {
 
     expect(parsed.packagePlanCode).toBe('advance')
     expect(parsed.messages).toHaveLength(1)
+  })
+
+  it('persists uploadOffer in journey message snapshots', () => {
+    const withOffer = snapshotChatMessage({
+      id: 'a1',
+      role: 'assistant',
+      parts: [{ type: 'text', text: '可上傳報告對照數值' }],
+      uploadOffer: true
+    })
+    expect(withOffer.uploadOffer).toBe(true)
+
+    const withoutOffer = snapshotChatMessage({
+      id: 'a2',
+      role: 'assistant',
+      parts: [{ type: 'text', text: '你好' }]
+    })
+    expect(withoutOffer.uploadOffer).toBeUndefined()
   })
 })

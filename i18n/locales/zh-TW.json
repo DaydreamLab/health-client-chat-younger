@@ -283,7 +283,7 @@
   },
   "labChart": {
     "title": "血檢數值",
-    "dockTitle": "A 數據評估報告",
+    "dockTitle": "報告判讀",
     "hint": "你的數值對照參考區間中點",
     "yours": "你的數值",
     "ref": "參考",

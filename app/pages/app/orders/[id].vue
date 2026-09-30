@@ -183,11 +183,24 @@
           class="flex items-start gap-3 px-5 py-4"
           :data-testid="`order-item-${item.code}`"
         >
-          <span class="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <UIcon
-              name="i-lucide-pill"
-              class="size-5"
-            />
+          <span class="mt-0.5 size-10 shrink-0 overflow-hidden rounded-xl bg-primary/10 text-primary">
+            <img
+              v-if="item.imageUrl"
+              :src="item.imageUrl"
+              :alt="item.name || ''"
+              class="size-full object-cover"
+              loading="lazy"
+              data-testid="order-item-image"
+            >
+            <span
+              v-else
+              class="flex size-full items-center justify-center"
+            >
+              <UIcon
+                name="i-lucide-pill"
+                class="size-5"
+              />
+            </span>
           </span>
           <span class="min-w-0 flex-1">
             <span class="block font-medium text-highlighted">

@@ -283,7 +283,7 @@
   },
   "labChart": {
     "title": "Lab values",
-    "dockTitle": "A Data Assessment Report",
+    "dockTitle": "Report reading",
     "hint": "Your numbers against the midpoint of the reference range",
     "yours": "Yours",
     "ref": "Reference",

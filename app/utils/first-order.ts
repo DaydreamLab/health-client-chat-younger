@@ -38,6 +38,20 @@ export interface ChatMessage {
   uploadOffer?: boolean
 }
 
+/** Persistable clone for journey localStorage (keeps uploadOffer). */
+export function snapshotChatMessage(message: ChatMessage): ChatMessage {
+  return {
+    id: message.id,
+    role: message.role,
+    parts: message.parts.map(part => ({ ...part })),
+    options: message.options ? message.options.map(option => ({ ...option })) : undefined,
+    turnType: message.turnType,
+    profileQuestion: message.profileQuestion ? { ...message.profileQuestion } : message.profileQuestion,
+    profileGaps: message.profileGaps ? [...message.profileGaps] : undefined,
+    ...(message.uploadOffer ? { uploadOffer: true } : {})
+  }
+}
+
 export interface DemoSellableItem {
   id: DemoSellableItemId
   swatch: string
@@ -85,6 +99,7 @@ export interface OrderItemLine {
   name: string
   dailyDose: number
   monthlyCost?: number
+  imageUrl?: string | null
 }
 
 export interface OrderRecord {
@@ -381,7 +396,8 @@ export function orderRecordFromCandorDetail(
         code: item.sellable_item_code,
         name: item.sellable_item_name,
         dailyDose: item.daily_dose,
-        monthlyCost: item.monthly_cost
+        monthlyCost: item.monthly_cost,
+        imageUrl: item.image_url ?? null
       }))
     : itemsFromParts(productCodes, productNames)
   const createdAt = detail.created_at ?? new Date().toISOString()

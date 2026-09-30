@@ -167,9 +167,15 @@
                 </p>
                 <div
                   v-else
-                  class="max-h-80 overflow-y-auto"
+                  class="space-y-3"
                 >
-                  <ReportResultTable :results="resultsById[report.id] ?? []" />
+                  <ReportResultLegend />
+                  <div class="max-h-80 overflow-y-auto">
+                    <ReportResultTable
+                      :results="resultsById[report.id] ?? []"
+                      :show-legend="false"
+                    />
+                  </div>
                 </div>
               </div>
             </article>

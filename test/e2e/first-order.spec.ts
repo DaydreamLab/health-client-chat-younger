@@ -40,6 +40,23 @@ test.describe('guest session', () => {
   })
 })
 
+test.describe('member order detail', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockCandorAuth(page, { asMember: true, withOrder: true })
+  })
+
+  test('order detail shows catalog image when present', async ({ page, goto }) => {
+    await goto('/app/orders/eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', { waitUntil: 'hydration' })
+    await expect(page.getByTestId('order-number')).toContainText('ORD-260101-000001')
+    await expect(page.getByTestId('order-package-items')).toBeVisible()
+    await expect(page.getByTestId('order-item-vitamin_d').getByTestId('order-item-image')).toHaveAttribute(
+      'src',
+      'https://cdn.example/catalog/vitamin_d.png'
+    )
+    await expect(page.getByTestId('order-item-iron').getByTestId('order-item-image')).toHaveCount(0)
+  })
+})
+
 test.describe('member checkout', () => {
   test.beforeEach(async ({ page }) => {
     await mockCandorAuth(page, { asMember: true })

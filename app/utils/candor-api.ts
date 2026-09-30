@@ -248,6 +248,7 @@ export interface OrderPackageComponent {
   daily_dose: number
   monthly_cost: number
   rank: number
+  image_url?: string | null
 }
 
 export interface OrderDetailPackage {

@@ -85,8 +85,8 @@
 
     <div class="relative min-h-0 flex-1">
       <ReportDataDock
-        v-model:open="reportDockOpen"
-        v-model:collapsed="reportDockCollapsed"
+        v-model:open="journey.reportDockOpen"
+        v-model:collapsed="journey.reportDockCollapsed"
         :results="reportResults"
         :report-id="journey.reportId"
         @updated="onReportResultsUpdated"
@@ -305,8 +305,6 @@ const pendingUserContent = ref<string | null>(null)
 const reportRetryId = ref<string | null>(null)
 const retryMessageId = ref<string | null>(null)
 const reportResults = ref<HealthReportResult[]>([])
-const reportDockOpen = ref(false)
-const reportDockCollapsed = ref(false)
 const reportDockMessageId = ref<string | null>(null)
 const transcriptEl = useTemplateRef<HTMLElement>('transcriptEl')
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
@@ -561,8 +559,8 @@ async function resetConversation() {
   reportRetryId.value = null
   retryMessageId.value = null
   reportResults.value = []
-  reportDockOpen.value = false
-  reportDockCollapsed.value = false
+  journey.reportDockOpen = false
+  journey.reportDockCollapsed = false
   reportDockMessageId.value = null
   journey.clearSession()
 
@@ -598,8 +596,8 @@ async function ensureConversation() {
   postQuizGuided.value = false
   profileGaps.value = []
   reportResults.value = []
-  reportDockOpen.value = false
-  reportDockCollapsed.value = false
+  journey.reportDockOpen = false
+  journey.reportDockCollapsed = false
   reportDockMessageId.value = null
   if (journey.messages.length === 0) {
     journey.messages.push(makeMessage(
@@ -950,8 +948,8 @@ function pickFile() {
 }
 
 function openReportDock() {
-  reportDockCollapsed.value = false
-  reportDockOpen.value = true
+  journey.reportDockCollapsed = false
+  journey.reportDockOpen = true
 }
 
 function rememberReport(report: HealthReport) {
@@ -1228,6 +1226,52 @@ watch(orderId, async (id) => {
   }
 })
 
+function restoreUploadOffers() {
+  if (journey.hasAnalysis || readonly.value || escalated.value) {
+    return
+  }
+  for (const message of journey.messages) {
+    markUploadOffer(message, messageText(message))
+  }
+}
+
+/** Reload report rows after refresh; dock open/collapsed comes from journey storage. */
+async function restoreReportSession() {
+  const reportId = journey.reportId
+  if (!reportId || readonly.value) {
+    return
+  }
+
+  try {
+    const report = await candor.getHealthReport(reportId)
+    rememberReport(report)
+
+    if (report.status === 'ready' || report.status === 'needs_review') {
+      journey.hasAnalysis = true
+      if (journey.reportDockOpen) {
+        const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
+        if (last) {
+          reportDockMessageId.value = last.id
+        }
+      }
+      return
+    }
+
+    if (report.status === 'failed') {
+      return
+    }
+
+    reportInFlight.value = true
+    const terminal = await pollReport(reportId)
+    reportInFlight.value = false
+    if (terminal) {
+      await handleReportTerminal(terminal)
+    }
+  } catch {
+    // keep dock as stored; table may stay empty
+  }
+}
+
 onMounted(async () => {
   if (orderId.value) {
     await loadOrderChat(orderId.value)
@@ -1235,6 +1279,7 @@ onMounted(async () => {
   }
 
   journey.hydrate()
+  restoreUploadOffers()
 
   if (route.query.handoff === '1' && auth.hasSession) {
     escalated.value = true
@@ -1247,6 +1292,7 @@ onMounted(async () => {
       appendMessage('assistant', t('chat.conversationError'))
     }
   }
+  await restoreReportSession()
   scrollToLatest('auto')
 })
 

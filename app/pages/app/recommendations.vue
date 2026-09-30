@@ -65,13 +65,20 @@
         >
           {{ $t('recommendation.reportEmpty') }}
         </p>
-        <div
-          v-else
-          class="mt-3 max-h-80 overflow-y-auto"
-          data-testid="health-report-scroll"
-        >
-          <ReportResultTable :results="reportResults" />
-        </div>
+        <template v-else>
+          <div class="mt-3">
+            <ReportResultLegend />
+          </div>
+          <div
+            class="mt-3 max-h-80 overflow-y-auto"
+            data-testid="health-report-scroll"
+          >
+            <ReportResultTable
+              :results="reportResults"
+              :show-legend="false"
+            />
+          </div>
+        </template>
       </section>
 
       <section class="rounded-2xl border border-default bg-elevated p-5">

@@ -8,10 +8,14 @@ import {
   resultStatusLabel
 } from '~/utils/report-result-status'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   results: HealthReportResult[]
   reportId?: string | null
-}>()
+  /** When false, parent renders ReportResultLegend outside the scroll area. */
+  showLegend?: boolean
+}>(), {
+  showLegend: true
+})
 
 const emit = defineEmits<{
   updated: [results: HealthReportResult[]]
@@ -81,11 +85,11 @@ async function confirmRow(row: HealthReportResult) {
 
 <template>
   <div data-testid="report-result-table">
-    <div class="mb-3 flex flex-wrap items-center gap-3 rounded-lg bg-muted px-2.5 py-2 text-xs text-muted">
-      <span><i class="yr-dot ok" />{{ $t('labChart.optimal') }}</span>
-      <span><i class="yr-dot warn" />{{ $t('labChart.caution') }}</span>
-      <span><i class="yr-dot alert" />{{ $t('labChart.alert') }}</span>
-      <span class="ms-auto text-dimmed">{{ $t('labChart.colorHint') }}</span>
+    <div
+      v-if="showLegend"
+      class="mb-3"
+    >
+      <ReportResultLegend />
     </div>
 
     <p
@@ -210,7 +214,7 @@ async function confirmRow(row: HealthReportResult) {
               <button
                 v-if="row.needs_review"
                 type="button"
-                class="rounded-md bg-primary px-2.5 py-1 text-xs text-white disabled:opacity-50"
+                class="app-btn app-btn-primary px-2.5 py-1 text-xs disabled:opacity-50"
                 :disabled="savingId === row.id"
                 :data-testid="`report-correct-confirm-${row.id}`"
                 @click="confirmRow(row)"
@@ -240,51 +244,51 @@ async function confirmRow(row: HealthReportResult) {
 }
 
 .yr-dot.ok {
-  background: #3bb273;
+  background: var(--ui-success);
 }
 
 .yr-dot.warn {
-  background: #e2a23a;
+  background: var(--ui-warning);
 }
 
 .yr-dot.alert {
-  background: #e35d8c;
+  background: var(--ui-error);
 }
 
 .yr-dot.unknown {
-  background: #9aa7ab;
+  background: var(--ui-text-dimmed);
 }
 
 .yr-val-ok {
-  color: #2f9b5f;
+  color: var(--ui-success);
 }
 
 .yr-val-warn {
-  color: #c8871f;
+  color: var(--ui-warning);
 }
 
 .yr-val-alert {
-  color: #c94474;
+  color: var(--ui-error);
 }
 
 .yr-val-unknown {
-  color: #5b6b6f;
+  color: var(--ui-text-muted);
 }
 
 .yr-gauge {
   background: linear-gradient(
     90deg,
-    color-mix(in oklab, #e35d8c 85%, transparent) 0%,
-    color-mix(in oklab, #e2a23a 85%, transparent) 28%,
-    color-mix(in oklab, #3bb273 85%, transparent) 50%,
-    color-mix(in oklab, #e2a23a 85%, transparent) 72%,
-    color-mix(in oklab, #e35d8c 85%, transparent) 100%
+    color-mix(in oklab, var(--ui-error) 85%, transparent) 0%,
+    color-mix(in oklab, var(--ui-warning) 85%, transparent) 28%,
+    color-mix(in oklab, var(--ui-success) 85%, transparent) 50%,
+    color-mix(in oklab, var(--ui-warning) 85%, transparent) 72%,
+    color-mix(in oklab, var(--ui-error) 85%, transparent) 100%
   );
 }
 
 .yr-gauge-marker {
   width: 3px;
   background: var(--ui-text-highlighted);
-  box-shadow: 0 0 0 1px #fff;
+  box-shadow: 0 0 0 1px var(--ui-bg-elevated);
 }
 </style>
