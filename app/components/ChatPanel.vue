@@ -243,6 +243,7 @@ import {
   goalsClarificationOpen,
   inferClarifyingGoalLabels,
   messageOffersUpload,
+  recommendCtaVisible,
   stripFinishedQuizGuide
 } from '~/utils/first-order'
 import { storeToRefs } from 'pinia'
@@ -517,13 +518,6 @@ const lastAssistantId = computed(() => {
   return last?.id
 })
 
-/** Agent pitched catalog plans / monthly prices — show recommend CTA even without a report. */
-function messagePitchesPackages(message: ChatMessage) {
-  const text = messageText(message)
-  return /(基礎保養|完整調理)/.test(text)
-    || /\d{3,5}\s*元\s*\/?\s*月/.test(text)
-}
-
 const clarifyingGoalLabels = computed(() => {
   if (journey.clarifyingGoals.length > 0) {
     return journey.clarifyingGoals
@@ -563,13 +557,14 @@ function displayMessageText(message: ChatMessage) {
 }
 
 function showRecommendCta(message: ChatMessage) {
-  return !readonly.value
-    && !escalated.value
-    && !intakeOpen.value
-    && (journey.hasAnalysis || messagePitchesPackages(message))
-    && message.role === 'assistant'
-    && message.id === lastAssistantId.value
-    && !reportRetryId.value
+  return recommendCtaVisible({
+    readonlyMode: readonly.value,
+    escalated: escalated.value,
+    goalSelectActive: goalSelectActive.value,
+    profileQuestionActive: message.turnType === 'profile' && Boolean(message.profileQuestion),
+    isLatestAssistant: message.role === 'assistant' && message.id === lastAssistantId.value,
+    reportRetry: Boolean(reportRetryId.value)
+  })
 }
 
 function showRetryCta(message: ChatMessage) {

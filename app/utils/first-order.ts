@@ -130,6 +130,27 @@ export function messageOffersUpload(text: string): boolean {
   return text.includes('上傳') && /報告|檢驗/.test(text)
 }
 
+/**
+ * 「查看推薦方案」出現在最新一則助理訊息上。
+ * 還在選改善方向，或這則本身仍是 profile 題庫題時先不顯示。
+ * 兩個改善方向的後續釐清不擋這個按鈕。
+ */
+export function recommendCtaVisible(input: {
+  readonlyMode: boolean
+  escalated: boolean
+  goalSelectActive: boolean
+  profileQuestionActive: boolean
+  isLatestAssistant: boolean
+  reportRetry: boolean
+}): boolean {
+  return !input.readonlyMode
+    && !input.escalated
+    && !input.goalSelectActive
+    && !input.profileQuestionActive
+    && input.isLatestAssistant
+    && !input.reportRetry
+}
+
 /** Drop the client-appended「問答已完成」guide while clarification is still open. */
 export function stripFinishedQuizGuide(text: string): string {
   const kept = text.split('\n').filter((line) => {

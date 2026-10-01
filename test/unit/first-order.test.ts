@@ -7,6 +7,7 @@ import {
   goalsClarificationOpen,
   inferClarifyingGoalLabels,
   messageOffersUpload,
+  recommendCtaVisible,
   itemsForPackagePlan,
   shipmentStepIds,
   shouldPersistChat,
@@ -178,6 +179,22 @@ describe('first-order demo', () => {
     ]
     expect(goalsClarificationOpen(wrappedUp, labels)).toBe(false)
     expect(inferClarifyingGoalLabels(wrappedUp, labels.map(label => ({ label })))).toEqual(labels)
+  })
+
+  it('shows the recommend button once profile intake is done', () => {
+    const base = {
+      readonlyMode: false,
+      escalated: false,
+      goalSelectActive: false,
+      profileQuestionActive: false,
+      isLatestAssistant: true,
+      reportRetry: false
+    }
+    expect(recommendCtaVisible(base)).toBe(true)
+    expect(recommendCtaVisible({ ...base, goalSelectActive: true })).toBe(false)
+    expect(recommendCtaVisible({ ...base, profileQuestionActive: true })).toBe(false)
+    expect(recommendCtaVisible({ ...base, isLatestAssistant: false })).toBe(false)
+    expect(recommendCtaVisible({ ...base, reportRetry: true })).toBe(false)
   })
 
   it('offers upload when the assistant asks whether a report was uploaded', () => {
