@@ -71,6 +71,8 @@ test.describe('member checkout', () => {
     await page.getByTestId('chat-upload-input').setInputFiles(labsFile)
     await expect(page.getByTestId('chat-report-loading')).toBeVisible()
     await expect(page.getByTestId('chat-report-loading')).toContainText('報告處理中')
+    await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
+    await page.getByTestId('chat-report-interpret').click()
     await expect(page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('chat-report-loading')).toHaveCount(0)
     await expect(page.getByTestId('chat-report-dock')).toBeVisible()
@@ -95,6 +97,8 @@ test.describe('member checkout', () => {
     await goto('/chat', { waitUntil: 'hydration' })
     await page.evaluate(() => localStorage.removeItem('candor-paid-orders'))
     await page.getByTestId('chat-upload-input').setInputFiles(labsFile)
+    await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
+    await page.getByTestId('chat-report-interpret').click()
     await expect(page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
     await page.getByTestId('chat-view-recommend').click()
 

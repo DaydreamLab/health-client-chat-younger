@@ -89,7 +89,9 @@
         v-model:collapsed="journey.reportDockCollapsed"
         :results="reportResults"
         :report-id="journey.reportId"
+        :show-interpret="showInterpretButton"
         @updated="onReportResultsUpdated"
+        @interpret="askInterpret"
       />
       <div
         ref="transcriptEl"
@@ -112,53 +114,45 @@
             />
           </span>
           <div
-            class="max-w-[min(40rem,85%)] rounded-2xl px-4 py-2.5 text-sm leading-relaxed"
+            class="max-w-[min(40rem,85%)] overflow-hidden rounded-2xl text-sm leading-relaxed"
             :class="[
               message.role === 'user' ? 'bg-elevated text-highlighted' : 'bg-muted text-default',
               message.id === reportDockMessageId ? 'ring-1 ring-primary/40' : ''
             ]"
             :data-testid="message.id === lastAssistantId ? 'chat-last-reply' : undefined"
           >
-            <p class="whitespace-pre-line">
-              {{ messageText(message) }}
-            </p>
-            <p
-              v-if="fileName(message)"
-              class="mt-2 inline-flex items-center gap-1 rounded-lg bg-default px-2 py-1 text-xs text-muted"
-            >
-              <UIcon
-                name="i-lucide-paperclip"
-                class="size-3.5"
-              />
-              {{ fileName(message) }}
-            </p>
-            <AppButton
-              v-if="showUploadCta(message)"
-              class="mt-3"
-              variant="outline"
-              data-testid="chat-message-upload"
-              :disabled="!canOfferUpload"
-              @click="pickFile"
-            >
-              {{ $t('chat.upload') }}
-            </AppButton>
-            <AppButton
-              v-if="showRecommendCta(message)"
-              class="mt-3"
-              data-testid="chat-view-recommend"
-              @click="goRecommend"
-            >
-              {{ $t('chat.viewRecommend') }}
-            </AppButton>
-            <AppButton
-              v-if="showRetryCta(message)"
-              class="mt-3"
-              variant="outline"
-              data-testid="chat-report-retry"
-              @click="retryReport"
-            >
-              {{ $t('chat.reportRetry') }}
-            </AppButton>
+            <div class="px-4 py-2.5">
+              <p class="whitespace-pre-line">
+                {{ displayMessageText(message) }}
+              </p>
+              <p
+                v-if="fileName(message)"
+                class="mt-2 inline-flex items-center gap-1 rounded-lg bg-default px-2 py-1 text-xs text-muted"
+              >
+                <UIcon
+                  name="i-lucide-paperclip"
+                  class="size-3.5"
+                />
+                {{ fileName(message) }}
+              </p>
+            </div>
+            <TurnActions
+              v-if="message.role === 'assistant'"
+              :choices="choicesFor(message)"
+              :selected-codes="selectedCodes"
+              :show-confirm="showConfirmFor(message)"
+              :confirm-disabled="confirmDisabled"
+              :show-upload="showUploadCta(message)"
+              :upload-disabled="!canOfferUpload"
+              :show-recommend="showRecommendCta(message)"
+              :show-retry="showRetryCta(message)"
+              :pending="pending"
+              @choice="onChoice"
+              @confirm="confirmMultiSelection"
+              @upload="pickFile"
+              @recommend="goRecommend"
+              @retry="retryReport"
+            />
           </div>
         </article>
         <p
@@ -186,33 +180,6 @@
       v-if="!readonly"
       class="shrink-0 border-t border-default bg-elevated px-4 py-4 sm:px-6"
     >
-      <div
-        v-if="chipOptions.length"
-        class="mb-3 flex flex-wrap gap-2"
-        data-testid="chat-quiz-options"
-      >
-        <button
-          v-for="option in chipOptions"
-          :key="option.code"
-          type="button"
-          class="app-chip"
-          :class="{ 'ring-2 ring-primary': isOptionSelected(option.code) }"
-          :data-testid="`chat-quiz-option-${option.code}`"
-          :disabled="pending"
-          @click="onOptionChip(option)"
-        >
-          {{ option.label }}
-        </button>
-        <AppButton
-          v-if="needsMultiConfirm"
-          type="button"
-          data-testid="chat-quiz-confirm"
-          :disabled="pending || selectedCodes.length === 0 || (goalSelectActive && selectedCodes.length < 2)"
-          @click="confirmMultiSelection"
-        >
-          {{ $t('chat.confirmSelection') }}
-        </AppButton>
-      </div>
       <form
         v-if="!escalated"
         class="flex items-end gap-2 rounded-xl border border-default bg-default p-2"
@@ -244,7 +211,7 @@
           v-model="input"
           rows="1"
           class="max-h-32 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm text-highlighted outline-none placeholder:text-muted"
-          :placeholder="$t('chat.placeholder')"
+          :placeholder="composerPlaceholder"
           :disabled="inputLocked"
           :readonly="pending"
           data-testid="chat-input"
@@ -271,11 +238,27 @@ import type {
 } from '~/utils/candor-api'
 import { CandorApiError } from '~/utils/candor-api'
 import type { ChatMessage } from '~/utils/first-order'
+import {
+  assistantStillAsking,
+  goalsClarificationOpen,
+  inferClarifyingGoalLabels,
+  messageOffersUpload,
+  stripFinishedQuizGuide
+} from '~/utils/first-order'
 import { storeToRefs } from 'pinia'
 
 const POLL_INTERVAL_MS = 2000
-const LAB_GAP_CODES = new Set(['checkup', 'blood_test'])
+const LAB_GAP_CODES = new Set(['lab_report', 'checkup', 'blood_test'])
 const UPLOADABLE_LAB_CODES = new Set(['1_to_3y', 'within_1y', 'within_6m'])
+const CONSULTATION_GOAL_CODES = new Set([
+  'sleep_quality',
+  'vitality',
+  'body_composition',
+  'skin_complexion',
+  'athletic_function',
+  'digestive_function',
+  'joint_bone'
+])
 
 const { t } = useI18n()
 const localePath = useLocalePath()
@@ -302,6 +285,7 @@ const resetting = ref(false)
 const reportInFlight = ref(false)
 const escalated = ref(false)
 const pendingUserContent = ref<string | null>(null)
+const pendingIntent = ref<string | null>(null)
 const reportRetryId = ref<string | null>(null)
 const retryMessageId = ref<string | null>(null)
 const reportResults = ref<HealthReportResult[]>([])
@@ -340,6 +324,15 @@ const orderId = computed(() => queryOrderId(route.query.orderId))
 const readonly = computed(() => Boolean(orderId.value))
 const canOfferUpload = computed(() => !readonly.value && !escalated.value && !reportInFlight.value)
 const canUpload = computed(() => canOfferUpload.value && auth.isMember)
+const showInterpretButton = computed(() =>
+  !readonly.value
+  && !escalated.value
+  && journey.hasAnalysis
+  && !journey.reportInterpretSent
+)
+const composerPlaceholder = computed(() =>
+  goalSelectActive.value ? t('chat.placeholderGoals') : t('chat.placeholder')
+)
 const inputLocked = computed(() => readonly.value || escalated.value)
 const canType = computed(() => {
   if (inputLocked.value || pending.value) {
@@ -352,23 +345,34 @@ const selectedPackageCodeFromQuery = computed(() => queryPackageCode(route.query
 
 const messages = computed(() => readonly.value ? viewMessages.value : journey.messages)
 
-const chipOptions = computed((): GreetingOption[] => {
+function findIntakeMessage(list: ChatMessage[]): ChatMessage | undefined {
+  if (goalSelectActive.value) {
+    return [...list].reverse().find(message =>
+      message.role === 'assistant' && !message.notice && !message.uploadOffer
+    )
+  }
+  return [...list].reverse().find(message =>
+    message.role === 'assistant'
+    && !message.notice
+    && (Boolean(message.options?.length) || Boolean(message.profileQuestion))
+  )
+}
+
+const intakeMessage = computed(() => findIntakeMessage(messages.value))
+
+const choiceOptions = computed((): GreetingOption[] => {
   if (goalSelectActive.value) {
     return goalOptions.value
   }
-  const last = [...messages.value].reverse().find(message => message.role === 'assistant')
-  if (last?.options?.length) {
-    return last.options
-  }
-  return []
+  return intakeMessage.value?.options ?? []
 })
 
 const lastAssistantProfile = computed(() => {
-  const last = [...messages.value].reverse().find(message => message.role === 'assistant')
-  if (!last || last.turnType !== 'profile' || !last.profileQuestion) {
+  const message = intakeMessage.value
+  if (!message || message.turnType !== 'profile' || !message.profileQuestion) {
     return null
   }
-  return last.profileQuestion
+  return message.profileQuestion
 })
 
 const isLabRecencyQuestion = computed(() => {
@@ -386,6 +390,39 @@ const needsMultiConfirm = computed(() => {
   return lastAssistantProfile.value?.answer_type === 'multi_enum'
 })
 
+const confirmDisabled = computed(() =>
+  pending.value
+  || selectedCodes.value.length === 0
+  || (goalSelectActive.value && selectedCodes.value.length < 2)
+)
+
+function choicesFor(message: ChatMessage): GreetingOption[] {
+  if (!intakeMessage.value || message.id !== intakeMessage.value.id) {
+    return []
+  }
+  return choiceOptions.value
+}
+
+function showConfirmFor(message: ChatMessage) {
+  return choicesFor(message).length > 0 && needsMultiConfirm.value
+}
+
+function isConsultationGoalOptions(options: GreetingOption[] | undefined) {
+  if (!options || options.length !== CONSULTATION_GOAL_CODES.size) {
+    return false
+  }
+  const seen = new Set(options.map(option => option.code))
+  if (seen.size !== CONSULTATION_GOAL_CODES.size) {
+    return false
+  }
+  for (const code of CONSULTATION_GOAL_CODES) {
+    if (!seen.has(code)) {
+      return false
+    }
+  }
+  return true
+}
+
 /** Free-text / number answers (or open chat) should keep the composer focused. */
 const needsTextInput = computed(() => {
   if (readonly.value || escalated.value) {
@@ -400,21 +437,19 @@ const needsTextInput = computed(() => {
     if (type === 'int' || type === 'text') {
       return true
     }
-    return chipOptions.value.length === 0
+    return choiceOptions.value.length === 0
   }
   return true
 })
 
 function showUploadCta(message: ChatMessage) {
-  return !readonly.value
-    && !escalated.value
-    && !journey.hasAnalysis
-    && message.role === 'assistant'
-    && Boolean(message.uploadOffer)
-}
-
-function isOptionSelected(code: string) {
-  return selectedCodes.value.includes(code)
+  if (message.role !== 'assistant' || message.id !== lastAssistantId.value) {
+    return false
+  }
+  if (readonly.value || escalated.value || journey.hasAnalysis) {
+    return false
+  }
+  return messageOffersUpload(displayMessageText(message))
 }
 
 function applyPackageFromQuery() {
@@ -448,7 +483,7 @@ function markUploadOffer(message: ChatMessage, text: string) {
   if (journey.hasAnalysis || readonly.value || escalated.value) {
     return
   }
-  if (text.includes('上傳報告') || text.includes('Upload report')) {
+  if (messageOffersUpload(text)) {
     message.uploadOffer = true
   }
 }
@@ -474,6 +509,7 @@ function appendMessage(role: ChatMessage['role'], text: string, file?: string, u
     markUploadOffer(message, text)
   }
   journey.messages.push(message)
+  return message
 }
 
 const lastAssistantId = computed(() => {
@@ -488,10 +524,48 @@ function messagePitchesPackages(message: ChatMessage) {
     || /\d{3,5}\s*元\s*\/?\s*月/.test(text)
 }
 
+const clarifyingGoalLabels = computed(() => {
+  if (journey.clarifyingGoals.length > 0) {
+    return journey.clarifyingGoals
+  }
+  return inferClarifyingGoalLabels(messages.value, goalOptions.value)
+})
+
+const goalClarificationPending = computed(() =>
+  goalsClarificationOpen(messages.value, clarifyingGoalLabels.value)
+)
+
+const intakeOpen = computed(() =>
+  goalSelectActive.value
+  || profileGaps.value.length > 0
+  || lastAssistantProfile.value !== null
+  || goalClarificationPending.value
+)
+
+function lineMentionsPackage(line: string) {
+  if (/(基礎保養|完整調理)/.test(line) || /\d{3,5}\s*元\s*[/／]?\s*月/.test(line)) {
+    return true
+  }
+  return /方案|兩種選擇/.test(line) && !/[?？]/.test(line)
+}
+
+function displayMessageText(message: ChatMessage) {
+  let text = messageText(message)
+  if (message.role === 'assistant' && goalClarificationPending.value) {
+    text = stripFinishedQuizGuide(text)
+  }
+  if (message.role !== 'assistant' || !intakeOpen.value) {
+    return text
+  }
+  const kept = text.split('\n').filter(line => !lineMentionsPackage(line))
+  const out = kept.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+  return out || text
+}
+
 function showRecommendCta(message: ChatMessage) {
   return !readonly.value
     && !escalated.value
-    && !goalSelectActive.value
+    && !intakeOpen.value
     && (journey.hasAnalysis || messagePitchesPackages(message))
     && message.role === 'assistant'
     && message.id === lastAssistantId.value
@@ -636,12 +710,12 @@ function guideAfterQuiz() {
   if (postQuizGuided.value) {
     return
   }
-  if (profileGaps.value.length > 0) {
+  if (profileGaps.value.length > 0 || goalClarificationPending.value) {
     return
   }
   const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
-  // Still collecting goal clarifications via chips — don't append「問答已完成」.
-  if (last?.options?.length) {
+  // Still collecting goal clarifications via turn actions — don't append「問答已完成」.
+  if (last?.options?.length || (last && assistantStillAsking(messageText(last)))) {
     return
   }
   postQuizGuided.value = true
@@ -686,15 +760,24 @@ function applyStreamMeta(assistantId: string, result: {
   } else {
     activeQuestion.value = null
     quizActive.value = false
+    if (isConsultationGoalOptions(result.options)) {
+      goalSelectActive.value = true
+      goalOptions.value = result.options ?? []
+    }
   }
 }
 
 async function streamPending() {
   const content = pendingUserContent.value
+  const intent = pendingIntent.value
   pendingUserContent.value = null
+  pendingIntent.value = null
   goalSelectActive.value = false
 
   if (!content) {
+    if (intent === 'interpret') {
+      journey.reportInterpretSent = false
+    }
     guideAfterQuiz()
     pending.value = false
     return
@@ -717,7 +800,7 @@ async function streamPending() {
         streamed = text
         setMessageText(assistantId, streamed)
       }
-    })
+    }, intent)
 
     setMessageText(assistantId, result.content || streamed)
     applyStreamMeta(assistantId, result)
@@ -727,6 +810,9 @@ async function streamPending() {
     }
     guideAfterQuiz()
   } catch {
+    if (intent === 'interpret') {
+      journey.reportInterpretSent = false
+    }
     const existing = journey.messages.find(item => item.id === assistantId)
     if (existing) {
       setMessageText(assistantId, t('chat.streamError'))
@@ -769,7 +855,7 @@ async function sendText(text: string) {
         await streamPending()
         return
       }
-      // diverted / clarification: still chat; keep profile chips
+      // diverted / clarification: still chat; keep profile choices
       pendingUserContent.value = content
       await streamPending()
     } catch {
@@ -786,16 +872,16 @@ async function sendText(text: string) {
 }
 
 function clearLastAssistantOptions() {
-  const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
-  if (!last) {
+  const message = intakeMessage.value
+  if (!message) {
     return
   }
-  last.options = []
-  last.profileQuestion = null
-  last.turnType = 'message'
+  message.options = []
+  message.profileQuestion = null
+  message.turnType = 'message'
 }
 
-function onOptionChip(option: GreetingOption) {
+function onChoice(option: GreetingOption) {
   if (pending.value) {
     return
   }
@@ -823,7 +909,7 @@ function onOptionChip(option: GreetingOption) {
   }
 
   if (lastAssistantProfile.value) {
-    return submitProfileChip({ value: option.code, display: option.label })
+    return submitProfileChoice({ value: option.code, display: option.label })
   }
 
   // Free-form message options
@@ -860,6 +946,7 @@ async function confirmMultiSelection() {
         return
       }
       goalSelectActive.value = false
+      journey.clarifyingGoals = labels
       selectedCodes.value = []
       pendingUserContent.value = labels.join('、')
       await streamPending()
@@ -876,21 +963,21 @@ async function confirmMultiSelection() {
       if (!code) {
         return
       }
-      const label = chipOptions.value.find(o => o.code === code)?.label ?? code
-      return submitProfileChip({ value: code, display: label })
+      const label = choiceOptions.value.find(o => o.code === code)?.label ?? code
+      return submitProfileChoice({ value: code, display: label })
     }
 
-    const labels = chipOptions.value
+    const labels = choiceOptions.value
       .filter(o => selectedCodes.value.includes(o.code))
       .map(o => o.label)
-    return submitProfileChip({
+    return submitProfileChoice({
       value: selectedCodes.value,
       display: labels.join('、')
     })
   }
 }
 
-async function submitProfileChip(payload: {
+async function submitProfileChoice(payload: {
   value?: string | number | boolean | string[] | null
   raw_text?: string | null
   display: string
@@ -995,7 +1082,9 @@ async function pollReport(reportId: string) {
         setMessageText(statusMessageId, text)
       } else {
         statusMessageId = crypto.randomUUID()
-        journey.messages.push(makeMessage('assistant', text, statusMessageId))
+        const statusMessage = makeMessage('assistant', text, statusMessageId)
+        statusMessage.notice = true
+        journey.messages.push(statusMessage)
       }
     }
 
@@ -1026,7 +1115,7 @@ async function bindAndInterpret(reportId: string) {
       } catch {
         // already unbound or never attached
       }
-      appendMessage('assistant', t('chat.reportSkippedMismatch'))
+      appendMessage('assistant', t('chat.reportSkippedMismatch')).notice = true
       return
     }
     throw error
@@ -1041,16 +1130,35 @@ async function bindAndInterpret(reportId: string) {
     }
   }
 
+  const keepGoals = goalSelectActive.value
+  const keepProfile = lastAssistantProfile.value !== null
+  const gapsRemain = profileGaps.value.length > 0
+
   journey.reportId = reportId
   journey.hasAnalysis = true
+  journey.reportInterpretSent = false
   reportRetryId.value = null
   retryMessageId.value = null
-  appendMessage('assistant', t('chat.reportReady'))
+  const ready = appendMessage('assistant', t('chat.reportReady'))
+  ready.notice = true
   openReportDock()
 
+  if (!keepGoals && !keepProfile && gapsRemain && !readonly.value && !escalated.value) {
+    pendingUserContent.value = t('chat.continueIntake')
+    pendingIntent.value = null
+    await streamPending()
+  }
+}
+
+async function askInterpret() {
+  if (pending.value || readonly.value || escalated.value || journey.reportInterpretSent || !journey.hasAnalysis) {
+    return
+  }
   const interpret = t('chat.askInterpret')
+  journey.reportInterpretSent = true
   appendMessage('user', interpret)
   pendingUserContent.value = interpret
+  pendingIntent.value = 'interpret'
   await runProfileThenStream()
 }
 
@@ -1064,7 +1172,9 @@ async function handleReportTerminal(report: HealthReport) {
   if (report.status === 'failed') {
     const msg = t('chat.reportFailed')
     const id = crypto.randomUUID()
-    journey.messages.push(makeMessage('assistant', msg, id))
+    const failed = makeMessage('assistant', msg, id)
+    failed.notice = true
+    journey.messages.push(failed)
     reportRetryId.value = report.id
     retryMessageId.value = id
   }
@@ -1096,7 +1206,7 @@ async function onFile(event: Event) {
     reportInFlight.value = false
     await handleReportTerminal(report)
   } catch {
-    appendMessage('assistant', t('chat.streamError'))
+    appendMessage('assistant', t('chat.streamError')).notice = true
   } finally {
     reportInFlight.value = false
   }
@@ -1121,7 +1231,7 @@ async function retryReport() {
     reportInFlight.value = false
     await handleReportTerminal(report)
   } catch {
-    appendMessage('assistant', t('chat.streamError'))
+    appendMessage('assistant', t('chat.streamError')).notice = true
   } finally {
     reportInFlight.value = false
   }

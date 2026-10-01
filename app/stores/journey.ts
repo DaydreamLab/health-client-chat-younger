@@ -12,6 +12,7 @@ interface JourneySnapshot {
   reportId: string | null
   reportDockOpen: boolean
   reportDockCollapsed: boolean
+  reportInterpretSent: boolean
   selectedPackage: ConversationPackage | null
   packageConfirmed: boolean
   goalSelectActive: boolean
@@ -21,6 +22,7 @@ interface JourneySnapshot {
   activeQuestion: ProfileNextQuestion | null
   postQuizGuided: boolean
   profileGaps: string[]
+  clarifyingGoals: string[]
 }
 
 const emptySnapshot = (): JourneySnapshot => ({
@@ -31,6 +33,7 @@ const emptySnapshot = (): JourneySnapshot => ({
   reportId: null,
   reportDockOpen: false,
   reportDockCollapsed: false,
+  reportInterpretSent: false,
   selectedPackage: null,
   packageConfirmed: false,
   goalSelectActive: false,
@@ -39,7 +42,8 @@ const emptySnapshot = (): JourneySnapshot => ({
   quizActive: false,
   activeQuestion: null,
   postQuizGuided: false,
-  profileGaps: []
+  profileGaps: [],
+  clarifyingGoals: []
 })
 
 function readStored(): JourneySnapshot {
@@ -63,13 +67,18 @@ function readStored(): JourneySnapshot {
       selectedCodes: Array.isArray(parsed.selectedCodes) ? parsed.selectedCodes : [],
       goalOptions: Array.isArray(parsed.goalOptions) ? parsed.goalOptions : [],
       profileGaps: Array.isArray(parsed.profileGaps) ? parsed.profileGaps : [],
+      clarifyingGoals: Array.isArray(parsed.clarifyingGoals) ? parsed.clarifyingGoals : [],
       reportId,
       hasAnalysis,
       // Old snapshots omit dock flags; reopen when a ready report is already bound.
       reportDockOpen: typeof parsed.reportDockOpen === 'boolean'
         ? parsed.reportDockOpen
         : Boolean(reportId && hasAnalysis),
-      reportDockCollapsed: Boolean(parsed.reportDockCollapsed)
+      reportDockCollapsed: Boolean(parsed.reportDockCollapsed),
+      // Old snapshots omit this flag. A bound report already consumed the auto-send path.
+      reportInterpretSent: typeof parsed.reportInterpretSent === 'boolean'
+        ? parsed.reportInterpretSent
+        : Boolean(hasAnalysis)
     }
   } catch {
     return emptySnapshot()
@@ -86,6 +95,7 @@ export const useJourneyStore = defineStore('journey', () => {
   const reportId = ref<string | null>(initial.reportId)
   const reportDockOpen = ref(initial.reportDockOpen)
   const reportDockCollapsed = ref(initial.reportDockCollapsed)
+  const reportInterpretSent = ref(initial.reportInterpretSent)
   const selectedPackage = ref<ConversationPackage | null>(initial.selectedPackage)
   const packageConfirmed = ref(initial.packageConfirmed)
   const goalSelectActive = ref(initial.goalSelectActive)
@@ -95,6 +105,7 @@ export const useJourneyStore = defineStore('journey', () => {
   const activeQuestion = ref<ProfileNextQuestion | null>(initial.activeQuestion)
   const postQuizGuided = ref(initial.postQuizGuided)
   const profileGaps = ref<string[]>(initial.profileGaps)
+  const clarifyingGoals = ref<string[]>(initial.clarifyingGoals)
 
   function snapshotMessages(): ChatMessage[] {
     return messages.value.map(message => snapshotChatMessage(message))
@@ -113,6 +124,7 @@ export const useJourneyStore = defineStore('journey', () => {
       reportId: reportId.value,
       reportDockOpen: reportDockOpen.value,
       reportDockCollapsed: reportDockCollapsed.value,
+      reportInterpretSent: reportInterpretSent.value,
       selectedPackage: selectedPackage.value,
       packageConfirmed: packageConfirmed.value,
       goalSelectActive: goalSelectActive.value,
@@ -121,7 +133,8 @@ export const useJourneyStore = defineStore('journey', () => {
       quizActive: quizActive.value,
       activeQuestion: activeQuestion.value,
       postQuizGuided: postQuizGuided.value,
-      profileGaps: [...profileGaps.value]
+      profileGaps: [...profileGaps.value],
+      clarifyingGoals: [...clarifyingGoals.value]
     }
 
     if (!payload.conversationId && payload.messages.length === 0) {
@@ -140,6 +153,7 @@ export const useJourneyStore = defineStore('journey', () => {
     reportId.value = null
     reportDockOpen.value = false
     reportDockCollapsed.value = false
+    reportInterpretSent.value = false
     selectedPackage.value = null
     packageConfirmed.value = false
     goalSelectActive.value = false
@@ -149,6 +163,7 @@ export const useJourneyStore = defineStore('journey', () => {
     activeQuestion.value = null
     postQuizGuided.value = false
     profileGaps.value = []
+    clarifyingGoals.value = []
     if (import.meta.client) {
       localStorage.removeItem(JOURNEY_STORAGE_KEY)
     }
@@ -166,6 +181,7 @@ export const useJourneyStore = defineStore('journey', () => {
     reportId.value = stored.reportId
     reportDockOpen.value = stored.reportDockOpen
     reportDockCollapsed.value = stored.reportDockCollapsed
+    reportInterpretSent.value = stored.reportInterpretSent
     selectedPackage.value = stored.selectedPackage
     packageConfirmed.value = stored.packageConfirmed
     goalSelectActive.value = stored.goalSelectActive
@@ -175,6 +191,7 @@ export const useJourneyStore = defineStore('journey', () => {
     activeQuestion.value = stored.activeQuestion
     postQuizGuided.value = stored.postQuizGuided
     profileGaps.value = stored.profileGaps
+    clarifyingGoals.value = stored.clarifyingGoals
   }
 
   if (import.meta.client) {
@@ -187,6 +204,7 @@ export const useJourneyStore = defineStore('journey', () => {
         reportId,
         reportDockOpen,
         reportDockCollapsed,
+        reportInterpretSent,
         selectedPackage,
         packageConfirmed,
         goalSelectActive,
@@ -195,7 +213,8 @@ export const useJourneyStore = defineStore('journey', () => {
         quizActive,
         activeQuestion,
         postQuizGuided,
-        profileGaps
+        profileGaps,
+        clarifyingGoals
       ],
       () => {
         persist()
@@ -212,6 +231,7 @@ export const useJourneyStore = defineStore('journey', () => {
     reportId,
     reportDockOpen,
     reportDockCollapsed,
+    reportInterpretSent,
     selectedPackage,
     packageConfirmed,
     goalSelectActive,
@@ -221,6 +241,7 @@ export const useJourneyStore = defineStore('journey', () => {
     activeQuestion,
     postQuizGuided,
     profileGaps,
+    clarifyingGoals,
     snapshotMessages,
     clearSession,
     persist,

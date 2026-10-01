@@ -4,10 +4,14 @@ import {
   buildDemoOrder,
   demoPackagePlans,
   formatTwd,
+  goalsClarificationOpen,
+  inferClarifyingGoalLabels,
+  messageOffersUpload,
   itemsForPackagePlan,
   shipmentStepIds,
   shouldPersistChat,
   snapshotChatMessage,
+  stripFinishedQuizGuide,
   timelineStatus
 } from '../../app/utils/first-order'
 
@@ -129,9 +133,11 @@ describe('first-order demo', () => {
       id: 'a1',
       role: 'assistant',
       parts: [{ type: 'text', text: '可上傳報告對照數值' }],
-      uploadOffer: true
+      uploadOffer: true,
+      notice: true
     })
     expect(withOffer.uploadOffer).toBe(true)
+    expect(withOffer.notice).toBe(true)
 
     const withoutOffer = snapshotChatMessage({
       id: 'a2',
@@ -139,5 +145,44 @@ describe('first-order demo', () => {
       parts: [{ type: 'text', text: '你好' }]
     })
     expect(withoutOffer.uploadOffer).toBeUndefined()
+  })
+
+  it('keeps two selected goals open until each is asked and the last question is answered', () => {
+    const labels = ['體態管理', '皮膚氣色']
+    const askedOne = [
+      { role: 'assistant', parts: [{ type: 'text', text: '請選擇改善方向。\n1. 體態管理\n2. 皮膚氣色' }] },
+      { role: 'user', parts: [{ type: 'text', text: '體態管理、皮膚氣色' }] },
+      { role: 'assistant', parts: [{ type: 'text', text: '已記下體態管理與皮膚氣色。針對體態管理，主要考量是什麼呢？' }] },
+      { role: 'user', parts: [{ type: 'text', text: '控制體重' }] }
+    ]
+    expect(goalsClarificationOpen(askedOne, labels)).toBe(true)
+
+    const secondStillOpen = [
+      ...askedOne,
+      { role: 'assistant', parts: [{ type: 'text', text: '關於皮膚氣色，您主要想改善的是什麼呢？\n\n問答已完成。若手上有報告可上傳。' }] }
+    ]
+    expect(goalsClarificationOpen(secondStillOpen, labels)).toBe(true)
+    expect(stripFinishedQuizGuide(secondStillOpen[4].parts[0].text)).toBe('關於皮膚氣色，您主要想改善的是什麼呢？')
+
+    const bothAnsweredButFollowUp = [
+      ...secondStillOpen,
+      { role: 'user', parts: [{ type: 'text', text: '其他' }] },
+      { role: 'assistant', parts: [{ type: 'text', text: '針對皮膚氣色，能否說明一下關注點是什麼呢？' }] }
+    ]
+    expect(goalsClarificationOpen(bothAnsweredButFollowUp, labels)).toBe(true)
+
+    const wrappedUp = [
+      ...bothAnsweredButFollowUp,
+      { role: 'user', parts: [{ type: 'text', text: '暗沉' }] },
+      { role: 'assistant', parts: [{ type: 'text', text: '兩個方向都記下了。' }] }
+    ]
+    expect(goalsClarificationOpen(wrappedUp, labels)).toBe(false)
+    expect(inferClarifyingGoalLabels(wrappedUp, labels.map(label => ({ label })))).toEqual(labels)
+  })
+
+  it('offers upload when the assistant asks whether a report was uploaded', () => {
+    expect(messageOffersUpload('您目前是否有上傳過健康檢查報告或相關的檢驗數據呢？')).toBe(true)
+    expect(messageOffersUpload('若方便，可現在上傳報告對照數值。')).toBe(true)
+    expect(messageOffersUpload('請先選擇改善方向。')).toBe(false)
   })
 })

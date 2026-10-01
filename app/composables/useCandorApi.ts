@@ -159,7 +159,8 @@ export function useCandorApi() {
     handlers: {
       onDelta?: (chunk: string) => void
       onReplace?: (text: string) => void
-    } = {}
+    } = {},
+    intent?: string | null
   ): Promise<StreamMessageResult> {
     const token = readToken()
     if (!token) {
@@ -174,7 +175,7 @@ export function useCandorApi() {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ content })
+      body: JSON.stringify(intent ? { content, intent } : { content })
     })
 
     const ct = res.headers.get('content-type') || ''

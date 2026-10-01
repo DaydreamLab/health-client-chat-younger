@@ -6,12 +6,14 @@ const props = defineProps<{
   collapsed: boolean
   results: HealthReportResult[]
   reportId?: string | null
+  showInterpret?: boolean
 }>()
 
 const emit = defineEmits<{
   'update:open': [value: boolean]
   'update:collapsed': [value: boolean]
   'updated': [results: HealthReportResult[]]
+  'interpret': []
 }>()
 
 function toggle() {
@@ -47,18 +49,29 @@ function onUpdated(results: HealthReportResult[]) {
           </p>
         </div>
       </div>
-      <button
-        type="button"
-        class="app-btn app-btn-ghost size-9 shrink-0 px-0"
-        :aria-label="collapsed ? $t('labChart.expand') : $t('labChart.collapse')"
-        data-testid="chat-report-dock-toggle"
-        @click="toggle"
-      >
-        <UIcon
-          :name="collapsed ? 'i-lucide-chevron-down' : 'i-lucide-chevron-up'"
-          class="size-4"
-        />
-      </button>
+      <div class="flex shrink-0 items-center gap-2">
+        <AppButton
+          v-if="showInterpret"
+          variant="outline"
+          class="interpret-btn"
+          data-testid="chat-report-interpret"
+          @click="emit('interpret')"
+        >
+          {{ $t('chat.explainHighlights') }}
+        </AppButton>
+        <button
+          type="button"
+          class="app-btn app-btn-ghost size-9 shrink-0 px-0"
+          :aria-label="collapsed ? $t('labChart.expand') : $t('labChart.collapse')"
+          data-testid="chat-report-dock-toggle"
+          @click="toggle"
+        >
+          <UIcon
+            :name="collapsed ? 'i-lucide-chevron-down' : 'i-lucide-chevron-up'"
+            class="size-4"
+          />
+        </button>
+      </div>
     </div>
 
     <div
@@ -79,3 +92,12 @@ function onUpdated(results: HealthReportResult[]) {
     </div>
   </div>
 </template>
+
+<style scoped>
+:deep(.interpret-btn) {
+  height: 2rem;
+  min-height: 2rem;
+  padding-inline: 0.75rem;
+  font-size: 0.8125rem;
+}
+</style>

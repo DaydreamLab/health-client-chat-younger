@@ -36,6 +36,110 @@ export interface ChatMessage {
   profileGaps?: string[]
   /** Assistant invited upload; show in-bubble upload button. */
   uploadOffer?: boolean
+  /** Status note (report progress / ready). Does not replace the active question. */
+  notice?: boolean
+}
+
+export function chatMessageText(message: { parts: Array<{ type: string, text?: string }> }): string {
+  return message.parts
+    .filter(part => part.type === 'text')
+    .map(part => part.text ?? '')
+    .join('\n')
+}
+
+/** Open clarifying question, not a wrap-up. */
+export function assistantStillAsking(text: string): boolean {
+  return /[?？]/.test(text)
+}
+
+/**
+ * The goal a clarifying question is actually about.
+ * A greeting that lists every direction is not a question, so it does not count.
+ */
+export function focusedClarifyingGoal(text: string, labels: string[]): string | null {
+  if (!assistantStillAsking(text)) {
+    return null
+  }
+  let best: { label: string, index: number } | null = null
+  for (const label of labels) {
+    const index = text.lastIndexOf(label)
+    if (index >= 0 && (best === null || index > best.index)) {
+      best = { label, index }
+    }
+  }
+  return best?.label ?? null
+}
+
+/**
+ * Two or more selected goals stay open until each has been asked and answered.
+ * The goal-selection message itself does not count.
+ */
+export function goalsClarificationOpen(
+  messages: Array<{ role: string, parts: Array<{ type: string, text?: string }> }>,
+  goalLabels: string[]
+): boolean {
+  const labels = [...new Set(goalLabels.map(label => label.trim()).filter(label => label !== ''))]
+  if (labels.length === 0) {
+    return false
+  }
+  const covered = new Set<string>()
+  messages.forEach((message, index) => {
+    if (message.role !== 'assistant') {
+      return
+    }
+    const focus = focusedClarifyingGoal(chatMessageText(message), labels)
+    if (!focus) {
+      return
+    }
+    const answered = messages.slice(index + 1).some(later => later.role === 'user')
+    if (answered) {
+      covered.add(focus)
+    }
+  })
+  if (labels.some(label => !covered.has(label))) {
+    return true
+  }
+  const lastAssistant = [...messages].reverse().find(message => message.role === 'assistant')
+  return lastAssistant !== undefined && assistantStillAsking(chatMessageText(lastAssistant))
+}
+
+/** Chip confirm sends labels joined in one user message, e.g. 「體態管理、皮膚氣色」. */
+export function inferClarifyingGoalLabels(
+  messages: Array<{ role: string, parts: Array<{ type: string, text?: string }> }>,
+  options: Array<{ label: string }>
+): string[] {
+  const labels = options.map(option => option.label).filter(label => label !== '')
+  for (const message of messages) {
+    if (message.role !== 'user') {
+      continue
+    }
+    const text = chatMessageText(message)
+    const hit = labels.filter(label => text.includes(label))
+    if (hit.length >= 2) {
+      return hit
+    }
+  }
+  return []
+}
+
+/** Assistant asked the user to upload, or asked whether they already have a report to upload. */
+export function messageOffersUpload(text: string): boolean {
+  if (/upload report/i.test(text)) {
+    return true
+  }
+  return text.includes('上傳') && /報告|檢驗/.test(text)
+}
+
+/** Drop the client-appended「問答已完成」guide while clarification is still open. */
+export function stripFinishedQuizGuide(text: string): string {
+  const kept = text.split('\n').filter((line) => {
+    const trimmed = line.trim()
+    return !trimmed.startsWith('問答已完成')
+      && !trimmed.startsWith('問答與報告都就緒')
+      && !trimmed.startsWith('Questions done.')
+      && !trimmed.startsWith('Questions and report are ready.')
+  })
+  return kept.join('\n').replace(/\n{3,}/g, '\n\n').trim()
 }
 
 /** Persistable clone for journey localStorage (keeps uploadOffer). */
@@ -48,7 +152,8 @@ export function snapshotChatMessage(message: ChatMessage): ChatMessage {
     turnType: message.turnType,
     profileQuestion: message.profileQuestion ? { ...message.profileQuestion } : message.profileQuestion,
     profileGaps: message.profileGaps ? [...message.profileGaps] : undefined,
-    ...(message.uploadOffer ? { uploadOffer: true } : {})
+    ...(message.uploadOffer ? { uploadOffer: true } : {}),
+    ...(message.notice ? { notice: true } : {})
   }
 }
 
