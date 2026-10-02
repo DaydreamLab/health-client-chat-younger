@@ -234,6 +234,7 @@ export interface OrderItemLine {
   name: string
   dailyDose: number
   monthlyCost?: number
+  isCore?: boolean
   imageUrl?: string | null
 }
 
@@ -532,6 +533,7 @@ export function orderRecordFromCandorDetail(
         name: item.sellable_item_name,
         dailyDose: item.daily_dose,
         monthlyCost: item.monthly_cost,
+        isCore: item.is_core ?? false,
         imageUrl: item.image_url ?? null
       }))
     : itemsFromParts(productCodes, productNames)

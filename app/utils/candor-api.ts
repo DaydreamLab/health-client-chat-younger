@@ -102,6 +102,8 @@ export interface RecommendationPackageItem {
   daily_servings_min?: number | null
   daily_servings_max?: number | null
   monthly_cost: number
+  /** 是否基礎（核心）品；來自主檔，false／缺省視為功能型 */
+  is_core?: boolean
   image_url?: string | null
 }
 
@@ -255,6 +257,7 @@ export interface OrderPackageComponent {
   daily_dose: number
   monthly_cost: number
   rank: number
+  is_core?: boolean
   image_url?: string | null
 }
 

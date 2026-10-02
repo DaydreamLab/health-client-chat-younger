@@ -203,8 +203,17 @@
             </span>
           </span>
           <span class="min-w-0 flex-1">
-            <span class="block font-medium text-highlighted">
-              {{ item.name }}
+            <span class="flex flex-wrap items-center gap-2">
+              <span class="font-medium text-highlighted">
+                {{ item.name }}
+              </span>
+              <span
+                class="app-badge"
+                :class="item.isCore ? 'app-badge-demo' : 'app-badge-pending'"
+                :data-testid="`order-item-kind-${item.code}`"
+              >
+                {{ item.isCore ? $t('recommendation.itemKindCore') : $t('recommendation.itemKindFunctional') }}
+              </span>
             </span>
           </span>
           <span class="flex shrink-0 flex-col items-end gap-1">

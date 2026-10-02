@@ -188,8 +188,17 @@
                 </span>
               </span>
               <span class="min-w-0 flex-1">
-                <span class="block font-medium text-highlighted">
-                  {{ item.name }}
+                <span class="flex flex-wrap items-center gap-2">
+                  <span class="font-medium text-highlighted">
+                    {{ item.name }}
+                  </span>
+                  <span
+                    class="app-badge"
+                    :class="item.is_core ? 'app-badge-demo' : 'app-badge-pending'"
+                    :data-testid="`sellable-item-kind-${item.code || item.sellable_item_id}`"
+                  >
+                    {{ item.is_core ? $t('recommendation.itemKindCore') : $t('recommendation.itemKindFunctional') }}
+                  </span>
                 </span>
               </span>
               <span class="flex shrink-0 flex-col items-end gap-1">
@@ -517,9 +526,18 @@
                 </span>
               </span>
               <div class="min-w-0">
-                <h2 class="text-lg font-semibold text-highlighted">
-                  {{ detail.name }}
-                </h2>
+                <div class="flex flex-wrap items-center gap-2">
+                  <h2 class="text-lg font-semibold text-highlighted">
+                    {{ detail.name }}
+                  </h2>
+                  <span
+                    class="app-badge"
+                    :class="detail.is_core ? 'app-badge-demo' : 'app-badge-pending'"
+                    data-testid="sellable-item-detail-kind"
+                  >
+                    {{ detail.is_core ? $t('recommendation.itemKindCore') : $t('recommendation.itemKindFunctional') }}
+                  </span>
+                </div>
                 <p class="mt-1 text-sm text-muted">
                   {{ doseLabel(detail) }}
                 </p>

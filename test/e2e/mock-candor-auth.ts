@@ -48,8 +48,9 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
   let goalsSet = false
   let streamCount = 0
   let reportPollCount = 0
-  const sessionUser = options.asMember ? memberUser : guestUser
-  const sessionToken = options.asMember ? 'e2e-member-token' : 'e2e-guest-token'
+  const asMember = Boolean(options.asMember)
+  const sessionUser = asMember ? memberUser : guestUser
+  const sessionToken = asMember ? 'e2e-member-token' : 'e2e-guest-token'
   let placedOrder: {
     id: string
     order_no: string
@@ -197,7 +198,9 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   daily_dose: 1,
                   daily_servings_min: 1,
                   daily_servings_max: 1,
-                  monthly_cost: 280
+                  monthly_cost: 280,
+                  is_core: true,
+                  image_url: 'https://cdn.example/catalog/vitamin_d.png'
                 },
                 {
                   rank: 2,
@@ -208,7 +211,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   daily_dose: 1,
                   daily_servings_min: 1,
                   daily_servings_max: 1,
-                  monthly_cost: 520
+                  monthly_cost: 520,
+                  is_core: false
                 },
                 {
                   rank: 3,
@@ -219,7 +223,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   daily_dose: 1,
                   daily_servings_min: 1,
                   daily_servings_max: 1,
-                  monthly_cost: 480
+                  monthly_cost: 480,
+                  is_core: false
                 }
               ],
               used_amount: 1280,
@@ -241,7 +246,9 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   daily_dose: 1,
                   daily_servings_min: 1,
                   daily_servings_max: 1,
-                  monthly_cost: 280
+                  monthly_cost: 280,
+                  is_core: true,
+                  image_url: 'https://cdn.example/catalog/vitamin_d.png'
                 },
                 {
                   rank: 2,
@@ -252,7 +259,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   daily_dose: 1,
                   daily_servings_min: 1,
                   daily_servings_max: 1,
-                  monthly_cost: 520
+                  monthly_cost: 520,
+                  is_core: false
                 },
                 {
                   rank: 3,
@@ -263,7 +271,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   daily_dose: 1,
                   daily_servings_min: 1,
                   daily_servings_max: 1,
-                  monthly_cost: 480
+                  monthly_cost: 480,
+                  is_core: false
                 },
                 {
                   rank: 4,
@@ -274,7 +283,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   daily_dose: 1,
                   daily_servings_min: 1,
                   daily_servings_max: 1,
-                  monthly_cost: 280
+                  monthly_cost: 280,
+                  is_core: true
                 }
               ],
               used_amount: 1560,
@@ -604,7 +614,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           height_cm: null,
           weight_kg: null,
           diet: null,
-          goals: []
+          goals: asMember ? ['sleep', 'immune_boost'] : []
         }
       })
     })
@@ -842,9 +852,9 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
             used_amount: 1280,
             remaining: 0,
             components: [
-              { id: 'c1', sellable_item_id: sellableVitD, sellable_item_code: 'vitamin_d', sellable_item_name: '維生素 D', unit_price: 9, daily_dose: 1, monthly_cost: 280, rank: 1, image_url: 'https://cdn.example/catalog/vitamin_d.png' },
-              { id: 'c2', sellable_item_id: sellableIron, sellable_item_code: 'iron', sellable_item_name: '鐵蛋白調理', unit_price: 17, daily_dose: 1, monthly_cost: 520, rank: 2, image_url: null },
-              { id: 'c3', sellable_item_id: sellableVitC, sellable_item_code: 'vitamin_c', sellable_item_name: '維生素 C', unit_price: 16, daily_dose: 1, monthly_cost: 480, rank: 3 }
+              { id: 'c1', sellable_item_id: sellableVitD, sellable_item_code: 'vitamin_d', sellable_item_name: '維生素 D', unit_price: 9, daily_dose: 1, monthly_cost: 280, rank: 1, is_core: true, image_url: 'https://cdn.example/catalog/vitamin_d.png' },
+              { id: 'c2', sellable_item_id: sellableIron, sellable_item_code: 'iron', sellable_item_name: '鐵蛋白調理', unit_price: 17, daily_dose: 1, monthly_cost: 520, rank: 2, is_core: false, image_url: null },
+              { id: 'c3', sellable_item_id: sellableVitC, sellable_item_code: 'vitamin_c', sellable_item_name: '維生素 C', unit_price: 16, daily_dose: 1, monthly_cost: 480, rank: 3, is_core: false }
             ]
           },
           lines: [],

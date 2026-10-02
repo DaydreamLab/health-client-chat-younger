@@ -89,21 +89,20 @@
         class="absolute inset-x-3 top-3 z-20 flex flex-col overflow-hidden rounded-2xl border border-default bg-elevated shadow-lg sm:inset-x-4"
         data-testid="chat-report-status-banner"
       >
-        <div class="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
+        <div
+          class="flex items-center justify-between gap-3 px-4 py-3 sm:px-5"
+          :data-testid="reportInFlight ? 'chat-report-loading' : undefined"
+        >
           <div class="flex min-w-0 items-center gap-2.5">
+            <AssistantMark
+              v-if="reportInFlight"
+              state="thinking"
+            />
             <span
-              class="flex size-8 shrink-0 items-center justify-center rounded-full ring-1"
-              :class="reportPollFailed
-                ? 'bg-error/10 text-error ring-error/20'
-                : 'bg-primary/10 text-primary ring-primary/20'"
+              v-else
+              class="flex size-8 shrink-0 items-center justify-center rounded-full bg-error/10 text-error ring-1 ring-error/20"
             >
-              <span
-                v-if="reportInFlight"
-                class="size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-                aria-hidden="true"
-              />
               <UIcon
-                v-else
                 name="i-lucide-triangle-alert"
                 class="size-4"
               />

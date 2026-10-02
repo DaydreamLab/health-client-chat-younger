@@ -53,7 +53,18 @@ test.describe('member order detail', () => {
       'src',
       'https://cdn.example/catalog/vitamin_d.png'
     )
+    await expect(page.getByTestId('order-item-kind-vitamin_d')).toHaveText('核心')
+    await expect(page.getByTestId('order-item-kind-iron')).toHaveText('功能型')
     await expect(page.getByTestId('order-item-iron').getByTestId('order-item-image')).toHaveCount(0)
+  })
+
+  test('health profile shows consultation goal labels in Chinese', async ({ page, goto }) => {
+    await goto('/app', { waitUntil: 'hydration' })
+    await expect(page.getByRole('heading', { name: '我的健康' })).toBeVisible()
+    await expect(page.getByTestId('health-stat-goals')).toContainText('睡眠')
+    await expect(page.getByTestId('health-stat-goals')).toContainText('免疫提升')
+    await expect(page.getByTestId('health-stat-goals')).not.toContainText('sleep')
+    await expect(page.getByTestId('health-stat-goals')).not.toContainText('immune_boost')
   })
 })
 
@@ -100,10 +111,14 @@ test.describe('member checkout', () => {
     await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
     await page.getByTestId('chat-report-interpret').click()
     await expect(page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
+    // Dock covers the transcript CTA at this viewport; collapse so recommend is clickable.
+    await page.getByTestId('chat-report-dock-toggle').click()
     await page.getByTestId('chat-view-recommend').click()
 
     await expect(page.getByTestId('checkout-auth-gate')).toHaveCount(0)
     await expect(page.getByTestId('checkout-total')).toContainText('1,280')
+    await expect(page.getByTestId('sellable-item-kind-vitamin_d')).toHaveText('核心')
+    await expect(page.getByTestId('sellable-item-kind-iron')).toHaveText('功能型')
     await page.getByTestId('checkout-name').fill('林晏婷')
     await page.getByTestId('checkout-phone').fill('0912345678')
     await page.getByTestId('checkout-address-city').selectOption('台北市')
