@@ -104,15 +104,11 @@
           class="flex items-start gap-2"
           :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
         >
-          <span
+          <AssistantMark
             v-if="message.role === 'assistant'"
-            class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-elevated text-primary"
-          >
-            <UIcon
-              name="i-lucide-bot"
-              class="size-4"
-            />
-          </span>
+            class="mt-0.5"
+            :state="assistantMarkState(message)"
+          />
           <div
             class="max-w-[min(40rem,85%)] overflow-hidden rounded-2xl text-sm leading-relaxed"
             :class="[
@@ -168,10 +164,14 @@
         </p>
         <p
           v-else-if="pending"
-          class="text-sm text-muted"
+          class="flex items-center gap-2 text-sm text-muted"
           data-testid="chat-thinking"
         >
-          {{ $t('chat.thinking') }}
+          <AssistantMark
+            v-if="!liveAssistantId"
+            state="thinking"
+          />
+          <span>{{ $t('chat.thinking') }}</span>
         </p>
       </div>
     </div>
@@ -282,6 +282,7 @@ const candor = useCandorApi()
 
 const input = ref('')
 const pending = ref(false)
+const liveAssistantId = ref<string | null>(null)
 const resetting = ref(false)
 const reportInFlight = ref(false)
 const escalated = ref(false)
@@ -517,6 +518,13 @@ const lastAssistantId = computed(() => {
   const last = [...messages.value].reverse().find(message => message.role === 'assistant')
   return last?.id
 })
+
+function assistantMarkState(message: ChatMessage): 'idle' | 'thinking' | 'speaking' {
+  if (message.id !== liveAssistantId.value) {
+    return 'idle'
+  }
+  return messageText(message).trim() === '' ? 'thinking' : 'speaking'
+}
 
 const clarifyingGoalLabels = computed(() => {
   if (journey.clarifyingGoals.length > 0) {
@@ -785,6 +793,7 @@ async function streamPending() {
   try {
     const conversationId = await ensureConversation()
     journey.messages.push(makeMessage('assistant', '', assistantId))
+    liveAssistantId.value = assistantId
 
     const result = await candor.streamMessage(conversationId, content, {
       onDelta: (chunk) => {
@@ -815,6 +824,7 @@ async function streamPending() {
       appendMessage('assistant', t('chat.streamError'))
     }
   } finally {
+    liveAssistantId.value = null
     pending.value = false
     focusChatInput()
   }

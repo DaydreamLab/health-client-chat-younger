@@ -39,10 +39,11 @@
         <div class="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           <p
             v-if="pending"
-            class="text-sm text-muted"
+            class="flex items-center gap-2 text-sm text-muted"
             data-testid="order-chat-loading"
           >
-            {{ $t('orders.chatLoading') }}
+            <AssistantMark state="thinking" />
+            <span>{{ $t('orders.chatLoading') }}</span>
           </p>
           <p
             v-else-if="error"
@@ -66,9 +67,13 @@
             <li
               v-for="message in messages"
               :key="message.id"
-              class="flex"
+              class="flex items-start gap-2"
               :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
             >
+              <AssistantMark
+                v-if="message.role === 'assistant'"
+                class="mt-0.5"
+              />
               <div
                 class="max-w-[90%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed"
                 :class="message.role === 'user'
