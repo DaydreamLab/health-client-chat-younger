@@ -8,6 +8,8 @@ defineProps<{
   confirmDisabled: boolean
   showUpload: boolean
   uploadDisabled: boolean
+  showCheckup: boolean
+  checkupUrl: string
   showRecommend: boolean
   showRetry: boolean
   pending: boolean
@@ -24,10 +26,24 @@ const emit = defineEmits<{
 
 <template>
   <div
-    v-if="choices.length || showConfirm || showUpload || showRecommend || showRetry"
+    v-if="choices.length || showConfirm || showUpload || showCheckup || showRecommend || showRetry"
     class="turn-actions"
     data-testid="chat-turn-actions"
   >
+    <div
+      v-if="showCheckup && checkupUrl"
+      class="turn-actions-row"
+    >
+      <AppButton
+        :href="checkupUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+        variant="outline"
+        data-testid="chat-message-checkup"
+      >
+        {{ $t('chat.checkupLink') }}
+      </AppButton>
+    </div>
     <div
       v-if="choices.length"
       class="turn-actions-row"

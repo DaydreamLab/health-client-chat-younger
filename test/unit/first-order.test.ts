@@ -148,6 +148,23 @@ describe('first-order demo', () => {
     expect(withoutOffer.uploadOffer).toBeUndefined()
   })
 
+  it('persists checkupOffer in journey message snapshots', () => {
+    const withOffer = snapshotChatMessage({
+      id: 'a1',
+      role: 'assistant',
+      parts: [{ type: 'text', text: '如果去做一次檢查，之後可以更清楚各項指標。' }],
+      checkupOffer: true
+    })
+    expect(withOffer.checkupOffer).toBe(true)
+
+    const withoutOffer = snapshotChatMessage({
+      id: 'a2',
+      role: 'assistant',
+      parts: [{ type: 'text', text: '你好' }]
+    })
+    expect(withoutOffer.checkupOffer).toBeUndefined()
+  })
+
   it('keeps two selected goals open until each is asked and the last question is answered', () => {
     const labels = ['體態管理', '皮膚氣色']
     const askedOne = [

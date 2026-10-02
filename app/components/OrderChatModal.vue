@@ -67,12 +67,12 @@
             <li
               v-for="message in messages"
               :key="message.id"
-              class="flex items-start gap-2"
+              class="flex items-end gap-2"
               :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
             >
               <AssistantMark
                 v-if="message.role === 'assistant'"
-                class="mt-0.5"
+                class="mb-0.5"
               />
               <div
                 class="max-w-[90%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed"

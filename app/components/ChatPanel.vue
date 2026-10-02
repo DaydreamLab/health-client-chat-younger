@@ -149,12 +149,11 @@
         <article
           v-for="message in messages"
           :key="message.id"
-          class="flex items-start gap-2"
+          class="flex items-end gap-2"
           :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
         >
-          <AssistantMark
+          <ChatAssistantMark
             v-if="message.role === 'assistant'"
-            class="mt-0.5"
             :state="assistantMarkState(message)"
           />
           <div
@@ -188,6 +187,8 @@
               :confirm-disabled="confirmDisabled"
               :show-upload="showUploadCta(message)"
               :upload-disabled="!canOfferUpload"
+              :show-checkup="showCheckupCta(message)"
+              :checkup-url="checkupLinkUrl"
               :show-recommend="showRecommendCta(message)"
               :show-retry="showRetryCta(message)"
               :pending="pending"
@@ -200,14 +201,11 @@
           </div>
         </article>
         <p
-          v-if="pending && !reportInFlight"
+          v-if="pending && !reportInFlight && !liveAssistantId"
           class="flex items-center gap-2 text-sm text-muted"
           data-testid="chat-thinking"
         >
-          <AssistantMark
-            v-if="!liveAssistantId"
-            state="thinking"
-          />
+          <AssistantMark state="thinking" />
           <span>{{ $t('chat.thinking') }}</span>
         </p>
       </div>
@@ -289,10 +287,13 @@ const POLL_INTERVAL_MS = 2000
 const LAB_GAP_CODES = new Set(['lab_report', 'checkup', 'blood_test'])
 /** Answers that mean a recent enough report to offer upload (within 1 year). */
 const UPLOADABLE_LAB_CODES = new Set(['within_1y', 'within_6m'])
+/** Answers that mean no usable report — suggest external checkup instead. */
+const STALE_LAB_CODES = new Set(['none', '1_to_3y', 'over_3y'])
 
 const { t } = useI18n()
 const localePath = useLocalePath()
 const route = useRoute()
+const config = useRuntimeConfig()
 const auth = useAuthStore()
 const journey = useJourneyStore()
 const {
@@ -320,6 +321,12 @@ const pendingUserContent = ref<string | null>(null)
 const pendingIntent = ref<string | null>(null)
 /** After lab_report confirm of within_1y / within_6m, mark the next agent reply for upload. */
 const offerUploadAfterStream = ref(false)
+/** After lab_report confirm of none / over 1y, mark the next agent reply for checkup link. */
+const offerCheckupAfterStream = ref(false)
+/** True only when the user confirmed a recent-enough lab answer for upload CTA. */
+const labUploadEligible = ref(false)
+const resolvedCheckupUrl = ref('')
+const checkupUrlLoaded = ref(false)
 const reportRetryId = ref<string | null>(null)
 const reportResults = ref<HealthReportResult[]>([])
 const reportDockMessageId = ref<string | null>(null)
@@ -361,6 +368,7 @@ const reportPollFailed = computed(() => reportPollStatus.value === 'failed' && !
 const showReportStatusBanner = computed(() =>
   !readonly.value && (reportInFlight.value || reportPollFailed.value)
 )
+const checkupLinkUrl = computed(() => resolvedCheckupUrl.value.trim())
 const reportStatusLabel = computed(() => {
   const status = reportPollStatus.value
     ?? (reportInFlight.value ? 'extracting' : '')
@@ -375,7 +383,6 @@ const showInterpretButton = computed(() =>
   !readonly.value
   && !escalated.value
   && journey.hasAnalysis
-  && !journey.reportInterpretSent
 )
 const composerPlaceholder = computed(() =>
   goalSelectActive.value ? t('chat.placeholderGoals') : t('chat.placeholder')
@@ -395,7 +402,7 @@ const messages = computed(() => readonly.value ? viewMessages.value : journey.me
 function findIntakeMessage(list: ChatMessage[]): ChatMessage | undefined {
   if (goalSelectActive.value) {
     return [...list].reverse().find(message =>
-      message.role === 'assistant' && !message.notice && !message.uploadOffer
+      message.role === 'assistant' && !message.notice && !message.uploadOffer && !message.checkupOffer
     )
   }
   return [...list].reverse().find(message =>
@@ -501,6 +508,33 @@ function showUploadCta(message: ChatMessage) {
   return messageOffersUpload(displayMessageText(message))
 }
 
+function showCheckupCta(message: ChatMessage) {
+  if (message.role !== 'assistant' || !message.checkupOffer) {
+    return false
+  }
+  if (readonly.value || escalated.value) {
+    return false
+  }
+  return checkupLinkUrl.value !== ''
+}
+
+async function loadCheckupLinkUrl() {
+  if (checkupUrlLoaded.value) {
+    return
+  }
+  const fallback = String(config.public.individualTestsUrl || '').trim()
+  try {
+    const remote = await candor.getClientConfig()
+    const fromApi = String(remote.individual_tests_url || '').trim()
+    // Empty string from API is intentional (hide button); only fall back on fetch failure.
+    resolvedCheckupUrl.value = fromApi
+  } catch {
+    resolvedCheckupUrl.value = fallback
+  } finally {
+    checkupUrlLoaded.value = true
+  }
+}
+
 function applyPackageFromQuery() {
   const packageCode = queryPackageCode(route.query.package)
   if (packageCode) {
@@ -548,6 +582,11 @@ function setMessageText(id: string, text: string) {
     message.parts.push(file)
   }
   markUploadOffer(message, text)
+  const isLive = id === liveAssistantId.value
+  const isLatestAssistant = id === lastAssistantId.value
+  if (isLive || isLatestAssistant) {
+    scrollToLatestSoon(isLive ? 'auto' : 'smooth')
+  }
 }
 
 function appendMessage(role: ChatMessage['role'], text: string, file?: string, uploadOffer = false) {
@@ -642,15 +681,55 @@ function scrollToLatest(behavior: ScrollBehavior = 'smooth') {
   }
 
   scroller.scrollTo({ top: scroller.scrollHeight, behavior })
+  const anchor = scroller.querySelector('[data-testid="chat-last-reply"]')
+    ?? scroller.querySelector('article:last-of-type')
+  if (anchor instanceof HTMLElement) {
+    anchor.scrollIntoView({ block: 'end', behavior })
+  }
 }
 
-watch(
-  () => [messages.value.length, pending.value, reportInFlight.value, lastAssistantId.value, journey.hasAnalysis, quizActive.value],
-  async () => {
-    await nextTick()
-    requestAnimationFrame(() => {
-      scrollToLatest()
+let streamScrollFrame = 0
+function scrollToLatestSoon(behavior: ScrollBehavior = 'smooth') {
+  if (streamScrollFrame) {
+    cancelAnimationFrame(streamScrollFrame)
+  }
+  streamScrollFrame = requestAnimationFrame(() => {
+    streamScrollFrame = 0
+    void nextTick().then(() => {
+      requestAnimationFrame(() => {
+        scrollToLatest(behavior)
+      })
     })
+  })
+}
+
+const lastAssistantTextLen = computed(() => {
+  const id = lastAssistantId.value
+  if (!id) {
+    return 0
+  }
+  const message = messages.value.find(item => item.id === id)
+  return message ? messageText(message).length : 0
+})
+
+watch(
+  () => [
+    messages.value.length,
+    pending.value,
+    reportInFlight.value,
+    lastAssistantId.value,
+    lastAssistantTextLen.value,
+    liveAssistantId.value,
+    journey.hasAnalysis,
+    quizActive.value,
+    goalSelectActive.value,
+    profileGaps.value.length,
+    selectedCodes.value.length,
+    intakeOpen.value
+  ],
+  () => {
+    const behavior: ScrollBehavior = pending.value || liveAssistantId.value ? 'auto' : 'smooth'
+    scrollToLatestSoon(behavior)
   },
   { flush: 'post' }
 )
@@ -681,6 +760,8 @@ async function resetConversation() {
   input.value = ''
   pendingUserContent.value = null
   offerUploadAfterStream.value = false
+  offerCheckupAfterStream.value = false
+  labUploadEligible.value = false
   reportRetryId.value = null
   reportResults.value = []
   journey.reportDockOpen = false
@@ -769,6 +850,13 @@ function guideAfterQuiz() {
     return
   }
   postQuizGuided.value = true
+  if (!journey.hasAnalysis && last?.checkupOffer) {
+    // Stale / none path: checkup suggestion already on this bubble — do not invite upload.
+    return
+  }
+  if (!journey.hasAnalysis && !labUploadEligible.value) {
+    return
+  }
   const text = journey.hasAnalysis
     ? t('chat.guideRecommendAfterQuiz')
     : t('chat.guideUploadAfterQuiz')
@@ -789,6 +877,7 @@ function applyStreamMeta(assistantId: string, result: {
   turn: { type: string }
   profile_question: ChatMessage['profileQuestion']
   profile_gaps: string[]
+  upload_offer?: boolean
 }) {
   const message = journey.messages.find(item => item.id === assistantId)
   if (message) {
@@ -796,6 +885,10 @@ function applyStreamMeta(assistantId: string, result: {
     message.turnType = result.turn.type as ChatMessage['turnType']
     message.profileQuestion = result.profile_question ?? null
     message.profileGaps = result.profile_gaps
+    if (result.upload_offer) {
+      message.uploadOffer = true
+      labUploadEligible.value = true
+    }
   }
   profileGaps.value = result.profile_gaps
   selectedCodes.value = []
@@ -881,8 +974,8 @@ async function streamPending() {
       appendMessage('assistant', t('chat.streamError'))
     }
   } finally {
-    liveAssistantId.value = null
     pending.value = false
+    liveAssistantId.value = null
     focusChatInput()
   }
 }
@@ -1027,6 +1120,11 @@ async function confirmMultiSelection() {
       }
       const label = choiceOptions.value.find(o => o.code === code)?.label ?? code
       offerUploadAfterStream.value = UPLOADABLE_LAB_CODES.has(code)
+      offerCheckupAfterStream.value = STALE_LAB_CODES.has(code)
+      labUploadEligible.value = UPLOADABLE_LAB_CODES.has(code)
+      if (offerCheckupAfterStream.value) {
+        void loadCheckupLinkUrl()
+      }
       return submitProfileChoice({ value: code, display: label })
     }
 
@@ -1086,8 +1184,18 @@ async function submitProfileChoice(payload: {
       }
       offerUploadAfterStream.value = false
     }
+    if (offerCheckupAfterStream.value) {
+      const last = [...journey.messages].reverse().find(message =>
+        message.role === 'assistant' && !message.notice
+      )
+      if (last) {
+        last.checkupOffer = true
+      }
+      offerCheckupAfterStream.value = false
+    }
   } catch {
     offerUploadAfterStream.value = false
+    offerCheckupAfterStream.value = false
     appendMessage('assistant', t('chat.streamError'))
     pending.value = false
   }
@@ -1222,7 +1330,7 @@ async function bindAndInterpret(reportId: string) {
 }
 
 async function askInterpret() {
-  if (pending.value || readonly.value || escalated.value || journey.reportInterpretSent || !journey.hasAnalysis) {
+  if (pending.value || readonly.value || escalated.value || !journey.hasAnalysis) {
     return
   }
   const interpret = t('chat.askInterpret')
@@ -1489,6 +1597,10 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   pollGeneration += 1
+  if (streamScrollFrame) {
+    cancelAnimationFrame(streamScrollFrame)
+    streamScrollFrame = 0
+  }
 })
 </script>
 

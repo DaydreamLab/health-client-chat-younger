@@ -266,6 +266,7 @@
     "greetBasicCare": "You picked Basic Care. Tell me if you have a blood report, or upload it — then you can see the chart and the one-month items.",
     "greetFullTune": "You picked Full Tune, which is Basic Care plus extras. Tell me if you have a report, or upload labs first.",
     "upload": "Upload report",
+    "checkupLink": "Get tested to see your markers clearly",
     "uploaded": "Uploaded {name}",
     "reportStatus": "Report status: {status}",
     "reportStatusBannerTitle": "Processing report",

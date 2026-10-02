@@ -73,12 +73,7 @@ function onUpdated(results: HealthReportResult[]) {
   >
     <div class="flex shrink-0 items-center justify-between gap-3 border-b border-default px-4 py-3 sm:px-5">
       <div class="flex min-w-0 items-center gap-2.5">
-        <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20">
-          <UIcon
-            name="i-lucide-clipboard-list"
-            class="size-4"
-          />
-        </span>
+        <AssistantMark state="idle" />
         <div class="min-w-0">
           <p class="truncate text-sm font-semibold text-highlighted">
             {{ $t('labChart.dockTitle') }}

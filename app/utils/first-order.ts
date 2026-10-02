@@ -36,6 +36,8 @@ export interface ChatMessage {
   profileGaps?: string[]
   /** Assistant invited upload; show in-bubble upload button. */
   uploadOffer?: boolean
+  /** Assistant suggested external checkup; show in-bubble checkup link. */
+  checkupOffer?: boolean
   /** Status note (report progress / ready). Does not replace the active question. */
   notice?: boolean
 }
@@ -169,7 +171,7 @@ export function stripFinishedQuizGuide(text: string): string {
   return kept.join('\n').replace(/\n{3,}/g, '\n\n').trim()
 }
 
-/** Persistable clone for journey localStorage (keeps uploadOffer). */
+/** Persistable clone for journey localStorage (keeps uploadOffer / checkupOffer). */
 export function snapshotChatMessage(message: ChatMessage): ChatMessage {
   return {
     id: message.id,
@@ -180,6 +182,7 @@ export function snapshotChatMessage(message: ChatMessage): ChatMessage {
     profileQuestion: message.profileQuestion ? { ...message.profileQuestion } : message.profileQuestion,
     profileGaps: message.profileGaps ? [...message.profileGaps] : undefined,
     ...(message.uploadOffer ? { uploadOffer: true } : {}),
+    ...(message.checkupOffer ? { checkupOffer: true } : {}),
     ...(message.notice ? { notice: true } : {})
   }
 }

@@ -266,6 +266,7 @@
     "greetBasicCare": "你選了基礎保養。先告訴我有沒有血檢報告，或直接上傳，對談後可以看到圖表與一個月品項。",
     "greetFullTune": "你選了完整調理。這是基礎保養加上加強項目。先告訴我有沒有報告，或直接上傳血檢。",
     "upload": "上傳報告",
+    "checkupLink": "去做檢查，看清各項指標",
     "uploaded": "已上傳 {name}",
     "reportStatus": "報告狀態：{status}",
     "reportStatusBannerTitle": "報告處理中",

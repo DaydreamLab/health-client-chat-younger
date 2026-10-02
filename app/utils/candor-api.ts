@@ -454,6 +454,8 @@ export interface StreamMessageResult {
   profile_question: ChatProfileQuestion | null
   external: ChatExternalPayload | null
   profile_gaps: string[]
+  /** Server: intake says within 1y and conversation has no report yet. */
+  upload_offer?: boolean
 }
 
 export interface ApiSuccess<T> {

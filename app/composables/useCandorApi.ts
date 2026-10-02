@@ -200,6 +200,7 @@ export function useCandorApi() {
     let profileQuestion: StreamMessageResult['profile_question'] = null
     let external: StreamMessageResult['external'] = null
     let profileGaps: string[] = []
+    let uploadOffer = false
 
     while (true) {
       const { done, value } = await reader.read()
@@ -270,6 +271,7 @@ export function useCandorApi() {
           profileGaps = Array.isArray(data.profile_gaps)
             ? (data.profile_gaps as string[])
             : []
+          uploadOffer = data.upload_offer === true
           handlers.onReplace?.(full)
         } else if (eventName === 'error') {
           const err = data.error as { code?: string, message?: string } | undefined
@@ -291,7 +293,8 @@ export function useCandorApi() {
       turn,
       profile_question: profileQuestion,
       external,
-      profile_gaps: profileGaps
+      profile_gaps: profileGaps,
+      upload_offer: uploadOffer
     }
   }
 
