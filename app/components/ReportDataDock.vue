@@ -97,7 +97,6 @@ function onUpdated(results: HealthReportResult[]) {
         </AppButton>
         <AppButton
           v-if="showInterpret"
-          variant="outline"
           class="interpret-btn"
           data-testid="chat-report-interpret"
           @click="emit('interpret')"
