@@ -283,7 +283,7 @@
     "reportSkippedMismatch": "This report’s patient details don’t match the sex/age from your answers, so it was skipped. We’ll continue from the goals you selected.",
     "goalsNeedTwo": "Please pick at least two focus areas before confirming.",
     "reportFailed": "Report processing failed. You can retry.",
-    "reportNeedsReview": "Report needs review. You can retry extraction.",
+    "reportNeedsReview": "Extraction confidence is low. You can retry.",
     "reportRetry": "Retry extraction",
     "reportPollTimeout": "Report is still processing. Try again later or re-upload.",
     "askInterpret": "Please summarize this report in light of the goals I selected for this consult",

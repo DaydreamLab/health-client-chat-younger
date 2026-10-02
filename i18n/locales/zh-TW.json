@@ -148,7 +148,7 @@
       "uploaded": "已上傳",
       "extracting": "處理中",
       "ready": "就緒",
-      "needs_review": "待校正",
+      "needs_review": "擷取待確認",
       "failed": "失敗"
     },
     "scoreLabel": "生理分數",
@@ -283,7 +283,7 @@
     "reportSkippedMismatch": "這份報告的患者資料與你在問答填的性別／年齡不符，已略過報告、改依你選定的改善方向繼續。",
     "goalsNeedTwo": "請至少選兩個改善方向再確認。",
     "reportFailed": "報告處理失敗，可再試一次。",
-    "reportNeedsReview": "報告需要人工校正，可先重試擷取。",
+    "reportNeedsReview": "報告擷取信心不足，可重試擷取。",
     "reportRetry": "重試擷取",
     "reportPollTimeout": "報告仍在處理中，請稍後再試或重新上傳。",
     "askInterpret": "請根據這份報告，配合我這次選定的改善方向說明重點",

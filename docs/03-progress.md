@@ -56,7 +56,7 @@
 
 - [x] 訂單反查對話 `已接`
 - [x] 續約列表／續約對話
-- [x] 擁有者校正、去識別化
+- [x] 報告結果唯讀展示、去識別化（會員前台不校正）
 
 ## M5 — 拆 mock BFF 與舊識別子
 
@@ -76,7 +76,7 @@
 | 我的健康（profile 卡＋報告列表） | `/app` | 可用 | 已接 | 完成 |
 | 穿戴裝置 | `/app/wearables` | 殼（即將上線） | 不做 | Backlog |
 | 報告上傳／輪詢／重試 | `/chat`（上傳需 member） | 可用 | 已接 | 完成 |
-| 擁有者校正結果 | `/chat` 報告 dock | 可用 | 已接 | 完成 |
+| 報告結果唯讀 | `/chat` 報告 dock | 可用 | 已接 | 完成 |
 | Profile 問卷 | `/chat` | 可用 | 已接 | 完成 |
 | 對話（建立／綁定／目標／價格帶／SSE） | `/chat` | 可用 | 已接 | 完成 |
 | 同步訊息（非 SSE） | — | 無 | Mock | Backlog |
@@ -111,7 +111,7 @@
 | 列表 | `GET /health-reports` | 已接 |
 | 輪詢詳情 | `GET /health-reports/{id}` | 已接 |
 | 重試擷取 | `POST /health-reports/{id}/retry` | 已接 |
-| 擁有者校正 | `PATCH /health-reports/{id}/results/{result_id}` | 已接 |
+| 擁有者校正 | `PATCH /health-reports/{id}/results/{result_id}` | 不做（會員唯讀；校正走後台） |
 
 ### Profile 問卷
 

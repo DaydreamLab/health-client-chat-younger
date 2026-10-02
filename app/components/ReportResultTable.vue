@@ -8,8 +8,9 @@ import {
   resultStatusLabel
 } from '~/utils/report-result-status'
 
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
   results: HealthReportResult[]
+  /** Kept for call-site compatibility; member UI is display-only (no correction). */
   reportId?: string | null
   /** When false, parent renders ReportResultLegend outside the scroll area. */
   showLegend?: boolean
@@ -17,70 +18,10 @@ const props = withDefaults(defineProps<{
   showLegend: true
 })
 
-const emit = defineEmits<{
+/** @deprecated Member UI no longer patches results; emit retained for parent wiring. */
+defineEmits<{
   updated: [results: HealthReportResult[]]
 }>()
-
-const candor = useCandorApi()
-const { t } = useI18n()
-
-const editValue = ref<Record<string, string>>({})
-const editUnit = ref<Record<string, string>>({})
-const savingId = ref<string | null>(null)
-const editError = ref('')
-
-const editable = computed(() => Boolean(props.reportId))
-
-function draftValue(row: HealthReportResult): string {
-  const draft = editValue.value[row.id]
-  if (draft !== undefined) {
-    return draft
-  }
-  if (row.value_numeric != null) {
-    return String(row.value_numeric)
-  }
-  return row.raw_value ?? ''
-}
-
-function draftUnit(row: HealthReportResult): string {
-  const draft = editUnit.value[row.id]
-  if (draft !== undefined) {
-    return draft
-  }
-  return row.unit || row.raw_unit || ''
-}
-
-async function confirmRow(row: HealthReportResult) {
-  if (!props.reportId || savingId.value) {
-    return
-  }
-  const raw = draftValue(row).trim()
-  const numeric = raw === '' ? null : Number(raw)
-  if (raw !== '' && Number.isNaN(numeric)) {
-    editError.value = t('labChart.correctInvalid')
-    return
-  }
-  savingId.value = row.id
-  editError.value = ''
-  try {
-    const report = await candor.patchHealthReportResult(props.reportId, row.id, {
-      value_numeric: numeric,
-      unit: draftUnit(row).trim() || null,
-      confirm: true
-    })
-    emit('updated', report.results ?? [])
-    editValue.value = Object.fromEntries(
-      Object.entries(editValue.value).filter(([key]) => key !== row.id)
-    )
-    editUnit.value = Object.fromEntries(
-      Object.entries(editUnit.value).filter(([key]) => key !== row.id)
-    )
-  } catch {
-    editError.value = t('labChart.correctError')
-  } finally {
-    savingId.value = null
-  }
-}
 </script>
 
 <template>
@@ -98,14 +39,6 @@ async function confirmRow(row: HealthReportResult) {
       data-testid="report-result-empty"
     >
       {{ $t('labChart.empty') }}
-    </p>
-
-    <p
-      v-if="editError"
-      class="mb-2 text-sm text-red-600 dark:text-red-400"
-      data-testid="report-correct-error"
-    >
-      {{ editError }}
     </p>
 
     <div
@@ -133,12 +66,6 @@ async function confirmRow(row: HealthReportResult) {
             <th class="border-b border-dashed border-default px-2.5 py-2">
               {{ $t('labChart.position') }}
             </th>
-            <th
-              v-if="editable"
-              class="border-b border-dashed border-default px-2.5 py-2"
-            >
-              {{ $t('labChart.correct') }}
-            </th>
           </tr>
         </thead>
         <tbody>
@@ -161,33 +88,10 @@ async function confirmRow(row: HealthReportResult) {
               class="px-2.5 py-2.5 text-base font-bold"
               :class="`yr-val-${resultStatusClass(row)}`"
             >
-              <template v-if="editable && row.needs_review">
-                <input
-                  class="w-24 rounded border border-default bg-elevated px-2 py-1 text-sm font-normal text-highlighted"
-                  type="text"
-                  inputmode="decimal"
-                  :value="draftValue(row)"
-                  :data-testid="`report-correct-value-${row.id}`"
-                  @input="editValue[row.id] = ($event.target as HTMLInputElement).value"
-                >
-              </template>
-              <template v-else>
-                {{ displayResultValue(row) }}
-              </template>
+              {{ displayResultValue(row) }}
             </td>
             <td class="px-2.5 py-2.5 text-muted">
-              <template v-if="editable && row.needs_review">
-                <input
-                  class="w-20 rounded border border-default bg-elevated px-2 py-1 text-sm text-highlighted"
-                  type="text"
-                  :value="draftUnit(row)"
-                  :data-testid="`report-correct-unit-${row.id}`"
-                  @input="editUnit[row.id] = ($event.target as HTMLInputElement).value"
-                >
-              </template>
-              <template v-else>
-                {{ row.unit || row.raw_unit || '—' }}
-              </template>
+              {{ row.unit || row.raw_unit || '—' }}
             </td>
             <td class="px-2.5 py-2.5 text-xs text-muted">
               {{ formatResultRef(row) }}
@@ -205,25 +109,6 @@ async function confirmRow(row: HealthReportResult) {
               <span
                 v-else
                 class="text-muted"
-              >—</span>
-            </td>
-            <td
-              v-if="editable"
-              class="px-2.5 py-2.5"
-            >
-              <button
-                v-if="row.needs_review"
-                type="button"
-                class="app-btn app-btn-primary px-2.5 py-1 text-xs disabled:opacity-50"
-                :disabled="savingId === row.id"
-                :data-testid="`report-correct-confirm-${row.id}`"
-                @click="confirmRow(row)"
-              >
-                {{ $t('labChart.correctConfirm') }}
-              </button>
-              <span
-                v-else
-                class="text-xs text-muted"
               >—</span>
             </td>
           </tr>
