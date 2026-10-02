@@ -163,6 +163,22 @@ export interface ConversationDetachAck {
   report_id: null
 }
 
+export type ProfileAnswerType = 'enum' | 'int' | 'text' | 'multi_enum'
+
+export interface ProfileNextDone {
+  done: true
+}
+
+export interface ProfileNextQuestion {
+  done: false
+  gap_code: string
+  prompt: string
+  answer_type: ProfileAnswerType
+  options?: GreetingOption[] | null
+}
+
+export type ProfileNext = ProfileNextDone | ProfileNextQuestion
+
 export interface ConversationGoalsResult {
   saved: boolean
   goals?: string[]
@@ -172,6 +188,7 @@ export interface ConversationGoalsResult {
   options?: GreetingOption[]
   options_kind?: 'consultation_goals' | null
   selected?: string[]
+  next_question?: ProfileNext
 }
 
 export interface ConversationPackageConfirm {
@@ -399,25 +416,10 @@ export interface AnonymizeAccepted {
   user_id?: string | null
 }
 
-export type ProfileAnswerType = 'enum' | 'int' | 'text' | 'multi_enum'
-
-export interface ProfileNextDone {
-  done: true
-}
-
-export interface ProfileNextQuestion {
-  done: false
-  gap_code: string
-  prompt: string
-  answer_type: ProfileAnswerType
-  options?: GreetingOption[] | null
-}
-
-export type ProfileNext = ProfileNextDone | ProfileNextQuestion
-
 export interface ProfileAnswerSaved {
   saved: true
   profile_gaps: string[]
+  next_question: ProfileNext
 }
 
 export interface ProfileAnswerNeedsClarification {

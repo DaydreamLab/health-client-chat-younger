@@ -269,7 +269,8 @@ import type {
   GreetingOption,
   HealthReport,
   HealthReportResult,
-  ProfileAnswerType
+  ProfileAnswerType,
+  ProfileNext
 } from '~/utils/candor-api'
 import { CandorApiError } from '~/utils/candor-api'
 import type { ChatMessage } from '~/utils/first-order'
@@ -923,6 +924,73 @@ function applyStreamMeta(assistantId: string, result: {
   }
 }
 
+/** Show bank prompt locally without calling chat. Returns true when a profile question was shown. */
+function presentBankQuestion(next: ProfileNext, uploadOffer = false): boolean {
+  if (next.done) {
+    activeQuestion.value = null
+    quizActive.value = false
+    return false
+  }
+
+  const options = next.options ?? []
+  const message = appendMessage('assistant', next.prompt, undefined, uploadOffer)
+  message.options = options
+  message.turnType = 'profile'
+  message.profileQuestion = {
+    gap_code: next.gap_code,
+    answer_type: next.answer_type
+  }
+  activeQuestion.value = {
+    done: false,
+    gap_code: next.gap_code,
+    prompt: next.prompt,
+    answer_type: next.answer_type,
+    options
+  }
+  quizActive.value = true
+  goalSelectActive.value = false
+  selectedCodes.value = []
+  return true
+}
+
+async function continueAfterSavedAnswer(opts: {
+  profileGaps: string[]
+  nextQuestion?: ProfileNext | null
+  pendingContent: string
+  uploadOffer?: boolean
+  checkupOffer?: boolean
+}) {
+  profileGaps.value = opts.profileGaps
+  clearLastAssistantOptions()
+  selectedCodes.value = []
+
+  const next = opts.nextQuestion
+  if (next && presentBankQuestion(next, false)) {
+    pending.value = false
+    focusChatInput()
+    return
+  }
+
+  pendingUserContent.value = opts.pendingContent
+  await streamPending()
+  if (opts.uploadOffer) {
+    const last = [...journey.messages].reverse().find(message =>
+      message.role === 'assistant' && !message.notice
+    )
+    if (last) {
+      last.uploadOffer = true
+    }
+  }
+  if (opts.checkupOffer) {
+    const last = [...journey.messages].reverse().find(message =>
+      message.role === 'assistant' && !message.notice
+    )
+    if (last) {
+      last.checkupOffer = true
+    }
+  }
+}
+
 async function streamPending() {
   const content = pendingUserContent.value
   const intent = pendingIntent.value
@@ -1011,20 +1079,35 @@ async function sendText(text: string) {
     appendMessage('user', content)
     pending.value = true
     try {
+      const conversationId = await ensureConversation()
       const result = await candor.submitProfileAnswer({
         gap_code: profile.gap_code,
-        raw_text: content
+        raw_text: content,
+        conversation_id: conversationId
       })
       if (result.saved) {
-        profileGaps.value = result.profile_gaps
-        clearLastAssistantOptions()
-        pendingUserContent.value = content
-        await streamPending()
+        await continueAfterSavedAnswer({
+          profileGaps: result.profile_gaps,
+          nextQuestion: result.next_question,
+          pendingContent: content
+        })
         return
       }
-      // diverted / clarification: still chat; keep profile choices
-      pendingUserContent.value = content
-      await streamPending()
+      // diverted / clarification: short reply, keep profile choices
+      appendMessage('assistant', result.prompt)
+      if (result.options) {
+        const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
+        if (last) {
+          last.options = result.options
+          last.turnType = 'profile'
+          last.profileQuestion = {
+            gap_code: profile.gap_code,
+            answer_type: profile.answer_type
+          }
+        }
+      }
+      pending.value = false
+      focusChatInput()
     } catch {
       appendMessage('assistant', t('chat.streamError'))
       pending.value = false
@@ -1113,10 +1196,22 @@ async function confirmMultiSelection() {
       }
       journey.clarifyingGoals = labels
       selectedCodes.value = []
-      pendingUserContent.value = labels.join('、')
       // Clear after pending is already true so recommend CTA does not flash.
       goalSelectActive.value = false
-      await streamPending()
+      const nextAfterGoals = result.next_question
+      if (nextAfterGoals && !nextAfterGoals.done && presentBankQuestion(nextAfterGoals)) {
+        if (profileGaps.value.length === 0) {
+          profileGaps.value = [nextAfterGoals.gap_code]
+        }
+        pending.value = false
+        focusChatInput()
+        return
+      }
+      await continueAfterSavedAnswer({
+        profileGaps: [],
+        nextQuestion: { done: true },
+        pendingContent: labels.join('、')
+      })
     } catch {
       appendMessage('assistant', t('chat.streamError'))
       pending.value = false
@@ -1164,10 +1259,12 @@ async function submitProfileChoice(payload: {
   pending.value = true
 
   try {
+    const conversationId = await ensureConversation()
     const result = await candor.submitProfileAnswer({
       gap_code: profile.gap_code,
       value: payload.value,
-      raw_text: payload.raw_text
+      raw_text: payload.raw_text,
+      conversation_id: conversationId
     })
 
     if (!result.saved) {
@@ -1176,35 +1273,28 @@ async function submitProfileChoice(payload: {
         const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
         if (last) {
           last.options = result.options
+          last.turnType = 'profile'
+          last.profileQuestion = {
+            gap_code: profile.gap_code,
+            answer_type: profile.answer_type
+          }
         }
       }
       pending.value = false
       return
     }
 
-    profileGaps.value = result.profile_gaps
-    clearLastAssistantOptions()
-    selectedCodes.value = []
-    pendingUserContent.value = payload.display
-    await streamPending()
-    if (offerUploadAfterStream.value) {
-      const last = [...journey.messages].reverse().find(message =>
-        message.role === 'assistant' && !message.notice
-      )
-      if (last) {
-        last.uploadOffer = true
-      }
-      offerUploadAfterStream.value = false
-    }
-    if (offerCheckupAfterStream.value) {
-      const last = [...journey.messages].reverse().find(message =>
-        message.role === 'assistant' && !message.notice
-      )
-      if (last) {
-        last.checkupOffer = true
-      }
-      offerCheckupAfterStream.value = false
-    }
+    const uploadOffer = offerUploadAfterStream.value
+    const checkupOffer = offerCheckupAfterStream.value
+    offerUploadAfterStream.value = false
+    offerCheckupAfterStream.value = false
+    await continueAfterSavedAnswer({
+      profileGaps: result.profile_gaps,
+      nextQuestion: result.next_question,
+      pendingContent: payload.display,
+      uploadOffer,
+      checkupOffer
+    })
   } catch {
     offerUploadAfterStream.value = false
     offerCheckupAfterStream.value = false
@@ -1447,9 +1537,18 @@ async function onSubmit() {
       const result = await candor.setConversationGoals(conversationId, { raw_text: content })
       if (result.saved) {
         selectedCodes.value = []
-        pendingUserContent.value = content
         // Clear after pending is already true so recommend CTA does not flash.
         goalSelectActive.value = false
+        const nextAfterGoals = result.next_question
+        if (nextAfterGoals && !nextAfterGoals.done && presentBankQuestion(nextAfterGoals)) {
+          if (profileGaps.value.length === 0) {
+            profileGaps.value = [nextAfterGoals.gap_code]
+          }
+          pending.value = false
+          focusChatInput()
+          return
+        }
+        pendingUserContent.value = content
         await streamPending()
         return
       }

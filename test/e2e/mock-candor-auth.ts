@@ -459,7 +459,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data: { saved: true, goals: goals.length ? goals : ['vitality', 'sleep_quality'] }
+        data: { saved: true, goals: goals.length ? goals : ['vitality', 'sleep_quality'], next_question: { done: true } }
       })
     })
   })
@@ -730,7 +730,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data: { saved: true, profile_gaps: [] }
+        data: { saved: true, profile_gaps: [], next_question: { done: true } }
       })
     })
   })

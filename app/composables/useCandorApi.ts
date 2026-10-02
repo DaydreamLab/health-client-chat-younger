@@ -421,6 +421,7 @@ export function useCandorApi() {
       gap_code: string
       value?: string | number | boolean | string[] | null
       raw_text?: string | null
+      conversation_id?: string
     }) => request<ProfileAnswerResult>('/profile/answers', { method: 'POST', body }),
 
     createOrder: (body: OrderCreateRequest) =>
