@@ -39,7 +39,7 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 - 選項與確認在助理氣泡底部：確認鈕靠右。仍在選改善方向，或最新一則助理訊息仍是 profile 題時，不顯示「查看推薦方案」。離開 profile 題之後，按鈕掛在最新一則助理訊息；方向釐清未結束前仍不把方案名稱寫進氣泡。
 - 開場只問改善方向。選方向時，輸入框不提示「有沒有報告」。
 - 選定兩個以上方向後，每個方向都問過並得到回答、且最新一則不再是問句之前，不視為問答完成，不貼「問答已完成」上傳引導。
-- 氣泡內上傳鈕只出現在最新一則助理訊息，且該則是在問上傳或是否已有報告／檢驗。更早的訊息不補按鈕。輸入列的上傳入口仍在（guest 點了導向登入）。
+- 氣泡內上傳鈕只出現在最新一則助理訊息，且該則是在**邀請上傳**。`lab_report` 問卷題本身不掛上傳鈕；使用者選「一年內／半年內」並按確認、等 agent 回覆後，才在該則回覆掛上傳鈕。更早的訊息不補按鈕。輸入列的上傳入口仍在（guest 點了導向登入）。
 | 建議／結帳 | `pages/app/recommendations.vue`、`composables/useFirstOrderApi.ts` |
 | 個人資料 | `pages/app/me.vue`、側欄／`AccountUser` |
 | 訂單 | `pages/app/orders/*`、`stores/orders.ts`、`components/ShipmentTimeline.vue`、`OrderChatModal.vue` |

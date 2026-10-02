@@ -84,6 +84,54 @@
     </div>
 
     <div class="relative min-h-0 flex-1">
+      <div
+        v-if="showReportStatusBanner"
+        class="absolute inset-x-3 top-3 z-20 flex flex-col overflow-hidden rounded-2xl border border-default bg-elevated shadow-lg sm:inset-x-4"
+        data-testid="chat-report-status-banner"
+      >
+        <div class="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
+          <div class="flex min-w-0 items-center gap-2.5">
+            <span
+              class="flex size-8 shrink-0 items-center justify-center rounded-full ring-1"
+              :class="reportPollFailed
+                ? 'bg-error/10 text-error ring-error/20'
+                : 'bg-primary/10 text-primary ring-primary/20'"
+            >
+              <span
+                v-if="reportInFlight"
+                class="size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+                aria-hidden="true"
+              />
+              <UIcon
+                v-else
+                name="i-lucide-triangle-alert"
+                class="size-4"
+              />
+            </span>
+            <div class="min-w-0">
+              <p class="truncate text-sm font-semibold text-highlighted">
+                {{ reportPollFailed ? $t('chat.reportStatusBannerFailedTitle') : $t('chat.reportStatusBannerTitle') }}
+              </p>
+              <p
+                class="truncate text-xs text-muted"
+                data-testid="chat-report-status-label"
+              >
+                {{ $t('chat.reportStatusBannerHint', { status: reportStatusLabel }) }}
+              </p>
+            </div>
+          </div>
+          <AppButton
+            v-if="reportPollFailed && (reportRetryId || journey.reportId)"
+            variant="outline"
+            class="report-status-retry"
+            data-testid="chat-report-retry"
+            :disabled="reportInFlight"
+            @click="retryReport"
+          >
+            {{ $t('chat.reportRetry') }}
+          </AppButton>
+        </div>
+      </div>
       <ReportDataDock
         v-model:open="journey.reportDockOpen"
         v-model:collapsed="journey.reportDockCollapsed"
@@ -152,18 +200,7 @@
           </div>
         </article>
         <p
-          v-if="reportInFlight"
-          class="flex items-center gap-2 text-sm text-muted"
-          data-testid="chat-report-loading"
-        >
-          <span
-            class="size-4 shrink-0 animate-spin rounded-full border-2 border-muted border-t-primary"
-            aria-hidden="true"
-          />
-          {{ $t('chat.reportProcessing') }}
-        </p>
-        <p
-          v-else-if="pending"
+          v-if="pending && !reportInFlight"
           class="flex items-center gap-2 text-sm text-muted"
           data-testid="chat-thinking"
         >
@@ -250,16 +287,8 @@ import { storeToRefs } from 'pinia'
 
 const POLL_INTERVAL_MS = 2000
 const LAB_GAP_CODES = new Set(['lab_report', 'checkup', 'blood_test'])
-const UPLOADABLE_LAB_CODES = new Set(['1_to_3y', 'within_1y', 'within_6m'])
-const CONSULTATION_GOAL_CODES = new Set([
-  'sleep_quality',
-  'vitality',
-  'body_composition',
-  'skin_complexion',
-  'athletic_function',
-  'digestive_function',
-  'joint_bone'
-])
+/** Answers that mean a recent enough report to offer upload (within 1 year). */
+const UPLOADABLE_LAB_CODES = new Set(['within_1y', 'within_6m'])
 
 const { t } = useI18n()
 const localePath = useLocalePath()
@@ -285,11 +314,13 @@ const pending = ref(false)
 const liveAssistantId = ref<string | null>(null)
 const resetting = ref(false)
 const reportInFlight = ref(false)
+const reportPollStatus = ref<string | null>(null)
 const escalated = ref(false)
 const pendingUserContent = ref<string | null>(null)
 const pendingIntent = ref<string | null>(null)
+/** After lab_report confirm of within_1y / within_6m, mark the next agent reply for upload. */
+const offerUploadAfterStream = ref(false)
 const reportRetryId = ref<string | null>(null)
-const retryMessageId = ref<string | null>(null)
 const reportResults = ref<HealthReportResult[]>([])
 const reportDockMessageId = ref<string | null>(null)
 const transcriptEl = useTemplateRef<HTMLElement>('transcriptEl')
@@ -326,6 +357,20 @@ const orderId = computed(() => queryOrderId(route.query.orderId))
 const readonly = computed(() => Boolean(orderId.value))
 const canOfferUpload = computed(() => !readonly.value && !escalated.value && !reportInFlight.value)
 const canUpload = computed(() => canOfferUpload.value && auth.isMember)
+const reportPollFailed = computed(() => reportPollStatus.value === 'failed' && !reportInFlight.value)
+const showReportStatusBanner = computed(() =>
+  !readonly.value && (reportInFlight.value || reportPollFailed.value)
+)
+const reportStatusLabel = computed(() => {
+  const status = reportPollStatus.value
+    ?? (reportInFlight.value ? 'extracting' : '')
+  if (!status) {
+    return ''
+  }
+  const key = `member.reportStatus.${status}`
+  const label = t(key)
+  return label === key ? status : label
+})
 const showInterpretButton = computed(() =>
   !readonly.value
   && !escalated.value
@@ -409,20 +454,11 @@ function showConfirmFor(message: ChatMessage) {
   return choicesFor(message).length > 0 && needsMultiConfirm.value
 }
 
-function isConsultationGoalOptions(options: GreetingOption[] | undefined) {
-  if (!options || options.length !== CONSULTATION_GOAL_CODES.size) {
-    return false
-  }
-  const seen = new Set(options.map(option => option.code))
-  if (seen.size !== CONSULTATION_GOAL_CODES.size) {
-    return false
-  }
-  for (const code of CONSULTATION_GOAL_CODES) {
-    if (!seen.has(code)) {
-      return false
-    }
-  }
-  return true
+function isConsultationGoalOptions(
+  options: GreetingOption[] | undefined,
+  optionsKind?: string | null
+) {
+  return optionsKind === 'consultation_goals' && Array.isArray(options) && options.length >= 2
 }
 
 /** Free-text / number answers (or open chat) should keep the composer focused. */
@@ -450,6 +486,17 @@ function showUploadCta(message: ChatMessage) {
   }
   if (readonly.value || escalated.value || journey.hasAnalysis) {
     return false
+  }
+  // lab_report 問卷題本身不掛上傳；選「一年內／半年內」後才用 uploadOffer 訊息開鈕。
+  if (
+    message.turnType === 'profile'
+    && message.profileQuestion
+    && LAB_GAP_CODES.has(message.profileQuestion.gap_code)
+  ) {
+    return false
+  }
+  if (message.uploadOffer) {
+    return true
   }
   return messageOffersUpload(displayMessageText(message))
 }
@@ -571,14 +618,13 @@ function showRecommendCta(message: ChatMessage) {
     goalSelectActive: goalSelectActive.value,
     profileQuestionActive: message.turnType === 'profile' && Boolean(message.profileQuestion),
     isLatestAssistant: message.role === 'assistant' && message.id === lastAssistantId.value,
-    reportRetry: Boolean(reportRetryId.value)
+    reportRetry: Boolean(reportRetryId.value),
+    pending: pending.value
   })
 }
 
-function showRetryCta(message: ChatMessage) {
-  return !readonly.value
-    && Boolean(reportRetryId.value)
-    && message.id === retryMessageId.value
+function showRetryCta(_message: ChatMessage) {
+  return false
 }
 
 function messageText(message: ChatMessage) {
@@ -630,11 +676,12 @@ async function resetConversation() {
   pollGeneration += 1
   pending.value = false
   reportInFlight.value = false
+  reportPollStatus.value = null
   escalated.value = false
   input.value = ''
   pendingUserContent.value = null
+  offerUploadAfterStream.value = false
   reportRetryId.value = null
-  retryMessageId.value = null
   reportResults.value = []
   journey.reportDockOpen = false
   journey.reportDockCollapsed = false
@@ -738,6 +785,7 @@ function guideAfterQuiz() {
 
 function applyStreamMeta(assistantId: string, result: {
   options?: ChatMessage['options']
+  options_kind?: string | null
   turn: { type: string }
   profile_question: ChatMessage['profileQuestion']
   profile_gaps: string[]
@@ -763,7 +811,7 @@ function applyStreamMeta(assistantId: string, result: {
   } else {
     activeQuestion.value = null
     quizActive.value = false
-    if (isConsultationGoalOptions(result.options)) {
+    if (isConsultationGoalOptions(result.options, result.options_kind)) {
       goalSelectActive.value = true
       goalOptions.value = result.options ?? []
     }
@@ -775,7 +823,10 @@ async function streamPending() {
   const intent = pendingIntent.value
   pendingUserContent.value = null
   pendingIntent.value = null
-  goalSelectActive.value = false
+  // Keep goalSelectActive until stream meta arrives — clearing it early flashes the
+  // recommend CTA on the latest assistant bubble while the reply is still in flight.
+  const wasSelectingGoals = goalSelectActive.value
+  pending.value = true
 
   if (!content) {
     if (intent === 'interpret') {
@@ -786,7 +837,10 @@ async function streamPending() {
     return
   }
 
-  pending.value = true
+  if (wasSelectingGoals) {
+    goalSelectActive.value = false
+  }
+
   const assistantId = crypto.randomUUID()
   let streamed = ''
 
@@ -810,12 +864,15 @@ async function streamPending() {
     applyStreamMeta(assistantId, result)
     if (journey.hasAnalysis && reportResults.value.length > 0) {
       reportDockMessageId.value = assistantId
-      openReportDock()
+      openReportDock({ expand: false })
     }
     guideAfterQuiz()
   } catch {
     if (intent === 'interpret') {
       journey.reportInterpretSent = false
+    }
+    if (wasSelectingGoals) {
+      goalSelectActive.value = true
     }
     const existing = journey.messages.find(item => item.id === assistantId)
     if (existing) {
@@ -905,11 +962,7 @@ function onChoice(option: GreetingOption) {
   }
 
   if (isLabRecencyQuestion.value) {
-    const wasUploadable = selectedCodes.value.some(code => UPLOADABLE_LAB_CODES.has(code))
     selectedCodes.value = [option.code]
-    if (!wasUploadable && UPLOADABLE_LAB_CODES.has(option.code)) {
-      appendMessage('assistant', t('chat.guideUploadOnLabs'), undefined, true)
-    }
     return
   }
 
@@ -947,13 +1000,17 @@ async function confirmMultiSelection() {
         if (result.options) {
           goalOptions.value = result.options
         }
+        if (result.options_kind === 'consultation_goals' || result.options?.length) {
+          goalSelectActive.value = true
+        }
         pending.value = false
         return
       }
-      goalSelectActive.value = false
       journey.clarifyingGoals = labels
       selectedCodes.value = []
       pendingUserContent.value = labels.join('、')
+      // Clear after pending is already true so recommend CTA does not flash.
+      goalSelectActive.value = false
       await streamPending()
     } catch {
       appendMessage('assistant', t('chat.streamError'))
@@ -969,6 +1026,7 @@ async function confirmMultiSelection() {
         return
       }
       const label = choiceOptions.value.find(o => o.code === code)?.label ?? code
+      offerUploadAfterStream.value = UPLOADABLE_LAB_CODES.has(code)
       return submitProfileChoice({ value: code, display: label })
     }
 
@@ -1019,7 +1077,17 @@ async function submitProfileChoice(payload: {
     selectedCodes.value = []
     pendingUserContent.value = payload.display
     await streamPending()
+    if (offerUploadAfterStream.value) {
+      const last = [...journey.messages].reverse().find(message =>
+        message.role === 'assistant' && !message.notice
+      )
+      if (last) {
+        last.uploadOffer = true
+      }
+      offerUploadAfterStream.value = false
+    }
   } catch {
+    offerUploadAfterStream.value = false
     appendMessage('assistant', t('chat.streamError'))
     pending.value = false
   }
@@ -1039,9 +1107,11 @@ function pickFile() {
   fileInput.value?.click()
 }
 
-function openReportDock() {
-  journey.reportDockCollapsed = false
+function openReportDock(opts?: { expand?: boolean }) {
   journey.reportDockOpen = true
+  if (opts?.expand !== false) {
+    journey.reportDockCollapsed = false
+  }
 }
 
 function rememberReport(report: HealthReport) {
@@ -1062,8 +1132,6 @@ async function waitWhileChatPending() {
 
 async function pollReport(reportId: string) {
   const generation = ++pollGeneration
-  let lastStatus: string | null = null
-  let statusMessageId: string | null = null
 
   while (generation === pollGeneration) {
     let report: HealthReport
@@ -1079,19 +1147,7 @@ async function pollReport(reportId: string) {
     }
 
     rememberReport(report)
-
-    if (report.status !== lastStatus) {
-      lastStatus = report.status
-      const text = t('chat.reportStatus', { status: report.status })
-      if (statusMessageId) {
-        setMessageText(statusMessageId, text)
-      } else {
-        statusMessageId = crypto.randomUUID()
-        const statusMessage = makeMessage('assistant', text, statusMessageId)
-        statusMessage.notice = true
-        journey.messages.push(statusMessage)
-      }
-    }
+    reportPollStatus.value = report.status
 
     if (report.status === 'ready' || report.status === 'needs_review' || report.status === 'failed') {
       return report
@@ -1105,25 +1161,37 @@ async function pollReport(reportId: string) {
 
 async function bindAndInterpret(reportId: string) {
   const conversationId = await ensureConversation()
-  try {
-    await candor.attachReport(conversationId, reportId)
-  } catch (error) {
-    if (error instanceof CandorApiError && error.errorCode === 'report_not_ready') {
-      appendMessage('assistant', t('chat.reportStatus', { status: 'processing' }))
-      return
-    }
-    if (error instanceof CandorApiError && error.errorCode === 'report_profile_mismatch') {
-      journey.reportId = null
-      journey.hasAnalysis = false
-      try {
-        await candor.detachReport(conversationId)
-      } catch {
-        // already unbound or never attached
+  let attached = false
+  for (let attempt = 0; attempt < 8 && !attached; attempt++) {
+    try {
+      await candor.attachReport(conversationId, reportId)
+      attached = true
+    } catch (error) {
+      if (error instanceof CandorApiError && error.errorCode === 'report_not_ready') {
+        reportInFlight.value = true
+        reportPollStatus.value = 'extracting'
+        await sleep(POLL_INTERVAL_MS)
+        continue
       }
-      appendMessage('assistant', t('chat.reportSkippedMismatch')).notice = true
-      return
+      if (error instanceof CandorApiError && error.errorCode === 'report_profile_mismatch') {
+        journey.reportId = null
+        journey.hasAnalysis = false
+        try {
+          await candor.detachReport(conversationId)
+        } catch {
+          // already unbound or never attached
+        }
+        appendMessage('assistant', t('chat.reportSkippedMismatch')).notice = true
+        return
+      }
+      throw error
     }
-    throw error
+  }
+  if (!attached) {
+    reportInFlight.value = false
+    reportPollStatus.value = 'failed'
+    reportRetryId.value = reportId
+    return
   }
 
   if (!reportResults.value.length) {
@@ -1143,9 +1211,7 @@ async function bindAndInterpret(reportId: string) {
   journey.hasAnalysis = true
   journey.reportInterpretSent = false
   reportRetryId.value = null
-  retryMessageId.value = null
-  const ready = appendMessage('assistant', t('chat.reportReady'))
-  ready.notice = true
+  reportPollStatus.value = null
   openReportDock()
 
   if (!keepGoals && !keepProfile && gapsRemain && !readonly.value && !escalated.value) {
@@ -1175,13 +1241,8 @@ async function handleReportTerminal(report: HealthReport) {
   }
 
   if (report.status === 'failed') {
-    const msg = t('chat.reportFailed')
-    const id = crypto.randomUUID()
-    const failed = makeMessage('assistant', msg, id)
-    failed.notice = true
-    journey.messages.push(failed)
+    reportPollStatus.value = 'failed'
     reportRetryId.value = report.id
-    retryMessageId.value = id
   }
 }
 
@@ -1195,13 +1256,14 @@ async function onFile(event: Event) {
 
   appendMessage('user', t('chat.uploaded', { name: file.name }))
   reportInFlight.value = true
+  reportPollStatus.value = 'uploaded'
   reportRetryId.value = null
-  retryMessageId.value = null
 
   try {
     await ensureConversation()
     const uploaded = await candor.uploadHealthReport(file)
     journey.reportId = uploaded.id
+    reportPollStatus.value = uploaded.status || 'uploaded'
 
     const report = await pollReport(uploaded.id)
     if (!report) {
@@ -1211,6 +1273,10 @@ async function onFile(event: Event) {
     reportInFlight.value = false
     await handleReportTerminal(report)
   } catch {
+    reportPollStatus.value = 'failed'
+    if (journey.reportId) {
+      reportRetryId.value = journey.reportId
+    }
     appendMessage('assistant', t('chat.streamError')).notice = true
   } finally {
     reportInFlight.value = false
@@ -1218,14 +1284,14 @@ async function onFile(event: Event) {
 }
 
 async function retryReport() {
-  const id = reportRetryId.value
+  const id = reportRetryId.value ?? journey.reportId
   if (!id || reportInFlight.value) {
     return
   }
 
   reportInFlight.value = true
   reportRetryId.value = null
-  retryMessageId.value = null
+  reportPollStatus.value = 'extracting'
 
   try {
     await candor.retryHealthReport(id)
@@ -1236,6 +1302,8 @@ async function retryReport() {
     reportInFlight.value = false
     await handleReportTerminal(report)
   } catch {
+    reportPollStatus.value = 'failed'
+    reportRetryId.value = id
     appendMessage('assistant', t('chat.streamError')).notice = true
   } finally {
     reportInFlight.value = false
@@ -1258,15 +1326,19 @@ async function onSubmit() {
       const conversationId = await ensureConversation()
       const result = await candor.setConversationGoals(conversationId, { raw_text: content })
       if (result.saved) {
-        goalSelectActive.value = false
         selectedCodes.value = []
         pendingUserContent.value = content
+        // Clear after pending is already true so recommend CTA does not flash.
+        goalSelectActive.value = false
         await streamPending()
         return
       }
       appendMessage('assistant', result.prompt || t('chat.streamError'))
       if (result.options) {
         goalOptions.value = result.options
+      }
+      if (result.options_kind === 'consultation_goals' || result.options?.length) {
+        goalSelectActive.value = true
       }
     } catch {
       appendMessage('assistant', t('chat.streamError'))
@@ -1350,7 +1422,7 @@ function restoreUploadOffers() {
   }
 }
 
-/** Reload report rows after refresh; dock open/collapsed comes from journey storage. */
+/** Reload report rows after refresh; dock stays closed until the user expands it. */
 async function restoreReportSession() {
   const reportId = journey.reportId
   if (!reportId || readonly.value) {
@@ -1363,20 +1435,24 @@ async function restoreReportSession() {
 
     if (report.status === 'ready' || report.status === 'needs_review') {
       journey.hasAnalysis = true
-      if (journey.reportDockOpen) {
-        const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
-        if (last) {
-          reportDockMessageId.value = last.id
-        }
+      // After reload: show only the collapsed bar — do not auto-expand.
+      journey.reportDockOpen = true
+      journey.reportDockCollapsed = true
+      const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
+      if (last) {
+        reportDockMessageId.value = last.id
       }
       return
     }
 
     if (report.status === 'failed') {
+      reportPollStatus.value = 'failed'
+      reportRetryId.value = reportId
       return
     }
 
     reportInFlight.value = true
+    reportPollStatus.value = report.status
     const terminal = await pollReport(reportId)
     reportInFlight.value = false
     if (terminal) {
@@ -1415,3 +1491,12 @@ onBeforeUnmount(() => {
   pollGeneration += 1
 })
 </script>
+
+<style scoped>
+:deep(.report-status-retry) {
+  height: 2rem;
+  min-height: 2rem;
+  padding-inline: 0.75rem;
+  font-size: 0.8125rem;
+}
+</style>

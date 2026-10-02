@@ -13,6 +13,7 @@ import type {
   HealthReportRetryAck,
   HealthReportUploadAck,
   LabServicesList,
+  ClientConfig,
   OrderCreateRequest,
   OrderCreated,
   OrderDetail,
@@ -194,6 +195,7 @@ export function useCandorApi() {
     let messageId = ''
     let claimGuard: StreamMessageResult['claim_guard'] = 'passed'
     let options: StreamMessageResult['options'] = []
+    let optionsKind: StreamMessageResult['options_kind'] = null
     let turn: StreamMessageResult['turn'] = { type: 'message' }
     let profileQuestion: StreamMessageResult['profile_question'] = null
     let external: StreamMessageResult['external'] = null
@@ -243,6 +245,7 @@ export function useCandorApi() {
           profileQuestion = null
           external = null
           options = []
+          optionsKind = null
           handlers.onReplace?.(full)
         } else if (eventName === 'done') {
           full = String(data.content || full)
@@ -254,6 +257,9 @@ export function useCandorApi() {
           options = Array.isArray(data.options)
             ? (data.options as StreamMessageResult['options'])
             : []
+          optionsKind = data.options_kind === 'consultation_goals'
+            ? 'consultation_goals'
+            : null
           const turnRaw = data.turn as { type?: string } | undefined
           const t = turnRaw?.type
           turn = {
@@ -281,6 +287,7 @@ export function useCandorApi() {
       content: full,
       claim_guard: claimGuard,
       options,
+      options_kind: optionsKind,
       turn,
       profile_question: profileQuestion,
       external,
@@ -316,6 +323,9 @@ export function useCandorApi() {
 
     listLabServices: () =>
       request<LabServicesList>('/lab-services', { method: 'GET', auth: false }),
+
+    getClientConfig: () =>
+      request<ClientConfig>('/client-config', { method: 'GET', auth: false }),
 
     /** @deprecated use listPackagePlans */
     listPackages: () =>

@@ -70,11 +70,12 @@ function readStored(): JourneySnapshot {
       clarifyingGoals: Array.isArray(parsed.clarifyingGoals) ? parsed.clarifyingGoals : [],
       reportId,
       hasAnalysis,
-      // Old snapshots omit dock flags; reopen when a ready report is already bound.
-      reportDockOpen: typeof parsed.reportDockOpen === 'boolean'
-        ? parsed.reportDockOpen
-        : Boolean(reportId && hasAnalysis),
-      reportDockCollapsed: Boolean(parsed.reportDockCollapsed),
+      // Never restore as expanded-open; page load keeps dock closed.
+      reportDockOpen: false,
+      // Remember last collapse preference for when the dock is opened again.
+      reportDockCollapsed: typeof parsed.reportDockCollapsed === 'boolean'
+        ? parsed.reportDockCollapsed
+        : true,
       // Old snapshots omit this flag. A bound report already consumed the auto-send path.
       reportInterpretSent: typeof parsed.reportInterpretSent === 'boolean'
         ? parsed.reportInterpretSent

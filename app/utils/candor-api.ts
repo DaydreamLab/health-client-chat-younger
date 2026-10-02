@@ -33,6 +33,7 @@ export interface UserSession {
 export interface GreetingOption {
   code: string
   label: string
+  label_en?: string
 }
 
 export interface ConversationPackage {
@@ -65,6 +66,10 @@ export interface PublicLabService {
 
 export interface LabServicesList {
   lab_services: PublicLabService[]
+}
+
+export interface ClientConfig {
+  individual_tests_url: string
 }
 
 export interface RecommendationCopy {
@@ -134,6 +139,7 @@ export interface ConversationGreeting {
   role: string
   content: string
   options: GreetingOption[]
+  options_kind?: 'consultation_goals' | null
   selected?: string[]
 }
 
@@ -162,6 +168,7 @@ export interface ConversationGoalsResult {
   needs_clarification?: boolean
   prompt?: string
   options?: GreetingOption[]
+  options_kind?: 'consultation_goals' | null
   selected?: string[]
 }
 
@@ -442,6 +449,7 @@ export interface StreamMessageResult {
   content: string
   claim_guard: ClaimGuardStatus
   options: GreetingOption[]
+  options_kind?: 'consultation_goals' | null
   turn: ChatTurnMeta
   profile_question: ChatProfileQuestion | null
   external: ChatExternalPayload | null

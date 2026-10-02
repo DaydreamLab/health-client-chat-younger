@@ -195,10 +195,12 @@ describe('first-order demo', () => {
     expect(recommendCtaVisible({ ...base, profileQuestionActive: true })).toBe(false)
     expect(recommendCtaVisible({ ...base, isLatestAssistant: false })).toBe(false)
     expect(recommendCtaVisible({ ...base, reportRetry: true })).toBe(false)
+    expect(recommendCtaVisible({ ...base, pending: true })).toBe(false)
   })
 
-  it('offers upload when the assistant asks whether a report was uploaded', () => {
-    expect(messageOffersUpload('您目前是否有上傳過健康檢查報告或相關的檢驗數據呢？')).toBe(true)
+  it('offers upload only when the assistant invites uploading now', () => {
+    expect(messageOffersUpload('您目前是否有上傳過健康檢查報告或相關的檢驗數據呢？')).toBe(false)
+    expect(messageOffersUpload('是否有血檢或健檢報告？')).toBe(false)
     expect(messageOffersUpload('若方便，可現在上傳報告對照數值。')).toBe(true)
     expect(messageOffersUpload('請先選擇改善方向。')).toBe(false)
   })

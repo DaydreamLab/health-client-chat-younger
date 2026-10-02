@@ -55,6 +55,7 @@ sequenceDiagram
 | 變數 | 說明 |
 |------|------|
 | `NUXT_PUBLIC_API_BASE` | core 公開 API 根（預設 `http://localhost:8080/api/v1`） |
+| `NUXT_PUBLIC_INDIVIDUAL_TESTS_URL` | 「檢測更多」外連 fallback（僅 API `GET /client-config` 失敗時使用；正式值由後台 `/settings` 寫入 core） |
 
 CORS 由 core 的 `CORS_ALLOWED_ORIGINS` 放行本機 `http://localhost:3000` 等 origin。
 
