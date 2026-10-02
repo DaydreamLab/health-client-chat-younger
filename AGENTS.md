@@ -57,6 +57,7 @@ health-client-chat-younger/
 
 - 單元：`pnpm test`（Vitest）。
 - E2E：`pnpm test:e2e`（Playwright；煙霧與首單路徑）。
+- **前端畫面／SSR／client 改動完成前**：必須跑過 Playwright（見 [.cursor/rules/playwright-after-frontend-changes.mdc](.cursor/rules/playwright-after-frontend-changes.mdc)）；不可只靠 lint／unit。
 - Push／commit 前：`pnpm run lint` 與 `pnpm run typecheck` 必須通過（見 [.cursor/rules/ci-lint-before-commit.mdc](.cursor/rules/ci-lint-before-commit.mdc)）。
 
 ## 文件優先

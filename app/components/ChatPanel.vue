@@ -164,10 +164,11 @@
             ]"
             :data-testid="message.id === lastAssistantId ? 'chat-last-reply' : undefined"
           >
-            <div class="px-4 py-2.5">
-              <p class="whitespace-pre-line">
-                {{ displayMessageText(message) }}
-              </p>
+            <div
+              class="px-4 pt-2.5"
+              :class="hasTurnActions(message) ? 'pb-3.5' : 'pb-2.5'"
+            >
+              <ChatMarkdown :text="displayMessageText(message)" />
               <p
                 v-if="fileName(message)"
                 class="mt-2 inline-flex items-center gap-1 rounded-lg bg-default px-2 py-1 text-xs text-muted"
@@ -178,26 +179,26 @@
                 />
                 {{ fileName(message) }}
               </p>
+              <TurnActions
+                v-if="message.role === 'assistant'"
+                :choices="choicesFor(message)"
+                :selected-codes="selectedCodes"
+                :show-confirm="showConfirmFor(message)"
+                :confirm-disabled="confirmDisabled"
+                :show-upload="showUploadCta(message)"
+                :upload-disabled="!canOfferUpload"
+                :show-checkup="showCheckupCta(message)"
+                :checkup-url="checkupLinkUrl"
+                :show-recommend="showRecommendCta(message)"
+                :show-retry="showRetryCta(message)"
+                :pending="pending"
+                @choice="onChoice"
+                @confirm="confirmMultiSelection"
+                @upload="pickFile"
+                @recommend="goRecommend"
+                @retry="retryReport"
+              />
             </div>
-            <TurnActions
-              v-if="message.role === 'assistant'"
-              :choices="choicesFor(message)"
-              :selected-codes="selectedCodes"
-              :show-confirm="showConfirmFor(message)"
-              :confirm-disabled="confirmDisabled"
-              :show-upload="showUploadCta(message)"
-              :upload-disabled="!canOfferUpload"
-              :show-checkup="showCheckupCta(message)"
-              :checkup-url="checkupLinkUrl"
-              :show-recommend="showRecommendCta(message)"
-              :show-retry="showRetryCta(message)"
-              :pending="pending"
-              @choice="onChoice"
-              @confirm="confirmMultiSelection"
-              @upload="pickFile"
-              @recommend="goRecommend"
-              @retry="retryReport"
-            />
           </div>
         </article>
         <p
@@ -664,6 +665,18 @@ function showRecommendCta(message: ChatMessage) {
 
 function showRetryCta(_message: ChatMessage) {
   return false
+}
+
+function hasTurnActions(message: ChatMessage) {
+  if (message.role !== 'assistant') {
+    return false
+  }
+  return choicesFor(message).length > 0
+    || showConfirmFor(message)
+    || showUploadCta(message)
+    || showCheckupCta(message)
+    || showRecommendCta(message)
+    || showRetryCta(message)
 }
 
 function messageText(message: ChatMessage) {

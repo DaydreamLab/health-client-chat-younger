@@ -23,6 +23,7 @@
     "@pinia/nuxt": "1.0.2",
     "decimal.js-light": "^2.5.1",
     "eventemitter3": "^5.0.4",
+    "marked": "^18.0.14",
     "motion-v": "^2.4.4",
     "nuxt": "^4.5.2",
     "nuxt-charts": "^3.0.0",

@@ -65,7 +65,6 @@ const emit = defineEmits<{
     <div
       v-if="showConfirm"
       class="turn-actions-row turn-actions-confirm"
-      :class="{ 'turn-actions-confirm-split': choices.length }"
     >
       <AppButton
         type="button"
@@ -110,16 +109,14 @@ const emit = defineEmits<{
 
 <style scoped>
 .turn-actions {
-  --turn-actions-line: color-mix(in oklab, var(--ui-border) 46%, var(--ui-text-dimmed));
-
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 0.75rem;
-  margin-top: 0;
-  padding: 0.75rem 1rem;
-  border-top: 1px solid var(--turn-actions-line);
-  background-color: color-mix(in oklab, var(--ui-bg-muted) 82%, var(--ui-bg-accented));
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .turn-actions-row {
@@ -132,12 +129,6 @@ const emit = defineEmits<{
 
 .turn-actions-confirm {
   justify-content: flex-end;
-}
-
-.turn-actions-confirm-split {
-  margin-inline: -1rem;
-  padding: 0.75rem 1rem 0;
-  border-top: 1px solid var(--turn-actions-line);
 }
 
 .turn-actions :deep(.app-btn) {

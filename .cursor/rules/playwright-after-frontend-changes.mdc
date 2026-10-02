@@ -1,0 +1,44 @@
+---
+description: Younger 前端改動完成前必須用 Playwright e2e 驗過，避免 500／空白頁漏網
+alwaysApply: true
+---
+
+# Playwright after frontend changes
+
+改了畫面、元件、composables、Nuxt 設定、markdown／樣式或聊天相關邏輯後，**不可只靠 lint／typecheck／unit** 就收工；必須跑 Playwright，確認頁面可 hydration、無 500。
+
+## When
+
+觸發條件（任一即可）：
+
+- `app/**`（含 `components`、`pages`、`layouts`、`composables`、`plugins`、`assets`）
+- `nuxt.config.ts`、`app.config.ts`、`i18n/**`
+- 影響 SSR／client 渲染的 `utils`（例如 markdown、API client）
+
+純文件、純測試 fixture、與畫面無關的腳本可略過。
+
+## Commands（在 younger 根目錄）
+
+```bash
+# 預設：整包 e2e（含煙霧與首單路徑）
+pnpm test:e2e
+
+# 只動首頁／layout／全域樣式時可先跑煙霧
+pnpm exec playwright test test/e2e/home.smoke.spec.ts
+
+# 動到聊天／方案 CTA／問卷時加跑
+pnpm exec playwright test test/e2e/first-order.spec.ts
+```
+
+首次或瀏覽器缺件：`pnpm exec playwright install`（依專案慣例）。
+
+## Pass criteria
+
+1. 相關 spec **全部 exit 0**。
+2. 過程中若出現 Nuxt **500**、error page、hydration 失敗，視為未通過：先修再重跑，不可略過。
+3. 回報時簡述跑了哪些 spec、通過與否；失敗附關鍵錯誤一行即可。
+
+## Do not
+
+- 不要用「unit 過了」替代 e2e。
+- 不要在 e2e 紅燈時宣稱前端改動完成或直接 push。

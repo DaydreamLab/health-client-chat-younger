@@ -83,9 +83,10 @@
                 <p class="mb-1 text-[11px] font-medium opacity-70">
                   {{ message.role === 'user' ? $t('orders.chatRoleUser') : $t('orders.chatRoleAssistant') }}
                 </p>
-                <p class="whitespace-pre-wrap break-words">
-                  {{ messageText(message) }}
-                </p>
+                <ChatMarkdown
+                  :text="messageText(message)"
+                  :tone="message.role === 'user' ? 'on-primary' : 'default'"
+                />
               </div>
             </li>
           </ul>
