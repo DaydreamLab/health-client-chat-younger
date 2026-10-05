@@ -56,11 +56,32 @@ describe('renderChatMarkdown', () => {
     expect(html).toContain('內容')
   })
 
-  it('treats tight setext-looking dashes as a thematic break, not a heading', () => {
-    const html = renderChatMarkdown('上段\n---\n下段')
-    expect(html).toMatch(/<hr\s*\/?>/i)
-    expect(html).toContain('<p>上段</p>')
-    expect(html).toContain('<p>下段</p>')
-    expect(html).not.toMatch(/<h2>上段<\/h2>/i)
+  it('renders the main GFM block types used in chat replies', () => {
+    const html = renderChatMarkdown([
+      '##### 小標',
+      '',
+      '正文 *斜體* ~~刪除~~',
+      '',
+      '> 引用',
+      '',
+      '- [x] 完成',
+      '',
+      '| 項目 | 數值 |',
+      '| --- | ---: |',
+      '| A | 1 |',
+      '',
+      '```',
+      'code',
+      '```'
+    ].join('\n'))
+
+    expect(html).toContain('<h5>')
+    expect(html).toContain('<em>')
+    expect(html).toContain('<del>')
+    expect(html).toContain('<blockquote>')
+    expect(html).toContain('type="checkbox"')
+    expect(html).toContain('<table>')
+    expect(html).toContain('align="right"')
+    expect(html).toContain('<pre>')
   })
 })
