@@ -61,8 +61,35 @@
       </div>
     </section>
 
-    <section>
-      <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+    <section
+      class="pt-12 pb-6 sm:pt-16 sm:pb-8"
+      :aria-label="$t('homeGoals.title')"
+      data-testid="home-goals"
+    >
+      <div class="mx-auto max-w-6xl px-4 sm:px-6">
+        <h2 class="text-center text-2xl font-semibold text-highlighted sm:text-3xl">
+          {{ $t('homeGoals.title') }}
+        </h2>
+        <p class="mx-auto mt-2 max-w-2xl text-center text-sm text-muted">
+          {{ $t('homeGoals.subtitle') }}
+        </p>
+        <div class="mx-auto mt-6 flex max-w-4xl flex-wrap justify-center gap-2">
+          <NuxtLink
+            v-for="code in homeGoalCodes"
+            :key="code"
+            :to="goalChatPath(code)"
+            class="app-chip app-home-goal no-underline"
+            :class="{ 'app-path-card-selected': code === featuredHomeGoal }"
+            :data-testid="`home-goal-${code}`"
+          >
+            {{ $t(`homeGoals.${code}`) }}
+          </NuxtLink>
+        </div>
+      </div>
+    </section>
+
+    <section class="bg-brand-100 dark:bg-brand-900">
+      <div class="mx-auto max-w-6xl px-4 pt-10 pb-16 sm:px-6 sm:pt-12 sm:pb-24">
         <h2 class="text-center text-2xl font-semibold text-highlighted sm:text-3xl">
           {{ $t('steps.title') }}
         </h2>
@@ -201,6 +228,14 @@ const localePath = useLocalePath()
 const journey = useJourneyStore()
 const candor = useCandorApi()
 const stepKeys = ['one', 'two', 'three'] as const
+const homeGoalCodes = [
+  'sleep',
+  'weight_loss',
+  'immune_boost',
+  'cognitive_function',
+  'gastrointestinal'
+] as const
+const featuredHomeGoal = 'sleep'
 const eyebrowWordKeys = ['eyebrowAdvisor', 'eyebrowLabs', 'eyebrowConsult'] as const
 const systemKeys = ['nutrition', 'metabolic', 'cardio', 'detox', 'endocrine', 'immune'] as const
 const plansHref = computed(() => `${localePath('/')}#plans`)
@@ -231,6 +266,10 @@ function packageTitle(pkg: PublicPackage) {
 
 function chatPath(code: string) {
   return `${localePath('/chat')}?package=${encodeURIComponent(code)}`
+}
+
+function goalChatPath(code: string) {
+  return `${localePath('/chat')}?goal=${encodeURIComponent(code)}`
 }
 
 function selectPackage(code: string) {

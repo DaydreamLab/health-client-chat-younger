@@ -43,6 +43,15 @@
     "ctaChat": "開始諮詢",
     "ctaPlans": "看方案"
   },
+  "homeGoals": {
+    "title": "你想先改善哪裡",
+    "subtitle": "點一個方向，直接開始對談。",
+    "sleep": "睡眠",
+    "weight_loss": "減重",
+    "immune_boost": "免疫提升",
+    "cognitive_function": "認知功能",
+    "gastrointestinal": "腸胃道"
+  },
   "steps": {
     "title": "從一次對談開始，看懂自己的身體",
     "oneLabel": "步驟 1",
@@ -166,8 +175,9 @@
     "reportDetailLoading": "載入報告中…",
     "reportDetailError": "無法載入報告判讀",
     "reportExpand": "展開報告",
-    "reportStyleTable": "報告樣式1",
-    "reportStyleCards": "報告樣式2",
+    "reportView": "報告呈現",
+    "viewList": "列表",
+    "viewCards": "卡片",
     "reportStatus": {
       "uploaded": "已上傳",
       "extracting": "處理中",

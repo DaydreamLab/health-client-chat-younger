@@ -43,6 +43,15 @@
     "ctaChat": "Start consult",
     "ctaPlans": "See plans"
   },
+  "homeGoals": {
+    "title": "Where do you want to start?",
+    "subtitle": "Pick one direction and start the conversation.",
+    "sleep": "Sleep",
+    "weight_loss": "Weight loss",
+    "immune_boost": "Immunity",
+    "cognitive_function": "Cognition",
+    "gastrointestinal": "Digestion"
+  },
   "steps": {
     "title": "Start with a conversation and understand your body.",
     "oneLabel": "Step 1",
@@ -166,8 +175,9 @@
     "reportDetailLoading": "Loading report…",
     "reportDetailError": "Could not load the report reading.",
     "reportExpand": "Expand report",
-    "reportStyleTable": "Report style 1",
-    "reportStyleCards": "Report style 2",
+    "reportView": "Report view",
+    "viewList": "List",
+    "viewCards": "Cards",
     "reportStatus": {
       "uploaded": "Uploaded",
       "extracting": "Processing",

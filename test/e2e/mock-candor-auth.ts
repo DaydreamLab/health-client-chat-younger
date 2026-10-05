@@ -22,13 +22,11 @@ const sellableVitC = 'dddddddd-dddd-dddd-dddd-dddddddddd03'
 const sellableOmega = 'dddddddd-dddd-dddd-dddd-dddddddddd04'
 
 const goalOptions = [
-  { code: 'sleep_quality', label: '睡眠品質' },
-  { code: 'vitality', label: '精神元氣' },
-  { code: 'body_composition', label: '體態管理' },
-  { code: 'skin_complexion', label: '皮膚氣色' },
-  { code: 'athletic_function', label: '運動機能' },
-  { code: 'digestive_function', label: '消化道機能' },
-  { code: 'joint_bone', label: '關節骨骼' }
+  { code: 'sleep', label: '睡眠' },
+  { code: 'weight_loss', label: '減重' },
+  { code: 'immune_boost', label: '免疫提升' },
+  { code: 'cognitive_function', label: '認知功能' },
+  { code: 'gastrointestinal', label: '腸胃道' }
 ]
 
 export type CandorMockOptions = {
@@ -425,18 +423,6 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
   await page.route(`**/api/v1/conversation/${conversationId}/goals`, async (route) => {
     const body = route.request().postDataJSON() as { goals?: string[], raw_text?: string } | null
     const goals = body?.goals || []
-    if (goals.length > 0 && goals.length < 2 && !body?.raw_text) {
-      await route.fulfill({
-        status: 422,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          status: 'failed',
-          error_message: 'At least 2 valid goals are required.',
-          error_code: 'invalid_request'
-        })
-      })
-      return
-    }
     if (body?.raw_text) {
       await route.fulfill({
         status: 200,
@@ -459,7 +445,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data: { saved: true, goals: goals.length ? goals : ['vitality', 'sleep_quality'], next_question: { done: true } }
+        data: { saved: true, goals: goals.length ? goals : ['weight_loss', 'sleep'], next_question: { done: true } }
       })
     })
   })

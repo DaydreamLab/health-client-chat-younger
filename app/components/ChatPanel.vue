@@ -353,6 +353,11 @@ function queryPackageCode(value: unknown): string | undefined {
   return raw !== '' ? raw : undefined
 }
 
+function queryGoalCode(value: unknown) {
+  const raw = queryValue(value).trim()
+  return raw !== '' ? raw : undefined
+}
+
 function queryOrderId(value: unknown) {
   return queryValue(value)
 }
@@ -1684,6 +1689,45 @@ async function restoreReportSession() {
   }
 }
 
+function homeGoalAlreadySent(code: string) {
+  const label = goalOptions.value.find(option => option.code === code)?.label
+  if (!label) {
+    return false
+  }
+  return journey.messages.some(message =>
+    message.role === 'user' && messageText(message).split('、').includes(label)
+  )
+}
+
+function prepareHomeGoal() {
+  const code = queryGoalCode(route.query.goal)
+  if (!code || !journey.conversationId || homeGoalAlreadySent(code)) {
+    return
+  }
+  const openGoalPick = goalSelectActive.value
+    && goalOptions.value.some(option => option.code === code)
+    && !journey.messages.some(message => message.role === 'user')
+  if (openGoalPick) {
+    return
+  }
+  journey.clearSession()
+}
+
+async function applyHomeGoal() {
+  const code = queryGoalCode(route.query.goal)
+  if (!code || !goalSelectActive.value || pending.value) {
+    return
+  }
+  if (homeGoalAlreadySent(code)) {
+    return
+  }
+  if (!goalOptions.value.some(option => option.code === code)) {
+    return
+  }
+  selectedCodes.value = [code]
+  await confirmMultiSelection()
+}
+
 onMounted(async () => {
   if (orderId.value) {
     await loadOrderChat(orderId.value)
@@ -1691,6 +1735,7 @@ onMounted(async () => {
   }
 
   journey.hydrate()
+  prepareHomeGoal()
 
   if (route.query.handoff === '1' && auth.hasSession) {
     escalated.value = true
@@ -1698,6 +1743,7 @@ onMounted(async () => {
 
   try {
     await ensureConversation()
+    await applyHomeGoal()
   } catch {
     if (journey.messages.length === 0) {
       appendMessage('assistant', t('chat.conversationError'))
