@@ -3,7 +3,7 @@
     <section class="app-hero relative isolate -mt-16 min-h-dvh overflow-hidden">
       <div class="app-hero-frame relative min-h-dvh">
         <img
-          src="/hero-banner.png"
+          :src="heroSrc"
           alt=""
           class="absolute inset-0 size-full object-cover object-[left_top] sm:object-center"
         >
@@ -371,6 +371,13 @@ import { formatTwd } from '~/utils/first-order'
 
 const { t, locale } = useI18n()
 const localePath = useLocalePath()
+const config = useRuntimeConfig()
+
+function publicAsset(path: string) {
+  return `${config.app.baseURL}${path.replace(/^\//, '')}`
+}
+
+const heroSrc = publicAsset('hero-banner.png')
 const journey = useJourneyStore()
 const candor = useCandorApi()
 const stepKeys = ['one', 'two', 'three'] as const
@@ -384,10 +391,10 @@ const homeGoalCodes = [
 const eyebrowWordKeys = ['eyebrowAdvisor', 'eyebrowLabs', 'eyebrowConsult'] as const
 const reviewKeys = ['one', 'two', 'three', 'four', 'five'] as const
 const trustItems = [
-  { key: 'data', src: '/home/trust-data.png' },
-  { key: 'pace', src: '/home/trust-pace.png' },
-  { key: 'advisor', src: '/home/trust-advisor.png' },
-  { key: 'record', src: '/home/trust-record.png' }
+  { key: 'data', src: publicAsset('home/trust-data.png') },
+  { key: 'pace', src: publicAsset('home/trust-pace.png') },
+  { key: 'advisor', src: publicAsset('home/trust-advisor.png') },
+  { key: 'record', src: publicAsset('home/trust-record.png') }
 ] as const
 const trustIndex = ref(0)
 const currentTrust = computed(() => trustItems[trustIndex.value] ?? trustItems[0])
@@ -475,9 +482,9 @@ function bindGoalHighlight() {
 }
 const plansHref = computed(() => `${localePath('/')}#plans`)
 const promoSlides = computed(() => [
-  { src: '/home/acerola-vitamin-c.png', alt: t('promo.acerola') },
-  { src: '/home/seaweed-calcium.png', alt: t('promo.calcium') },
-  { src: '/home/floraglo-lutein.png', alt: t('promo.lutein') }
+  { src: publicAsset('home/acerola-vitamin-c.png'), alt: t('promo.acerola') },
+  { src: publicAsset('home/seaweed-calcium.png'), alt: t('promo.calcium') },
+  { src: publicAsset('home/floraglo-lutein.png'), alt: t('promo.lutein') }
 ])
 
 const packages = ref<PublicPackage[]>([])
