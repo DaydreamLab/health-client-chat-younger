@@ -47,22 +47,32 @@
     "title": "Where do you want to start?",
     "subtitle": "Pick one direction and start the conversation.",
     "sleep": "Sleep",
+    "sleepHint": "Start with sleep",
     "weight_loss": "Weight loss",
+    "weight_lossHint": "Start with weight",
     "immune_boost": "Immunity",
+    "immune_boostHint": "Start with immunity",
     "cognitive_function": "Cognition",
-    "gastrointestinal": "Digestion"
+    "cognitive_functionHint": "Start with focus",
+    "gastrointestinal": "Digestion",
+    "gastrointestinalHint": "Start with digestion"
   },
   "steps": {
     "title": "Start with a conversation and understand your body.",
     "oneLabel": "Step 1",
     "oneTitle": "Talk",
-    "oneHint": "Tell the AI what you want to solve.\nA blood test can come along; you can start without one.",
+    "oneHint": "Tell the AI what you want to solve.",
     "twoLabel": "Step 2",
-    "twoTitle": "Unlock",
+    "twoTitle": "Pay",
     "twoHint": "Pick a plan and pay. What comes next opens then.",
     "threeLabel": "Step 3",
     "threeTitle": "Advisor",
-    "threeHint": "Reading, collection, or product picks are taken up by the advisor."
+    "threeHint": "Reading, collection, or product picks are taken up by the advisor.",
+    "oneFrameUser": "I want to start with sleep.",
+    "oneFrameAssistant": "You can start without a blood test.",
+    "twoFramePlan": "Report reading",
+    "twoFrameLock": "Opens after payment",
+    "threeFrameStatus": "An advisor has taken this on."
   },
   "promo": {
     "label": "Product highlights",

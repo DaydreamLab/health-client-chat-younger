@@ -62,7 +62,7 @@
     </section>
 
     <section
-      class="pt-12 pb-6 sm:pt-16 sm:pb-8"
+      class="py-12 sm:py-16"
       :aria-label="$t('homeGoals.title')"
       data-testid="home-goals"
     >
@@ -73,16 +73,25 @@
         <p class="mx-auto mt-2 max-w-2xl text-center text-sm text-muted">
           {{ $t('homeGoals.subtitle') }}
         </p>
-        <div class="mx-auto mt-6 flex max-w-4xl flex-wrap justify-center gap-2">
+        <div
+          ref="goalScroller"
+          class="app-home-goals mt-6"
+        >
           <NuxtLink
             v-for="code in homeGoalCodes"
             :key="code"
             :to="goalChatPath(code)"
-            class="app-chip app-home-goal no-underline"
-            :class="{ 'app-path-card-selected': code === featuredHomeGoal }"
+            class="app-home-goal no-underline"
+            :class="{ 'app-home-goal-active': code === activeHomeGoal }"
+            :data-goal="code"
             :data-testid="`home-goal-${code}`"
           >
-            {{ $t(`homeGoals.${code}`) }}
+            <span class="text-base font-semibold text-highlighted">
+              {{ $t(`homeGoals.${code}`) }}
+            </span>
+            <span class="text-sm leading-5 text-muted">
+              {{ $t(`homeGoals.${code}Hint`) }}
+            </span>
           </NuxtLink>
         </div>
       </div>
@@ -93,11 +102,15 @@
         <h2 class="text-center text-2xl font-bold text-highlighted sm:text-3xl">
           {{ $t('steps.title') }}
         </h2>
-        <ol class="app-home-rail mt-8">
+        <ol
+          class="app-home-rail mt-8"
+          :data-step-key="stepKeys[stepIndex]"
+        >
           <li
             v-for="(step, index) in stepKeys"
             :key="step"
             class="app-home-rail-step"
+            :class="{ 'app-home-rail-step-active': index === stepIndex }"
           >
             <div class="app-home-rail-mark">
               <span
@@ -106,9 +119,6 @@
               >
                 {{ index + 1 }}
               </span>
-              <p class="app-home-rail-label text-xs font-medium tracking-wide text-primary">
-                {{ $t(`steps.${step}Label`) }}
-              </p>
             </div>
             <h3 class="app-home-rail-title text-2xl font-semibold text-highlighted">
               {{ $t(`steps.${step}Title`) }}
@@ -116,6 +126,43 @@
             <p class="app-home-rail-hint mt-2 whitespace-pre-line text-sm leading-6 text-muted">
               {{ $t(`steps.${step}Hint`) }}
             </p>
+            <div
+              class="app-home-rail-frame"
+              aria-hidden="true"
+            >
+              <template v-if="step === 'one'">
+                <p class="app-home-frame-user">
+                  {{ $t('steps.oneFrameUser') }}
+                </p>
+                <p class="app-home-frame-assistant">
+                  {{ $t('steps.oneFrameAssistant') }}
+                </p>
+              </template>
+              <template v-else-if="step === 'two'">
+                <p class="app-home-frame-plan">
+                  {{ $t('steps.twoFramePlan') }}
+                </p>
+                <p class="app-home-frame-lock">
+                  {{ $t('steps.twoFrameLock') }}
+                </p>
+              </template>
+              <p
+                v-else
+                class="app-home-frame-status"
+              >
+                {{ $t('steps.threeFrameStatus') }}
+              </p>
+              <div
+                v-if="index === stepIndex"
+                class="app-home-step-progress-track motion-reduce:hidden"
+                data-testid="home-step-progress"
+              >
+                <div
+                  class="app-home-step-progress"
+                  @animationend="advanceStep"
+                />
+              </div>
+            </div>
           </li>
         </ol>
       </div>
@@ -159,6 +206,8 @@
       </UCarousel>
     </section>
 
+    <HomeReportPreview />
+
     <section
       id="plans"
       class="scroll-mt-24 bg-brand-100 py-12 dark:bg-brand-900 sm:py-16"
@@ -192,8 +241,6 @@
         />
       </div>
     </section>
-
-    <HomeReportPreview />
 
     <section
       class="py-12 sm:py-16"
@@ -256,7 +303,7 @@
     </section>
 
     <section
-      class="overflow-hidden pb-16 sm:pb-20"
+      class="overflow-hidden bg-brand-100 pt-12 pb-16 dark:bg-brand-900 sm:pt-16 sm:pb-20"
       :aria-label="$t('reviews.title')"
       data-testid="home-reviews"
     >
@@ -334,7 +381,6 @@ const homeGoalCodes = [
   'cognitive_function',
   'gastrointestinal'
 ] as const
-const featuredHomeGoal = 'sleep'
 const eyebrowWordKeys = ['eyebrowAdvisor', 'eyebrowLabs', 'eyebrowConsult'] as const
 const reviewKeys = ['one', 'two', 'three', 'four', 'five'] as const
 const trustItems = [
@@ -345,12 +391,87 @@ const trustItems = [
 ] as const
 const trustIndex = ref(0)
 const currentTrust = computed(() => trustItems[trustIndex.value] ?? trustItems[0])
+const stepIndex = ref(0)
+const goalScroller = ref<HTMLElement | null>(null)
+const activeHomeGoal = ref<string | null>(null)
+let goalObserver: IntersectionObserver | undefined
+let unbindGoalHighlight: (() => void) | undefined
 
 function advanceTrust(event: AnimationEvent) {
   if (event.animationName !== 'app-trust-progress') {
     return
   }
   trustIndex.value = (trustIndex.value + 1) % trustItems.length
+}
+
+function advanceStep(event: AnimationEvent) {
+  if (event.animationName !== 'app-home-step-progress') {
+    return
+  }
+  stepIndex.value = (stepIndex.value + 1) % stepKeys.length
+}
+
+function closestGoal(root: HTMLElement) {
+  const mid = root.getBoundingClientRect().left + root.clientWidth / 2
+  let bestCode: string | null = null
+  let bestDistance = Infinity
+  for (const card of root.querySelectorAll<HTMLElement>('[data-goal]')) {
+    const box = card.getBoundingClientRect()
+    const distance = Math.abs(box.left + box.width / 2 - mid)
+    const code = card.dataset.goal
+    if (code != null && distance < bestDistance) {
+      bestDistance = distance
+      bestCode = code
+    }
+  }
+  return bestCode
+}
+
+function syncGoalHighlight() {
+  const root = goalScroller.value
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const desktop = window.matchMedia('(min-width: 768px)').matches
+  if (root == null || reduce || desktop) {
+    activeHomeGoal.value = null
+    return
+  }
+  activeHomeGoal.value = closestGoal(root)
+}
+
+function bindGoalHighlight() {
+  const root = goalScroller.value
+  if (root == null) {
+    return
+  }
+  const desktopQuery = window.matchMedia('(min-width: 768px)')
+  const reduceQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+  const onMedia = () => {
+    goalObserver?.disconnect()
+    goalObserver = undefined
+    if (desktopQuery.matches || reduceQuery.matches) {
+      activeHomeGoal.value = null
+      return
+    }
+    goalObserver = new IntersectionObserver(() => {
+      syncGoalHighlight()
+    }, {
+      root,
+      threshold: [0.25, 0.5, 0.75, 1]
+    })
+    for (const card of root.querySelectorAll('[data-goal]')) {
+      goalObserver.observe(card)
+    }
+    syncGoalHighlight()
+  }
+  onMedia()
+  desktopQuery.addEventListener('change', onMedia)
+  reduceQuery.addEventListener('change', onMedia)
+  unbindGoalHighlight = () => {
+    desktopQuery.removeEventListener('change', onMedia)
+    reduceQuery.removeEventListener('change', onMedia)
+    goalObserver?.disconnect()
+    goalObserver = undefined
+  }
 }
 const plansHref = computed(() => `${localePath('/')}#plans`)
 const promoSlides = computed(() => [
@@ -421,6 +542,7 @@ const pricingPlans = computed<PricingPlanProps[]>(() => packages.value.map((pkg,
 }))
 
 onMounted(async () => {
+  bindGoalHighlight()
   packagesPending.value = true
   packagesError.value = null
   try {
@@ -431,5 +553,9 @@ onMounted(async () => {
   } finally {
     packagesPending.value = false
   }
+})
+
+onUnmounted(() => {
+  unbindGoalHighlight?.()
 })
 </script>
