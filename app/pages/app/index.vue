@@ -55,44 +55,99 @@
       </div>
 
       <div
-        class="space-y-6"
+        class="flex flex-col gap-6 lg:flex-row lg:items-start"
         :class="previewLocked ? 'pointer-events-none select-none opacity-40' : undefined"
         :aria-hidden="previewLocked || undefined"
       >
-        <section
-          class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-          data-testid="health-profile-cards"
-        >
-          <article
-            v-for="card in profileCards"
-            :key="card.key"
-            class="rounded-2xl border border-default bg-elevated p-5"
-            :data-testid="`health-stat-${card.key}`"
+        <div class="flex w-full shrink-0 flex-col gap-4 lg:w-72">
+          <section
+            class="rounded-2xl border border-default bg-elevated p-3"
+            data-testid="health-profile-cards"
           >
-            <p class="text-sm text-muted">
-              {{ card.label }}
-            </p>
-            <p class="mt-2 text-xl font-semibold text-highlighted">
-              {{ card.value }}
-            </p>
-          </article>
-        </section>
+            <div
+              v-for="card in profileCards"
+              :key="card.key"
+              class="flex items-baseline justify-between gap-3 py-1.5"
+              :data-testid="`health-stat-${card.key}`"
+            >
+              <p class="shrink-0 text-xs text-muted">
+                {{ card.label }}
+              </p>
+              <p class="min-w-0 text-end text-base font-semibold text-highlighted">
+                {{ card.value }}
+              </p>
+            </div>
+          </section>
 
-        <p
-          v-if="profileError"
-          class="text-sm text-red-600 dark:text-red-400"
-          data-testid="health-profile-error"
-        >
-          {{ profileError }}
-        </p>
+          <p
+            v-if="profileError"
+            class="text-sm text-red-600 dark:text-red-400"
+            data-testid="health-profile-error"
+          >
+            {{ profileError }}
+          </p>
+
+          <section
+            class="rounded-2xl border border-default bg-elevated p-5"
+            data-testid="member-privacy"
+          >
+            <h2 class="font-semibold text-highlighted">
+              {{ $t('member.privacyTitle') }}
+            </h2>
+            <p class="mt-1 text-sm text-muted">
+              {{ $t('member.privacyHint') }}
+            </p>
+            <div
+              v-if="!anonymizeOpen"
+              class="mt-4"
+            >
+              <AppButton
+                variant="outline"
+                data-testid="member-anonymize"
+                @click="anonymizeOpen = true"
+              >
+                {{ $t('member.anonymize') }}
+              </AppButton>
+            </div>
+            <div
+              v-else
+              class="mt-4 space-y-3"
+              data-testid="member-anonymize-panel"
+            >
+              <p class="text-sm text-highlighted">
+                {{ $t('member.anonymizeConfirm') }}
+              </p>
+              <div class="flex flex-wrap gap-2">
+                <AppButton
+                  data-testid="member-anonymize-confirm"
+                  :disabled="anonymizePending"
+                  @click="onAnonymize"
+                >
+                  {{ $t('member.anonymizeConfirmAction') }}
+                </AppButton>
+                <AppButton
+                  variant="ghost"
+                  :disabled="anonymizePending"
+                  @click="anonymizeOpen = false"
+                >
+                  {{ $t('member.anonymizeDismiss') }}
+                </AppButton>
+              </div>
+              <p
+                v-if="anonymizeError"
+                class="text-sm text-red-600 dark:text-red-400"
+                data-testid="member-anonymize-error"
+              >
+                {{ anonymizeError }}
+              </p>
+            </div>
+          </section>
+        </div>
 
         <section
-          class="space-y-3"
+          class="min-w-0 flex-1 space-y-3"
           data-testid="health-reports"
         >
-          <h2 class="font-semibold text-highlighted">
-            {{ $t('member.reportsTitle') }}
-          </h2>
           <p
             v-if="reportsLoading"
             class="text-sm text-muted"
@@ -300,62 +355,6 @@
               </div>
             </template>
           </UModal>
-        </section>
-
-        <section
-          class="rounded-2xl border border-default bg-elevated p-5"
-          data-testid="member-privacy"
-        >
-          <h2 class="font-semibold text-highlighted">
-            {{ $t('member.privacyTitle') }}
-          </h2>
-          <p class="mt-1 text-sm text-muted">
-            {{ $t('member.privacyHint') }}
-          </p>
-          <div
-            v-if="!anonymizeOpen"
-            class="mt-4"
-          >
-            <AppButton
-              variant="outline"
-              data-testid="member-anonymize"
-              @click="anonymizeOpen = true"
-            >
-              {{ $t('member.anonymize') }}
-            </AppButton>
-          </div>
-          <div
-            v-else
-            class="mt-4 space-y-3"
-            data-testid="member-anonymize-panel"
-          >
-            <p class="text-sm text-highlighted">
-              {{ $t('member.anonymizeConfirm') }}
-            </p>
-            <div class="flex flex-wrap gap-2">
-              <AppButton
-                data-testid="member-anonymize-confirm"
-                :disabled="anonymizePending"
-                @click="onAnonymize"
-              >
-                {{ $t('member.anonymizeConfirmAction') }}
-              </AppButton>
-              <AppButton
-                variant="ghost"
-                :disabled="anonymizePending"
-                @click="anonymizeOpen = false"
-              >
-                {{ $t('member.anonymizeDismiss') }}
-              </AppButton>
-            </div>
-            <p
-              v-if="anonymizeError"
-              class="text-sm text-red-600 dark:text-red-400"
-              data-testid="member-anonymize-error"
-            >
-              {{ anonymizeError }}
-            </p>
-          </div>
         </section>
       </div>
     </div>

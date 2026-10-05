@@ -53,7 +53,7 @@ defineEmits<{
       class="overflow-auto rounded-lg border border-default bg-default"
       :class="hideScrollbar ? 'scrollbar-none min-h-0 flex-1' : undefined"
     >
-      <table class="w-full min-w-[32rem] border-separate border-spacing-0 text-sm">
+      <table class="w-max max-w-full min-w-[32rem] border-separate border-spacing-0 text-sm">
         <thead>
           <tr class="text-left text-xs font-semibold text-muted">
             <th class="sticky top-0 z-10 min-w-[6.5rem] whitespace-nowrap border-b border-dashed border-default bg-muted px-2.5 py-2">

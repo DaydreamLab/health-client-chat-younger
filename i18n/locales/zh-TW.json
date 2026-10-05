@@ -219,7 +219,6 @@
       "joint_bone": "關節骨骼"
     },
     "profileLoadError": "無法載入個人健康資料，請稍後再試。",
-    "reportsTitle": "我的報告",
     "reportsLoading": "載入報告中…",
     "reportsEmpty": "尚無報告",
     "reportsLoadError": "無法載入報告列表，請稍後再試。",

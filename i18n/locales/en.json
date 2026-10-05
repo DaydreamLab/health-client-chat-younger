@@ -219,7 +219,6 @@
       "joint_bone": "Joints & bones"
     },
     "profileLoadError": "Could not load your health profile. Please try again.",
-    "reportsTitle": "My reports",
     "reportsLoading": "Loading reports…",
     "reportsEmpty": "No reports yet",
     "reportsLoadError": "Could not load reports. Please try again.",
