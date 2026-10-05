@@ -152,6 +152,8 @@
     "reportDetailLoading": "載入報告中…",
     "reportDetailError": "無法載入報告判讀",
     "reportExpand": "展開報告",
+    "reportStyleTable": "報告樣式1",
+    "reportStyleCards": "報告樣式2",
     "reportStatus": {
       "uploaded": "已上傳",
       "extracting": "處理中",
@@ -306,6 +308,9 @@
     "optimal": "最佳值",
     "caution": "提醒值",
     "alert": "警戒值",
+    "statusOptimal": "最佳",
+    "statusCaution": "提醒",
+    "statusAlert": "警戒",
     "colorHint": "數值依參考區間著色",
     "empty": "尚無結構化檢驗結果可表列。",
     "status": "狀態",

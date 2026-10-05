@@ -118,91 +118,106 @@
             v-else
             class="space-y-3"
           >
-            <article
+            <template
               v-for="report in reports"
               :key="report.id"
-              class="overflow-hidden rounded-2xl border border-default bg-elevated lg:flex lg:max-h-[calc(50dvh+2.75rem)] lg:flex-col"
-              :data-testid="`health-report-${report.id}`"
             >
-              <div class="flex shrink-0 items-center gap-3 px-5 py-4">
-                <button
-                  type="button"
-                  class="min-w-0 flex-1 text-start"
-                  :aria-expanded="expandedId === report.id"
-                  data-testid="health-report-toggle"
-                  @click="toggleReport(report.id)"
-                >
-                  <p class="font-medium text-highlighted">
-                    {{ formatReportDate(report.created_at) }}
-                  </p>
-                  <p class="mt-0.5 text-sm text-muted">
-                    {{ statusLabel(report.status) }}
-                    <span
-                      v-if="report.error"
-                      class="text-red-600 dark:text-red-400"
-                    > · {{ report.error }}</span>
-                  </p>
-                </button>
-                <AppButton
-                  variant="outline"
-                  class="report-expand-btn shrink-0"
-                  data-testid="health-report-expand"
-                  @click="openReportSheet(report.id)"
-                >
-                  {{ $t('member.reportExpand') }}
-                </AppButton>
-                <button
-                  type="button"
-                  class="inline-flex size-8 shrink-0 items-center justify-center text-muted"
-                  :aria-expanded="expandedId === report.id"
-                  :aria-label="expandedId === report.id ? $t('labChart.collapse') : $t('labChart.expand')"
-                  @click="toggleReport(report.id)"
-                >
-                  <UIcon
-                    :name="expandedId === report.id ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-                    class="size-4"
-                  />
-                </button>
-              </div>
-              <div
-                v-if="expandedId === report.id"
-                class="flex min-h-0 flex-1 flex-col border-t border-default"
-                data-testid="health-report-detail"
+              <article
+                v-for="variant in reportVariants"
+                :key="`${report.id}-${variant}`"
+                class="overflow-hidden rounded-2xl border border-default bg-elevated lg:flex lg:max-h-[calc(50dvh+2.75rem)] lg:flex-col"
+                :data-testid="variant === 'table' ? `health-report-${report.id}` : `health-report-cards-${report.id}`"
               >
-                <p
-                  v-if="detailLoadingId === report.id"
-                  class="px-5 py-4 text-sm text-muted"
-                >
-                  {{ $t('member.reportDetailLoading') }}
-                </p>
-                <p
-                  v-else-if="detailErrorById[report.id]"
-                  class="px-5 py-4 text-sm text-red-600 dark:text-red-400"
-                >
-                  {{ detailErrorById[report.id] }}
-                </p>
-                <p
-                  v-else-if="!(resultsById[report.id] ?? []).length"
-                  class="px-5 py-4 text-sm text-muted"
-                >
-                  {{ $t('labChart.empty') }}
-                </p>
-                <div
-                  v-else
-                  class="flex min-h-0 flex-1 flex-col"
-                >
-                  <div class="shrink-0 px-5 pt-4">
-                    <ReportResultLegend />
-                  </div>
-                  <ReportResultTable
-                    :results="resultsById[report.id] ?? []"
-                    :show-legend="false"
-                    hide-scrollbar
-                    class="min-h-0 flex-1 px-5 py-4"
-                  />
+                <div class="flex shrink-0 items-center gap-3 px-5 py-4">
+                  <button
+                    type="button"
+                    class="min-w-0 flex-1 text-start"
+                    :aria-expanded="isReportExpanded(report.id, variant)"
+                    data-testid="health-report-toggle"
+                    @click="toggleReport(report.id, variant)"
+                  >
+                    <p class="font-medium text-highlighted">
+                      {{ formatReportDate(report.created_at) }}
+                      <span class="ms-2 text-xs font-normal text-muted">
+                        {{ variant === 'cards' ? $t('member.reportStyleCards') : $t('member.reportStyleTable') }}
+                      </span>
+                    </p>
+                    <p class="mt-0.5 text-sm text-muted">
+                      {{ statusLabel(report.status) }}
+                      <span
+                        v-if="report.error"
+                        class="text-red-600 dark:text-red-400"
+                      > · {{ report.error }}</span>
+                    </p>
+                  </button>
+                  <AppButton
+                    variant="outline"
+                    class="report-expand-btn shrink-0"
+                    data-testid="health-report-expand"
+                    @click="openReportSheet(report.id, variant)"
+                  >
+                    {{ $t('member.reportExpand') }}
+                  </AppButton>
+                  <button
+                    type="button"
+                    class="inline-flex size-8 shrink-0 items-center justify-center text-muted"
+                    :aria-expanded="isReportExpanded(report.id, variant)"
+                    :aria-label="isReportExpanded(report.id, variant) ? $t('labChart.collapse') : $t('labChart.expand')"
+                    @click="toggleReport(report.id, variant)"
+                  >
+                    <UIcon
+                      :name="isReportExpanded(report.id, variant) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                      class="size-4"
+                    />
+                  </button>
                 </div>
-              </div>
-            </article>
+                <div
+                  v-if="isReportExpanded(report.id, variant)"
+                  class="flex min-h-0 flex-1 flex-col border-t border-default"
+                  data-testid="health-report-detail"
+                >
+                  <p
+                    v-if="detailLoadingId === report.id"
+                    class="px-5 py-4 text-sm text-muted"
+                  >
+                    {{ $t('member.reportDetailLoading') }}
+                  </p>
+                  <p
+                    v-else-if="detailErrorById[report.id]"
+                    class="px-5 py-4 text-sm text-red-600 dark:text-red-400"
+                  >
+                    {{ detailErrorById[report.id] }}
+                  </p>
+                  <p
+                    v-else-if="!(resultsById[report.id] ?? []).length"
+                    class="px-5 py-4 text-sm text-muted"
+                  >
+                    {{ $t('labChart.empty') }}
+                  </p>
+                  <div
+                    v-else
+                    class="flex min-h-0 flex-1 flex-col"
+                  >
+                    <div class="shrink-0 px-5 pt-4">
+                      <ReportResultLegend />
+                    </div>
+                    <ReportResultTable
+                      v-if="variant === 'table'"
+                      :results="resultsById[report.id] ?? []"
+                      :show-legend="false"
+                      hide-scrollbar
+                      class="min-h-0 flex-1 px-5 py-4"
+                    />
+                    <ReportResultCards
+                      v-else
+                      :results="resultsById[report.id] ?? []"
+                      hide-scrollbar
+                      class="min-h-0 flex-1 px-5 py-4"
+                    />
+                  </div>
+                </div>
+              </article>
+            </template>
           </div>
           <UModal
             v-model:open="sheetOpen"
@@ -244,8 +259,15 @@
                     <ReportResultLegend />
                   </div>
                   <ReportResultTable
+                    v-if="sheetVariant === 'table'"
                     :results="sheetResults"
                     :show-legend="false"
+                    hide-scrollbar
+                    class="min-h-0 flex-1 px-5 py-4"
+                  />
+                  <ReportResultCards
+                    v-else
+                    :results="sheetResults"
                     hide-scrollbar
                     class="min-h-0 flex-1 px-5 py-4"
                   />
@@ -344,8 +366,10 @@ const profileError = ref('')
 const reports = ref<HealthReportSummary[]>([])
 const reportsLoading = ref(false)
 const reportsError = ref('')
-const expandedId = ref<string | null>(null)
+const reportVariants = ['table', 'cards'] as const
+const expandedKeys = ref<string[]>([])
 const sheetReportId = ref<string | null>(null)
+const sheetVariant = ref<(typeof reportVariants)[number]>('table')
 const detailLoadingId = ref<string | null>(null)
 const resultsById = ref<Record<string, HealthReportResult[]>>({})
 const detailErrorById = ref<Record<string, string>>({})
@@ -514,7 +538,7 @@ async function loadReports() {
     reports.value = list.reports ?? []
     const latest = reports.value[0]
     if (latest) {
-      expandedId.value = latest.id
+      expandedKeys.value = reportVariants.map(variant => reportVariantKey(latest.id, variant))
       await loadReportDetail(latest.id)
     }
   } catch {
@@ -524,17 +548,27 @@ async function loadReports() {
   }
 }
 
-function toggleReport(reportId: string) {
-  if (expandedId.value === reportId) {
-    expandedId.value = null
+function reportVariantKey(reportId: string, variant: (typeof reportVariants)[number]) {
+  return `${reportId}:${variant}`
+}
+
+function isReportExpanded(reportId: string, variant: (typeof reportVariants)[number]) {
+  return expandedKeys.value.includes(reportVariantKey(reportId, variant))
+}
+
+function toggleReport(reportId: string, variant: (typeof reportVariants)[number]) {
+  const key = reportVariantKey(reportId, variant)
+  if (expandedKeys.value.includes(key)) {
+    expandedKeys.value = expandedKeys.value.filter(item => item !== key)
     return
   }
-  expandedId.value = reportId
+  expandedKeys.value = [...expandedKeys.value, key]
   void loadReportDetail(reportId)
 }
 
-function openReportSheet(reportId: string) {
+function openReportSheet(reportId: string, variant: (typeof reportVariants)[number]) {
   sheetReportId.value = reportId
+  sheetVariant.value = variant
   void loadReportDetail(reportId)
 }
 

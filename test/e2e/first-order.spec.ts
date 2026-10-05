@@ -77,6 +77,7 @@ test.describe('member order detail', () => {
       unit: 'U/L',
       ref_low: 10,
       ref_high: 40,
+      critical_high: 60,
       needs_review: false
     }))
     await page.route('**/api/v1/health-reports', async (route) => {
@@ -123,6 +124,7 @@ test.describe('member order detail', () => {
     await goto('/app', { waitUntil: 'hydration' })
 
     const card = page.getByTestId(`health-report-${reportId}`)
+    await expect(card.getByText('報告樣式1')).toBeVisible()
     await expect(card.getByTestId('health-report-expand')).toHaveText('展開報告')
     await expect(card.getByTestId('health-report-detail')).toBeVisible()
     await expect(card.getByTestId('report-result-row-result-e2e-0')).toBeVisible()
@@ -146,6 +148,7 @@ test.describe('member order detail', () => {
 
     await card.getByTestId('health-report-toggle').click()
     await expect(card.getByTestId('health-report-detail')).toHaveCount(0)
+    await expect(page.getByTestId(`health-report-cards-${reportId}`).getByTestId('health-report-detail')).toBeVisible()
     await expect(page.getByRole('dialog')).toHaveCount(0)
 
     await card.getByRole('button', { name: '展開', exact: true }).click()
@@ -191,6 +194,23 @@ test.describe('member order detail', () => {
     await page.keyboard.press('Escape')
     await expect(dialog).toHaveCount(0)
     await expect(card.getByTestId('health-report-detail')).toBeVisible()
+
+    const cards = page.getByTestId(`health-report-cards-${reportId}`)
+    await expect(cards.getByText('報告樣式2')).toBeVisible()
+    await expect(cards.getByTestId('health-report-detail')).toBeVisible()
+    await expect(cards.getByTestId('report-result-card-result-e2e-0')).toBeVisible()
+    await expect(cards.getByTestId('report-result-card-position-result-e2e-0')).toBeVisible()
+    await expect(cards.getByTestId('report-result-card-status-result-e2e-0')).toHaveText('最佳')
+    await expect(cards.getByTestId('report-result-card-status-result-e2e-1')).toHaveText('提醒')
+    await expect(cards.getByTestId('report-result-card-status-result-e2e-21')).toHaveText('警戒')
+
+    await cards.getByTestId('health-report-expand').click()
+    await expect(dialog).toBeVisible()
+    await expect(dialog).not.toContainText('展開報告')
+    await expect(dialog.getByTestId('report-result-card-result-e2e-0')).toBeVisible()
+    await expect(dialog.getByTestId('report-result-card-status-result-e2e-0')).toHaveText('最佳')
+    await expect(dialog.getByRole('columnheader')).toHaveCount(0)
+    await expect(dialog.getByText('數值依參考區間著色')).toBeVisible()
   })
 })
 

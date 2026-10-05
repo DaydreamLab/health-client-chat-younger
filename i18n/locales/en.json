@@ -152,6 +152,8 @@
     "reportDetailLoading": "Loading report…",
     "reportDetailError": "Could not load the report reading.",
     "reportExpand": "Expand report",
+    "reportStyleTable": "Report style 1",
+    "reportStyleCards": "Report style 2",
     "reportStatus": {
       "uploaded": "Uploaded",
       "extracting": "Processing",
@@ -306,6 +308,9 @@
     "optimal": "Optimal",
     "caution": "Caution",
     "alert": "Alert",
+    "statusOptimal": "Optimal",
+    "statusCaution": "Caution",
+    "statusAlert": "Alert",
     "colorHint": "Values colored by reference range",
     "empty": "No structured lab results to list yet.",
     "status": "Status",
