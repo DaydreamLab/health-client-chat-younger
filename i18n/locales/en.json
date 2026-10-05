@@ -113,6 +113,36 @@
     "immune": "Immune",
     "immuneHint": "Blood counts, inflammation, and allergy signals"
   },
+  "preview": {
+    "title": "After a report arrives, the numbers look like this",
+    "body": "Each marker shows a value, a reference range, and whether it is optimal, caution, or alert. Members see the same layout in My health.",
+    "vitaminD": "Vitamin D",
+    "ferritin": "Ferritin",
+    "ldl": "LDL cholesterol"
+  },
+  "reviews": {
+    "title": "What members say",
+    "oneGoal": "Improve sleep",
+    "one": "The conversation made the report clear, so I knew what to look at next.",
+    "oneBy": "Taipei · Mr. Zhang",
+    "oneInitial": "張",
+    "twoGoal": "Improve weight",
+    "two": "I could talk through my questions before deciding whether to get a blood test.",
+    "twoBy": "Hsinchu · Ms. Chen",
+    "twoInitial": "陳",
+    "threeGoal": "Improve immunity",
+    "three": "The same report stays on the account and opens in the same layout later.",
+    "threeBy": "Taichung · Mr. Lin",
+    "threeInitial": "林",
+    "fourGoal": "Improve cognition",
+    "four": "I named what I wanted to work on, and the chat followed that direction.",
+    "fourBy": "Kaohsiung · Ms. Wu",
+    "fourInitial": "吳",
+    "fiveGoal": "Improve digestion",
+    "five": "The steps were clear before I decided whether to pick a plan.",
+    "fiveBy": "Tainan · Mr. Huang",
+    "fiveInitial": "黃"
+  },
   "trust": {
     "title": "Why you can trust us with your health data",
     "dataTitle": "Your data first",

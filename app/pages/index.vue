@@ -193,28 +193,7 @@
       </div>
     </section>
 
-    <section class="mx-auto max-w-6xl px-4 pb-16 sm:px-6">
-      <h2 class="text-xl font-semibold text-highlighted">
-        {{ $t('systems.title') }}
-      </h2>
-      <p class="mt-2 max-w-2xl text-sm text-muted">
-        {{ $t('systems.subtitle') }}
-      </p>
-      <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <article
-          v-for="key in systemKeys"
-          :key="key"
-          class="rounded-2xl border border-default bg-elevated p-5"
-        >
-          <h3 class="font-medium text-highlighted">
-            {{ $t(`systems.${key}`) }}
-          </h3>
-          <p class="mt-2 text-sm text-muted">
-            {{ $t(`systems.${key}Hint`) }}
-          </p>
-        </article>
-      </div>
-    </section>
+    <HomeReportPreview />
 
     <section
       class="py-12 sm:py-16"
@@ -222,11 +201,8 @@
       data-testid="home-trust"
     >
       <div class="mx-auto max-w-6xl px-4 sm:px-6">
-        <h2 class="text-2xl font-bold text-highlighted sm:text-3xl">
-          {{ $t('trust.title') }}
-        </h2>
         <div
-          class="app-trust-rotator mt-8 grid items-center gap-8 sm:grid-cols-[minmax(22rem,34rem)_minmax(0,1fr)] sm:gap-12 lg:gap-16"
+          class="app-trust-rotator grid items-center gap-8 lg:grid-cols-2 lg:gap-16"
           data-testid="home-trust-slide"
           :data-trust-key="currentTrust.key"
         >
@@ -234,43 +210,108 @@
             :key="currentTrust.key"
             :src="currentTrust.src"
             alt=""
-            class="app-trust-slide aspect-[2/1] h-auto w-full rounded-2xl object-cover"
+            class="app-trust-slide aspect-[2/1] h-auto w-full rounded-2xl object-cover lg:-translate-x-6"
             data-testid="home-trust-swatch"
             aria-hidden="true"
           >
-          <ol class="space-y-6">
-            <li
-              v-for="(item, index) in trustItems"
-              :key="item.key"
-              class="flex items-stretch gap-3"
-              :data-testid="`home-trust-item-${item.key}`"
-            >
-              <div class="relative w-1 shrink-0">
-                <div
-                  v-if="index === trustIndex"
-                  class="absolute inset-0 overflow-hidden rounded-full bg-brand-100 motion-reduce:hidden dark:bg-brand-800"
-                  data-testid="home-trust-progress"
-                >
+          <div>
+            <h2 class="text-2xl font-bold text-highlighted sm:text-3xl">
+              {{ $t('trust.title') }}
+            </h2>
+            <ol class="mt-8 space-y-6">
+              <li
+                v-for="(item, index) in trustItems"
+                :key="item.key"
+                class="flex items-stretch gap-3"
+                :data-testid="`home-trust-item-${item.key}`"
+              >
+                <div class="relative w-1 shrink-0">
                   <div
-                    class="app-trust-progress h-full w-full origin-top bg-brand-600"
-                    @animationend="advanceTrust"
-                  />
+                    v-if="index === trustIndex"
+                    class="absolute inset-0 overflow-hidden rounded-full bg-brand-100 motion-reduce:hidden dark:bg-brand-800"
+                    data-testid="home-trust-progress"
+                  >
+                    <div
+                      class="app-trust-progress h-full w-full origin-top bg-brand-600"
+                      @animationend="advanceTrust"
+                    />
+                  </div>
                 </div>
-              </div>
-              <div class="min-w-0">
-                <h3
-                  class="text-xl font-bold motion-reduce:text-highlighted"
-                  :class="index === trustIndex ? 'text-highlighted' : 'text-muted'"
-                >
-                  {{ $t(`trust.${item.key}Title`) }}
-                </h3>
-                <p class="mt-1 text-sm leading-6 text-muted">
-                  {{ $t(`trust.${item.key}Hint`) }}
-                </p>
-              </div>
-            </li>
-          </ol>
+                <div class="min-w-0">
+                  <h3
+                    class="text-xl font-bold motion-reduce:text-highlighted"
+                    :class="index === trustIndex ? 'text-highlighted' : 'text-muted'"
+                  >
+                    {{ $t(`trust.${item.key}Title`) }}
+                  </h3>
+                  <p class="mt-1 text-sm leading-6 text-muted">
+                    {{ $t(`trust.${item.key}Hint`) }}
+                  </p>
+                </div>
+              </li>
+            </ol>
+          </div>
         </div>
+      </div>
+    </section>
+
+    <section
+      class="overflow-hidden pb-16 sm:pb-20"
+      :aria-label="$t('reviews.title')"
+      data-testid="home-reviews"
+    >
+      <div class="mx-auto max-w-6xl px-4 text-center sm:px-6">
+        <h2 class="text-2xl font-bold text-highlighted sm:text-3xl">
+          {{ $t('reviews.title') }}
+        </h2>
+      </div>
+      <ul class="sr-only">
+        <li
+          v-for="key in reviewKeys"
+          :key="key"
+        >
+          {{ $t(`reviews.${key}Goal`) }} {{ $t(`reviews.${key}`) }} {{ $t(`reviews.${key}By`) }}
+        </li>
+      </ul>
+      <UMarquee
+        pause-on-hover
+        :overlay="false"
+        aria-hidden="true"
+        :ui="{ root: '[--duration:40s] [--gap:--spacing(3)]', content: '!items-stretch py-4' }"
+        class="mt-4"
+      >
+        <article
+          v-for="key in reviewKeys"
+          :key="key"
+          class="flex w-72 shrink-0 items-start gap-3 self-stretch rounded-2xl border border-default bg-elevated p-4"
+        >
+          <span
+            class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary"
+            aria-hidden="true"
+          >
+            {{ $t(`reviews.${key}Initial`) }}
+          </span>
+          <div class="flex min-w-0 flex-1 flex-col self-stretch">
+            <p class="text-sm font-medium text-primary">
+              {{ $t(`reviews.${key}Goal`) }}
+            </p>
+            <p class="mt-1 text-base leading-6 text-highlighted">
+              {{ $t(`reviews.${key}`) }}
+            </p>
+            <p class="mt-auto pt-2 text-sm text-muted">
+              {{ $t(`reviews.${key}By`) }}
+            </p>
+          </div>
+        </article>
+      </UMarquee>
+      <div class="flex justify-center px-4">
+        <AppButton
+          class="px-8"
+          :to="localePath('/chat')"
+          data-testid="home-reviews-cta"
+        >
+          {{ $t('hero.ctaChat') }}
+        </AppButton>
       </div>
     </section>
   </div>
@@ -295,7 +336,7 @@ const homeGoalCodes = [
 ] as const
 const featuredHomeGoal = 'sleep'
 const eyebrowWordKeys = ['eyebrowAdvisor', 'eyebrowLabs', 'eyebrowConsult'] as const
-const systemKeys = ['nutrition', 'metabolic', 'cardio', 'detox', 'endocrine', 'immune'] as const
+const reviewKeys = ['one', 'two', 'three', 'four', 'five'] as const
 const trustItems = [
   { key: 'data', src: '/home/trust-data.png' },
   { key: 'pace', src: '/home/trust-pace.png' },
