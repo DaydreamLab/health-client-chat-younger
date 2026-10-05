@@ -41,12 +41,15 @@
   },
   "steps": {
     "title": "先對談，看懂自己的身體",
-    "oneTitle": "選方案、線上對談",
-    "oneHint": "先跟 AI 聊你想解決什麼",
-    "twoTitle": "付款才解鎖後續",
-    "twoHint": "付款成功才進入後續",
-    "threeTitle": "顧問端履約",
-    "threeHint": "解讀與選品在顧問端進行"
+    "oneLabel": "步驟 1",
+    "oneTitle": "對談",
+    "oneHint": "先跟 AI 聊你想解決什麼。有血檢可以一起看，沒有也能開始。",
+    "twoLabel": "步驟 2",
+    "twoTitle": "解鎖",
+    "twoHint": "選好方案並付款，後續才打開。",
+    "threeLabel": "步驟 3",
+    "threeTitle": "顧問",
+    "threeHint": "解讀、採檢或選品，由顧問接手。"
   },
   "promo": {
     "label": "產品介紹",

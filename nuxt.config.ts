@@ -93,7 +93,10 @@ export default defineNuxtConfig({
       sizeLimitKb: 512,
       // Explicit: scan can miss icons only referenced in NavigationMenu item maps.
       icons: [
-        'lucide:watch'
+        'lucide:watch',
+        'lucide:users',
+        'lucide:lock',
+        'lucide:stethoscope'
       ]
     }
   }

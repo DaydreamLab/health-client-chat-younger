@@ -41,12 +41,15 @@
   },
   "steps": {
     "title": "Start with a conversation and understand your body.",
-    "oneTitle": "Pick a plan and chat",
-    "oneHint": "Start by telling the AI what you want to solve.",
-    "twoTitle": "Payment unlocks the rest",
-    "twoHint": "Payment is what opens the next step.",
-    "threeTitle": "Advisor fulfills",
-    "threeHint": "Reading and product picks happen with the advisor."
+    "oneLabel": "Step 1",
+    "oneTitle": "Talk",
+    "oneHint": "Tell the AI what you want to solve. A blood test can come along; you can start without one.",
+    "twoLabel": "Step 2",
+    "twoTitle": "Unlock",
+    "twoHint": "Pick a plan and pay. What comes next opens then.",
+    "threeLabel": "Step 3",
+    "threeTitle": "Advisor",
+    "threeHint": "Reading, collection, or product picks are taken up by the advisor."
   },
   "promo": {
     "label": "Product highlights",

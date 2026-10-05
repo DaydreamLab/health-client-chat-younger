@@ -47,33 +47,40 @@
       </div>
     </section>
 
-    <section class="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-      <h2 class="text-center text-xl font-semibold text-highlighted">
-        {{ $t('steps.title') }}
-      </h2>
-      <ol class="app-home-rail mt-10">
-        <li
-          v-for="(step, index) in stepKeys"
-          :key="step"
-          class="app-home-rail-step"
-        >
-          <span
-            class="app-home-rail-dot"
-            aria-hidden="true"
-          />
-          <div class="app-home-rail-copy">
-            <p class="text-xs font-medium text-primary">
-              {{ String(index + 1).padStart(2, '0') }}
-            </p>
-            <h3 class="mt-2 font-medium text-highlighted">
-              {{ $t(`steps.${step}Title`) }}
-            </h3>
-            <p class="mt-1 text-sm text-muted">
-              {{ $t(`steps.${step}Hint`) }}
-            </p>
-          </div>
-        </li>
-      </ol>
+    <section class="bg-brand-100 dark:bg-brand-900">
+      <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
+        <h2 class="text-center text-3xl font-semibold text-highlighted sm:text-4xl">
+          {{ $t('steps.title') }}
+        </h2>
+        <ol class="app-home-rail mt-8">
+          <li
+            v-for="step in stepKeys"
+            :key="step"
+            class="app-home-rail-step"
+          >
+            <span
+              class="app-home-rail-dot"
+              aria-hidden="true"
+            >
+              <UIcon
+                :name="stepIcons[step]"
+                class="size-7 text-primary min-[1100px]:size-12"
+              />
+            </span>
+            <div class="app-home-rail-copy">
+              <p class="text-sm font-semibold text-primary">
+                {{ $t(`steps.${step}Label`) }}
+              </p>
+              <h3 class="mt-2 font-medium text-highlighted">
+                {{ $t(`steps.${step}Title`) }}
+              </h3>
+              <p class="mt-1 text-sm text-muted">
+                {{ $t(`steps.${step}Hint`) }}
+              </p>
+            </div>
+          </li>
+        </ol>
+      </div>
     </section>
 
     <section
@@ -217,6 +224,11 @@ const localePath = useLocalePath()
 const journey = useJourneyStore()
 const candor = useCandorApi()
 const stepKeys = ['one', 'two', 'three'] as const
+const stepIcons = {
+  one: 'i-lucide-users',
+  two: 'i-lucide-lock',
+  three: 'i-lucide-stethoscope'
+} as const
 const systemKeys = ['nutrition', 'metabolic', 'cardio', 'detox', 'endocrine', 'immune'] as const
 const plansHref = computed(() => `${localePath('/')}#plans`)
 const promoSlides = computed(() => [
