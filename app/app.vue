@@ -8,6 +8,7 @@ useHead({
     { name: 'viewport', content: 'width=device-width, initial-scale=1' }
   ],
   link: [
+    { rel: 'icon', type: 'image/png', href: `${config.app.baseURL}brand-mark.png` },
     { rel: 'icon', href: `${config.app.baseURL}favicon.ico` }
   ],
   htmlAttrs: {
