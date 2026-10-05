@@ -273,7 +273,7 @@ button:focus:not(:focus-visible) {
     min-height: 2rem;
     padding: 0.375rem 0.75rem;
     border: 1px solid var(--ui-border);
-    border-radius: 9999px;
+    border-radius: 0.375rem;
     background-color: var(--ui-bg-elevated);
     font-size: 0.8125rem;
     font-weight: 500;
