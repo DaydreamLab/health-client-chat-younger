@@ -5,6 +5,52 @@ test.beforeEach(async ({ page }) => {
   await mockCandorAuth(page)
 })
 
+test('home mobile nav stays inside the header toggle', async ({ page, goto }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await goto('/', { waitUntil: 'hydration' })
+
+  const plans = page.locator('#home-mobile-nav').getByRole('link', { name: '方案', exact: true })
+  await expect(page.getByTestId('home-nav-toggle').locator('svg')).toBeVisible()
+  await expect(page.getByRole('button', { name: '語言：繁中' })).toBeVisible()
+  await expect(page.locator('header').getByTestId('account-user')).toHaveCount(0)
+  await expect(plans).toBeHidden()
+
+  const headerBox = await page.locator('header').boundingBox()
+  const brandBox = await page.getByTestId('brand').boundingBox()
+  expect(headerBox).not.toBeNull()
+  expect(brandBox).not.toBeNull()
+  const headerMid = (headerBox?.x ?? 0) + (headerBox?.width ?? 0) / 2
+  const brandMid = (brandBox?.x ?? 0) + (brandBox?.width ?? 0) / 2
+  expect(Math.abs(brandMid - headerMid)).toBeLessThan(8)
+
+  await page.getByTestId('home-nav-toggle').click()
+  await expect(page.getByTestId('home-nav-toggle')).toHaveAttribute('aria-expanded', 'true')
+  await expect(plans).toBeVisible()
+
+  await plans.click()
+  await expect(page).toHaveURL(/#plans/)
+  await expect(plans).toBeHidden()
+  await expect(page.getByTestId('home-nav-toggle')).toHaveAttribute('aria-expanded', 'false')
+})
+
+test('member home shows the avatar and shifts the wordmark left', async ({ page, goto }) => {
+  await mockCandorAuth(page, { asMember: true })
+  await page.setViewportSize({ width: 390, height: 844 })
+  await goto('/', { waitUntil: 'hydration' })
+
+  const account = page.locator('header').getByTestId('account-user')
+  await expect(account).toBeVisible()
+  await expect(account).toHaveText('GU')
+
+  const headerBox = await page.locator('header').boundingBox()
+  const brandBox = await page.getByTestId('brand').boundingBox()
+  expect(headerBox).not.toBeNull()
+  expect(brandBox).not.toBeNull()
+  const headerMid = (headerBox?.x ?? 0) + (headerBox?.width ?? 0) / 2
+  const brandMid = (brandBox?.x ?? 0) + (brandBox?.width ?? 0) / 2
+  expect(brandMid).toBeLessThan(headerMid - 24)
+})
+
 test('guest home page loads', async ({ page, goto }) => {
   await goto('/', { waitUntil: 'hydration' })
   await expect(page.getByTestId('brand')).toBeVisible()
@@ -130,4 +176,26 @@ test('day dark toggle sets html class', async ({ page, goto }) => {
   await expect(page.getByTestId('color-mode-toggle')).toHaveAttribute('aria-pressed', 'false')
   await expect(page.getByTestId('brand')).toBeVisible()
   await expect(page.getByTestId('brand-dark')).toBeHidden()
+})
+
+test('mobile nav stays inside the header toggle', async ({ page, goto }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await goto('/app', { waitUntil: 'hydration' })
+
+  await expect(page.getByTestId('user-header')).toBeVisible()
+  await expect(page.getByTestId('user-sidebar')).toBeHidden()
+  const account = page.getByTestId('user-header').getByTestId('account-user')
+  await expect(account).toHaveAttribute('title', 'Guest')
+  await expect(account).toHaveText('GU')
+  await expect(page.getByTestId('user-nav-toggle').locator('svg')).toBeVisible()
+  await expect(page.getByTestId('nav-chat-mobile')).toBeHidden()
+
+  await page.getByTestId('user-nav-toggle').click()
+  await expect(page.getByTestId('user-nav-toggle')).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByTestId('nav-chat-mobile')).toBeVisible()
+
+  await page.getByTestId('nav-chat-mobile').click()
+  await expect(page).toHaveURL(/\/chat\/?/)
+  await expect(page.getByTestId('nav-chat-mobile')).toBeHidden()
+  await expect(page.getByTestId('user-nav-toggle')).toHaveAttribute('aria-expanded', 'false')
 })

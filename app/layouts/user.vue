@@ -44,22 +44,64 @@
         class="flex h-16 shrink-0 items-center gap-3 border-b border-default px-4 sm:px-6 lg:hidden"
         data-testid="user-header"
       >
+        <button
+          type="button"
+          class="app-icon-toggle shrink-0"
+          :aria-expanded="mobileNavOpen"
+          :aria-label="$t('nav.menu')"
+          aria-controls="user-mobile-nav"
+          data-testid="user-nav-toggle"
+          @click="mobileNavOpen = !mobileNavOpen"
+        >
+          <svg
+            v-if="mobileNavOpen"
+            class="size-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+          <svg
+            v-else
+            class="size-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M4 6h16" />
+            <path d="M4 12h16" />
+            <path d="M4 18h16" />
+          </svg>
+        </button>
         <BrandMark />
         <div class="ms-auto flex items-center gap-2">
-          <AccountUser
-            compact
-            class="max-w-40"
-          />
+          <AccountUser avatar-only />
           <LocaleSwitch />
           <ColorModeSwitch />
         </div>
       </header>
-      <nav class="flex shrink-0 gap-1 border-b border-default px-4 py-2 text-sm lg:hidden">
+      <nav
+        v-show="mobileNavOpen"
+        id="user-mobile-nav"
+        class="flex shrink-0 flex-col gap-1 border-b border-default px-4 py-2 text-sm lg:hidden"
+        @click="mobileNavOpen = false"
+      >
         <AppButton
           v-for="item in mobileNavItems"
           :key="item.label"
           :to="item.to"
           variant="ghost"
+          class="justify-start"
           :class="item.active ? 'app-nav-active' : undefined"
           :data-testid="item.mobileTestId"
         >
@@ -73,7 +115,7 @@
         </AppButton>
         <AppButton
           variant="ghost"
-          class="ms-auto"
+          class="justify-start"
           @click="logout"
         >
           {{ $t('nav.logout') }}
@@ -102,6 +144,11 @@ const auth = useAuthStore()
 const journey = useJourneyStore()
 const route = useRoute()
 const { t } = useI18n()
+const mobileNavOpen = ref(false)
+
+watch(() => route.fullPath, () => {
+  mobileNavOpen.value = false
+})
 
 const isChat = computed(() => route.path.includes('/chat'))
 const isOrders = computed(() => route.path.includes('/orders'))

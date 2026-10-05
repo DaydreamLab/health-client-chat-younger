@@ -1,34 +1,48 @@
 <template>
   <div>
-    <section class="mx-auto max-w-6xl px-4 py-12 text-center sm:px-6 sm:py-16">
-      <p
-        data-testid="brand-hero"
-        class="text-sm font-medium text-primary"
-      >
-        {{ $t('hero.eyebrow') }}
-      </p>
-      <h1 class="mx-auto mt-3 max-w-4xl whitespace-pre-line text-4xl font-semibold tracking-tight text-highlighted sm:text-5xl">
-        {{ $t('hero.title') }}
-      </h1>
-      <p class="mx-auto mt-4 max-w-3xl whitespace-pre-line text-muted">
-        {{ $t('hero.description') }}
-      </p>
-      <div class="mt-8 flex flex-wrap justify-center gap-3">
-        <AppButton
-          class="min-w-44 px-8"
-          :to="localePath('/chat')"
-          data-testid="hero-cta-chat"
+    <section class="app-hero relative isolate overflow-hidden">
+      <div class="app-hero-frame relative">
+        <img
+          src="/hero-banner.png"
+          alt=""
+          class="absolute inset-0 size-full object-cover object-[left_top] sm:object-center"
         >
-          {{ $t('hero.ctaChat') }}
-        </AppButton>
-        <AppButton
-          class="min-w-44 px-8"
-          :to="`${localePath('/')}#plans`"
-          variant="outline"
-          data-testid="hero-cta-plans"
-        >
-          {{ $t('hero.ctaPlans') }}
-        </AppButton>
+        <div
+          class="app-hero-shade pointer-events-none absolute inset-0"
+          aria-hidden="true"
+        />
+        <div class="relative flex min-h-[34rem] items-end px-4 py-10 sm:absolute sm:inset-0 sm:min-h-0 sm:items-center sm:justify-end sm:px-6 sm:py-16">
+          <div class="w-full max-w-xl text-center text-white sm:origin-right sm:scale-125">
+          <p
+            data-testid="brand-hero"
+            class="text-sm font-medium tracking-wide"
+          >
+            {{ $t('hero.eyebrow') }}
+          </p>
+          <h1 class="mt-3 whitespace-pre-line text-4xl font-semibold tracking-tight sm:text-5xl">
+            {{ $t('hero.title') }}
+          </h1>
+          <p class="mt-4 whitespace-pre-line text-sm text-white/85">
+            {{ $t('hero.description') }}
+          </p>
+          <div class="app-hero-actions mt-7">
+            <AppButton
+              class="px-8"
+              :to="localePath('/chat')"
+              data-testid="hero-cta-chat"
+            >
+              {{ $t('hero.ctaChat') }}
+            </AppButton>
+            <AppButton
+              class="px-8"
+              :to="`${localePath('/')}#plans`"
+              variant="outline"
+              data-testid="hero-cta-plans"
+            >
+              {{ $t('hero.ctaPlans') }}
+            </AppButton>
+          </div>
+        </div>
       </div>
     </section>
 
