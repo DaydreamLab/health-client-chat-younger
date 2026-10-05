@@ -143,7 +143,7 @@
       <div
         ref="transcriptEl"
         data-testid="chat-transcript"
-        class="absolute inset-0 space-y-2 overflow-y-auto px-4 py-4 sm:px-6"
+        class="absolute inset-0 space-y-2 overflow-y-auto px-4 py-4 [scrollbar-width:none] [-ms-overflow-style:none] sm:px-6 [&::-webkit-scrollbar]:hidden"
       >
         <article
           v-for="message in messages"
@@ -250,7 +250,9 @@
           :disabled="inputLocked"
           :readonly="pending"
           data-testid="chat-input"
-          @keydown.enter.exact.prevent="onSubmit"
+          @compositionstart="onCompositionStart"
+          @compositionend="onCompositionEnd"
+          @keydown.enter.exact="onComposerEnter"
         />
         <AppButton
           type="submit"
@@ -273,6 +275,7 @@ import type {
   ProfileNext
 } from '~/utils/candor-api'
 import { CandorApiError } from '~/utils/candor-api'
+import { IME_CONFIRM_ENTER_MS, shouldIgnoreComposerEnter } from '~/utils/composer-enter'
 import type { ChatMessage } from '~/utils/first-order'
 import {
   assistantStillAsking,
@@ -307,6 +310,9 @@ const ordersApi = useFirstOrderApi()
 const candor = useCandorApi()
 
 const input = ref('')
+const composing = ref(false)
+let compositionEndedAt = 0
+let composingTimer: ReturnType<typeof setTimeout> | undefined
 const pending = ref(false)
 const liveAssistantId = ref<string | null>(null)
 const resetting = ref(false)
@@ -699,11 +705,6 @@ function scrollToLatest(behavior: ScrollBehavior = 'smooth') {
   }
 
   scroller.scrollTo({ top: scroller.scrollHeight, behavior })
-  const anchor = scroller.querySelector('[data-testid="chat-last-reply"]')
-    ?? scroller.querySelector('article:last-of-type')
-  if (anchor instanceof HTMLElement) {
-    anchor.scrollIntoView({ block: 'end', behavior })
-  }
 }
 
 let streamScrollFrame = 0
@@ -1504,6 +1505,39 @@ async function retryReport() {
   }
 }
 
+function clearComposingTimer() {
+  if (composingTimer !== undefined) {
+    clearTimeout(composingTimer)
+    composingTimer = undefined
+  }
+}
+
+function onCompositionStart() {
+  clearComposingTimer()
+  composing.value = true
+}
+
+function onCompositionEnd(event: CompositionEvent) {
+  compositionEndedAt = event.timeStamp
+  clearComposingTimer()
+  composingTimer = setTimeout(() => {
+    composing.value = false
+    composingTimer = undefined
+  }, IME_CONFIRM_ENTER_MS)
+}
+
+function onComposerEnter(event: KeyboardEvent) {
+  const imeOwned = composing.value || event.isComposing || event.keyCode === 229
+  if (shouldIgnoreComposerEnter(event, composing.value, compositionEndedAt)) {
+    if (!imeOwned) {
+      event.preventDefault()
+    }
+    return
+  }
+  event.preventDefault()
+  onSubmit()
+}
+
 async function onSubmit() {
   const content = input.value.trim()
   input.value = ''
@@ -1685,6 +1719,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  clearComposingTimer()
   pollGeneration += 1
   if (streamScrollFrame) {
     cancelAnimationFrame(streamScrollFrame)
