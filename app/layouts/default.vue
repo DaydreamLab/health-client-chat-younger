@@ -109,12 +109,129 @@
 
     <footer
       v-if="!isChat"
-      class="border-t border-default"
+      class="bg-brand-900 text-white dark:bg-brand-950"
     >
-      <div class="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
-        <p class="text-sm text-muted">
-          {{ $t('footer', { year: footerYear }) }}
-        </p>
+      <div class="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-14">
+        <div class="grid gap-10 lg:grid-cols-4 lg:gap-8">
+          <div>
+            <NuxtLink
+              :to="localePath('/')"
+              class="inline-flex rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+              :aria-label="$t('nav.home')"
+            >
+              <img
+                :src="footerWordmarkSrc"
+                alt=""
+                class="h-9 w-auto"
+              >
+            </NuxtLink>
+            <p class="mt-4 text-sm font-medium">
+              {{ $t('footer.tagline') }}
+            </p>
+            <p class="mt-2 max-w-xs text-sm leading-6 text-white/70">
+              {{ $t('footer.blurb') }}
+            </p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:col-span-3">
+            <div
+              v-for="column in footerColumns"
+              :key="column.title"
+            >
+              <p class="text-sm font-semibold">
+                {{ column.title }}
+              </p>
+              <ul class="mt-4 space-y-2.5">
+                <li
+                  v-for="item in column.items"
+                  :key="item"
+                >
+                  <span class="text-sm text-white/70">
+                    {{ item }}
+                  </span>
+                </li>
+              </ul>
+              <div
+                v-if="column.contact"
+                class="mt-4 space-y-1"
+              >
+                <p class="text-sm text-white/70">
+                  {{ $t('footer.email') }}
+                </p>
+                <p class="text-sm text-white/70">
+                  {{ $t('footer.hours') }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-10 flex flex-col gap-4 border-t border-white/15 pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <p class="text-sm text-white/70">
+            {{ $t('footer.copyright', { year: footerYear }) }}
+          </p>
+          <div class="flex items-center gap-4 text-white/70">
+            <span
+              role="img"
+              :aria-label="$t('footer.socialInstagram')"
+            >
+              <svg
+                class="size-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                aria-hidden="true"
+              >
+                <rect
+                  x="3"
+                  y="3"
+                  width="18"
+                  height="18"
+                  rx="5"
+                />
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="4"
+                />
+                <circle
+                  cx="17.5"
+                  cy="6.5"
+                  r="0.9"
+                  fill="currentColor"
+                  stroke="none"
+                />
+              </svg>
+            </span>
+            <span
+              role="img"
+              :aria-label="$t('footer.socialFacebook')"
+            >
+              <svg
+                class="size-5"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path d="M14.2 8.5h2.3V5.8h-2.3c-2.1 0-3.7 1.6-3.7 3.7v1.8H8.2v2.7h2.3V20h2.8v-6h2.4l.4-2.7h-2.8V9.6c0-.6.5-1.1 1.1-1.1z" />
+              </svg>
+            </span>
+            <span
+              role="img"
+              :aria-label="$t('footer.socialLine')"
+            >
+              <svg
+                class="size-5"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path d="M12 4.2c-4.6 0-8.3 3.1-8.3 7 0 3.4 3 6.3 7.1 6.8.3.1.7.2.8.5l.4 1.6c.1.4.5.4.7.2l2-1.2c.2-.1.5-.2.7-.2 3.8-.4 6.6-3.4 6.6-7.7 0-3.9-3.7-7-8-7z" />
+              </svg>
+            </span>
+          </div>
+        </div>
       </div>
     </footer>
   </div>
@@ -125,7 +242,39 @@ const localePath = useLocalePath()
 const auth = useAuthStore()
 const route = useRoute()
 const { t } = useI18n()
+const config = useRuntimeConfig()
 const footerYear = new Date().getFullYear()
+const footerWordmarkSrc = `${config.app.baseURL}brand-wordmark-dark.png`
+
+const footerColumns = computed(() => [
+  {
+    title: t('footer.explore'),
+    items: [
+      t('footer.explorePlans'),
+      t('footer.exploreChat'),
+      t('footer.exploreHealth')
+    ],
+    contact: false
+  },
+  {
+    title: t('footer.support'),
+    items: [
+      t('footer.supportFaq'),
+      t('footer.supportContact'),
+      t('footer.supportOrders')
+    ],
+    contact: true
+  },
+  {
+    title: t('footer.about'),
+    items: [
+      t('footer.aboutUs'),
+      t('footer.privacy'),
+      t('footer.terms')
+    ],
+    contact: false
+  }
+])
 const mobileNavOpen = ref(false)
 
 const isChat = computed(() => route.path.includes('/chat'))

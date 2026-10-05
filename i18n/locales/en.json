@@ -539,5 +539,26 @@
     "cancelDismiss": "Keep order",
     "cancelError": "Could not cancel the order. Please try again."
   },
-  "footer": "© {year} Candor. All rights reserved."
+  "footer": {
+    "copyright": "© {year} Candor. All rights reserved.",
+    "tagline": "Your physiological data advisor",
+    "blurb": "Understand your body data before you decide what to add.",
+    "explore": "Explore",
+    "explorePlans": "Plans",
+    "exploreChat": "Start a consult",
+    "exploreHealth": "My health",
+    "support": "Support",
+    "supportFaq": "FAQ",
+    "supportContact": "Contact",
+    "supportOrders": "Orders",
+    "about": "About",
+    "aboutUs": "About Candor",
+    "privacy": "Privacy policy",
+    "terms": "Terms of service",
+    "email": "service{'@'}candor.example",
+    "hours": "Mon–Fri 10:00–18:00",
+    "socialInstagram": "Instagram",
+    "socialFacebook": "Facebook",
+    "socialLine": "LINE"
+  }
 }

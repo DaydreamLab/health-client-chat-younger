@@ -539,5 +539,26 @@
     "cancelDismiss": "再想想",
     "cancelError": "無法取消訂單，請稍後再試。"
   },
-  "footer": "© {year} 坦見。保留所有權利。"
+  "footer": {
+    "copyright": "© {year} 坦見。保留所有權利。",
+    "tagline": "你的生理數據顧問",
+    "blurb": "看懂身體數據，再決定怎麼補。",
+    "explore": "探索",
+    "explorePlans": "方案",
+    "exploreChat": "開始諮詢",
+    "exploreHealth": "我的健康",
+    "support": "支援",
+    "supportFaq": "常見問題",
+    "supportContact": "聯絡我們",
+    "supportOrders": "訂單查詢",
+    "about": "關於",
+    "aboutUs": "關於坦見",
+    "privacy": "隱私權政策",
+    "terms": "服務條款",
+    "email": "service{'@'}candor.example",
+    "hours": "週一至週五 10:00–18:00",
+    "socialInstagram": "Instagram",
+    "socialFacebook": "Facebook",
+    "socialLine": "LINE"
+  }
 }
