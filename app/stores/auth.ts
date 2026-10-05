@@ -165,7 +165,11 @@ export const useAuthStore = defineStore('auth', () => {
       if (clearJourneyBeforeGuest) {
         useJourneyStore().clearSession()
       }
-      applySession(await api.guest())
+      try {
+        applySession(await api.guest())
+      } catch {
+        // Core down: stay anonymous. Plugin/middleware must not 500 the page.
+      }
     } finally {
       bootstrapping.value = false
       ready.value = true

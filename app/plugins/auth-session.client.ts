@@ -1,4 +1,8 @@
 export default defineNuxtPlugin(async () => {
   const auth = useAuthStore()
-  await auth.ensureSession()
+  try {
+    await auth.ensureSession()
+  } catch {
+    // Guest mint / core unavailable must not block first paint.
+  }
 })
