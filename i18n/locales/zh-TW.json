@@ -142,8 +142,9 @@
     "reportsLoading": "載入報告中…",
     "reportsEmpty": "尚無報告",
     "reportsLoadError": "無法載入報告列表，請稍後再試。",
-    "reportDetailLoading": "載入判讀中…",
-    "reportDetailError": "無法載入這份報告，請稍後再試。",
+    "reportDetailLoading": "載入報告中…",
+    "reportDetailError": "無法載入報告判讀",
+    "reportExpand": "展開報告",
     "reportStatus": {
       "uploaded": "已上傳",
       "extracting": "處理中",

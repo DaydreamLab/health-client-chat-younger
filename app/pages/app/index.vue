@@ -19,7 +19,7 @@
       data-testid="health-body"
     >
       <div
-        v-if="!auth.isMember"
+        v-if="previewLocked"
         class="absolute inset-0 z-10 flex min-h-72 flex-col items-center justify-center gap-3 rounded-2xl bg-elevated/85 px-6 py-12 text-center backdrop-blur-sm"
         data-testid="health-auth-gate"
       >
@@ -56,8 +56,8 @@
 
       <div
         class="space-y-6"
-        :class="!auth.isMember ? 'pointer-events-none select-none opacity-40' : undefined"
-        :aria-hidden="!auth.isMember || undefined"
+        :class="previewLocked ? 'pointer-events-none select-none opacity-40' : undefined"
+        :aria-hidden="previewLocked || undefined"
       >
         <section
           class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
@@ -121,17 +121,17 @@
             <article
               v-for="report in reports"
               :key="report.id"
-              class="overflow-hidden rounded-2xl border border-default bg-elevated"
+              class="overflow-hidden rounded-2xl border border-default bg-elevated lg:flex lg:max-h-[calc(50dvh+2.75rem)] lg:flex-col"
               :data-testid="`health-report-${report.id}`"
             >
-              <button
-                type="button"
-                class="flex w-full items-center gap-3 px-5 py-4 text-start"
-                :aria-expanded="expandedId === report.id"
-                data-testid="health-report-toggle"
-                @click="toggleReport(report.id)"
-              >
-                <div class="min-w-0 flex-1">
+              <div class="flex shrink-0 items-center gap-3 px-5 py-4">
+                <button
+                  type="button"
+                  class="min-w-0 flex-1 text-start"
+                  :aria-expanded="expandedId === report.id"
+                  data-testid="health-report-toggle"
+                  @click="toggleReport(report.id)"
+                >
                   <p class="font-medium text-highlighted">
                     {{ formatReportDate(report.created_at) }}
                   </p>
@@ -142,44 +142,117 @@
                       class="text-red-600 dark:text-red-400"
                     > · {{ report.error }}</span>
                   </p>
-                </div>
-                <UIcon
-                  :name="expandedId === report.id ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-                  class="size-4 shrink-0 text-muted"
-                />
-              </button>
+                </button>
+                <AppButton
+                  variant="outline"
+                  class="report-expand-btn shrink-0"
+                  data-testid="health-report-expand"
+                  @click="openReportSheet(report.id)"
+                >
+                  {{ $t('member.reportExpand') }}
+                </AppButton>
+                <button
+                  type="button"
+                  class="inline-flex size-8 shrink-0 items-center justify-center text-muted"
+                  :aria-expanded="expandedId === report.id"
+                  :aria-label="expandedId === report.id ? $t('labChart.collapse') : $t('labChart.expand')"
+                  @click="toggleReport(report.id)"
+                >
+                  <UIcon
+                    :name="expandedId === report.id ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                    class="size-4"
+                  />
+                </button>
+              </div>
               <div
                 v-if="expandedId === report.id"
-                class="border-t border-default px-5 py-4"
+                class="flex min-h-0 flex-1 flex-col border-t border-default"
                 data-testid="health-report-detail"
               >
                 <p
                   v-if="detailLoadingId === report.id"
-                  class="text-sm text-muted"
+                  class="px-5 py-4 text-sm text-muted"
                 >
                   {{ $t('member.reportDetailLoading') }}
                 </p>
                 <p
                   v-else-if="detailErrorById[report.id]"
-                  class="text-sm text-red-600 dark:text-red-400"
+                  class="px-5 py-4 text-sm text-red-600 dark:text-red-400"
                 >
                   {{ detailErrorById[report.id] }}
                 </p>
+                <p
+                  v-else-if="!(resultsById[report.id] ?? []).length"
+                  class="px-5 py-4 text-sm text-muted"
+                >
+                  {{ $t('labChart.empty') }}
+                </p>
                 <div
                   v-else
-                  class="space-y-3"
+                  class="flex min-h-0 flex-1 flex-col"
                 >
-                  <ReportResultLegend />
-                  <div class="max-h-80 overflow-y-auto">
-                    <ReportResultTable
-                      :results="resultsById[report.id] ?? []"
-                      :show-legend="false"
-                    />
+                  <div class="shrink-0 px-5 pt-4">
+                    <ReportResultLegend />
                   </div>
+                  <ReportResultTable
+                    :results="resultsById[report.id] ?? []"
+                    :show-legend="false"
+                    hide-scrollbar
+                    class="min-h-0 flex-1 px-5 py-4"
+                  />
                 </div>
               </div>
             </article>
           </div>
+          <UModal
+            v-model:open="sheetOpen"
+            :title="$t('labChart.dockTitle')"
+            :ui="{
+              content: '!h-[calc(100dvh-3rem)] !max-h-[calc(100dvh-3rem)] !max-w-6xl sm:!max-h-[calc(100dvh-3rem)] sm:!max-w-6xl',
+              header: 'shrink-0',
+              body: 'flex min-h-0 flex-1 flex-col overflow-hidden p-0 sm:p-0'
+            }"
+          >
+            <template #body>
+              <div
+                class="flex min-h-0 flex-1 flex-col"
+                data-testid="health-report-sheet"
+              >
+                <p
+                  v-if="sheetLoading"
+                  class="px-5 py-4 text-sm text-muted"
+                >
+                  {{ $t('member.reportDetailLoading') }}
+                </p>
+                <p
+                  v-else-if="sheetError"
+                  class="px-5 py-4 text-sm text-red-600 dark:text-red-400"
+                >
+                  {{ sheetError }}
+                </p>
+                <p
+                  v-else-if="!sheetResults.length"
+                  class="px-5 py-4 text-sm text-muted"
+                >
+                  {{ $t('labChart.empty') }}
+                </p>
+                <div
+                  v-else
+                  class="flex min-h-0 flex-1 flex-col"
+                >
+                  <div class="shrink-0 border-b border-default px-5 py-2.5">
+                    <ReportResultLegend />
+                  </div>
+                  <ReportResultTable
+                    :results="sheetResults"
+                    :show-legend="false"
+                    hide-scrollbar
+                    class="min-h-0 flex-1 px-5 py-4"
+                  />
+                </div>
+              </div>
+            </template>
+          </UModal>
         </section>
 
         <section
@@ -252,8 +325,16 @@ definePageMeta({
 
 const localePath = useLocalePath()
 const route = useRoute()
+const nuxtApp = useNuxtApp()
 const { t, locale } = useI18n()
 const auth = useAuthStore()
+// SSR always paints the guest lock. Keep that through hydration, then follow the session
+// so a full reload does not leave pointer-events-none on a member page.
+const previewLocked = ref(nuxtApp.isHydrating || !auth.isMember)
+
+function syncPreviewLock() {
+  previewLocked.value = !auth.isMember
+}
 const journey = useJourneyStore()
 const ordersStore = useOrdersStore()
 const candor = useCandorApi()
@@ -264,9 +345,30 @@ const reports = ref<HealthReportSummary[]>([])
 const reportsLoading = ref(false)
 const reportsError = ref('')
 const expandedId = ref<string | null>(null)
+const sheetReportId = ref<string | null>(null)
 const detailLoadingId = ref<string | null>(null)
 const resultsById = ref<Record<string, HealthReportResult[]>>({})
 const detailErrorById = ref<Record<string, string>>({})
+
+const sheetOpen = computed({
+  get: () => sheetReportId.value != null,
+  set(open: boolean) {
+    if (!open) {
+      sheetReportId.value = null
+    }
+  }
+})
+const sheetLoading = computed(() =>
+  sheetReportId.value != null && detailLoadingId.value === sheetReportId.value
+)
+const sheetError = computed(() => {
+  const id = sheetReportId.value
+  return id ? (detailErrorById.value[id] ?? '') : ''
+})
+const sheetResults = computed(() => {
+  const id = sheetReportId.value
+  return id ? (resultsById.value[id] ?? []) : []
+})
 
 const anonymizeOpen = ref(false)
 const anonymizePending = ref(false)
@@ -431,6 +533,11 @@ function toggleReport(reportId: string) {
   void loadReportDetail(reportId)
 }
 
+function openReportSheet(reportId: string) {
+  sheetReportId.value = reportId
+  void loadReportDetail(reportId)
+}
+
 async function onAnonymize() {
   if (anonymizePending.value) {
     return
@@ -456,12 +563,23 @@ function loadHealth() {
 }
 
 onMounted(() => {
+  syncPreviewLock()
   loadHealth()
 })
 
 watch(() => auth.isMember, (member) => {
+  previewLocked.value = !member
   if (member) {
     loadHealth()
   }
 })
 </script>
+
+<style scoped>
+:deep(.report-expand-btn) {
+  height: 2rem;
+  min-height: 2rem;
+  padding-inline: 0.75rem;
+  font-size: 0.8125rem;
+}
+</style>

@@ -14,8 +14,11 @@ withDefaults(defineProps<{
   reportId?: string | null
   /** When false, parent renders ReportResultLegend outside the scroll area. */
   showLegend?: boolean
+  /** Hide the scrollbars of the table scroller (card and full-window reading). */
+  hideScrollbar?: boolean
 }>(), {
-  showLegend: true
+  showLegend: true,
+  hideScrollbar: false
 })
 
 /** @deprecated Member UI no longer patches results; emit retained for parent wiring. */
@@ -25,10 +28,14 @@ defineEmits<{
 </script>
 
 <template>
-  <div data-testid="report-result-table">
+  <div
+    class="flex flex-col"
+    :class="hideScrollbar ? 'min-h-0 flex-1' : undefined"
+    data-testid="report-result-table"
+  >
     <div
       v-if="showLegend"
-      class="mb-3"
+      class="mb-3 shrink-0"
     >
       <ReportResultLegend />
     </div>
@@ -44,26 +51,27 @@ defineEmits<{
     <div
       v-if="results.length"
       class="overflow-auto rounded-lg border border-default bg-default"
+      :class="hideScrollbar ? 'scrollbar-none min-h-0 flex-1' : undefined"
     >
-      <table class="w-full min-w-[32rem] border-collapse text-sm">
+      <table class="w-full min-w-[32rem] border-separate border-spacing-0 text-sm">
         <thead>
-          <tr class="bg-muted text-left text-xs font-semibold text-muted">
-            <th class="border-b border-dashed border-default px-2.5 py-2">
+          <tr class="text-left text-xs font-semibold text-muted">
+            <th class="sticky top-0 z-10 min-w-[6.5rem] whitespace-nowrap border-b border-dashed border-default bg-muted px-2.5 py-2">
               {{ $t('labChart.status') }}
             </th>
-            <th class="border-b border-dashed border-default px-2.5 py-2">
+            <th class="sticky top-0 z-10 border-b border-dashed border-default bg-muted px-2.5 py-2">
               {{ $t('labChart.item') }}
             </th>
-            <th class="border-b border-dashed border-default px-2.5 py-2">
+            <th class="sticky top-0 z-10 border-b border-dashed border-default bg-muted px-2.5 py-2">
               {{ $t('labChart.value') }}
             </th>
-            <th class="border-b border-dashed border-default px-2.5 py-2">
+            <th class="sticky top-0 z-10 border-b border-dashed border-default bg-muted px-2.5 py-2">
               {{ $t('labChart.unit') }}
             </th>
-            <th class="border-b border-dashed border-default px-2.5 py-2">
+            <th class="sticky top-0 z-10 border-b border-dashed border-default bg-muted px-2.5 py-2">
               {{ $t('labChart.refRange') }}
             </th>
-            <th class="border-b border-dashed border-default px-2.5 py-2">
+            <th class="sticky top-0 z-10 border-b border-dashed border-default bg-muted px-2.5 py-2">
               {{ $t('labChart.position') }}
             </th>
           </tr>
@@ -72,31 +80,31 @@ defineEmits<{
           <tr
             v-for="row in results"
             :key="row.id"
-            class="border-b border-dashed border-default last:border-0"
+            class="last:[&>td]:border-b-0"
             :data-testid="`report-result-row-${row.id}`"
           >
-            <td class="px-2.5 py-2.5 text-highlighted">
+            <td class="min-w-[6.5rem] whitespace-nowrap border-b border-dashed border-default px-2.5 py-2.5 text-highlighted">
               <i
                 class="yr-dot"
                 :class="resultStatusClass(row)"
               />{{ resultStatusLabel(resultStatusClass(row)) }}
             </td>
-            <td class="px-2.5 py-2.5 font-semibold text-highlighted">
+            <td class="border-b border-dashed border-default px-2.5 py-2.5 font-semibold text-highlighted">
               {{ row.raw_name || row.biomarker_id || '—' }}
             </td>
             <td
-              class="px-2.5 py-2.5 text-base font-bold"
+              class="border-b border-dashed border-default px-2.5 py-2.5 text-base font-bold"
               :class="`yr-val-${resultStatusClass(row)}`"
             >
               {{ displayResultValue(row) }}
             </td>
-            <td class="px-2.5 py-2.5 text-muted">
+            <td class="border-b border-dashed border-default px-2.5 py-2.5 text-muted">
               {{ row.unit || row.raw_unit || '—' }}
             </td>
-            <td class="px-2.5 py-2.5 text-xs text-muted">
+            <td class="border-b border-dashed border-default px-2.5 py-2.5 text-xs text-muted">
               {{ formatResultRef(row) }}
             </td>
-            <td class="overflow-visible px-2.5 py-2.5">
+            <td class="overflow-visible border-b border-dashed border-default px-2.5 py-2.5">
               <div
                 v-if="resultGaugePct(row) != null"
                 class="yr-gauge relative h-2 w-[4.5rem] overflow-visible rounded-full"
@@ -119,6 +127,14 @@ defineEmits<{
 </template>
 
 <style scoped>
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 .yr-dot {
   display: inline-block;
   width: 0.55rem;

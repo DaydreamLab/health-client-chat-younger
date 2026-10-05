@@ -66,6 +66,132 @@ test.describe('member order detail', () => {
     await expect(page.getByTestId('health-stat-goals')).not.toContainText('sleep')
     await expect(page.getByTestId('health-stat-goals')).not.toContainText('immune_boost')
   })
+
+  test('report card collapses in place and opens a reading window', async ({ page, goto }) => {
+    const reportId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+    const results = Array.from({ length: 24 }, (_, index) => ({
+      id: `result-e2e-${index}`,
+      raw_name: `Marker ${index}`,
+      raw_value: String(40 + index),
+      value_numeric: 40 + index,
+      unit: 'U/L',
+      ref_low: 10,
+      ref_high: 40,
+      needs_review: false
+    }))
+    await page.route('**/api/v1/health-reports', async (route) => {
+      const path = new URL(route.request().url()).pathname.replace(/\/$/, '')
+      if (route.request().method() !== 'GET' || !path.endsWith('/health-reports')) {
+        await route.fallback()
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            reports: [{
+              id: reportId,
+              status: 'needs_review',
+              created_at: '2026-10-02T07:39:00Z'
+            }]
+          }
+        })
+      })
+    })
+    await page.route(`**/api/v1/health-reports/${reportId}`, async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback()
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            id: reportId,
+            status: 'needs_review',
+            results
+          }
+        })
+      })
+    })
+
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await goto('/app', { waitUntil: 'hydration' })
+
+    const card = page.getByTestId(`health-report-${reportId}`)
+    await expect(card.getByTestId('health-report-expand')).toHaveText('展開報告')
+    await expect(card.getByTestId('health-report-detail')).toBeVisible()
+    await expect(card.getByTestId('report-result-row-result-e2e-0')).toBeVisible()
+
+    const cardMetrics = await card.evaluate((el) => {
+      const scroller = el.querySelector('[data-testid="report-result-table"] .scrollbar-none')
+      const style = getComputedStyle(el)
+      const scrollerStyle = scroller ? getComputedStyle(scroller) : null
+      return {
+        height: el.getBoundingClientRect().height,
+        maxHeight: Number.parseFloat(style.maxHeight),
+        scrollHeight: scroller?.scrollHeight ?? 0,
+        clientHeight: scroller?.clientHeight ?? 0,
+        scrollbarWidth: scrollerStyle?.scrollbarWidth ?? ''
+      }
+    })
+    expect(cardMetrics.maxHeight).toBeGreaterThan(0)
+    expect(cardMetrics.height).toBeLessThanOrEqual(cardMetrics.maxHeight + 1)
+    expect(cardMetrics.scrollHeight).toBeGreaterThan(cardMetrics.clientHeight)
+    expect(cardMetrics.scrollbarWidth).toBe('none')
+
+    await card.getByTestId('health-report-toggle').click()
+    await expect(card.getByTestId('health-report-detail')).toHaveCount(0)
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+
+    await card.getByRole('button', { name: '展開', exact: true }).click()
+    await expect(card.getByTestId('health-report-detail')).toBeVisible()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+
+    await card.getByTestId('health-report-expand').click()
+    await expect(card.getByTestId('health-report-detail')).toBeVisible()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByRole('heading', { name: '報告判讀' })).toBeVisible()
+    await expect(dialog).not.toContainText('展開報告')
+    await expect(dialog.getByTestId('health-report-sheet').getByRole('columnheader')).toHaveText([
+      '狀態',
+      '項目',
+      '數值',
+      '單位',
+      '參考區間',
+      '位置'
+    ])
+    await expect(dialog.getByText('數值依參考區間著色')).toBeVisible()
+    await expect(dialog.getByTestId('report-result-row-result-e2e-0')).toBeVisible()
+
+    const sheetMetrics = await dialog.evaluate(async (el) => {
+      await Promise.all(el.getAnimations().map(animation => animation.finished))
+      const scroller = el.querySelector('[data-testid="report-result-table"] .scrollbar-none')
+      const scrollerStyle = scroller ? getComputedStyle(scroller) : null
+      return {
+        height: el.getBoundingClientRect().height,
+        scrollHeight: scroller?.scrollHeight ?? 0,
+        clientHeight: scroller?.clientHeight ?? 0,
+        scrollbarWidth: scrollerStyle?.scrollbarWidth ?? ''
+      }
+    })
+    const viewport = page.viewportSize()
+    expect(viewport).not.toBeNull()
+    const viewportHeight = viewport?.height ?? 0
+    expect(sheetMetrics.height).toBeGreaterThan(viewportHeight - 48 - 8)
+    expect(sheetMetrics.height).toBeLessThan(viewportHeight - 48 + 8)
+    expect(sheetMetrics.scrollHeight).toBeGreaterThan(sheetMetrics.clientHeight)
+    expect(sheetMetrics.scrollbarWidth).toBe('none')
+
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+    await expect(card.getByTestId('health-report-detail')).toBeVisible()
+  })
 })
 
 test.describe('member checkout', () => {

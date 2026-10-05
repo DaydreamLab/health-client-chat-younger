@@ -142,8 +142,9 @@
     "reportsLoading": "Loading reports…",
     "reportsEmpty": "No reports yet",
     "reportsLoadError": "Could not load reports. Please try again.",
-    "reportDetailLoading": "Loading lab results…",
-    "reportDetailError": "Could not load this report. Please try again.",
+    "reportDetailLoading": "Loading report…",
+    "reportDetailError": "Could not load the report reading.",
+    "reportExpand": "Expand report",
     "reportStatus": {
       "uploaded": "Uploaded",
       "extracting": "Processing",
