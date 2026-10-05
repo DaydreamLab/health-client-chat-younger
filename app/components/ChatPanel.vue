@@ -1,6 +1,6 @@
 <template>
   <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-default">
-    <header class="flex shrink-0 flex-wrap items-center gap-3 border-b border-default bg-elevated px-4 py-4 sm:px-6">
+    <header class="flex shrink-0 flex-wrap items-center gap-3 px-4 py-4 sm:px-6">
       <div class="min-w-0 flex-1">
         <h1 class="text-lg font-semibold text-highlighted">
           {{ $t(readonly ? 'chat.viewOnlyTitle' : 'chat.title') }}
@@ -44,23 +44,25 @@
 
     <div
       v-if="escalated && !readonly"
-      class="shrink-0 border-b border-default bg-muted px-4 py-3 sm:px-6"
+      class="shrink-0 px-4 py-3 sm:px-6"
       data-testid="chat-escalated"
     >
-      <p class="text-sm font-medium text-highlighted">
-        {{ $t('chat.escalatedTitle') }}
-      </p>
-      <p class="mt-1 text-sm text-muted">
-        {{ $t('chat.escalatedLocked') }}
-      </p>
+      <div class="mx-auto w-full max-w-3xl">
+        <p class="text-sm font-medium text-highlighted">
+          {{ $t('chat.escalatedTitle') }}
+        </p>
+        <p class="mt-1 text-sm text-muted">
+          {{ $t('chat.escalatedLocked') }}
+        </p>
+      </div>
     </div>
 
     <div
       v-if="selectedPackage && !readonly"
-      class="shrink-0 border-b border-default bg-primary/5 px-4 py-3 sm:px-6"
+      class="shrink-0 px-4 py-3 sm:px-6"
       data-testid="chat-selected-plan"
     >
-      <div class="flex flex-wrap items-center gap-3">
+      <div class="mx-auto flex w-full max-w-3xl flex-wrap items-center gap-3">
         <div class="min-w-0 flex-1">
           <p class="text-sm font-medium text-highlighted">
             {{ selectedPackage.name_zh }}
@@ -86,7 +88,7 @@
     <div class="relative min-h-0 flex-1">
       <div
         v-if="showReportStatusBanner"
-        class="absolute inset-x-3 top-3 z-20 flex flex-col overflow-hidden rounded-2xl border border-default bg-elevated shadow-lg sm:inset-x-4"
+        class="absolute left-1/2 top-3 z-20 flex w-[min(48rem,calc(100%-2rem))] -translate-x-1/2 flex-col overflow-hidden rounded-2xl border border-default bg-elevated shadow-lg sm:w-[min(48rem,calc(100%-3rem))]"
         data-testid="chat-report-status-banner"
       >
         <div
@@ -143,34 +145,33 @@
       <div
         ref="transcriptEl"
         data-testid="chat-transcript"
-        class="absolute inset-0 space-y-2 overflow-y-auto px-4 py-4 [scrollbar-width:none] [-ms-overflow-style:none] sm:px-6 [&::-webkit-scrollbar]:hidden"
+        class="absolute inset-0 overflow-y-auto px-4 py-4 [scrollbar-width:none] [-ms-overflow-style:none] sm:px-6 [&::-webkit-scrollbar]:hidden"
       >
-        <article
-          v-for="message in messages"
-          :key="message.id"
-          class="flex items-end gap-2"
-          :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
-        >
-          <ChatAssistantMark
-            v-if="message.role === 'assistant'"
-            :state="assistantMarkState(message)"
-          />
-          <div
-            class="max-w-[min(40rem,85%)] overflow-hidden rounded-2xl text-sm leading-relaxed"
-            :class="[
-              message.role === 'user' ? 'bg-elevated text-highlighted' : 'bg-muted text-default',
-              message.id === reportDockMessageId ? 'ring-1 ring-primary/40' : ''
-            ]"
-            :data-testid="message.id === lastAssistantId ? 'chat-last-reply' : undefined"
+        <div class="mx-auto w-full max-w-3xl">
+          <article
+            v-for="message in messages"
+            :key="message.id"
+            class="flex items-start gap-3 pb-8"
+            :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
           >
+            <ChatAssistantMark
+              v-if="message.role === 'assistant'"
+              :state="assistantMarkState(message)"
+            />
             <div
-              class="px-4 pt-2.5"
-              :class="hasTurnActions(message) ? 'pb-3.5' : 'pb-2.5'"
+              class="text-sm leading-relaxed"
+              :class="message.role === 'user'
+                ? 'max-w-[75%] overflow-hidden rounded-lg bg-elevated px-4 py-3 text-highlighted'
+                : [
+                  'min-w-0 flex-1 text-default',
+                  message.id === reportDockMessageId ? 'rounded-lg ring-1 ring-primary/40' : ''
+                ]"
+              :data-testid="message.id === lastAssistantId ? 'chat-last-reply' : undefined"
             >
               <ChatMarkdown :text="displayMessageText(message)" />
               <p
                 v-if="fileName(message)"
-                class="mt-2 inline-flex items-center gap-1 rounded-lg bg-default px-2 py-1 text-xs text-muted"
+                class="mt-2 inline-flex items-center gap-1 rounded-lg bg-elevated px-2 py-1 text-xs text-muted"
               >
                 <UIcon
                   name="i-lucide-paperclip"
@@ -198,26 +199,26 @@
                 @retry="retryReport"
               />
             </div>
-          </div>
-        </article>
-        <p
-          v-if="pending && !reportInFlight && !liveAssistantId"
-          class="flex items-center gap-2 text-sm text-muted"
-          data-testid="chat-thinking"
-        >
-          <AssistantMark state="thinking" />
-          <span>{{ $t('chat.thinking') }}</span>
-        </p>
+          </article>
+          <p
+            v-if="pending && !reportInFlight && !liveAssistantId"
+            class="flex items-center gap-2 pb-8 text-sm text-muted"
+            data-testid="chat-thinking"
+          >
+            <AssistantMark state="thinking" />
+            <span>{{ $t('chat.thinking') }}</span>
+          </p>
+        </div>
       </div>
     </div>
 
     <div
       v-if="!readonly"
-      class="shrink-0 border-t border-default bg-elevated px-4 py-4 sm:px-6"
+      class="shrink-0 px-4 pb-4 sm:px-6 sm:pb-6"
     >
       <form
         v-if="!escalated"
-        class="flex items-end gap-2 rounded-xl border border-default bg-default p-2"
+        class="mx-auto flex w-full max-w-3xl items-end gap-2 rounded-xl border border-default bg-default p-2"
         @submit.prevent="onSubmit"
       >
         <input
@@ -676,18 +677,6 @@ function showRecommendCta(message: ChatMessage) {
 
 function showRetryCta(_message: ChatMessage) {
   return false
-}
-
-function hasTurnActions(message: ChatMessage) {
-  if (message.role !== 'assistant') {
-    return false
-  }
-  return choicesFor(message).length > 0
-    || showConfirmFor(message)
-    || showUploadCta(message)
-    || showCheckupCta(message)
-    || showRecommendCta(message)
-    || showRetryCta(message)
 }
 
 function messageText(message: ChatMessage) {

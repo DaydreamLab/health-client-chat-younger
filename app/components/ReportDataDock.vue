@@ -67,7 +67,7 @@ function onUpdated(results: HealthReportResult[]) {
 <template>
   <div
     v-if="open"
-    class="absolute inset-x-3 top-3 z-20 flex flex-col overflow-hidden rounded-2xl border border-default bg-elevated shadow-lg sm:inset-x-4"
+    class="absolute left-1/2 top-3 z-20 flex w-[min(48rem,calc(100%-2rem))] -translate-x-1/2 flex-col overflow-hidden rounded-2xl border border-default bg-elevated shadow-lg sm:w-[min(48rem,calc(100%-3rem))]"
     :class="collapsed ? 'h-auto' : 'h-[80%]'"
     data-testid="chat-report-dock"
   >
