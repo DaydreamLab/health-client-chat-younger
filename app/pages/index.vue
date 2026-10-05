@@ -12,17 +12,17 @@
           aria-hidden="true"
         />
         <div class="relative flex min-h-[34rem] items-end px-4 py-10 sm:absolute sm:inset-0 sm:min-h-0 sm:items-center sm:justify-end sm:px-6 sm:py-16">
-          <div class="w-full max-w-xl text-center text-white sm:origin-right sm:scale-125">
+          <div class="app-hero-copy w-full max-w-xl text-center text-white">
             <p
               data-testid="brand-hero"
-              class="text-sm font-medium tracking-wide"
+              class="text-xs font-medium tracking-wide min-[375px]:text-sm"
             >
               {{ $t('hero.eyebrow') }}
             </p>
-            <h1 class="mt-3 whitespace-pre-line text-4xl font-semibold tracking-tight sm:text-5xl">
+            <h1 class="mt-3 whitespace-pre-line text-[clamp(1.5rem,calc((100vw-2.5rem)/11),1.875rem)] font-semibold tracking-tight min-[375px]:text-4xl sm:text-5xl">
               {{ $t('hero.title') }}
             </h1>
-            <p class="mt-4 whitespace-pre-line text-sm text-white/85">
+            <p class="mt-4 whitespace-pre-line text-xs text-white/85 min-[375px]:text-sm">
               {{ $t('hero.description') }}
             </p>
             <div class="app-hero-actions mt-7">

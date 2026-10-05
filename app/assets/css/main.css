@@ -600,6 +600,18 @@ button:focus:not(:focus-visible) {
     .app-hero-frame {
       aspect-ratio: 16 / 9;
     }
+
+    .app-hero-copy {
+      transform-origin: right center;
+      transform: scale(1.1);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .app-hero-copy {
+      /* 1440px frame uses scale 1.25; keep that same text-to-frame ratio below it. */
+      transform: scale(calc(1.25 * tan(atan2(min(100vw, 1440px), 1440px))));
+    }
   }
 
   @media (min-width: 1440px) {
