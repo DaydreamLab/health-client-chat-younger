@@ -23,8 +23,8 @@
         />
       </div>
       <div class="mt-auto flex w-full min-w-0 shrink-0 flex-col items-center space-y-2 border-t border-default pt-4">
-        <LocaleSwitch compact />
-        <ColorModeSwitch compact />
+        <LocaleSwitch />
+        <ColorModeSwitch />
         <AccountUser avatar-only />
         <UNavigationMenu
           class="w-full"

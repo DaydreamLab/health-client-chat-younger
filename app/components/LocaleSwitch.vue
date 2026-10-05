@@ -1,41 +1,23 @@
 <template>
-  <div
-    class="app-locale-switch"
-    :class="{ 'app-switch-stack': compact }"
-    role="group"
-    aria-label="Language"
+  <button
+    type="button"
+    class="app-icon-toggle"
+    :aria-label="localeLabel"
+    @click="toggleLocale"
   >
-    <button
-      v-for="item in localeItems"
-      :key="item.code"
-      type="button"
-      class="app-locale-btn"
-      :class="{ 'app-locale-btn-active': isActive(item.code) }"
-      :aria-pressed="isActive(item.code)"
-      @click="switchTo(item.code)"
-    >
-      {{ item.label }}
-    </button>
-  </div>
+    <UIcon
+      name="i-lucide-languages"
+      class="size-4"
+    />
+  </button>
 </template>
 
 <script setup lang="ts">
 type LocaleCode = 'zh-TW' | 'en'
 
-withDefaults(defineProps<{
-  compact?: boolean
-}>(), {
-  compact: false
-})
-
 const { locale, setLocale } = useI18n({ useScope: 'global' })
 const switchLocalePath = useSwitchLocalePath()
 const route = useRoute()
-
-const localeItems = [
-  { code: 'zh-TW' as const, label: '繁中' },
-  { code: 'en' as const, label: 'EN' }
-]
 
 const pendingLocale = ref<LocaleCode | null>(null)
 
@@ -51,15 +33,15 @@ const currentLocale = computed<LocaleCode>(() => {
   return 'zh-TW'
 })
 
+const localeLabel = computed(() => {
+  return currentLocale.value === 'en' ? 'Language: EN' : '語言：繁中'
+})
+
 watch(locale, (value) => {
   if (pendingLocale.value && value === pendingLocale.value) {
     pendingLocale.value = null
   }
 })
-
-function isActive(code: LocaleCode) {
-  return currentLocale.value === code
-}
 
 async function switchTo(code: LocaleCode) {
   if (code === currentLocale.value) {
@@ -73,5 +55,9 @@ async function switchTo(code: LocaleCode) {
   if (path && path !== route.fullPath && path !== route.path) {
     await navigateTo(path)
   }
+}
+
+function toggleLocale() {
+  return switchTo(currentLocale.value === 'en' ? 'zh-TW' : 'en')
 }
 </script>

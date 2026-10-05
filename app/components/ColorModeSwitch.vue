@@ -1,41 +1,21 @@
 <template>
-  <div
-    class="app-segment-switch"
-    :class="{ 'app-switch-stack': compact }"
-    role="group"
-    :aria-label="$t('colorMode.label')"
+  <button
+    type="button"
+    class="app-icon-toggle"
+    :aria-label="isDark ? $t('colorMode.dark') : $t('colorMode.day')"
+    :aria-pressed="isDark"
+    data-testid="color-mode-toggle"
+    @click="setMode(isDark ? 'light' : 'dark')"
   >
-    <button
-      type="button"
-      class="app-locale-btn"
-      :class="{ 'app-locale-btn-active': !isDark }"
-      :aria-pressed="!isDark"
-      data-testid="color-mode-day"
-      @click="setMode('light')"
-    >
-      {{ $t('colorMode.day') }}
-    </button>
-    <button
-      type="button"
-      class="app-locale-btn"
-      :class="{ 'app-locale-btn-active': isDark }"
-      :aria-pressed="isDark"
-      data-testid="color-mode-dark"
-      @click="setMode('dark')"
-    >
-      {{ $t('colorMode.dark') }}
-    </button>
-  </div>
+    <UIcon
+      :name="isDark ? 'i-lucide-moon' : 'i-lucide-sun'"
+      class="size-4"
+    />
+  </button>
 </template>
 
 <script setup lang="ts">
 type Appearance = 'light' | 'dark'
-
-withDefaults(defineProps<{
-  compact?: boolean
-}>(), {
-  compact: false
-})
 
 interface ColorModeHelper {
   preference: string
