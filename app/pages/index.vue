@@ -250,7 +250,10 @@ const pricingPlans = computed<PricingPlanProps[]>(() => packages.value.map((pkg,
     features: featureKeys?.map(key => t(`plans.${key}`)),
     ui: {
       featureTitle: 'whitespace-normal overflow-visible text-clip text-pretty',
-      root: recommended ? 'ring-[3px]' : 'ring-2'
+      root: recommended ? 'ring-[3px]' : 'ring-2',
+      price: 'order-1',
+      discount: 'order-2',
+      billing: 'order-3'
     },
     badge: recommended ? t('shop.recommended') : undefined,
     highlight: recommended,
