@@ -12,7 +12,7 @@ withDefaults(defineProps<{
 
 <template>
   <AssistantMark
-    class="mb-0.5"
+    class="mt-0.5"
     :state="state"
   />
 </template>

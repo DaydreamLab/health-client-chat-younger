@@ -53,10 +53,20 @@ export function normalizeChatHtml(html: string): string {
   out = out.replace(/<p>(?:\s|<br\s*\/?>)*<\/p>/gi, '')
   // Stacked <hr> → one.
   out = out.replace(/(?:<hr\s*\/?>\s*){2,}/gi, '<hr>')
-  // Leading / trailing thematic breaks (leave section content breathing room to CTA).
+  // Leading thematic breaks only (keep trailing — often the only visible section rule).
   out = out.replace(/^(?:\s*<hr\s*\/?>)+/i, '')
-  out = out.replace(/(?:<hr\s*\/?>\s*)+$/i, '')
   return out.trim()
+}
+
+/**
+ * Models often write `標題\n---\n內文` without blank lines; marked treats that as a
+ * setext <h2>, not an <hr>. Insert a blank line so solo rule lines stay thematic breaks.
+ */
+export function normalizeChatMarkdownSource(text: string): string {
+  return text.replace(
+    /(^|\n)([^\n]+)\n[ \t]*(-{3,}|\*{3,}|_{3,})[ \t]*(?=\n|$)/g,
+    '$1$2\n\n$3'
+  )
 }
 
 /** Render chat markdown to safe HTML for bubble display (no DOMPurify). */
@@ -65,7 +75,7 @@ export function renderChatMarkdown(text: string): string {
     return ''
   }
 
-  const raw = marked.parse(text, { async: false })
+  const raw = marked.parse(normalizeChatMarkdownSource(text), { async: false })
   if (typeof raw !== 'string') {
     return ''
   }

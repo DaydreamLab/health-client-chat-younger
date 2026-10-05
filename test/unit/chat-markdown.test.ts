@@ -50,9 +50,17 @@ describe('renderChatMarkdown', () => {
     expect(html).toContain('結尾問句？')
   })
 
-  it('drops a trailing thematic break before CTA text ends the bubble', () => {
+  it('keeps a trailing thematic break so section rules stay visible', () => {
     const html = renderChatMarkdown('內容\n\n---\n')
-    expect(html).not.toMatch(/<hr\s*\/?>/i)
+    expect(html).toMatch(/<hr\s*\/?>/i)
     expect(html).toContain('內容')
+  })
+
+  it('treats tight setext-looking dashes as a thematic break, not a heading', () => {
+    const html = renderChatMarkdown('上段\n---\n下段')
+    expect(html).toMatch(/<hr\s*\/?>/i)
+    expect(html).toContain('<p>上段</p>')
+    expect(html).toContain('<p>下段</p>')
+    expect(html).not.toMatch(/<h2>上段<\/h2>/i)
   })
 })

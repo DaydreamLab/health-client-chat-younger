@@ -99,8 +99,8 @@ withDefaults(defineProps<{
 <style scoped>
 .assistant-mark {
   display: inline-flex;
-  width: 2rem;
-  height: 2rem;
+  width: 2.6rem;
+  height: 2.6rem;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
@@ -110,8 +110,8 @@ withDefaults(defineProps<{
 }
 
 .assistant-mark__svg {
-  width: 2rem;
-  height: 2rem;
+  width: 2.6rem;
+  height: 2.6rem;
   overflow: visible;
 }
 

@@ -41,10 +41,29 @@ const html = computed(() => renderChatMarkdown(props.text))
 .chat-md :deep(ol) {
   margin: 0.35em 0;
   padding-left: 1.25em;
+  /* Tailwind preflight sets list-style: none — restore markers for chat markdown. */
+  list-style-position: outside;
+}
+
+.chat-md :deep(ul) {
+  list-style-type: disc;
+}
+
+.chat-md :deep(ol) {
+  list-style-type: decimal;
+}
+
+.chat-md :deep(ul ul) {
+  list-style-type: circle;
+}
+
+.chat-md :deep(ul ul ul) {
+  list-style-type: square;
 }
 
 .chat-md :deep(li) {
   margin: 0.15em 0;
+  display: list-item;
 }
 
 .chat-md :deep(li + li) {
@@ -53,7 +72,7 @@ const html = computed(() => renderChatMarkdown(props.text))
 
 .chat-md :deep(strong),
 .chat-md :deep(b) {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--ui-primary);
 }
 
@@ -63,7 +82,7 @@ const html = computed(() => renderChatMarkdown(props.text))
 }
 
 .chat-md :deep(a) {
-  font-weight: 500;
+  font-weight: 600;
   color: var(--ui-primary);
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -98,7 +117,7 @@ const html = computed(() => renderChatMarkdown(props.text))
 }
 
 .chat-md :deep(blockquote) {
-  margin: 0.4em 0;
+  margin: 0.5em 0;
   border-left: 3px solid color-mix(in oklab, var(--ui-primary) 45%, transparent);
   padding-left: 0.75em;
   color: var(--ui-text-muted);
@@ -114,10 +133,18 @@ const html = computed(() => renderChatMarkdown(props.text))
 .chat-md :deep(h2),
 .chat-md :deep(h3),
 .chat-md :deep(h4) {
-  margin: 0.5em 0 0.25em;
-  font-weight: 600;
-  color: var(--ui-text-highlighted);
+  margin: 0.65em 0 0.3em;
+  font-weight: 700;
+  /* Light theme --ui-text-highlighted equals --ui-text; nudge headings darker for hierarchy. */
+  color: color-mix(in oklab, var(--ui-text-highlighted) 72%, #0A2544 28%);
   line-height: 1.35;
+}
+
+.dark .chat-md :deep(h1),
+.dark .chat-md :deep(h2),
+.dark .chat-md :deep(h3),
+.dark .chat-md :deep(h4) {
+  color: var(--ui-text-highlighted);
 }
 
 .chat-md--on-primary :deep(h1),
@@ -128,22 +155,29 @@ const html = computed(() => renderChatMarkdown(props.text))
 }
 
 .chat-md :deep(h1) {
-  font-size: 1.05em;
+  font-size: 1.35em;
 }
 
 .chat-md :deep(h2) {
-  font-size: 1em;
+  font-size: 1.2em;
 }
 
-.chat-md :deep(h3),
+.chat-md :deep(h3) {
+  font-size: 1.1em;
+}
+
 .chat-md :deep(h4) {
-  font-size: 0.95em;
+  font-size: 1.05em;
 }
 
 .chat-md :deep(hr) {
-  margin: 0.85em 0;
+  display: block;
+  width: 100%;
+  height: 0;
+  margin: 0.95em 0;
   border: 0;
-  border-top: 1px solid color-mix(in oklab, var(--ui-border) 85%, var(--ui-text-muted) 15%);
+  border-top: 2px solid color-mix(in oklab, var(--ui-border) 40%, var(--ui-text-muted) 60%);
+  opacity: 1;
 }
 
 .chat-md :deep(hr + hr) {
@@ -153,13 +187,13 @@ const html = computed(() => renderChatMarkdown(props.text))
 .chat-md :deep(p + hr),
 .chat-md :deep(ul + hr),
 .chat-md :deep(ol + hr) {
-  margin-top: 0.85em;
+  margin-top: 0.95em;
 }
 
 .chat-md :deep(hr + p),
 .chat-md :deep(hr + ul),
 .chat-md :deep(hr + ol) {
-  margin-top: 0.85em;
+  margin-top: 0.95em;
 }
 
 .chat-md--on-primary :deep(hr) {

@@ -151,7 +151,7 @@
           <article
             v-for="message in messages"
             :key="message.id"
-            class="flex items-start gap-3 pb-8"
+            class="flex items-end gap-3 pb-8"
             :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
           >
             <ChatAssistantMark
@@ -162,10 +162,7 @@
               class="text-sm leading-relaxed"
               :class="message.role === 'user'
                 ? 'max-w-[75%] overflow-hidden rounded-lg bg-elevated px-4 py-3 text-highlighted'
-                : [
-                  'min-w-0 flex-1 text-default',
-                  message.id === reportDockMessageId ? 'rounded-lg ring-1 ring-primary/40' : ''
-                ]"
+                : 'min-w-0 flex-1 text-default'"
               :data-testid="message.id === lastAssistantId ? 'chat-last-reply' : undefined"
             >
               <ChatMarkdown :text="displayMessageText(message)" />
@@ -326,7 +323,6 @@ const resolvedCheckupUrl = ref('')
 const checkupUrlLoaded = ref(false)
 const reportRetryId = ref<string | null>(null)
 const reportResults = ref<HealthReportResult[]>([])
-const reportDockMessageId = ref<string | null>(null)
 const transcriptEl = useTemplateRef<HTMLElement>('transcriptEl')
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
 const chatInput = useTemplateRef<HTMLTextAreaElement>('chatInput')
@@ -649,6 +645,10 @@ const intakeOpen = computed(() =>
 )
 
 function lineMentionsPackage(line: string) {
+  const planName = selectedPackage.value?.name_zh?.trim()
+  if (planName && line.includes(planName)) {
+    return true
+  }
   if (/(基礎保養|完整調理)/.test(line) || /\d{3,5}\s*元\s*[/／]?\s*月/.test(line)) {
     return true
   }
@@ -776,7 +776,6 @@ async function resetConversation() {
   reportResults.value = []
   journey.reportDockOpen = false
   journey.reportDockCollapsed = false
-  reportDockMessageId.value = null
   journey.clearSession()
 
   try {
@@ -813,7 +812,6 @@ async function ensureConversation() {
   reportResults.value = []
   journey.reportDockOpen = false
   journey.reportDockCollapsed = false
-  reportDockMessageId.value = null
   if (journey.messages.length === 0) {
     const greeting = makeMessage(
       'assistant',
@@ -1010,15 +1008,17 @@ async function streamPending() {
         setMessageText(assistantId, streamed)
       },
       onReplace: (text) => {
+        // Avoid redraw flicker when done content matches what was already streamed.
+        if (text === streamed) {
+          return
+        }
         streamed = text
         setMessageText(assistantId, streamed)
       }
     }, intent)
 
-    setMessageText(assistantId, result.content || streamed)
     applyStreamMeta(assistantId, result)
     if (journey.hasAnalysis && reportResults.value.length > 0) {
-      reportDockMessageId.value = assistantId
       openReportDock({ expand: false })
     }
     guideAfterQuiz()
@@ -1664,10 +1664,6 @@ async function restoreReportSession() {
       // After reload: show only the collapsed bar — do not auto-expand.
       journey.reportDockOpen = true
       journey.reportDockCollapsed = true
-      const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
-      if (last) {
-        reportDockMessageId.value = last.id
-      }
       return
     }
 
