@@ -186,6 +186,8 @@
     "reportDetailLoading": "Loading report…",
     "reportDetailError": "Could not load the report reading.",
     "reportExpand": "Expand report",
+    "reportStyleTable": "Report style 1",
+    "reportStyleCards": "Report style 2",
     "reportView": "Report view",
     "viewList": "List",
     "viewCards": "Cards",

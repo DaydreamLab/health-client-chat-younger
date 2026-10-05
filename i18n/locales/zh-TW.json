@@ -186,6 +186,8 @@
     "reportDetailLoading": "載入報告中…",
     "reportDetailError": "無法載入報告判讀",
     "reportExpand": "展開報告",
+    "reportStyleTable": "報告樣式1",
+    "reportStyleCards": "報告樣式2",
     "reportView": "報告呈現",
     "viewList": "列表",
     "viewCards": "卡片",

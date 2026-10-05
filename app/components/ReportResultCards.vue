@@ -4,15 +4,19 @@ import {
   displayResultValue,
   formatResultRef,
   resultGaugePct,
+  resultScale,
   resultStatusClass
 } from '~/utils/report-result-status'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   results: HealthReportResult[]
   /** Hide the scrollbars of the card scroller (card and full-window reading). */
   hideScrollbar?: boolean
+  /** rail: vertical scale on the left. gauge: table position bar beside the value. */
+  position?: 'rail' | 'gauge'
 }>(), {
-  hideScrollbar: false
+  hideScrollbar: false,
+  position: 'rail'
 })
 
 const { t } = useI18n()
@@ -33,6 +37,14 @@ function statusText(status: CardStatus) {
   }
   return t('labChart.statusAlert')
 }
+
+const cards = computed(() => props.results.map(row => ({
+  row,
+  status: cardStatus(row),
+  scale: resultScale(row),
+  gaugePct: resultGaugePct(row),
+  unit: row.unit || row.raw_unit || ''
+})))
 </script>
 
 <template>
@@ -50,57 +62,81 @@ function statusText(status: CardStatus) {
     </p>
 
     <div
-      v-if="results.length"
-      class="flex flex-col gap-2 overflow-auto"
-      :class="hideScrollbar ? 'scrollbar-none min-h-0 flex-1' : undefined"
+      v-if="cards.length"
+      class="grid grid-cols-1 gap-3 overflow-auto sm:grid-cols-2 lg:grid-cols-4"
+      :class="hideScrollbar ? 'scrollbar-none min-h-0 flex-1 content-start' : undefined"
     >
       <article
-        v-for="row in results"
-        :key="row.id"
+        v-for="card in cards"
+        :key="card.row.id"
         class="flex items-stretch gap-3 rounded-xl border border-default bg-default px-3 py-3"
-        :data-testid="`report-result-card-${row.id}`"
+        :data-testid="`report-result-card-${card.row.id}`"
       >
-        <span
-          class="w-1 shrink-0 rounded-full"
-          :class="`yr-bar-${cardStatus(row)}`"
-        />
-        <div class="min-w-0 flex-1">
-          <p class="truncate font-semibold text-highlighted">
-            {{ row.raw_name || row.biomarker_id || '—' }}
-          </p>
-          <p class="mt-0.5 text-xs text-muted">
-            {{ formatResultRef(row) }}
-          </p>
-        </div>
         <div
-          v-if="resultGaugePct(row) != null"
-          class="yr-gauge relative h-2 w-[4.5rem] shrink-0 self-center overflow-visible rounded-full"
-          :data-testid="`report-result-card-position-${row.id}`"
+          v-if="position === 'rail' && card.scale"
+          class="relative w-3 shrink-0 self-stretch"
+          :data-testid="`report-result-card-position-${card.row.id}`"
         >
-          <div
-            class="yr-gauge-marker absolute top-[-3px] h-3.5 -translate-x-1/2 rounded-sm"
-            :style="{ left: `${resultGaugePct(row)}%` }"
-          />
+          <div class="absolute inset-y-1 left-1/2 w-1 -translate-x-1/2">
+            <div class="absolute inset-0 overflow-hidden rounded-full">
+              <div
+                v-for="(band, index) in card.scale.bands"
+                :key="`${card.row.id}-${index}`"
+                class="absolute inset-x-0"
+                :class="`yr-band-${band.status}`"
+                :style="{
+                  bottom: `${band.fromPct}%`,
+                  height: `${band.toPct - band.fromPct}%`
+                }"
+              />
+            </div>
+            <span
+              v-if="card.scale.valuePct != null"
+              class="yr-scale-marker absolute left-1/2"
+              :style="{ bottom: `${card.scale.valuePct}%` }"
+            />
+          </div>
+        </div>
+        <div class="flex min-w-0 flex-1 flex-col">
+          <p class="truncate text-sm font-semibold text-highlighted">
+            {{ card.row.raw_name || card.row.biomarker_id || '—' }}
+          </p>
+          <div class="mt-1 flex items-center gap-2">
+            <p
+              class="text-xl font-bold leading-none"
+              :class="`yr-val-${card.status}`"
+            >
+              {{ displayResultValue(card.row) }}
+            </p>
+            <div
+              v-if="position === 'gauge' && card.gaugePct != null"
+              class="yr-gauge relative h-2 w-[4.5rem] shrink-0 overflow-visible rounded-full"
+              :data-testid="`report-result-card-position-${card.row.id}`"
+            >
+              <div
+                class="yr-gauge-marker absolute top-[-3px] h-3.5 -translate-x-1/2 rounded-sm"
+                :style="{ left: `${card.gaugePct}%` }"
+              />
+            </div>
+          </div>
+          <div class="mt-auto flex items-baseline justify-between gap-2 pt-2">
+            <p class="min-w-0 text-xs text-highlighted">
+              {{ $t('labChart.optimal') }}
+              <span class="text-muted">{{ formatResultRef(card.row) }}</span>
+            </p>
+            <p
+              v-if="card.unit"
+              class="shrink-0 text-xs text-muted"
+            >
+              {{ card.unit }}
+            </p>
+          </div>
         </div>
         <span
-          v-else
-          class="shrink-0 self-center text-sm text-muted"
-        >—</span>
-        <p
-          class="shrink-0 self-center text-base font-bold"
-          :class="`yr-val-${cardStatus(row)}`"
+          class="sr-only"
+          :data-testid="`report-result-card-status-${card.row.id}`"
         >
-          {{ displayResultValue(row) }}<span
-            v-if="row.unit || row.raw_unit"
-            class="ms-1 text-sm font-semibold"
-          >{{ row.unit || row.raw_unit }}</span>
-        </p>
-        <span
-          class="shrink-0 self-center rounded-full px-2.5 py-0.5 text-xs font-semibold"
-          :class="`yr-pill-${cardStatus(row)}`"
-          :data-testid="`report-result-card-status-${row.id}`"
-        >
-          {{ statusText(cardStatus(row)) }}
+          {{ statusText(card.status) }}
         </span>
       </article>
     </div>
@@ -116,18 +152,6 @@ function statusText(status: CardStatus) {
   display: none;
 }
 
-.yr-bar-ok {
-  background: var(--ui-success);
-}
-
-.yr-bar-warn {
-  background: var(--ui-warning);
-}
-
-.yr-bar-alert {
-  background: var(--ui-error);
-}
-
 .yr-val-ok {
   color: var(--ui-success);
 }
@@ -140,19 +164,25 @@ function statusText(status: CardStatus) {
   color: var(--ui-error);
 }
 
-.yr-pill-ok {
-  color: var(--ui-success);
-  background: color-mix(in oklab, var(--ui-success) 16%, transparent);
+.yr-band-ok {
+  background: var(--ui-success);
 }
 
-.yr-pill-warn {
-  color: var(--ui-warning);
-  background: color-mix(in oklab, var(--ui-warning) 16%, transparent);
+.yr-band-warn {
+  background: var(--ui-warning);
 }
 
-.yr-pill-alert {
-  color: var(--ui-error);
-  background: color-mix(in oklab, var(--ui-error) 16%, transparent);
+.yr-band-alert {
+  background: var(--ui-error);
+}
+
+.yr-scale-marker {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--ui-bg);
+  border: 2px solid var(--ui-text-highlighted);
+  transform: translate(-50%, 50%);
 }
 
 .yr-gauge {

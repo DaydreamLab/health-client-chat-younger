@@ -82,6 +82,108 @@ export function resultGaugePct(r: HealthReportResult): number | null {
   return Math.max(0, Math.min(100, ((v - min) / (max - min)) * 100))
 }
 
+export type ResultScaleStatus = 'ok' | 'warn' | 'alert'
+
+export interface ResultScaleBand {
+  status: ResultScaleStatus
+  /** 0 is the low end of the scale, 100 is the high end. */
+  fromPct: number
+  toPct: number
+}
+
+export interface ResultScale {
+  min: number
+  max: number
+  valuePct: number | null
+  bands: ResultScaleBand[]
+}
+
+const SCALE_PAD_RATIO = 0.5
+const SCALE_EXTEND_RATIO = 0.15
+
+function bound(value: number | null | undefined): number | null {
+  if (value == null || Number.isNaN(Number(value))) {
+    return null
+  }
+  return Number(value)
+}
+
+/** Vertical zone rail for a result card. Null when the optimal interval cannot be drawn. */
+export function resultScale(r: HealthReportResult): ResultScale | null {
+  const refLow = bound(r.ref_low)
+  const refHigh = bound(r.ref_high)
+  if (refLow == null || refHigh == null || refHigh <= refLow) {
+    return null
+  }
+
+  const span = refHigh - refLow
+  let min = refLow - span * SCALE_PAD_RATIO
+  let max = refHigh + span * SCALE_PAD_RATIO
+  const extras = [
+    bound(r.borderline_low),
+    bound(r.borderline_high),
+    bound(r.critical_low),
+    bound(r.critical_high),
+    resultNumeric(r)
+  ]
+  for (const value of extras) {
+    if (value == null) {
+      continue
+    }
+    if (value < min) {
+      min = value - span * SCALE_EXTEND_RATIO
+    }
+    if (value > max) {
+      max = value + span * SCALE_EXTEND_RATIO
+    }
+  }
+
+  const alertLow = bound(r.critical_low)
+  const alertHigh = bound(r.critical_high)
+  const lowCut = alertLow != null && alertLow < refLow ? alertLow : null
+  const highCut = alertHigh != null && alertHigh > refHigh ? alertHigh : null
+  const edges = [min]
+  if (lowCut != null && lowCut > min && lowCut < refLow) {
+    edges.push(lowCut)
+  }
+  edges.push(refLow, refHigh)
+  if (highCut != null && highCut > refHigh && highCut < max) {
+    edges.push(highCut)
+  }
+  edges.push(max)
+
+  const bands: ResultScaleBand[] = []
+  for (let i = 0; i < edges.length - 1; i++) {
+    const start = edges[i]
+    const end = edges[i + 1]
+    if (start == null || end == null || end <= start) {
+      continue
+    }
+    const mid = (start + end) / 2
+    let status: ResultScaleStatus = 'ok'
+    if ((lowCut != null && mid < lowCut) || (highCut != null && mid > highCut)) {
+      status = 'alert'
+    } else if (mid < refLow || mid > refHigh) {
+      status = 'warn'
+    }
+    const fromPct = ((start - min) / (max - min)) * 100
+    const toPct = ((end - min) / (max - min)) * 100
+    const prev = bands[bands.length - 1]
+    if (prev && prev.status === status) {
+      prev.toPct = toPct
+    } else {
+      bands.push({ status, fromPct, toPct })
+    }
+  }
+
+  const value = resultNumeric(r)
+  const valuePct = value == null
+    ? null
+    : Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100))
+
+  return { min, max, valuePct, bands }
+}
+
 export function displayResultValue(r: HealthReportResult) {
   const v = resultNumeric(r)
   if (v != null) {

@@ -96,7 +96,9 @@ export default defineNuxtConfig({
         'lucide:watch',
         'lucide:users',
         'lucide:lock',
-        'lucide:stethoscope'
+        'lucide:stethoscope',
+        'lucide:list',
+        'lucide:layout-grid'
       ]
     }
   }

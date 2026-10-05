@@ -126,7 +126,7 @@
                 v-for="variant in reportVariants"
                 :key="`${report.id}-${variant}`"
                 class="overflow-hidden rounded-2xl border border-default bg-elevated lg:flex lg:max-h-[calc(50dvh+2.75rem)] lg:flex-col"
-                :data-testid="variant === 'table' ? `health-report-${report.id}` : `health-report-cards-${report.id}`"
+                :data-testid="variant === 'primary' ? `health-report-${report.id}` : `health-report-cards-${report.id}`"
               >
                 <div class="flex shrink-0 items-center gap-3 px-5 py-4">
                   <button
@@ -139,7 +139,7 @@
                     <p class="font-medium text-highlighted">
                       {{ formatReportDate(report.created_at) }}
                       <span class="ms-2 text-xs font-normal text-muted">
-                        {{ variant === 'cards' ? $t('member.reportStyleCards') : $t('member.reportStyleTable') }}
+                        {{ variant === 'primary' ? $t('member.reportStyleTable') : $t('member.reportStyleCards') }}
                       </span>
                     </p>
                     <p class="mt-0.5 text-sm text-muted">
@@ -150,6 +150,10 @@
                       > · {{ report.error }}</span>
                     </p>
                   </button>
+                  <ReportViewToggle
+                    :mode="viewModeByVariant[variant]"
+                    @update:mode="setViewMode(variant, $event)"
+                  />
                   <AppButton
                     variant="outline"
                     class="report-expand-btn shrink-0"
@@ -202,15 +206,22 @@
                       <ReportResultLegend />
                     </div>
                     <ReportResultTable
-                      v-if="variant === 'table'"
+                      v-if="variant === 'primary' && viewModeByVariant[variant] === 'table'"
                       :results="resultsById[report.id] ?? []"
                       :show-legend="false"
+                      hide-scrollbar
+                      class="min-h-0 flex-1 px-5 py-4"
+                    />
+                    <ReportResultStrips
+                      v-else-if="viewModeByVariant[variant] === 'table'"
+                      :results="resultsById[report.id] ?? []"
                       hide-scrollbar
                       class="min-h-0 flex-1 px-5 py-4"
                     />
                     <ReportResultCards
                       v-else
                       :results="resultsById[report.id] ?? []"
+                      :position="variant === 'primary' ? 'gauge' : 'rail'"
                       hide-scrollbar
                       class="min-h-0 flex-1 px-5 py-4"
                     />
@@ -228,6 +239,13 @@
               body: 'flex min-h-0 flex-1 flex-col overflow-hidden p-0 sm:p-0'
             }"
           >
+            <template #actions>
+              <ReportViewToggle
+                class="absolute end-14 top-4"
+                :mode="viewModeByVariant[sheetVariant]"
+                @update:mode="setViewMode(sheetVariant, $event)"
+              />
+            </template>
             <template #body>
               <div
                 class="flex min-h-0 flex-1 flex-col"
@@ -259,15 +277,22 @@
                     <ReportResultLegend />
                   </div>
                   <ReportResultTable
-                    v-if="sheetVariant === 'table'"
+                    v-if="sheetVariant === 'primary' && viewModeByVariant[sheetVariant] === 'table'"
                     :results="sheetResults"
                     :show-legend="false"
+                    hide-scrollbar
+                    class="min-h-0 flex-1 px-5 py-4"
+                  />
+                  <ReportResultStrips
+                    v-else-if="viewModeByVariant[sheetVariant] === 'table'"
+                    :results="sheetResults"
                     hide-scrollbar
                     class="min-h-0 flex-1 px-5 py-4"
                   />
                   <ReportResultCards
                     v-else
                     :results="sheetResults"
+                    :position="sheetVariant === 'primary' ? 'gauge' : 'rail'"
                     hide-scrollbar
                     class="min-h-0 flex-1 px-5 py-4"
                   />
@@ -366,10 +391,16 @@ const profileError = ref('')
 const reports = ref<HealthReportSummary[]>([])
 const reportsLoading = ref(false)
 const reportsError = ref('')
-const reportVariants = ['table', 'cards'] as const
+const reportVariants = ['primary', 'secondary'] as const
+type ReportVariant = (typeof reportVariants)[number]
+type ReportViewMode = 'table' | 'cards'
+const viewModeByVariant = ref<Record<ReportVariant, ReportViewMode>>({
+  primary: 'table',
+  secondary: 'table'
+})
 const expandedKeys = ref<string[]>([])
 const sheetReportId = ref<string | null>(null)
-const sheetVariant = ref<(typeof reportVariants)[number]>('table')
+const sheetVariant = ref<ReportVariant>('primary')
 const detailLoadingId = ref<string | null>(null)
 const resultsById = ref<Record<string, HealthReportResult[]>>({})
 const detailErrorById = ref<Record<string, string>>({})
@@ -548,15 +579,15 @@ async function loadReports() {
   }
 }
 
-function reportVariantKey(reportId: string, variant: (typeof reportVariants)[number]) {
+function reportVariantKey(reportId: string, variant: ReportVariant) {
   return `${reportId}:${variant}`
 }
 
-function isReportExpanded(reportId: string, variant: (typeof reportVariants)[number]) {
+function isReportExpanded(reportId: string, variant: ReportVariant) {
   return expandedKeys.value.includes(reportVariantKey(reportId, variant))
 }
 
-function toggleReport(reportId: string, variant: (typeof reportVariants)[number]) {
+function toggleReport(reportId: string, variant: ReportVariant) {
   const key = reportVariantKey(reportId, variant)
   if (expandedKeys.value.includes(key)) {
     expandedKeys.value = expandedKeys.value.filter(item => item !== key)
@@ -566,7 +597,14 @@ function toggleReport(reportId: string, variant: (typeof reportVariants)[number]
   void loadReportDetail(reportId)
 }
 
-function openReportSheet(reportId: string, variant: (typeof reportVariants)[number]) {
+function setViewMode(variant: ReportVariant, mode: ReportViewMode) {
+  viewModeByVariant.value = {
+    ...viewModeByVariant.value,
+    [variant]: mode
+  }
+}
+
+function openReportSheet(reportId: string, variant: ReportVariant) {
   sheetReportId.value = reportId
   sheetVariant.value = variant
   void loadReportDetail(reportId)
