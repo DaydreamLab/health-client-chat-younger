@@ -11,7 +11,7 @@
     "login": "Log in",
     "member": "My health",
     "wearable": "Wearables",
-    "wearableSoon": "Coming soon",
+    "comingSoon": "Coming soon",
     "orders": "My orders",
     "renewals": "Renewals",
     "profile": "Profile",
@@ -215,15 +215,11 @@
     "errorRecipientIncomplete": "Fill all recipient fields, or leave them all blank."
   },
   "renewals": {
-    "title": "Renewals due",
-    "subtitle": "Open a renewal chat around period end to continue or adjust your plan.",
-    "loading": "Loading…",
-    "empty": "No renewals due right now.",
-    "loadError": "Could not load renewals. Please try again.",
-    "daysLeft": "{days} days left",
-    "expired": "Expired {days} days ago (still in grace)",
-    "startChat": "Start renewal chat",
-    "startError": "Could not start a renewal chat. Please try again."
+    "eyebrow": "Renewals",
+    "title": "Coming soon",
+    "subtitle": "Renewal chat will open here around period end, so you can continue or adjust your plan. We’re still building this — keep going in consult or My health for now.",
+    "ctaHealth": "Back to My health",
+    "ctaChat": "Start consult"
   },
   "markers": {
     "vitaminD": "Vitamin D",

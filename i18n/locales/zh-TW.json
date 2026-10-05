@@ -11,7 +11,7 @@
     "login": "登入",
     "member": "我的健康",
     "wearable": "穿戴裝置",
-    "wearableSoon": "即將上線",
+    "comingSoon": "即將上線",
     "orders": "我的訂單",
     "renewals": "續約",
     "profile": "個人資料",
@@ -215,15 +215,11 @@
     "errorRecipientIncomplete": "常用收件請五個欄位都填齊，或全部留空。"
   },
   "renewals": {
-    "title": "待續約",
-    "subtitle": "到期前後可開啟續約對話，延續或調整方案。",
-    "loading": "載入中…",
-    "empty": "目前沒有待續約的訂單。",
-    "loadError": "無法載入待續約清單，請稍後再試。",
-    "daysLeft": "還有 {days} 天到期",
-    "expired": "已過期 {days} 天（仍在寬限期）",
-    "startChat": "開啟續約對話",
-    "startError": "無法建立續約對話，請稍後再試。"
+    "eyebrow": "待續約",
+    "title": "即將上線",
+    "subtitle": "到期前後可以在這裡開啟續約對話，延續或調整方案。目前還在準備中，先從諮詢或我的健康開始。",
+    "ctaHealth": "回我的健康",
+    "ctaChat": "開始諮詢"
   },
   "markers": {
     "vitaminD": "維他命 D",

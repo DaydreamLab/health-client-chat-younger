@@ -13,6 +13,7 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 | `/chat` | `user` + `chat-layout` | 對話 SSE、目標／價格帶；上傳報告僅 member（guest 導向登入） | guest 可對話；`POST /health-reports` 需 member |
 | `/app` | `user` + `auth` | 我的健康：profile 摘要卡＋報告列表（最新一筆展開判讀表）；guest 顯示登入門檻 | `GET /profile`；`GET /health-reports`；展開時 `GET /health-reports/{id}`（member） |
 | `/app/wearables` | `user` + `auth` | 穿戴裝置即將上線佔位 | 無（殼） |
+| `/app/renewals` | `user` + `auth` | 待續約即將上線佔位（列表與續約對話暫不從這頁進入） | 無（殼）；client 仍保留 `GET /renewals/due`、`renewal_of_order_id` |
 | `/app/recommendations` | `user` + `auth` | 建議與結帳 | `POST /recommendations`、`GET /package-plans`、`POST /orders`、`PATCH /users/me` |
 | `/app/orders` | `user` + `auth` | 訂單列表 | `GET /orders` |
 | `/app/orders/[id]` | `user` + `auth` | 訂單詳情、出貨時間線、對話 modal | `GET /order/{id}`；`GET /order/{id}/message`（已接） |

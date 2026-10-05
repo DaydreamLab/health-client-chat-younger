@@ -132,7 +132,7 @@ const navItems = computed<UserNavItem[]>(() => [
     icon: 'i-lucide-watch',
     to: localePath('/app/wearables'),
     active: isWearable.value,
-    badge: t('nav.wearableSoon'),
+    badge: t('nav.comingSoon'),
     testId: 'nav-wearable',
     mobileTestId: 'nav-wearable-mobile'
   },
@@ -157,6 +157,7 @@ const navItems = computed<UserNavItem[]>(() => [
     icon: 'i-lucide-refresh-cw',
     to: localePath('/app/renewals'),
     active: isRenewals.value,
+    badge: t('nav.comingSoon'),
     testId: 'nav-renewals',
     mobileTestId: 'nav-renewals-mobile'
   },
