@@ -17,7 +17,21 @@
               data-testid="brand-hero"
               class="text-xs font-medium tracking-wide min-[375px]:text-sm"
             >
-              {{ $t('hero.eyebrow') }}
+              <span class="sr-only">{{ $t('hero.eyebrow') }}</span>
+              <span
+                class="app-hero-cycle"
+                aria-hidden="true"
+              >
+                <span>{{ $t('hero.eyebrowLead') }}</span>
+                <span class="app-hero-cycle-dot">·</span>
+                <span class="app-hero-cycle-slot">
+                  <span
+                    v-for="key in eyebrowWordKeys"
+                    :key="key"
+                    class="app-hero-cycle-word"
+                  >{{ $t(`hero.${key}`) }}</span>
+                </span>
+              </span>
             </p>
             <h1 class="mt-3 whitespace-pre-line text-[clamp(1.5rem,calc((100vw-2.5rem)/11),1.875rem)] font-semibold tracking-tight min-[375px]:text-4xl sm:text-5xl">
               {{ $t('hero.title') }}
@@ -47,37 +61,34 @@
       </div>
     </section>
 
-    <section class="bg-brand-100 dark:bg-brand-900">
-      <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
-        <h2 class="text-center text-3xl font-semibold text-highlighted sm:text-4xl">
+    <section>
+      <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
+        <h2 class="text-center text-2xl font-semibold text-highlighted sm:text-3xl">
           {{ $t('steps.title') }}
         </h2>
         <ol class="app-home-rail mt-8">
           <li
-            v-for="step in stepKeys"
+            v-for="(step, index) in stepKeys"
             :key="step"
             class="app-home-rail-step"
           >
-            <span
-              class="app-home-rail-dot"
-              aria-hidden="true"
-            >
-              <UIcon
-                :name="stepIcons[step]"
-                class="size-7 text-primary min-[1100px]:size-12"
-              />
-            </span>
-            <div class="app-home-rail-copy">
-              <p class="text-sm font-semibold text-primary">
+            <div class="app-home-rail-mark">
+              <span
+                class="app-home-rail-dot"
+                aria-hidden="true"
+              >
+                {{ index + 1 }}
+              </span>
+              <p class="app-home-rail-label text-xs font-medium tracking-wide text-primary">
                 {{ $t(`steps.${step}Label`) }}
               </p>
-              <h3 class="mt-2 font-medium text-highlighted">
-                {{ $t(`steps.${step}Title`) }}
-              </h3>
-              <p class="mt-1 text-sm text-muted">
-                {{ $t(`steps.${step}Hint`) }}
-              </p>
             </div>
+            <h3 class="app-home-rail-title text-2xl font-semibold text-highlighted">
+              {{ $t(`steps.${step}Title`) }}
+            </h3>
+            <p class="app-home-rail-hint mt-2 whitespace-pre-line text-sm leading-6 text-muted">
+              {{ $t(`steps.${step}Hint`) }}
+            </p>
           </li>
         </ol>
       </div>
@@ -100,7 +111,8 @@
           item: 'basis-full ps-0',
           container: 'ms-0',
           prev: 'start-3 sm:start-4',
-          next: 'end-3 sm:end-4'
+          next: 'end-3 sm:end-4',
+          dot: 'bg-primary/30 data-[state=active]:bg-primary'
         }"
         class="w-full"
         data-testid="home-carousel"
@@ -122,71 +134,35 @@
 
     <section
       id="plans"
-      class="mx-auto max-w-6xl scroll-mt-24 px-4 pb-12 sm:px-6"
+      class="scroll-mt-24 bg-brand-100 py-12 dark:bg-brand-900 sm:py-16"
     >
-      <h2 class="text-xl font-semibold text-highlighted">
-        {{ $t('plans.title') }}
-      </h2>
-      <p class="mt-2 max-w-2xl text-sm text-muted">
-        {{ $t('plans.subtitle') }}
-      </p>
+      <div class="mx-auto max-w-6xl px-4 sm:px-6">
+        <h2 class="text-2xl font-semibold text-highlighted sm:text-3xl">
+          {{ $t('plans.title') }}
+        </h2>
+        <p class="mt-2 max-w-2xl text-sm text-muted">
+          {{ $t('plans.subtitle') }}
+        </p>
 
-      <p
-        v-if="packagesError"
-        class="mt-6 text-sm text-error"
-        data-testid="packages-error"
-      >
-        {{ packagesError }}
-      </p>
-      <p
-        v-else-if="packagesPending"
-        class="mt-6 text-sm text-muted"
-        data-testid="packages-loading"
-      >
-        {{ $t('plans.loading') }}
-      </p>
-      <div
-        v-else
-        class="mt-6 grid gap-4 sm:grid-cols-2"
-      >
-        <NuxtLink
-          v-for="(pkg, index) in packages"
-          :key="pkg.code"
-          :to="chatPath(pkg.code)"
-          class="app-path-card"
-          :data-testid="`package-${pkg.code}`"
-          @click="selectPackage(pkg.code)"
+        <p
+          v-if="packagesError"
+          class="mt-6 text-sm text-error"
+          data-testid="packages-error"
         >
-          <div class="flex flex-wrap items-start justify-between gap-2">
-            <div class="flex items-center gap-2">
-              <UIcon
-                :name="index === packages.length - 1 ? 'i-lucide-sparkles' : 'i-lucide-file-text'"
-                class="size-5 text-primary"
-              />
-              <h3 class="text-lg font-semibold text-highlighted">
-                {{ packageTitle(pkg) }}
-              </h3>
-            </div>
-            <span
-              v-if="index === packages.length - 1"
-              class="app-badge app-badge-demo"
-            >
-              {{ $t('shop.recommended') }}
-            </span>
-          </div>
-          <p class="mt-3 text-xl font-semibold text-primary">
-            {{ $t('shop.perMonth', { price: formatTwd(pkg.price) }) }}
-          </p>
-          <p
-            v-if="pkg.description"
-            class="mt-2 text-sm text-muted"
-          >
-            {{ pkg.description }}
-          </p>
-          <p class="mt-4 text-sm font-medium text-primary">
-            {{ $t('plans.cta') }}
-          </p>
-        </NuxtLink>
+          {{ packagesError }}
+        </p>
+        <p
+          v-else-if="packagesPending"
+          class="mt-6 text-sm text-muted"
+          data-testid="packages-loading"
+        >
+          {{ $t('plans.loading') }}
+        </p>
+        <UPricingPlans
+          v-else
+          :plans="pricingPlans"
+          class="mx-auto mt-6 w-full max-w-3xl"
+        />
       </div>
     </section>
 
@@ -216,6 +192,7 @@
 </template>
 
 <script setup lang="ts">
+import type { PricingPlanProps } from '@nuxt/ui'
 import type { PublicPackage } from '~/utils/candor-api'
 import { formatTwd } from '~/utils/first-order'
 
@@ -224,11 +201,7 @@ const localePath = useLocalePath()
 const journey = useJourneyStore()
 const candor = useCandorApi()
 const stepKeys = ['one', 'two', 'three'] as const
-const stepIcons = {
-  one: 'i-lucide-users',
-  two: 'i-lucide-lock',
-  three: 'i-lucide-stethoscope'
-} as const
+const eyebrowWordKeys = ['eyebrowAdvisor', 'eyebrowLabs', 'eyebrowConsult'] as const
 const systemKeys = ['nutrition', 'metabolic', 'cardio', 'detox', 'endocrine', 'immune'] as const
 const plansHref = computed(() => `${localePath('/')}#plans`)
 const promoSlides = computed(() => [
@@ -240,6 +213,14 @@ const promoSlides = computed(() => [
 const packages = ref<PublicPackage[]>([])
 const packagesPending = ref(true)
 const packagesError = ref<string | null>(null)
+const listPrices: Record<string, number> = {
+  basic: 8000,
+  advance: 12000
+}
+const featureKeyGroups: Record<string, readonly string[]> = {
+  basic: ['basicFeature1', 'basicFeature2', 'basicFeature3'],
+  advance: ['advanceFeature1', 'advanceFeature2', 'advanceFeature3']
+}
 
 function packageTitle(pkg: PublicPackage) {
   if (locale.value === 'en' && pkg.name_en) {
@@ -255,6 +236,33 @@ function chatPath(code: string) {
 function selectPackage(code: string) {
   journey.selectedPackageCode = code
 }
+
+const pricingPlans = computed<PricingPlanProps[]>(() => packages.value.map((pkg, index) => {
+  const recommended = index === packages.value.length - 1
+  const listPrice = listPrices[pkg.code]
+  const featureKeys = featureKeyGroups[pkg.code]
+  return {
+    title: packageTitle(pkg),
+    description: pkg.description || undefined,
+    price: formatTwd(listPrice ?? pkg.price),
+    discount: listPrice == null ? undefined : formatTwd(pkg.price),
+    billingCycle: t('plans.billingCycle'),
+    features: featureKeys?.map(key => t(`plans.${key}`)),
+    ui: {
+      featureTitle: 'whitespace-normal overflow-visible text-clip text-pretty',
+      root: recommended ? 'ring-[3px]' : 'ring-2'
+    },
+    badge: recommended ? t('shop.recommended') : undefined,
+    highlight: recommended,
+    button: {
+      'label': t('plans.cta'),
+      'to': chatPath(pkg.code),
+      'variant': recommended ? 'solid' : 'outline',
+      'onClick': () => selectPackage(pkg.code),
+      'data-testid': `package-${pkg.code}`
+    } as PricingPlanProps['button']
+  }
+}))
 
 onMounted(async () => {
   packagesPending.value = true
