@@ -13,34 +13,35 @@
         />
         <div class="relative flex min-h-[34rem] items-end px-4 py-10 sm:absolute sm:inset-0 sm:min-h-0 sm:items-center sm:justify-end sm:px-6 sm:py-16">
           <div class="w-full max-w-xl text-center text-white sm:origin-right sm:scale-125">
-          <p
-            data-testid="brand-hero"
-            class="text-sm font-medium tracking-wide"
-          >
-            {{ $t('hero.eyebrow') }}
-          </p>
-          <h1 class="mt-3 whitespace-pre-line text-4xl font-semibold tracking-tight sm:text-5xl">
-            {{ $t('hero.title') }}
-          </h1>
-          <p class="mt-4 whitespace-pre-line text-sm text-white/85">
-            {{ $t('hero.description') }}
-          </p>
-          <div class="app-hero-actions mt-7">
-            <AppButton
-              class="px-8"
-              :to="localePath('/chat')"
-              data-testid="hero-cta-chat"
+            <p
+              data-testid="brand-hero"
+              class="text-sm font-medium tracking-wide"
             >
-              {{ $t('hero.ctaChat') }}
-            </AppButton>
-            <AppButton
-              class="px-8"
-              :to="`${localePath('/')}#plans`"
-              variant="outline"
-              data-testid="hero-cta-plans"
-            >
-              {{ $t('hero.ctaPlans') }}
-            </AppButton>
+              {{ $t('hero.eyebrow') }}
+            </p>
+            <h1 class="mt-3 whitespace-pre-line text-4xl font-semibold tracking-tight sm:text-5xl">
+              {{ $t('hero.title') }}
+            </h1>
+            <p class="mt-4 whitespace-pre-line text-sm text-white/85">
+              {{ $t('hero.description') }}
+            </p>
+            <div class="app-hero-actions mt-7">
+              <AppButton
+                class="px-8"
+                :to="localePath('/chat')"
+                data-testid="hero-cta-chat"
+              >
+                {{ $t('hero.ctaChat') }}
+              </AppButton>
+              <AppButton
+                class="px-8"
+                :to="`${localePath('/')}#plans`"
+                variant="outline"
+                data-testid="hero-cta-plans"
+              >
+                {{ $t('hero.ctaPlans') }}
+              </AppButton>
+            </div>
           </div>
         </div>
       </div>
