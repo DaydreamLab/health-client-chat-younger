@@ -35,18 +35,24 @@
   "hero": {
     "eyebrow": "Your physiology data advisor",
     "title": "See your health clearly —\nstart with a conversation.",
-    "description": "Pick a one-month plan, then chat; uploading labs requires sign-in.\nBrowsing is open; membership is required to upload reports, reach a specialist, or keep your records.",
+    "description": "Bring a lab report if you have one; you can still chat without it.\nBrowse plans without signing in. Become a member to upload or save your details.",
     "ctaChat": "Start consult",
     "ctaPlans": "See plans"
   },
   "steps": {
-    "title": "Getting started is simple",
+    "title": "Start with a conversation and understand your body.",
     "oneTitle": "Pick a plan and chat",
-    "oneHint": "AI first asks if you have a report and what you want to solve.",
+    "oneHint": "Start by telling the AI what you want to solve.",
     "twoTitle": "Payment unlocks the rest",
-    "twoHint": "You pay this platform only. Success is what hands you to the advisor.",
+    "twoHint": "Payment is what opens the next step.",
     "threeTitle": "Advisor fulfills",
-    "threeHint": "Reading, collection, or product picks happen on their system. This app does not show that consult."
+    "threeHint": "Reading and product picks happen with the advisor."
+  },
+  "promo": {
+    "label": "Product highlights",
+    "acerola": "French West Indian acerola vitamin C",
+    "calcium": "Irish seaweed calcium, marine magnesium, and chickpea K2",
+    "lutein": "7-in-1 FloraGLO free lutein, zeaxanthin, and dual anthocyanins"
   },
   "plans": {
     "title": "Two one-month plans",

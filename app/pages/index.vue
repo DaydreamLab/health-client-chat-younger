@@ -47,16 +47,21 @@
       </div>
     </section>
 
-    <section class="mx-auto max-w-6xl px-4 pb-12 sm:px-6">
-      <h2 class="text-xl font-semibold text-highlighted">
+    <section class="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+      <h2 class="text-center text-xl font-semibold text-highlighted">
         {{ $t('steps.title') }}
       </h2>
-      <ol class="app-home-steps mt-4">
-        <template
+      <ol class="app-home-rail mt-10">
+        <li
           v-for="(step, index) in stepKeys"
           :key="step"
+          class="app-home-rail-step"
         >
-          <li class="rounded-2xl border border-default bg-elevated p-5">
+          <span
+            class="app-home-rail-dot"
+            aria-hidden="true"
+          />
+          <div class="app-home-rail-copy">
             <p class="text-xs font-medium text-primary">
               {{ String(index + 1).padStart(2, '0') }}
             </p>
@@ -66,16 +71,46 @@
             <p class="mt-1 text-sm text-muted">
               {{ $t(`steps.${step}Hint`) }}
             </p>
-          </li>
-          <li
-            v-if="index < stepKeys.length - 1"
-            class="app-home-step-arrow"
-            aria-hidden="true"
-          >
-            ›
-          </li>
-        </template>
+          </div>
+        </li>
       </ol>
+    </section>
+
+    <section
+      class="pb-16 sm:pb-20"
+      :aria-label="$t('promo.label')"
+    >
+      <UCarousel
+        v-slot="{ item }"
+        loop
+        arrows
+        dots
+        :autoplay="{ delay: 4000, stopOnMouseEnter: true }"
+        :items="promoSlides"
+        :prev="{ color: 'neutral', variant: 'solid' }"
+        :next="{ color: 'neutral', variant: 'solid' }"
+        :ui="{
+          item: 'basis-full ps-0',
+          container: 'ms-0',
+          prev: 'start-3 sm:start-4',
+          next: 'end-3 sm:end-4'
+        }"
+        class="w-full"
+        data-testid="home-carousel"
+      >
+        <NuxtLink
+          :to="plansHref"
+          class="block"
+        >
+          <img
+            :src="item.src"
+            :alt="item.alt"
+            width="1024"
+            height="346"
+            class="aspect-[1024/346] w-full object-cover"
+          >
+        </NuxtLink>
+      </UCarousel>
     </section>
 
     <section
@@ -183,6 +218,12 @@ const journey = useJourneyStore()
 const candor = useCandorApi()
 const stepKeys = ['one', 'two', 'three'] as const
 const systemKeys = ['nutrition', 'metabolic', 'cardio', 'detox', 'endocrine', 'immune'] as const
+const plansHref = computed(() => `${localePath('/')}#plans`)
+const promoSlides = computed(() => [
+  { src: '/home/acerola-vitamin-c.png', alt: t('promo.acerola') },
+  { src: '/home/seaweed-calcium.png', alt: t('promo.calcium') },
+  { src: '/home/floraglo-lutein.png', alt: t('promo.lutein') }
+])
 
 const packages = ref<PublicPackage[]>([])
 const packagesPending = ref(true)
