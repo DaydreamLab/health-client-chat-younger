@@ -51,6 +51,7 @@ test('plan CTA opens chat and AI can reply', async ({ page, goto }) => {
   await expect(page.getByTestId('chat-last-reply')).toContainText('改善方向')
   await expect(page.getByTestId('chat-selected-plan')).toContainText('基礎保養')
   await expect(page.getByTestId('chat-quiz-option-sleep_quality')).toBeVisible()
+  await expect(page.getByTestId('chat-quiz-option-sleep_quality')).toHaveCSS('border-radius', '6px')
   await expect(page.getByTestId('chat-chip-plans')).toHaveCount(0)
   await page.getByTestId('chat-quiz-option-vitality').click()
   await page.getByTestId('chat-quiz-option-sleep_quality').click()
