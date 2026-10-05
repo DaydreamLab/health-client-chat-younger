@@ -67,7 +67,7 @@
       data-testid="home-goals"
     >
       <div class="mx-auto max-w-6xl px-4 sm:px-6">
-        <h2 class="text-center text-2xl font-semibold text-highlighted sm:text-3xl">
+        <h2 class="text-center text-2xl font-bold text-highlighted sm:text-3xl">
           {{ $t('homeGoals.title') }}
         </h2>
         <p class="mx-auto mt-2 max-w-2xl text-center text-sm text-muted">
@@ -90,7 +90,7 @@
 
     <section class="bg-brand-100 dark:bg-brand-900">
       <div class="mx-auto max-w-6xl px-4 pt-10 pb-16 sm:px-6 sm:pt-12 sm:pb-24">
-        <h2 class="text-center text-2xl font-semibold text-highlighted sm:text-3xl">
+        <h2 class="text-center text-2xl font-bold text-highlighted sm:text-3xl">
           {{ $t('steps.title') }}
         </h2>
         <ol class="app-home-rail mt-8">
@@ -222,45 +222,51 @@
       data-testid="home-trust"
     >
       <div class="mx-auto max-w-6xl px-4 sm:px-6">
-        <h2 class="text-center text-2xl font-semibold text-highlighted sm:text-3xl">
+        <h2 class="text-2xl font-bold text-highlighted sm:text-3xl">
           {{ $t('trust.title') }}
         </h2>
         <div
-          class="app-trust-rotator mx-auto mt-8 grid max-w-4xl items-center gap-8 sm:grid-cols-[240px_minmax(0,1fr)] sm:gap-12"
+          class="app-trust-rotator mt-8 grid items-center gap-8 sm:grid-cols-[minmax(22rem,34rem)_minmax(0,1fr)] sm:gap-12 lg:gap-16"
           data-testid="home-trust-slide"
           :data-trust-key="currentTrust.key"
         >
-          <div
+          <img
             :key="currentTrust.key"
-            class="app-trust-slide mx-auto h-[180px] w-[240px] rounded-2xl"
-            :class="currentTrust.swatch"
+            :src="currentTrust.src"
+            alt=""
+            class="app-trust-slide aspect-[2/1] h-auto w-full rounded-2xl object-cover"
             data-testid="home-trust-swatch"
             aria-hidden="true"
-          />
+          >
           <ol class="space-y-6">
             <li
               v-for="(item, index) in trustItems"
               :key="item.key"
+              class="flex items-stretch gap-3"
               :data-testid="`home-trust-item-${item.key}`"
             >
-              <h3
-                class="text-lg font-medium motion-reduce:text-highlighted"
-                :class="index === trustIndex ? 'text-highlighted' : 'text-muted'"
-              >
-                {{ $t(`trust.${item.key}Title`) }}
-              </h3>
-              <p class="mt-1 text-sm leading-6 text-muted">
-                {{ $t(`trust.${item.key}Hint`) }}
-              </p>
-              <div
-                v-if="index === trustIndex"
-                class="mt-3 h-1 overflow-hidden rounded-full bg-brand-100 motion-reduce:hidden dark:bg-brand-800"
-                data-testid="home-trust-progress"
-              >
+              <div class="relative w-1 shrink-0">
                 <div
-                  class="app-trust-progress h-full w-full origin-left bg-brand-600"
-                  @animationend="advanceTrust"
-                />
+                  v-if="index === trustIndex"
+                  class="absolute inset-0 overflow-hidden rounded-full bg-brand-100 motion-reduce:hidden dark:bg-brand-800"
+                  data-testid="home-trust-progress"
+                >
+                  <div
+                    class="app-trust-progress h-full w-full origin-top bg-brand-600"
+                    @animationend="advanceTrust"
+                  />
+                </div>
+              </div>
+              <div class="min-w-0">
+                <h3
+                  class="text-xl font-bold motion-reduce:text-highlighted"
+                  :class="index === trustIndex ? 'text-highlighted' : 'text-muted'"
+                >
+                  {{ $t(`trust.${item.key}Title`) }}
+                </h3>
+                <p class="mt-1 text-sm leading-6 text-muted">
+                  {{ $t(`trust.${item.key}Hint`) }}
+                </p>
               </div>
             </li>
           </ol>
@@ -291,10 +297,10 @@ const featuredHomeGoal = 'sleep'
 const eyebrowWordKeys = ['eyebrowAdvisor', 'eyebrowLabs', 'eyebrowConsult'] as const
 const systemKeys = ['nutrition', 'metabolic', 'cardio', 'detox', 'endocrine', 'immune'] as const
 const trustItems = [
-  { key: 'data', swatch: 'bg-brand-200' },
-  { key: 'pace', swatch: 'bg-brand-300' },
-  { key: 'advisor', swatch: 'bg-brand-400' },
-  { key: 'record', swatch: 'bg-brand-500' }
+  { key: 'data', src: '/home/trust-data.png' },
+  { key: 'pace', src: '/home/trust-pace.png' },
+  { key: 'advisor', src: '/home/trust-advisor.png' },
+  { key: 'record', src: '/home/trust-record.png' }
 ] as const
 const trustIndex = ref(0)
 const currentTrust = computed(() => trustItems[trustIndex.value] ?? trustItems[0])
