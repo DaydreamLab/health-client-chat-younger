@@ -278,7 +278,6 @@ import {
   assistantStillAsking,
   goalsClarificationOpen,
   inferClarifyingGoalLabels,
-  messageOffersUpload,
   recommendCtaVisible,
   stripFinishedQuizGuide
 } from '~/utils/first-order'
@@ -286,10 +285,6 @@ import { storeToRefs } from 'pinia'
 
 const POLL_INTERVAL_MS = 2000
 const LAB_GAP_CODES = new Set(['lab_report', 'checkup', 'blood_test'])
-/** Answers that mean a recent enough report to offer upload (within 1 year). */
-const UPLOADABLE_LAB_CODES = new Set(['within_1y', 'within_6m'])
-/** Answers that mean no usable report — suggest external checkup instead. */
-const STALE_LAB_CODES = new Set(['none', '1_to_3y', 'over_3y'])
 
 const { t } = useI18n()
 const localePath = useLocalePath()
@@ -320,12 +315,6 @@ const reportPollStatus = ref<string | null>(null)
 const escalated = ref(false)
 const pendingUserContent = ref<string | null>(null)
 const pendingIntent = ref<string | null>(null)
-/** After lab_report confirm of within_1y / within_6m, mark the next agent reply for upload. */
-const offerUploadAfterStream = ref(false)
-/** After lab_report confirm of none / over 1y, mark the next agent reply for checkup link. */
-const offerCheckupAfterStream = ref(false)
-/** True only when the user confirmed a recent-enough lab answer for upload CTA. */
-const labUploadEligible = ref(false)
 const resolvedCheckupUrl = ref('')
 const checkupUrlLoaded = ref(false)
 const reportRetryId = ref<string | null>(null)
@@ -448,7 +437,7 @@ const needsMultiConfirm = computed(() => {
 const confirmDisabled = computed(() =>
   pending.value
   || selectedCodes.value.length === 0
-  || (goalSelectActive.value && selectedCodes.value.length < 2)
+  || (goalSelectActive.value && selectedCodes.value.length < 1)
 )
 
 function choicesFor(message: ChatMessage): GreetingOption[] {
@@ -495,7 +484,11 @@ function showUploadCta(message: ChatMessage) {
   if (readonly.value || escalated.value || journey.hasAnalysis) {
     return false
   }
-  // lab_report 問卷題本身不掛上傳；選「一年內／半年內」後才用 uploadOffer 訊息開鈕。
+  // 開場選目標階段不掛上傳；等後端 upload_offer 再開。
+  if (goalSelectActive.value) {
+    return false
+  }
+  // lab_report 問卷題本身不掛上傳。
   if (
     message.turnType === 'profile'
     && message.profileQuestion
@@ -503,10 +496,7 @@ function showUploadCta(message: ChatMessage) {
   ) {
     return false
   }
-  if (message.uploadOffer) {
-    return true
-  }
-  return messageOffersUpload(displayMessageText(message))
+  return message.uploadOffer === true
 }
 
 function showCheckupCta(message: ChatMessage) {
@@ -517,6 +507,39 @@ function showCheckupCta(message: ChatMessage) {
     return false
   }
   return checkupLinkUrl.value !== ''
+}
+
+type CheckupOfferFields = {
+  checkup_offer?: boolean
+  checkup_suggest?: string | null
+  individual_tests_url?: string | null
+}
+
+function applyCheckupOffer(message: ChatMessage, fields: CheckupOfferFields) {
+  if (!fields.checkup_offer) {
+    return
+  }
+  message.checkupOffer = true
+  // Spec: empty individual_tests_url hides the button, but suggest copy still shows.
+  const suggest = String(fields.checkup_suggest || '').trim()
+  if (suggest) {
+    const existing = messageText(message)
+    if (!existing.includes(suggest)) {
+      const next = existing ? `${existing}\n\n${suggest}` : suggest
+      const file = message.parts.find(part => part.type === 'file')
+      message.parts = [{ type: 'text', text: next }]
+      if (file) {
+        message.parts.push(file)
+      }
+    }
+  }
+  const url = String(fields.individual_tests_url || '').trim()
+  if (url) {
+    resolvedCheckupUrl.value = url
+    checkupUrlLoaded.value = true
+  } else if (!checkupUrlLoaded.value) {
+    void loadCheckupLinkUrl()
+  }
 }
 
 async function loadCheckupLinkUrl() {
@@ -560,18 +583,6 @@ function makeMessage(role: ChatMessage['role'], text: string, id?: string, file?
   }
 }
 
-function markUploadOffer(message: ChatMessage, text: string) {
-  if (message.role !== 'assistant') {
-    return
-  }
-  if (journey.hasAnalysis || readonly.value || escalated.value) {
-    return
-  }
-  if (messageOffersUpload(text)) {
-    message.uploadOffer = true
-  }
-}
-
 function setMessageText(id: string, text: string) {
   const message = journey.messages.find(item => item.id === id)
   if (!message) {
@@ -582,7 +593,6 @@ function setMessageText(id: string, text: string) {
   if (file) {
     message.parts.push(file)
   }
-  markUploadOffer(message, text)
   const isLive = id === liveAssistantId.value
   const isLatestAssistant = id === lastAssistantId.value
   if (isLive || isLatestAssistant) {
@@ -590,13 +600,8 @@ function setMessageText(id: string, text: string) {
   }
 }
 
-function appendMessage(role: ChatMessage['role'], text: string, file?: string, uploadOffer = false) {
+function appendMessage(role: ChatMessage['role'], text: string, file?: string) {
   const message = makeMessage(role, text, undefined, file)
-  if (uploadOffer) {
-    message.uploadOffer = true
-  } else {
-    markUploadOffer(message, text)
-  }
   journey.messages.push(message)
   return message
 }
@@ -772,9 +777,6 @@ async function resetConversation() {
   escalated.value = false
   input.value = ''
   pendingUserContent.value = null
-  offerUploadAfterStream.value = false
-  offerCheckupAfterStream.value = false
-  labUploadEligible.value = false
   reportRetryId.value = null
   reportResults.value = []
   journey.reportDockOpen = false
@@ -818,11 +820,12 @@ async function ensureConversation() {
   journey.reportDockCollapsed = false
   reportDockMessageId.value = null
   if (journey.messages.length === 0) {
-    journey.messages.push(makeMessage(
+    const greeting = makeMessage(
       'assistant',
       created.greeting.content,
       created.greeting.message_id || 'greet'
-    ))
+    )
+    journey.messages.push(greeting)
   }
   goalOptions.value = created.greeting.options ?? []
   selectedCodes.value = [...(created.greeting.selected ?? [])]
@@ -867,7 +870,8 @@ function guideAfterQuiz() {
     // Stale / none path: checkup suggestion already on this bubble — do not invite upload.
     return
   }
-  if (!journey.hasAnalysis && !labUploadEligible.value) {
+  // Upload guide only when server already flagged this bubble (upload_offer).
+  if (!journey.hasAnalysis && !last?.uploadOffer) {
     return
   }
   const text = journey.hasAnalysis
@@ -876,12 +880,9 @@ function guideAfterQuiz() {
   if (last) {
     const existing = messageText(last)
     setMessageText(last.id, existing ? `${existing}\n\n${text}` : text)
-    if (!journey.hasAnalysis) {
-      last.uploadOffer = true
-    }
     return
   }
-  appendMessage('assistant', text, undefined, !journey.hasAnalysis)
+  appendMessage('assistant', text)
 }
 
 function applyStreamMeta(assistantId: string, result: {
@@ -891,6 +892,9 @@ function applyStreamMeta(assistantId: string, result: {
   profile_question: ChatMessage['profileQuestion']
   profile_gaps: string[]
   upload_offer?: boolean
+  checkup_offer?: boolean
+  checkup_suggest?: string | null
+  individual_tests_url?: string | null
 }) {
   const message = journey.messages.find(item => item.id === assistantId)
   if (message) {
@@ -900,8 +904,8 @@ function applyStreamMeta(assistantId: string, result: {
     message.profileGaps = result.profile_gaps
     if (result.upload_offer) {
       message.uploadOffer = true
-      labUploadEligible.value = true
     }
+    applyCheckupOffer(message, result)
   }
   profileGaps.value = result.profile_gaps
   selectedCodes.value = []
@@ -925,7 +929,7 @@ function applyStreamMeta(assistantId: string, result: {
 }
 
 /** Show bank prompt locally without calling chat. Returns true when a profile question was shown. */
-function presentBankQuestion(next: ProfileNext, uploadOffer = false): boolean {
+function presentBankQuestion(next: ProfileNext): boolean {
   if (next.done) {
     activeQuestion.value = null
     quizActive.value = false
@@ -933,13 +937,14 @@ function presentBankQuestion(next: ProfileNext, uploadOffer = false): boolean {
   }
 
   const options = next.options ?? []
-  const message = appendMessage('assistant', next.prompt, undefined, uploadOffer)
+  const message = appendMessage('assistant', next.prompt)
   message.options = options
   message.turnType = 'profile'
   message.profileQuestion = {
     gap_code: next.gap_code,
     answer_type: next.answer_type
   }
+  applyCheckupOffer(message, next)
   activeQuestion.value = {
     done: false,
     gap_code: next.gap_code,
@@ -957,15 +962,13 @@ async function continueAfterSavedAnswer(opts: {
   profileGaps: string[]
   nextQuestion?: ProfileNext | null
   pendingContent: string
-  uploadOffer?: boolean
-  checkupOffer?: boolean
 }) {
   profileGaps.value = opts.profileGaps
   clearLastAssistantOptions()
   selectedCodes.value = []
 
   const next = opts.nextQuestion
-  if (next && presentBankQuestion(next, false)) {
+  if (next && presentBankQuestion(next)) {
     pending.value = false
     focusChatInput()
     return
@@ -973,22 +976,6 @@ async function continueAfterSavedAnswer(opts: {
 
   pendingUserContent.value = opts.pendingContent
   await streamPending()
-  if (opts.uploadOffer) {
-    const last = [...journey.messages].reverse().find(message =>
-      message.role === 'assistant' && !message.notice
-    )
-    if (last) {
-      last.uploadOffer = true
-    }
-  }
-  if (opts.checkupOffer) {
-    const last = [...journey.messages].reverse().find(message =>
-      message.role === 'assistant' && !message.notice
-    )
-    if (last) {
-      last.checkupOffer = true
-    }
-  }
 }
 
 async function streamPending() {
@@ -1095,9 +1082,9 @@ async function sendText(text: string) {
       }
       // diverted / clarification: short reply, keep profile choices
       appendMessage('assistant', result.prompt)
-      if (result.options) {
-        const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
-        if (last) {
+      const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
+      if (last) {
+        if (result.options) {
           last.options = result.options
           last.turnType = 'profile'
           last.profileQuestion = {
@@ -1105,6 +1092,7 @@ async function sendText(text: string) {
             answer_type: profile.answer_type
           }
         }
+        applyCheckupOffer(last, result)
       }
       pending.value = false
       focusChatInput()
@@ -1169,7 +1157,7 @@ async function confirmMultiSelection() {
   }
 
   if (goalSelectActive.value) {
-    if (selectedCodes.value.length < 2) {
+    if (selectedCodes.value.length < 1) {
       appendMessage('assistant', t('chat.goalsNeedTwo'))
       return
     }
@@ -1190,6 +1178,10 @@ async function confirmMultiSelection() {
         }
         if (result.options_kind === 'consultation_goals' || result.options?.length) {
           goalSelectActive.value = true
+        }
+        const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
+        if (last) {
+          applyCheckupOffer(last, result)
         }
         pending.value = false
         return
@@ -1226,12 +1218,6 @@ async function confirmMultiSelection() {
         return
       }
       const label = choiceOptions.value.find(o => o.code === code)?.label ?? code
-      offerUploadAfterStream.value = UPLOADABLE_LAB_CODES.has(code)
-      offerCheckupAfterStream.value = STALE_LAB_CODES.has(code)
-      labUploadEligible.value = UPLOADABLE_LAB_CODES.has(code)
-      if (offerCheckupAfterStream.value) {
-        void loadCheckupLinkUrl()
-      }
       return submitProfileChoice({ value: code, display: label })
     }
 
@@ -1278,26 +1264,24 @@ async function submitProfileChoice(payload: {
             gap_code: profile.gap_code,
             answer_type: profile.answer_type
           }
+          applyCheckupOffer(last, result)
+        }
+      } else {
+        const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
+        if (last) {
+          applyCheckupOffer(last, result)
         }
       }
       pending.value = false
       return
     }
 
-    const uploadOffer = offerUploadAfterStream.value
-    const checkupOffer = offerCheckupAfterStream.value
-    offerUploadAfterStream.value = false
-    offerCheckupAfterStream.value = false
     await continueAfterSavedAnswer({
       profileGaps: result.profile_gaps,
       nextQuestion: result.next_question,
-      pendingContent: payload.display,
-      uploadOffer,
-      checkupOffer
+      pendingContent: payload.display
     })
   } catch {
-    offerUploadAfterStream.value = false
-    offerCheckupAfterStream.value = false
     appendMessage('assistant', t('chat.streamError'))
     pending.value = false
   }
@@ -1559,6 +1543,10 @@ async function onSubmit() {
       if (result.options_kind === 'consultation_goals' || result.options?.length) {
         goalSelectActive.value = true
       }
+      const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
+      if (last) {
+        applyCheckupOffer(last, result)
+      }
     } catch {
       appendMessage('assistant', t('chat.streamError'))
     } finally {
@@ -1632,15 +1620,6 @@ watch(orderId, async (id) => {
   }
 })
 
-function restoreUploadOffers() {
-  if (journey.hasAnalysis || readonly.value || escalated.value) {
-    return
-  }
-  for (const message of journey.messages) {
-    markUploadOffer(message, messageText(message))
-  }
-}
-
 /** Reload report rows after refresh; dock stays closed until the user expands it. */
 async function restoreReportSession() {
   const reportId = journey.reportId
@@ -1689,7 +1668,6 @@ onMounted(async () => {
   }
 
   journey.hydrate()
-  restoreUploadOffers()
 
   if (route.query.handoff === '1' && auth.hasSession) {
     escalated.value = true

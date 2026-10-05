@@ -245,7 +245,7 @@
   "chat": {
     "title": "諮詢",
     "placeholder": "想補充什麼可以直接打在這裡…",
-    "placeholderGoals": "選至少兩個方向後按確認，或直接打字…",
+    "placeholderGoals": "選至少一個方向後按確認，或直接打字…",
     "send": "送出",
     "you": "你",
     "thinking": "正在整理回覆…",
@@ -281,7 +281,7 @@
     "explainHighlights": "請助理說明重點",
     "continueIntake": "請繼續尚未完成的問答",
     "reportSkippedMismatch": "這份報告的患者資料與你在問答填的性別／年齡不符，已略過報告、改依你選定的改善方向繼續。",
-    "goalsNeedTwo": "請至少選兩個改善方向再確認。",
+    "goalsNeedTwo": "請至少選一個改善方向再確認。",
     "reportFailed": "報告處理失敗，可再試一次。",
     "reportNeedsReview": "報告擷取信心不足，可重試擷取。",
     "reportRetry": "重試擷取",

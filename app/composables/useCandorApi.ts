@@ -201,6 +201,10 @@ export function useCandorApi() {
     let external: StreamMessageResult['external'] = null
     let profileGaps: string[] = []
     let uploadOffer = false
+    let checkupOffer = false
+    let checkupSuggest: string | null = null
+    let checkupOfferLabel: string | null = null
+    let individualTestsUrl: string | null = null
 
     while (true) {
       const { done, value } = await reader.read()
@@ -272,6 +276,14 @@ export function useCandorApi() {
             ? (data.profile_gaps as string[])
             : []
           uploadOffer = data.upload_offer === true
+          checkupOffer = data.checkup_offer === true
+          checkupSuggest = typeof data.checkup_suggest === 'string' ? data.checkup_suggest : null
+          checkupOfferLabel = typeof data.checkup_offer_label === 'string'
+            ? data.checkup_offer_label
+            : null
+          individualTestsUrl = typeof data.individual_tests_url === 'string'
+            ? data.individual_tests_url
+            : null
           handlers.onReplace?.(full)
         } else if (eventName === 'error') {
           const err = data.error as { code?: string, message?: string } | undefined
@@ -294,7 +306,11 @@ export function useCandorApi() {
       profile_question: profileQuestion,
       external,
       profile_gaps: profileGaps,
-      upload_offer: uploadOffer
+      upload_offer: uploadOffer,
+      checkup_offer: checkupOffer,
+      checkup_suggest: checkupSuggest,
+      checkup_offer_label: checkupOfferLabel,
+      individual_tests_url: individualTestsUrl
     }
   }
 

@@ -124,18 +124,6 @@ export function inferClarifyingGoalLabels(
   return []
 }
 
-/** Assistant invited the user to upload a report now (not merely asked whether they have one). */
-export function messageOffersUpload(text: string): boolean {
-  if (/upload report/i.test(text)) {
-    return true
-  }
-  // 「是否有…報告」是問卷題，不是上傳 CTA。
-  if (/是否有/.test(text) && /報告|檢驗|血檢|健檢/.test(text)) {
-    return false
-  }
-  return text.includes('上傳') && /報告|檢驗/.test(text)
-}
-
 /**
  * 「查看推薦方案」出現在最新一則助理訊息上。
  * 還在選改善方向、串流中，或這則本身仍是 profile 題庫題時先不顯示。

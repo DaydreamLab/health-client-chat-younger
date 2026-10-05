@@ -245,7 +245,7 @@
   "chat": {
     "title": "Consult",
     "placeholder": "Type anything you want to add…",
-    "placeholderGoals": "Pick at least two directions, then confirm — or type your own…",
+    "placeholderGoals": "Pick at least one direction, then confirm — or type your own…",
     "send": "Send",
     "you": "You",
     "thinking": "Putting a reply together…",
@@ -281,7 +281,7 @@
     "explainHighlights": "Explain the highlights",
     "continueIntake": "Please continue the unfinished questions",
     "reportSkippedMismatch": "This report’s patient details don’t match the sex/age from your answers, so it was skipped. We’ll continue from the goals you selected.",
-    "goalsNeedTwo": "Please pick at least two focus areas before confirming.",
+    "goalsNeedTwo": "Please pick at least one focus area before confirming.",
     "reportFailed": "Report processing failed. You can retry.",
     "reportNeedsReview": "Extraction confidence is low. You can retry.",
     "reportRetry": "Retry extraction",

@@ -143,6 +143,8 @@ export interface ConversationGreeting {
   options: GreetingOption[]
   options_kind?: 'consultation_goals' | null
   selected?: string[]
+  /** Not used on greeting; upload CTA comes after lab_report within_1y/within_6m. */
+  upload_offer?: boolean
 }
 
 export interface ConversationCreate {
@@ -175,6 +177,10 @@ export interface ProfileNextQuestion {
   prompt: string
   answer_type: ProfileAnswerType
   options?: GreetingOption[] | null
+  checkup_offer?: boolean
+  checkup_suggest?: string | null
+  checkup_offer_label?: string | null
+  individual_tests_url?: string | null
 }
 
 export type ProfileNext = ProfileNextDone | ProfileNextQuestion
@@ -189,6 +195,10 @@ export interface ConversationGoalsResult {
   options_kind?: 'consultation_goals' | null
   selected?: string[]
   next_question?: ProfileNext
+  checkup_offer?: boolean
+  checkup_suggest?: string | null
+  checkup_offer_label?: string | null
+  individual_tests_url?: string | null
 }
 
 export interface ConversationPackageConfirm {
@@ -428,6 +438,10 @@ export interface ProfileAnswerNeedsClarification {
   diverted?: boolean
   prompt: string
   options?: GreetingOption[]
+  checkup_offer?: boolean
+  checkup_suggest?: string | null
+  checkup_offer_label?: string | null
+  individual_tests_url?: string | null
 }
 
 export type ProfileAnswerResult = ProfileAnswerSaved | ProfileAnswerNeedsClarification
@@ -461,6 +475,10 @@ export interface StreamMessageResult {
   profile_gaps: string[]
   /** Server: intake says within 1y and conversation has no report yet. */
   upload_offer?: boolean
+  checkup_offer?: boolean
+  checkup_suggest?: string | null
+  checkup_offer_label?: string | null
+  individual_tests_url?: string | null
 }
 
 export interface ApiSuccess<T> {
