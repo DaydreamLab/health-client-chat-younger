@@ -113,6 +113,17 @@
     "immune": "免疫",
     "immuneHint": "血球、發炎與過敏相關"
   },
+  "trust": {
+    "title": "為什麼可以把健康數據交給我們",
+    "dataTitle": "從你的數據開始",
+    "dataHint": "有血檢就一起看，沒有也能先聊。先看懂數字，再決定怎麼補。",
+    "paceTitle": "一步一步往前",
+    "paceHint": "對談、選方案、付款之後，解讀、採檢或選品才由顧問接手。",
+    "advisorTitle": "顧問接手",
+    "advisorHint": "建議依你的對談與報告組成，供健康管理參考，非醫療診斷。",
+    "recordTitle": "跟著你的資料走",
+    "recordHint": "報告與方案會留在帳號裡，之後看圖表與品項都對得到同一個人。"
+  },
   "login": {
     "title": "登入後資料才對得到人",
     "registerTitle": "註冊會員",

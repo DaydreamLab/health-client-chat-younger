@@ -215,6 +215,58 @@
         </article>
       </div>
     </section>
+
+    <section
+      class="py-12 sm:py-16"
+      :aria-label="$t('trust.title')"
+      data-testid="home-trust"
+    >
+      <div class="mx-auto max-w-6xl px-4 sm:px-6">
+        <h2 class="text-center text-2xl font-semibold text-highlighted sm:text-3xl">
+          {{ $t('trust.title') }}
+        </h2>
+        <div
+          class="app-trust-rotator mx-auto mt-8 grid max-w-4xl items-center gap-8 sm:grid-cols-[240px_minmax(0,1fr)] sm:gap-12"
+          data-testid="home-trust-slide"
+          :data-trust-key="currentTrust.key"
+        >
+          <div
+            :key="currentTrust.key"
+            class="app-trust-slide mx-auto h-[180px] w-[240px] rounded-2xl"
+            :class="currentTrust.swatch"
+            data-testid="home-trust-swatch"
+            aria-hidden="true"
+          />
+          <ol class="space-y-6">
+            <li
+              v-for="(item, index) in trustItems"
+              :key="item.key"
+              :data-testid="`home-trust-item-${item.key}`"
+            >
+              <h3
+                class="text-lg font-medium motion-reduce:text-highlighted"
+                :class="index === trustIndex ? 'text-highlighted' : 'text-muted'"
+              >
+                {{ $t(`trust.${item.key}Title`) }}
+              </h3>
+              <p class="mt-1 text-sm leading-6 text-muted">
+                {{ $t(`trust.${item.key}Hint`) }}
+              </p>
+              <div
+                v-if="index === trustIndex"
+                class="mt-3 h-1 overflow-hidden rounded-full bg-brand-100 motion-reduce:hidden dark:bg-brand-800"
+                data-testid="home-trust-progress"
+              >
+                <div
+                  class="app-trust-progress h-full w-full origin-left bg-brand-600"
+                  @animationend="advanceTrust"
+                />
+              </div>
+            </li>
+          </ol>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -238,6 +290,21 @@ const homeGoalCodes = [
 const featuredHomeGoal = 'sleep'
 const eyebrowWordKeys = ['eyebrowAdvisor', 'eyebrowLabs', 'eyebrowConsult'] as const
 const systemKeys = ['nutrition', 'metabolic', 'cardio', 'detox', 'endocrine', 'immune'] as const
+const trustItems = [
+  { key: 'data', swatch: 'bg-brand-200' },
+  { key: 'pace', swatch: 'bg-brand-300' },
+  { key: 'advisor', swatch: 'bg-brand-400' },
+  { key: 'record', swatch: 'bg-brand-500' }
+] as const
+const trustIndex = ref(0)
+const currentTrust = computed(() => trustItems[trustIndex.value] ?? trustItems[0])
+
+function advanceTrust(event: AnimationEvent) {
+  if (event.animationName !== 'app-trust-progress') {
+    return
+  }
+  trustIndex.value = (trustIndex.value + 1) % trustItems.length
+}
 const plansHref = computed(() => `${localePath('/')}#plans`)
 const promoSlides = computed(() => [
   { src: '/home/acerola-vitamin-c.png', alt: t('promo.acerola') },

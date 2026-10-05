@@ -728,6 +728,38 @@ button:focus:not(:focus-visible) {
     }
   }
 
+  .app-trust-slide {
+    animation: app-trust-in 0.35s ease;
+  }
+
+  .app-trust-progress {
+    animation: app-trust-progress 5s linear forwards;
+  }
+
+  .app-trust-rotator:hover .app-trust-progress {
+    animation-play-state: paused;
+  }
+
+  @keyframes app-trust-in {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes app-trust-progress {
+    from {
+      transform: scaleX(0);
+    }
+
+    to {
+      transform: scaleX(1);
+    }
+  }
+
   .app-hero-shade {
     background: linear-gradient(
       180deg,

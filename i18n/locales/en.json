@@ -113,6 +113,17 @@
     "immune": "Immune",
     "immuneHint": "Blood counts, inflammation, and allergy signals"
   },
+  "trust": {
+    "title": "Why you can trust us with your health data",
+    "dataTitle": "Your data first",
+    "dataHint": "Bring a blood test if you have one. You can start without it. Read the numbers, then decide what to add.",
+    "paceTitle": "One step at a time",
+    "paceHint": "Talk, pick a plan, and pay. Reading, collection, or product picks open after that, with an advisor.",
+    "advisorTitle": "An advisor takes over",
+    "advisorHint": "Suggestions follow your conversation and report. They are for health management, not a medical diagnosis.",
+    "recordTitle": "Tied to your record",
+    "recordHint": "Reports and plans stay on your account, so later charts and items match the same person."
+  },
   "login": {
     "title": "Log in so we can match your records",
     "registerTitle": "Create an account",
