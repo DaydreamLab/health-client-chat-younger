@@ -15,7 +15,7 @@
           <div class="app-hero-copy w-full max-w-xl text-center text-white">
             <p
               data-testid="brand-hero"
-              class="text-xs font-medium tracking-wide min-[375px]:text-sm"
+              class="text-lg font-medium tracking-wide"
             >
               <span class="sr-only">{{ $t('hero.eyebrow') }}</span>
               <span

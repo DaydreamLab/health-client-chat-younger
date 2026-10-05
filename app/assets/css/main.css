@@ -644,17 +644,20 @@ button:focus:not(:focus-visible) {
     align-items: center;
     justify-content: center;
     gap: 0.4em;
+    line-height: 1;
   }
 
   .app-hero-cycle-slot {
     display: inline-grid;
-    height: 1.25em;
+    height: 1em;
     align-items: center;
+    justify-items: center;
     overflow: hidden;
   }
 
   .app-hero-cycle-word {
     grid-area: 1 / 1;
+    line-height: 1;
     opacity: 0;
     animation: app-hero-cycle 6s linear infinite;
   }
