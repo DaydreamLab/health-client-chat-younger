@@ -236,6 +236,15 @@ test('mobile nav stays inside the header toggle', async ({ page, goto }) => {
 
   await expect(page.getByTestId('user-header')).toBeVisible()
   await expect(page.getByTestId('user-sidebar')).toBeHidden()
+  const headerBox = await page.getByTestId('user-header').boundingBox()
+  expect(headerBox?.y).toBe(0)
+  await page.locator('main').evaluate((el) => {
+    el.scrollTop = el.scrollHeight
+  })
+  const headerAfter = await page.getByTestId('user-header').boundingBox()
+  expect(headerAfter?.y).toBe(0)
+  expect(await page.evaluate(() => window.scrollY)).toBe(0)
+  await expect(page.locator('main')).toHaveCSS('scrollbar-width', 'none')
   const account = page.getByTestId('user-header').getByTestId('account-user')
   await expect(account).toHaveAttribute('title', 'Guest')
   await expect(account).toHaveText('GU')

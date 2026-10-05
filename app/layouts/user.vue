@@ -1,8 +1,5 @@
 <template>
-  <div
-    class="flex flex-row bg-default text-default"
-    :class="isChat ? 'h-dvh overflow-hidden' : 'min-h-dvh'"
-  >
+  <div class="flex h-dvh flex-row overflow-hidden bg-default text-default">
     <aside
       id="user-sidebar"
       class="hidden w-20 shrink-0 flex-col items-center overflow-hidden border-e border-default bg-elevated p-2 lg:flex"
@@ -13,7 +10,7 @@
         compact
         class="shrink-0"
       />
-      <div class="mt-6 min-h-0 w-full flex-1 overflow-y-auto">
+      <div class="mt-6 min-h-0 w-full flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         <UNavigationMenu
           class="w-full"
           orientation="vertical"
@@ -36,10 +33,7 @@
       </div>
     </aside>
 
-    <div
-      class="flex min-w-0 flex-1 flex-col"
-      :class="isChat ? 'min-h-0' : undefined"
-    >
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <header
         class="flex h-16 shrink-0 items-center gap-3 border-b border-default px-4 sm:px-6 lg:hidden"
         data-testid="user-header"
@@ -122,8 +116,10 @@
         </AppButton>
       </nav>
       <main
-        class="flex-1"
-        :class="isChat ? 'flex min-h-0 flex-col p-0' : 'p-4 sm:p-6'"
+        class="flex min-h-0 flex-1 flex-col"
+        :class="isChat
+          ? 'overflow-hidden p-0'
+          : 'overflow-y-auto p-4 sm:p-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'"
       >
         <slot />
       </main>

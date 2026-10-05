@@ -130,6 +130,40 @@ test.describe('member order detail', () => {
     await expect(card.getByTestId('health-report-expand')).toHaveText('展開報告')
     await expect(card.getByTestId('health-report-detail')).toBeVisible()
     await expect(card.getByTestId('report-result-row-result-e2e-0')).toBeVisible()
+
+    const shell = await page.evaluate(() => {
+      const sidebar = document.getElementById('user-sidebar')
+      const main = document.querySelector('main')
+      const mainStyle = main ? getComputedStyle(main) : null
+      return {
+        windowScroll: window.scrollY,
+        sidebarTop: sidebar?.getBoundingClientRect().top ?? -1,
+        sidebarHeight: sidebar?.getBoundingClientRect().height ?? 0,
+        mainOverflowY: mainStyle?.overflowY ?? '',
+        mainScrollbar: mainStyle?.scrollbarWidth ?? '',
+        mainClient: main?.clientHeight ?? 0,
+        mainScroll: main?.scrollHeight ?? 0
+      }
+    })
+    expect(shell.windowScroll).toBe(0)
+    expect(shell.sidebarTop).toBe(0)
+    expect(shell.sidebarHeight).toBe(800)
+    expect(shell.mainOverflowY).toBe('auto')
+    expect(shell.mainScrollbar).toBe('none')
+    expect(shell.mainScroll).toBeGreaterThan(shell.mainClient)
+
+    const mainScrollTop = await page.locator('main').evaluate((el) => {
+      el.scrollTop = 240
+      return el.scrollTop
+    })
+    const afterScroll = await page.evaluate(() => ({
+      windowScroll: window.scrollY,
+      sidebarTop: document.getElementById('user-sidebar')?.getBoundingClientRect().top ?? -1
+    }))
+    expect(mainScrollTop).toBeGreaterThan(0)
+    expect(afterScroll.windowScroll).toBe(0)
+    expect(afterScroll.sidebarTop).toBe(0)
+
     await expect(cards.getByText('報告樣式2')).toBeVisible()
     await expect(cards.getByTestId('health-report-view-table')).toHaveAttribute('aria-pressed', 'true')
     await expect(cards.getByTestId('report-result-strip-result-e2e-0')).toBeVisible()
@@ -299,6 +333,11 @@ test.describe('member checkout', () => {
     const pending = page.waitForRequest(request =>
       request.url().includes('/api/v1/orders') && request.method() === 'POST'
     )
+    await page.route('https://sandbox.example/**', route => route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      body: '<!doctype html><title>sandbox</title>'
+    }))
     await page.getByTestId('checkout-submit').click()
     const placeReq = await pending
     const body = placeReq.postDataJSON() as {
