@@ -1,7 +1,7 @@
 <template>
   <div>
-    <section class="app-hero relative isolate overflow-hidden">
-      <div class="app-hero-frame relative">
+    <section class="app-hero relative isolate -mt-16 min-h-dvh overflow-hidden">
+      <div class="app-hero-frame relative min-h-dvh">
         <img
           src="/hero-banner.png"
           alt=""
@@ -11,7 +11,7 @@
           class="app-hero-shade pointer-events-none absolute inset-0"
           aria-hidden="true"
         />
-        <div class="relative flex min-h-[34rem] items-end px-4 py-10 sm:absolute sm:inset-0 sm:min-h-0 sm:items-center sm:justify-end sm:px-6 sm:py-16">
+        <div class="relative flex min-h-dvh items-end px-4 py-10 sm:absolute sm:inset-0 sm:min-h-0 sm:items-center sm:justify-end sm:px-6 sm:py-16">
           <div class="app-hero-copy w-full max-w-xl text-center text-white">
             <p
               data-testid="brand-hero"

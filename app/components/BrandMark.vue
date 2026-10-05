@@ -14,6 +14,13 @@
       data-testid="brand"
       class="size-16 object-contain"
     >
+    <img
+      v-else-if="onPhoto"
+      :src="wordmarkSrc"
+      alt=""
+      data-testid="brand"
+      class="h-10 w-auto"
+    >
     <template v-else>
       <img
         :src="wordmarkSrc"
@@ -34,8 +41,10 @@
 <script setup lang="ts">
 withDefaults(defineProps<{
   compact?: boolean
+  onPhoto?: boolean
 }>(), {
-  compact: false
+  compact: false,
+  onPhoto: false
 })
 
 const localePath = useLocalePath()

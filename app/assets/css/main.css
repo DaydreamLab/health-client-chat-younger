@@ -231,6 +231,17 @@ button:focus:not(:focus-visible) {
     outline-offset: 2px;
   }
 
+  .app-header-overlay .app-btn-ghost,
+  .app-header-overlay .app-icon-toggle {
+    color: #012c4e;
+  }
+
+  .app-header-overlay .app-btn-ghost:hover,
+  .app-header-overlay .app-icon-toggle:hover {
+    background-color: rgb(1 44 78 / 0.08);
+    color: #012c4e;
+  }
+
   .app-path-card {
     display: flex;
     flex-direction: column;
@@ -579,6 +590,8 @@ button:focus:not(:focus-visible) {
       rgb(43 105 145 / 0.45) 42%,
       rgb(1 44 78 / 0.94) 100%
     );
+    -webkit-mask-image: linear-gradient(180deg, transparent 0, transparent 4rem, #000 8.5rem);
+    mask-image: linear-gradient(180deg, transparent 0, transparent 4rem, #000 8.5rem);
   }
 
   .app-hero-actions {
@@ -650,10 +663,6 @@ button:focus:not(:focus-visible) {
   }
 
   @media (min-width: 640px) {
-    .app-hero-frame {
-      aspect-ratio: 16 / 9;
-    }
-
     .app-hero-copy {
       transform-origin: right center;
       transform: scale(1.1);

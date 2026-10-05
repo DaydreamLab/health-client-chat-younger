@@ -1,9 +1,18 @@
 <template>
   <div
-    class="flex flex-col bg-default text-default"
+    class="relative flex flex-col bg-default text-default"
     :class="isChat ? 'h-dvh overflow-hidden' : 'min-h-dvh'"
   >
-    <header class="shrink-0 border-b border-default bg-elevated">
+    <div
+      ref="scrollSentinel"
+      class="pointer-events-none absolute inset-x-0 top-0 h-2"
+      aria-hidden="true"
+    />
+    <header
+      class="sticky top-0 z-30 shrink-0 border-b transition-colors duration-200"
+      :class="headerOverHero ? 'app-header-overlay border-transparent bg-transparent' : 'border-default bg-elevated'"
+      :data-header-state="headerOverHero ? 'overlay' : 'solid'"
+    >
       <div class="relative mx-auto flex h-16 w-full max-w-6xl items-center gap-3 px-4 sm:px-6">
         <button
           type="button"
@@ -44,12 +53,15 @@
             <path d="M4 18h16" />
           </svg>
         </button>
-        <BrandMark v-if="auth.isMember" />
+        <BrandMark
+          v-if="auth.isMember"
+          :on-photo="headerOverHero"
+        />
         <div
           v-else
           class="absolute left-1/2 -translate-x-1/2 lg:static lg:translate-x-0"
         >
-          <BrandMark />
+          <BrandMark :on-photo="headerOverHero" />
         </div>
         <div class="ms-auto flex items-center gap-2 sm:gap-3">
           <nav class="hidden items-center gap-2 text-sm sm:gap-3 lg:flex">
@@ -117,6 +129,29 @@ const footerYear = new Date().getFullYear()
 const mobileNavOpen = ref(false)
 
 const isChat = computed(() => route.path.includes('/chat'))
+const isHome = computed(() => route.path === '/' || route.path === '/en' || route.path === '/en/')
+const heroAtTop = ref(true)
+const scrollSentinel = ref<HTMLElement | null>(null)
+let heroObserver: IntersectionObserver | undefined
+
+const headerOverHero = computed(() => isHome.value && heroAtTop.value && !mobileNavOpen.value)
+
+onMounted(() => {
+  const node = scrollSentinel.value
+  if (!node) {
+    return
+  }
+
+  heroObserver = new IntersectionObserver(([entry]) => {
+    heroAtTop.value = entry?.isIntersecting ?? true
+  })
+  heroObserver.observe(node)
+})
+
+onBeforeUnmount(() => {
+  heroObserver?.disconnect()
+})
+
 const homeNavItems = computed(() => {
   const items = [
     { label: t('nav.plans'), to: `${localePath('/')}#plans` },
