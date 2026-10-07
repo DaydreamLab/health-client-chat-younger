@@ -107,6 +107,44 @@ export interface RecommendationPackageItem {
   image_url?: string | null
 }
 
+export interface ClaimGuardHit {
+  term: string
+  severity: 'blocked' | 'rewritten' | string
+}
+
+export interface PackageRationaleEntry {
+  code: string
+  name: string
+  ingredient_label: string
+  line: string
+  claim_guard_hits: ClaimGuardHit[]
+}
+
+export interface PackageRationaleGroup {
+  kind: 'goal' | 'signal' | string
+  key: string
+  title: string
+  entries: PackageRationaleEntry[]
+}
+
+export interface PackageRationaleItem {
+  code: string
+  name: string
+  reason: string
+  claim_guard_hits: ClaimGuardHit[]
+}
+
+/** Overview card above package contents; from POST /recommendations. */
+export interface PackageRationale {
+  headline: string
+  body: string
+  disclaimer: string
+  copy_mode: 'llm' | 'template' | string
+  groups: PackageRationaleGroup[]
+  items: PackageRationaleItem[]
+  claim_guard_hits: ClaimGuardHit[]
+}
+
 export interface RecommendationPackage {
   package_plan_code: string
   package_plan_name: string
@@ -116,6 +154,7 @@ export interface RecommendationPackage {
   used_amount: number
   remaining: number
   composition_hash: string
+  rationale?: PackageRationale | null
 }
 
 export interface RecommendationResponse {

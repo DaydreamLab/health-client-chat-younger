@@ -227,7 +227,71 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
               ],
               used_amount: 1280,
               remaining: 0,
-              composition_hash: 'sha256:basic'
+              composition_hash: 'sha256:basic',
+              rationale: {
+                headline: '評估與總覽',
+                body: '關注免疫提升\n- 建議補充維生素C成份：維生素 C\n\n低密度脂蛋白 190 mg/dL 偏高\n- 建議補充維生素D成份：維生素 D\n- 建議補充鐵成份：鐵蛋白調理',
+                disclaimer: '本建議僅供健康管理參考，非醫療診斷或療效保證。',
+                copy_mode: 'template',
+                groups: [
+                  {
+                    kind: 'goal',
+                    key: 'goal:immune_boost',
+                    title: '關注免疫提升',
+                    entries: [
+                      {
+                        code: 'vitamin_c',
+                        name: '維生素 C',
+                        ingredient_label: '維生素C',
+                        line: '建議補充維生素C成份：維生素 C',
+                        claim_guard_hits: [{ term: '治癒', severity: 'blocked' }]
+                      }
+                    ]
+                  },
+                  {
+                    kind: 'signal',
+                    key: 'signal:LDL:190',
+                    title: '低密度脂蛋白 190 mg/dL 偏高',
+                    entries: [
+                      {
+                        code: 'vitamin_d',
+                        name: '維生素 D',
+                        ingredient_label: '維生素D',
+                        line: '建議補充維生素D成份：維生素 D',
+                        claim_guard_hits: []
+                      },
+                      {
+                        code: 'iron',
+                        name: '鐵蛋白調理',
+                        ingredient_label: '鐵',
+                        line: '建議補充鐵成份：鐵蛋白調理',
+                        claim_guard_hits: []
+                      }
+                    ]
+                  }
+                ],
+                items: [
+                  {
+                    code: 'vitamin_c',
+                    name: '維生素 C',
+                    reason: '建議補充維生素C成份：維生素 C',
+                    claim_guard_hits: [{ term: '治癒', severity: 'blocked' }]
+                  },
+                  {
+                    code: 'vitamin_d',
+                    name: '維生素 D',
+                    reason: '建議補充維生素D成份：維生素 D',
+                    claim_guard_hits: []
+                  },
+                  {
+                    code: 'iron',
+                    name: '鐵蛋白調理',
+                    reason: '建議補充鐵成份：鐵蛋白調理',
+                    claim_guard_hits: []
+                  }
+                ],
+                claim_guard_hits: [{ term: '治癒', severity: 'blocked' }]
+              }
             },
             {
               package_plan_code: 'advance',
@@ -287,7 +351,51 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
               ],
               used_amount: 1560,
               remaining: 420,
-              composition_hash: 'sha256:advance'
+              composition_hash: 'sha256:advance',
+              rationale: {
+                headline: '評估與總覽',
+                body: '關注免疫提升\n- 建議補充維生素D成份：維生素 D\n- 建議補充魚油成份：Omega-3',
+                disclaimer: '本建議僅供健康管理參考，非醫療診斷或療效保證。',
+                copy_mode: 'template',
+                groups: [
+                  {
+                    kind: 'goal',
+                    key: 'goal:immune_boost',
+                    title: '關注免疫提升',
+                    entries: [
+                      {
+                        code: 'vitamin_d',
+                        name: '維生素 D',
+                        ingredient_label: '維生素D',
+                        line: '建議補充維生素D成份：維生素 D',
+                        claim_guard_hits: []
+                      },
+                      {
+                        code: 'omega3',
+                        name: 'Omega-3',
+                        ingredient_label: '魚油',
+                        line: '建議補充魚油成份：Omega-3',
+                        claim_guard_hits: []
+                      }
+                    ]
+                  }
+                ],
+                items: [
+                  {
+                    code: 'vitamin_d',
+                    name: '維生素 D',
+                    reason: '建議補充維生素D成份：維生素 D',
+                    claim_guard_hits: []
+                  },
+                  {
+                    code: 'omega3',
+                    name: 'Omega-3',
+                    reason: '建議補充魚油成份：Omega-3',
+                    claim_guard_hits: []
+                  }
+                ],
+                claim_guard_hits: []
+              }
             }
           ],
           excluded: []

@@ -430,6 +430,8 @@
     "recoError": "Recommendations are temporarily unavailable. Please try again.",
     "itemsTitle": "Package contents",
     "itemsEmpty": "This package has no items yet. Pick another package or complete your profile.",
+    "rationaleTitle": "Assessment & overview",
+    "rationaleHint": "Why these products were included (red badges = claim-guard blocked terms)",
     "itemKindCore": "Core",
     "itemKindFunctional": "Functional",
     "doseLocked": "{count} capsule / day",

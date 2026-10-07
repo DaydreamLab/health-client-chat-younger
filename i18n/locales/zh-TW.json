@@ -430,6 +430,8 @@
     "recoError": "暫時無法取得建議，請稍後再試。",
     "itemsTitle": "方案內容",
     "itemsEmpty": "此方案目前無法組成品項，請改選其他方案或補齊資料。",
+    "rationaleTitle": "評估與總覽",
+    "rationaleHint": "為何選入這些產品（紅色標籤＝合規詞庫會擋）",
     "itemKindCore": "核心",
     "itemKindFunctional": "功能型",
     "doseLocked": "每日 {count} 顆",

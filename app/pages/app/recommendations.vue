@@ -44,43 +44,6 @@
     class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]"
   >
     <div class="space-y-6">
-      <section
-        class="rounded-2xl border border-default bg-elevated p-5"
-        data-testid="health-report"
-      >
-        <h2 class="font-semibold text-highlighted">
-          {{ $t('recommendation.reportSection') }}
-        </h2>
-        <p
-          v-if="reportPending"
-          class="mt-2 text-sm text-muted"
-          data-testid="health-report-loading"
-        >
-          {{ $t('recommendation.reportLoading') }}
-        </p>
-        <p
-          v-else-if="!reportResults.length"
-          class="mt-2 text-sm text-muted"
-          data-testid="health-report-empty"
-        >
-          {{ $t('recommendation.reportEmpty') }}
-        </p>
-        <template v-else>
-          <div class="mt-3">
-            <ReportResultLegend />
-          </div>
-          <div
-            class="mt-3 max-h-80 overflow-y-auto"
-            data-testid="health-report-scroll"
-          >
-            <ReportResultTable
-              :results="reportResults"
-              :show-legend="false"
-            />
-          </div>
-        </template>
-      </section>
-
       <section class="rounded-2xl border border-default bg-elevated p-5">
         <h2 class="text-xl font-semibold text-highlighted">
           {{ $t('recommendation.packagePick') }}
@@ -129,6 +92,103 @@
               {{ $t('recommendation.itemCountHint', { count: pkg.items.length }) }}
             </p>
           </label>
+        </div>
+      </section>
+
+      <section
+        class="rounded-2xl border border-default bg-elevated p-5"
+        data-testid="health-report"
+      >
+        <h2 class="font-semibold text-highlighted">
+          {{ $t('recommendation.reportSection') }}
+        </h2>
+        <p
+          v-if="reportPending"
+          class="mt-2 text-sm text-muted"
+          data-testid="health-report-loading"
+        >
+          {{ $t('recommendation.reportLoading') }}
+        </p>
+        <p
+          v-else-if="!reportResults.length"
+          class="mt-2 text-sm text-muted"
+          data-testid="health-report-empty"
+        >
+          {{ $t('recommendation.reportEmpty') }}
+        </p>
+        <template v-else>
+          <div class="mt-3">
+            <ReportResultLegend />
+          </div>
+          <div
+            class="mt-3 max-h-80 overflow-y-auto"
+            data-testid="health-report-scroll"
+          >
+            <ReportResultTable
+              :results="reportResults"
+              :show-legend="false"
+            />
+          </div>
+        </template>
+      </section>
+
+      <section
+        v-if="selectedRationale"
+        class="overflow-hidden rounded-2xl border border-default bg-elevated"
+        data-testid="package-rationale"
+      >
+        <div class="border-b border-default px-5 py-4">
+          <div class="flex flex-wrap items-center gap-2">
+            <h2 class="font-semibold text-highlighted">
+              {{ selectedRationale.headline || $t('recommendation.rationaleTitle') }}
+            </h2>
+            <span
+              v-for="hit in selectedRationale.claim_guard_hits"
+              :key="`card-${hit.term}-${hit.severity}`"
+              class="inline-flex items-center rounded-full bg-error/10 px-2 py-0.5 text-xs font-medium text-error"
+              data-testid="rationale-claim-hit"
+            >
+              {{ hit.term }}
+            </span>
+          </div>
+          <p class="mt-1 text-sm text-muted">
+            {{ $t('recommendation.rationaleHint') }}
+          </p>
+        </div>
+        <div
+          class="px-5 py-4 space-y-4"
+          data-testid="rationale-body"
+        >
+          <template v-if="rationaleGroups.length">
+            <div
+              v-for="group in rationaleGroups"
+              :key="group.key"
+              class="space-y-1"
+              data-testid="rationale-group"
+            >
+              <p class="text-sm font-medium text-highlighted">
+                {{ group.title }}
+              </p>
+              <div
+                v-for="(entry, entryIndex) in group.entries"
+                :key="`${group.key}-${entry.code}-${entryIndex}`"
+                class="flex flex-wrap items-center gap-2 text-sm text-muted"
+                data-testid="rationale-entry"
+              >
+                <span>- 建議補充{{ entry.ingredient_label }}成份：</span>
+                <span
+                  class="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
+                  data-testid="rationale-product-badge"
+                >
+                  {{ entry.name }}
+                </span>
+              </div>
+            </div>
+          </template>
+          <p
+            v-else
+            class="text-sm text-muted whitespace-pre-wrap leading-relaxed"
+          >{{ selectedRationale.body }}</p>
         </div>
       </section>
 
@@ -696,6 +756,8 @@ const packages = computed(() => recommendation.value?.packages ?? [])
 const selectedPackage = computed(() =>
   packages.value.find(pkg => pkg.package_plan_code === selectedPackageCode.value) ?? null
 )
+const selectedRationale = computed(() => selectedPackage.value?.rationale ?? null)
+const rationaleGroups = computed(() => selectedRationale.value?.groups ?? [])
 const checkoutPrice = computed(() => selectedPackage.value?.price ?? 0)
 const canCheckout = computed(() =>
   Boolean(auth.isMember && selectedPackage.value && selectedPackage.value.items.length > 0 && selectedPackage.value.composition_hash)
