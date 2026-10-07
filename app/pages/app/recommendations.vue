@@ -188,7 +188,9 @@
           <p
             v-else
             class="text-sm text-muted whitespace-pre-wrap leading-relaxed"
-          >{{ selectedRationale.body }}</p>
+          >
+            {{ selectedRationale.body }}
+          </p>
         </div>
       </section>
 

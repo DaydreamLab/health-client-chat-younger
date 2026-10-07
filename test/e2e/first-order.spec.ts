@@ -29,11 +29,14 @@ test.describe('guest session', () => {
     expect(page.url()).toContain('redirect=')
   })
 
-  test('guest photo button redirects to login', async ({ page, goto }) => {
+  test('empty report dock bar shows upload and checkup', async ({ page, goto }) => {
     await goto('/chat', { waitUntil: 'hydration' })
-    await page.getByTestId('chat-photo').click()
-    await expect(page).toHaveURL(/\/login/)
-    expect(page.url()).toContain('redirect=')
+    await expect(page.getByTestId('chat-report-dock')).toBeVisible()
+    await expect(page.getByTestId('chat-report-dock-empty-prompt')).toContainText('若有檢查可以更清楚各項指標')
+    await expect(page.getByTestId('chat-report-dock-upload')).toHaveText('上傳報告')
+    await expect(page.getByTestId('chat-report-dock-checkup')).toHaveText('前往檢查')
+    await expect(page.getByTestId('chat-report-dock-toggle')).toHaveCount(0)
+    await expect(page.getByTestId('chat-photo')).toHaveCount(0)
   })
 
   test('recommendations shows checkout auth gate for guest', async ({ page, goto }) => {
@@ -299,10 +302,41 @@ test.describe('member checkout', () => {
     await mockCandorAuth(page, { asMember: true })
   })
 
+  test('empty report dock hides checkup when tests url is empty', async ({ page, goto }) => {
+    await page.route('**/api/v1/client-config', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: { items: [], individual_tests_url: '' }
+        })
+      })
+    })
+    await goto('/chat', { waitUntil: 'hydration' })
+    await expect(page.getByTestId('chat-report-dock-empty-prompt')).toBeVisible()
+    await expect(page.getByTestId('chat-report-dock-upload')).toBeVisible()
+    await expect(page.getByTestId('chat-report-dock-checkup')).toHaveCount(0)
+  })
+
+  test('composer plus opens pdf and image menu; image opens photo tray', async ({ page, goto }) => {
+    await goto('/chat', { waitUntil: 'hydration' })
+    await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
+    await expect(page.getByTestId('chat-photo')).toHaveCount(0)
+    await page.getByTestId('chat-upload').click()
+    await expect(page.getByTestId('chat-attach-menu')).toBeVisible()
+    await expect(page.getByTestId('chat-attach-pdf')).toContainText('PDF')
+    await expect(page.getByTestId('chat-attach-image')).toContainText('圖片')
+    await page.getByTestId('chat-attach-image').click()
+    await expect(page.getByTestId('chat-attach-menu')).toHaveCount(0)
+    await expect(page.getByTestId('chat-photo-tray')).toBeVisible()
+  })
+
   test('photo tray gallery uploads two images as one report', async ({ page, goto }) => {
     await goto('/chat', { waitUntil: 'hydration' })
     await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
-    await page.getByTestId('chat-photo').click()
+    await page.getByTestId('chat-upload').click()
+    await page.getByTestId('chat-attach-image').click()
     await expect(page.getByTestId('chat-photo-tray')).toBeVisible()
     await page.getByTestId('chat-gallery-input').setInputFiles([
       jpegFile('page1.jpg'),
@@ -313,6 +347,7 @@ test.describe('member checkout', () => {
     await expect(page.getByTestId('chat-photo-tray')).toHaveCount(0)
     await expect(page.getByTestId('chat-transcript')).toContainText('已上傳報告照片（2 張）')
     await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('chat-report-dock-empty-prompt')).toHaveCount(0)
   })
 
   test('unpaid chat survives refresh via journey storage', async ({ page, goto }) => {

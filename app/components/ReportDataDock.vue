@@ -9,6 +9,8 @@ const props = defineProps<{
   results: HealthReportResult[]
   reportId?: string | null
   showInterpret?: boolean
+  /** Empty-state bar: suggest copy + upload / checkup CTAs, no table. */
+  prompt?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -16,6 +18,7 @@ const emit = defineEmits<{
   'update:collapsed': [value: boolean]
   'updated': [results: HealthReportResult[]]
   'interpret': []
+  'upload': []
 }>()
 
 const config = useRuntimeConfig()
@@ -27,8 +30,13 @@ const urlLoaded = ref(false)
 const individualTestsUrl = computed(() => resolvedTestsUrl.value.trim())
 
 const showMoreTests = computed(() =>
-  props.results.length < MORE_TESTS_ITEM_THRESHOLD
+  !props.prompt
+  && props.results.length < MORE_TESTS_ITEM_THRESHOLD
   && individualTestsUrl.value !== ''
+)
+
+const showGoCheckup = computed(() =>
+  props.prompt === true && individualTestsUrl.value !== ''
 )
 
 async function loadIndividualTestsUrl() {
@@ -56,6 +64,9 @@ watch(
 )
 
 function toggle() {
+  if (props.prompt) {
+    return
+  }
   emit('update:collapsed', !props.collapsed)
 }
 
@@ -68,8 +79,9 @@ function onUpdated(results: HealthReportResult[]) {
   <div
     v-if="open"
     class="absolute left-1/2 top-3 z-20 flex w-[min(48rem,calc(100%-2rem))] -translate-x-1/2 flex-col overflow-hidden rounded-2xl border border-default bg-elevated shadow-lg sm:w-[min(48rem,calc(100%-3rem))]"
-    :class="collapsed ? 'h-auto' : 'h-[80%]'"
+    :class="prompt || collapsed ? 'h-auto' : 'h-[80%]'"
     data-testid="chat-report-dock"
+    :data-prompt="prompt ? 'true' : undefined"
   >
     <div class="flex shrink-0 items-center justify-between gap-3 border-b border-default px-4 py-3 sm:px-5">
       <div class="flex min-w-0 items-center gap-2.5">
@@ -78,48 +90,74 @@ function onUpdated(results: HealthReportResult[]) {
           <p class="truncate text-sm font-semibold text-highlighted">
             {{ $t('labChart.dockTitle') }}
           </p>
-          <p class="truncate text-xs text-muted">
-            {{ $t('labChart.hint') }}
+          <p
+            class="truncate text-xs text-muted"
+            :data-testid="prompt ? 'chat-report-dock-empty-prompt' : undefined"
+          >
+            {{ prompt ? $t('labChart.emptyPrompt') : $t('labChart.hint') }}
           </p>
         </div>
       </div>
       <div class="flex shrink-0 items-center gap-2">
-        <AppButton
-          v-if="showMoreTests"
-          :href="individualTestsUrl"
-          target="_blank"
-          rel="noopener noreferrer"
-          variant="outline"
-          class="interpret-btn"
-          data-testid="chat-report-more-tests"
-        >
-          {{ $t('labChart.moreTests') }}
-        </AppButton>
-        <AppButton
-          v-if="showInterpret"
-          class="interpret-btn"
-          data-testid="chat-report-interpret"
-          @click="emit('interpret')"
-        >
-          {{ $t('chat.explainHighlights') }}
-        </AppButton>
-        <button
-          type="button"
-          class="app-btn app-btn-ghost size-9 shrink-0 px-0"
-          :aria-label="collapsed ? $t('labChart.expand') : $t('labChart.collapse')"
-          data-testid="chat-report-dock-toggle"
-          @click="toggle"
-        >
-          <UIcon
-            :name="collapsed ? 'i-lucide-chevron-down' : 'i-lucide-chevron-up'"
-            class="size-4"
-          />
-        </button>
+        <template v-if="prompt">
+          <AppButton
+            variant="outline"
+            class="interpret-btn"
+            data-testid="chat-report-dock-upload"
+            @click="emit('upload')"
+          >
+            {{ $t('chat.upload') }}
+          </AppButton>
+          <AppButton
+            v-if="showGoCheckup"
+            :href="individualTestsUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="outline"
+            class="interpret-btn"
+            data-testid="chat-report-dock-checkup"
+          >
+            {{ $t('labChart.goCheckup') }}
+          </AppButton>
+        </template>
+        <template v-else>
+          <AppButton
+            v-if="showMoreTests"
+            :href="individualTestsUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="outline"
+            class="interpret-btn"
+            data-testid="chat-report-more-tests"
+          >
+            {{ $t('labChart.moreTests') }}
+          </AppButton>
+          <AppButton
+            v-if="showInterpret"
+            class="interpret-btn"
+            data-testid="chat-report-interpret"
+            @click="emit('interpret')"
+          >
+            {{ $t('chat.explainHighlights') }}
+          </AppButton>
+          <button
+            type="button"
+            class="app-btn app-btn-ghost size-9 shrink-0 px-0"
+            :aria-label="collapsed ? $t('labChart.expand') : $t('labChart.collapse')"
+            data-testid="chat-report-dock-toggle"
+            @click="toggle"
+          >
+            <UIcon
+              :name="collapsed ? 'i-lucide-chevron-down' : 'i-lucide-chevron-up'"
+              class="size-4"
+            />
+          </button>
+        </template>
       </div>
     </div>
 
     <div
-      v-show="!collapsed"
+      v-show="!prompt && !collapsed"
       class="flex min-h-0 flex-1 flex-col"
     >
       <div class="shrink-0 border-b border-default px-4 py-2.5 sm:px-5">

@@ -134,18 +134,22 @@
         </div>
       </div>
       <ReportDataDock
-        v-model:open="journey.reportDockOpen"
-        v-model:collapsed="journey.reportDockCollapsed"
+        :open="reportDockVisible"
+        :collapsed="showEmptyReportBar ? true : journey.reportDockCollapsed"
+        :prompt="showEmptyReportBar"
         :results="reportResults"
         :report-id="journey.reportId"
         :show-interpret="showInterpretButton"
+        @update:collapsed="onReportDockCollapsed"
         @updated="onReportResultsUpdated"
         @interpret="askInterpret"
+        @upload="openAttachMenu"
       />
       <div
         ref="transcriptEl"
         data-testid="chat-transcript"
         class="absolute inset-0 overflow-y-auto px-4 py-4 [scrollbar-width:none] [-ms-overflow-style:none] sm:px-6 [&::-webkit-scrollbar]:hidden"
+        :class="{ 'pt-20': transcriptNeedsDockPad }"
       >
         <div class="mx-auto w-full max-w-3xl">
           <article
@@ -191,7 +195,7 @@
                 :pending="pending"
                 @choice="onChoice"
                 @confirm="confirmMultiSelection"
-                @upload="pickFile"
+                @upload="openAttachMenu"
                 @recommend="goRecommend"
                 @retry="retryReport"
               />
@@ -230,9 +234,9 @@
         @submit.prevent="onSubmit"
       >
         <input
-          ref="fileInput"
+          ref="pdfInput"
           type="file"
-          accept="image/*,.pdf"
+          accept=".pdf,application/pdf"
           class="hidden"
           data-testid="chat-upload-input"
           @change="onFile"
@@ -255,32 +259,59 @@
           data-testid="chat-gallery-input"
           @change="onGalleryFiles"
         >
-        <button
-          type="button"
-          class="app-btn app-btn-ghost size-10 shrink-0 px-0"
-          :disabled="!canOfferUpload"
-          data-testid="chat-upload"
-          :aria-label="$t('chat.upload')"
-          @click="pickFile"
+        <div
+          ref="attachMenuRoot"
+          class="relative shrink-0"
         >
-          <UIcon
-            name="i-lucide-plus"
-            class="size-4"
-          />
-        </button>
-        <button
-          type="button"
-          class="app-btn app-btn-ghost size-10 shrink-0 px-0"
-          :disabled="!canOfferUpload"
-          data-testid="chat-photo"
-          :aria-label="$t('chat.photoCapture')"
-          @click="openPhotoTray"
-        >
-          <UIcon
-            name="lucide:camera"
-            class="size-4 shrink-0"
-          />
-        </button>
+          <button
+            type="button"
+            class="app-btn app-btn-ghost size-10 shrink-0 px-0"
+            :disabled="!canOfferUpload"
+            data-testid="chat-upload"
+            :aria-label="$t('chat.upload')"
+            :aria-expanded="attachMenuOpen"
+            aria-haspopup="menu"
+            @click="toggleAttachMenu"
+          >
+            <UIcon
+              name="i-lucide-plus"
+              class="size-4"
+            />
+          </button>
+          <div
+            v-if="attachMenuOpen"
+            role="menu"
+            class="absolute bottom-full left-0 z-30 mb-2 min-w-40 overflow-hidden rounded-xl border border-default bg-elevated py-1 shadow-lg"
+            data-testid="chat-attach-menu"
+          >
+            <button
+              type="button"
+              role="menuitem"
+              class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-highlighted hover:bg-default"
+              data-testid="chat-attach-pdf"
+              @click="pickPdf"
+            >
+              <UIcon
+                name="i-lucide-file-text"
+                class="size-4 shrink-0 text-muted"
+              />
+              {{ $t('chat.attachPdf') }}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-highlighted hover:bg-default"
+              data-testid="chat-attach-image"
+              @click="pickImagesFromMenu"
+            >
+              <UIcon
+                name="i-lucide-image"
+                class="size-4 shrink-0 text-muted"
+              />
+              {{ $t('chat.attachImage') }}
+            </button>
+          </div>
+        </div>
         <textarea
           ref="chatInput"
           v-model="input"
@@ -373,9 +404,10 @@ const checkupUrlLoaded = ref(false)
 const reportRetryId = ref<string | null>(null)
 const reportResults = ref<HealthReportResult[]>([])
 const transcriptEl = useTemplateRef<HTMLElement>('transcriptEl')
-const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
+const pdfInput = useTemplateRef<HTMLInputElement>('pdfInput')
 const cameraInput = useTemplateRef<HTMLInputElement>('cameraInput')
 const galleryInput = useTemplateRef<HTMLInputElement>('galleryInput')
+const attachMenuRoot = useTemplateRef<HTMLElement>('attachMenuRoot')
 
 type PhotoTrayEntry = PhotoTrayItem & { file: File }
 
@@ -386,6 +418,7 @@ const photoTrayEntries = ref<PhotoTrayEntry[]>([])
 const photoTrayItems = computed(() =>
   photoTrayEntries.value.map(({ id, previewUrl, name }) => ({ id, previewUrl, name }))
 )
+const attachMenuOpen = ref(false)
 const chatInput = useTemplateRef<HTMLTextAreaElement>('chatInput')
 const viewMessages = ref<ChatMessage[]>([])
 let pollGeneration = 0
@@ -426,6 +459,21 @@ const canUpload = computed(() => canOfferUpload.value && auth.isMember)
 const reportPollFailed = computed(() => reportPollStatus.value === 'failed' && !reportInFlight.value)
 const showReportStatusBanner = computed(() =>
   !readonly.value && (reportInFlight.value || reportPollFailed.value)
+)
+/** Top bar when this conversation has no ready report yet (not persisted as reportDockOpen). */
+const showEmptyReportBar = computed(() =>
+  !readonly.value
+  && !escalated.value
+  && !showReportStatusBanner.value
+  && !journey.hasAnalysis
+)
+const reportDockVisible = computed(() =>
+  showEmptyReportBar.value || journey.reportDockOpen
+)
+const transcriptNeedsDockPad = computed(() =>
+  showEmptyReportBar.value
+  || showReportStatusBanner.value
+  || (journey.reportDockOpen && journey.reportDockCollapsed)
 )
 const checkupLinkUrl = computed(() => resolvedCheckupUrl.value.trim())
 const reportStatusLabel = computed(() => {
@@ -639,6 +687,13 @@ function onReportResultsUpdated(results: HealthReportResult[]) {
   reportResults.value = results
 }
 
+function onReportDockCollapsed(value: boolean) {
+  if (showEmptyReportBar.value) {
+    return
+  }
+  journey.reportDockCollapsed = value
+}
+
 function makeMessage(role: ChatMessage['role'], text: string, id?: string, file?: string): ChatMessage {
   const parts: ChatMessage['parts'] = [{ type: 'text', text }]
   if (file) {
@@ -835,6 +890,8 @@ async function resetConversation() {
   pendingUserContent.value = null
   reportRetryId.value = null
   reportResults.value = []
+  closeAttachMenu()
+  closePhotoTray()
   journey.reportDockOpen = false
   journey.reportDockCollapsed = false
   journey.clearSession()
@@ -1356,11 +1413,39 @@ function requireMemberForUpload(): boolean {
   return true
 }
 
-function pickFile() {
+function closeAttachMenu() {
+  attachMenuOpen.value = false
+}
+
+function openAttachMenu() {
   if (!requireMemberForUpload()) {
     return
   }
-  fileInput.value?.click()
+  attachMenuOpen.value = true
+}
+
+function toggleAttachMenu() {
+  if (!canOfferUpload.value) {
+    return
+  }
+  if (attachMenuOpen.value) {
+    closeAttachMenu()
+    return
+  }
+  openAttachMenu()
+}
+
+function pickPdf() {
+  closeAttachMenu()
+  if (!requireMemberForUpload()) {
+    return
+  }
+  pdfInput.value?.click()
+}
+
+function pickImagesFromMenu() {
+  closeAttachMenu()
+  openPhotoTray()
 }
 
 function openPhotoTray() {
@@ -1370,6 +1455,25 @@ function openPhotoTray() {
   photoTrayOpen.value = true
   photoTrayError.value = ''
 }
+
+function onDocumentPointerDown(event: PointerEvent) {
+  if (!attachMenuOpen.value) {
+    return
+  }
+  const root = attachMenuRoot.value
+  const target = event.target
+  if (!(target instanceof Node) || !root?.contains(target)) {
+    closeAttachMenu()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('pointerdown', onDocumentPointerDown, true)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('pointerdown', onDocumentPointerDown, true)
+})
 
 function revokePhotoPreview(url: string) {
   if (url.startsWith('blob:')) {
