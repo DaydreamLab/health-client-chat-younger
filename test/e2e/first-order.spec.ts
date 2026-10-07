@@ -7,6 +7,16 @@ const labsFile = {
   buffer: Buffer.from('%PDF-1.4 demo')
 }
 
+/** Minimal 1×1 JPEG for photo-tray e2e (decoded by createImageBitmap). */
+const jpegFile = (name: string) => ({
+  name,
+  mimeType: 'image/jpeg',
+  buffer: Buffer.from(
+    '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAA//2Q==',
+    'base64'
+  )
+})
+
 test.describe('guest session', () => {
   test.beforeEach(async ({ page }) => {
     await mockCandorAuth(page)
@@ -15,6 +25,13 @@ test.describe('guest session', () => {
   test('guest upload redirects to login', async ({ page, goto }) => {
     await goto('/chat', { waitUntil: 'hydration' })
     await page.getByTestId('chat-upload').click()
+    await expect(page).toHaveURL(/\/login/)
+    expect(page.url()).toContain('redirect=')
+  })
+
+  test('guest photo button redirects to login', async ({ page, goto }) => {
+    await goto('/chat', { waitUntil: 'hydration' })
+    await page.getByTestId('chat-photo').click()
     await expect(page).toHaveURL(/\/login/)
     expect(page.url()).toContain('redirect=')
   })
@@ -276,6 +293,22 @@ test.describe('member order detail', () => {
 test.describe('member checkout', () => {
   test.beforeEach(async ({ page }) => {
     await mockCandorAuth(page, { asMember: true })
+  })
+
+  test('photo tray gallery uploads two images as one report', async ({ page, goto }) => {
+    await goto('/chat', { waitUntil: 'hydration' })
+    await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
+    await page.getByTestId('chat-photo').click()
+    await expect(page.getByTestId('chat-photo-tray')).toBeVisible()
+    await page.getByTestId('chat-gallery-input').setInputFiles([
+      jpegFile('page1.jpg'),
+      jpegFile('page2.jpg')
+    ])
+    await expect(page.getByTestId('chat-photo-tray-list').locator('li')).toHaveCount(2)
+    await page.getByTestId('chat-photo-tray-confirm').click()
+    await expect(page.getByTestId('chat-photo-tray')).toHaveCount(0)
+    await expect(page.getByTestId('chat-transcript')).toContainText('已上傳報告照片（2 張）')
+    await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
   })
 
   test('unpaid chat survives refresh via journey storage', async ({ page, goto }) => {

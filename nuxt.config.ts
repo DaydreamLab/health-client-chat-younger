@@ -98,7 +98,9 @@ export default defineNuxtConfig({
         'lucide:lock',
         'lucide:stethoscope',
         'lucide:list',
-        'lucide:layout-grid'
+        'lucide:layout-grid',
+        'lucide:camera',
+        'lucide:x'
       ]
     }
   }

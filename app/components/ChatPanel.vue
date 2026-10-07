@@ -213,6 +213,17 @@
       v-if="!readonly"
       class="shrink-0 px-4 pb-4 sm:px-6 sm:pb-6"
     >
+      <ChatPhotoTray
+        v-if="photoTrayOpen && !escalated"
+        :items="photoTrayItems"
+        :busy="photoTrayBusy"
+        :error="photoTrayError"
+        @camera="pickCamera"
+        @gallery="pickGallery"
+        @remove="removePhotoTrayItem"
+        @confirm="confirmPhotoTray"
+        @cancel="closePhotoTray"
+      />
       <form
         v-if="!escalated"
         class="mx-auto flex w-full max-w-3xl items-end gap-2 rounded-xl border border-default bg-default p-2"
@@ -226,6 +237,24 @@
           data-testid="chat-upload-input"
           @change="onFile"
         >
+        <input
+          ref="cameraInput"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          class="hidden"
+          data-testid="chat-camera-input"
+          @change="onCameraFile"
+        >
+        <input
+          ref="galleryInput"
+          type="file"
+          accept="image/*"
+          multiple
+          class="hidden"
+          data-testid="chat-gallery-input"
+          @change="onGalleryFiles"
+        >
         <button
           type="button"
           class="app-btn app-btn-ghost size-10 shrink-0 px-0"
@@ -237,6 +266,19 @@
           <UIcon
             name="i-lucide-plus"
             class="size-4"
+          />
+        </button>
+        <button
+          type="button"
+          class="app-btn app-btn-ghost size-10 shrink-0 px-0"
+          :disabled="!canOfferUpload"
+          data-testid="chat-photo"
+          :aria-label="$t('chat.photoCapture')"
+          @click="openPhotoTray"
+        >
+          <UIcon
+            name="lucide:camera"
+            class="size-4 shrink-0"
           />
         </button>
         <textarea
@@ -265,6 +307,7 @@
 </template>
 
 <script setup lang="ts">
+import type { PhotoTrayItem } from '~/components/ChatPhotoTray.vue'
 import type {
   GreetingOption,
   HealthReport,
@@ -273,6 +316,12 @@ import type {
   ProfileNext
 } from '~/utils/candor-api'
 import { CandorApiError } from '~/utils/candor-api'
+import {
+  CompressReportImagesError,
+  REPORT_IMAGE_MAX_COUNT,
+  compressReportImages,
+  tryLoadImageFile
+} from '~/utils/compress-report-images'
 import { IME_CONFIRM_ENTER_MS, shouldIgnoreComposerEnter } from '~/utils/composer-enter'
 import type { ChatMessage } from '~/utils/first-order'
 import {
@@ -325,6 +374,18 @@ const reportRetryId = ref<string | null>(null)
 const reportResults = ref<HealthReportResult[]>([])
 const transcriptEl = useTemplateRef<HTMLElement>('transcriptEl')
 const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
+const cameraInput = useTemplateRef<HTMLInputElement>('cameraInput')
+const galleryInput = useTemplateRef<HTMLInputElement>('galleryInput')
+
+type PhotoTrayEntry = PhotoTrayItem & { file: File }
+
+const photoTrayOpen = ref(false)
+const photoTrayBusy = ref(false)
+const photoTrayError = ref('')
+const photoTrayEntries = ref<PhotoTrayEntry[]>([])
+const photoTrayItems = computed(() =>
+  photoTrayEntries.value.map(({ id, previewUrl, name }) => ({ id, previewUrl, name }))
+)
 const chatInput = useTemplateRef<HTMLTextAreaElement>('chatInput')
 const viewMessages = ref<ChatMessage[]>([])
 let pollGeneration = 0
@@ -1282,18 +1343,194 @@ async function submitProfileChoice(payload: {
   }
 }
 
-function pickFile() {
+function requireMemberForUpload(): boolean {
   if (!canOfferUpload.value) {
-    return
+    return false
   }
   if (!auth.isMember) {
     void navigateTo(
       `${localePath('/login')}?redirect=${encodeURIComponent(route.fullPath)}&mode=login`
     )
+    return false
+  }
+  return true
+}
+
+function pickFile() {
+  if (!requireMemberForUpload()) {
+    return
+  }
+  fileInput.value?.click()
+}
+
+function openPhotoTray() {
+  if (!requireMemberForUpload()) {
+    return
+  }
+  photoTrayOpen.value = true
+  photoTrayError.value = ''
+}
+
+function revokePhotoPreview(url: string) {
+  if (url.startsWith('blob:')) {
+    URL.revokeObjectURL(url)
+  }
+}
+
+function closePhotoTray() {
+  for (const entry of photoTrayEntries.value) {
+    revokePhotoPreview(entry.previewUrl)
+  }
+  photoTrayEntries.value = []
+  photoTrayOpen.value = false
+  photoTrayBusy.value = false
+  photoTrayError.value = ''
+}
+
+function pickCamera() {
+  if (photoTrayBusy.value || photoTrayEntries.value.length >= REPORT_IMAGE_MAX_COUNT) {
+    photoTrayError.value = t('chat.photoTrayFull')
+    return
+  }
+  cameraInput.value?.click()
+}
+
+function pickGallery() {
+  if (photoTrayBusy.value || photoTrayEntries.value.length >= REPORT_IMAGE_MAX_COUNT) {
+    photoTrayError.value = t('chat.photoTrayFull')
+    return
+  }
+  galleryInput.value?.click()
+}
+
+function removePhotoTrayItem(id: string) {
+  const entry = photoTrayEntries.value.find(item => item.id === id)
+  if (entry) {
+    revokePhotoPreview(entry.previewUrl)
+  }
+  photoTrayEntries.value = photoTrayEntries.value.filter(item => item.id !== id)
+}
+
+async function appendPhotoFiles(files: File[]) {
+  if (files.length === 0) {
+    return
+  }
+  const remaining = REPORT_IMAGE_MAX_COUNT - photoTrayEntries.value.length
+  if (remaining <= 0) {
+    photoTrayError.value = t('chat.photoTrayFull')
     return
   }
 
-  fileInput.value?.click()
+  let trimmed = false
+  const selected = files.slice(0, remaining)
+  if (files.length > remaining) {
+    trimmed = true
+  }
+
+  let decodeFailed = false
+  const accepted: PhotoTrayEntry[] = []
+  for (const file of selected) {
+    const loaded = await tryLoadImageFile(file)
+    if (!loaded) {
+      decodeFailed = true
+      continue
+    }
+    accepted.push({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      previewUrl: URL.createObjectURL(loaded),
+      name: loaded.name || 'photo.jpg',
+      file: loaded
+    })
+  }
+
+  if (accepted.length > 0) {
+    photoTrayEntries.value = [...photoTrayEntries.value, ...accepted]
+  }
+
+  if (decodeFailed) {
+    photoTrayError.value = t('chat.photoTrayDecodeFailed')
+  } else if (trimmed) {
+    photoTrayError.value = t('chat.photoTrayTrimmed', { n: accepted.length })
+  } else {
+    photoTrayError.value = ''
+  }
+}
+
+async function onCameraFile(event: Event) {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  target.value = ''
+  if (!file) {
+    return
+  }
+  await appendPhotoFiles([file])
+}
+
+async function onGalleryFiles(event: Event) {
+  const target = event.target as HTMLInputElement
+  const list = target.files ? Array.from(target.files) : []
+  target.value = ''
+  await appendPhotoFiles(list)
+}
+
+async function confirmPhotoTray() {
+  if (photoTrayBusy.value || reportInFlight.value) {
+    return
+  }
+  if (photoTrayEntries.value.length === 0) {
+    photoTrayError.value = t('chat.photoTrayNeedOne')
+    return
+  }
+
+  photoTrayBusy.value = true
+  photoTrayError.value = ''
+
+  let compressed: File[]
+  try {
+    compressed = await compressReportImages(photoTrayEntries.value.map(entry => entry.file))
+  } catch (error) {
+    photoTrayBusy.value = false
+    if (error instanceof CompressReportImagesError && error.code === 'still_too_large') {
+      photoTrayError.value = t('chat.photoTrayTooLarge')
+      return
+    }
+    if (error instanceof CompressReportImagesError && error.code === 'decode_failed') {
+      photoTrayError.value = t('chat.photoTrayDecodeFailed')
+      return
+    }
+    photoTrayError.value = t('chat.streamError')
+    return
+  }
+
+  const count = compressed.length
+  closePhotoTray()
+  appendMessage('user', t('chat.uploadedPhotos', { n: count }))
+  reportInFlight.value = true
+  reportPollStatus.value = 'uploaded'
+  reportRetryId.value = null
+
+  try {
+    await ensureConversation()
+    const uploaded = await candor.uploadHealthReportFiles(compressed)
+    journey.reportId = uploaded.id
+    reportPollStatus.value = uploaded.status || 'uploaded'
+
+    const report = await pollReport(uploaded.id)
+    if (!report) {
+      return
+    }
+
+    reportInFlight.value = false
+    await handleReportTerminal(report)
+  } catch {
+    reportPollStatus.value = 'failed'
+    if (journey.reportId) {
+      reportRetryId.value = journey.reportId
+    }
+    appendMessage('assistant', t('chat.streamError')).notice = true
+  } finally {
+    reportInFlight.value = false
+  }
 }
 
 function openReportDock(opts?: { expand?: boolean }) {

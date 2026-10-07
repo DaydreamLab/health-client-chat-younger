@@ -410,6 +410,14 @@ export function useCandorApi() {
       form.append('file', file)
       return request<HealthReportUploadAck>('/health-reports', { method: 'POST', body: form })
     },
+    /** Multi-image upload as one health report (multipart files[]). */
+    uploadHealthReportFiles: (files: File[]) => {
+      const form = new FormData()
+      for (const file of files) {
+        form.append('files[]', file)
+      }
+      return request<HealthReportUploadAck>('/health-reports', { method: 'POST', body: form })
+    },
     listHealthReports: () =>
       request<HealthReportList>('/health-reports'),
     getHealthReport: (id: string) =>
