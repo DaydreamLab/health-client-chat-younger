@@ -76,6 +76,13 @@ export const useAuthStore = defineStore('auth', () => {
     expiresAt.value = null
   }
 
+  /** Drop session only when storage still holds the token that failed. */
+  function clearSessionIfToken(expectedToken: string) {
+    if (api.readToken() === expectedToken) {
+      clearSession()
+    }
+  }
+
   async function refreshIfNeeded(force = false) {
     const token = api.readToken()
     if (!token) {
@@ -92,12 +99,18 @@ export const useAuthStore = defineStore('auth', () => {
       return
     }
 
+    const requestedToken = token
     refreshInFlight = (async () => {
       try {
-        applySession(await api.refresh())
+        const session = await api.refresh()
+        // Login/register may have replaced the token while refresh was in flight.
+        if (api.readToken() !== requestedToken) {
+          return
+        }
+        applySession(session)
       } catch (error) {
         if (error instanceof CandorApiError && error.statusCode === 401) {
-          clearSession()
+          clearSessionIfToken(requestedToken)
         }
         throw error
       } finally {
@@ -108,12 +121,19 @@ export const useAuthStore = defineStore('auth', () => {
     await refreshInFlight
   }
 
+  async function waitWhileBootstrapping() {
+    while (bootstrapping.value) {
+      await new Promise(resolve => setTimeout(resolve, 20))
+    }
+  }
+
   async function ensureSession() {
     if (bootstrapping.value) {
-      while (bootstrapping.value) {
-        await new Promise(resolve => setTimeout(resolve, 20))
+      await waitWhileBootstrapping()
+      // Previous bootstrap may have exited early after a login token swap.
+      if (hasSession.value) {
+        return
       }
-      return
     }
 
     /** True when an existing identity was dropped on 401 and we will mint a fresh guest. */
@@ -123,9 +143,9 @@ export const useAuthStore = defineStore('auth', () => {
       try {
         await refreshIfNeeded()
       } catch (error) {
-        // refreshIfNeeded clears on 401; fall through to guest below if needed
+        // refreshIfNeeded clears on 401 only if that token is still current
         if (error instanceof CandorApiError && error.statusCode === 401) {
-          clearJourneyBeforeGuest = true
+          clearJourneyBeforeGuest = !hasSession.value
         }
       }
       if (hasSession.value) {
@@ -135,26 +155,42 @@ export const useAuthStore = defineStore('auth', () => {
 
     bootstrapping.value = true
     try {
-      const token = api.readToken()
+      let token = api.readToken()
       if (token) {
         try {
           const me = await api.me()
-          user.value = toBrief(me)
+          const current = api.readToken()
+          // Login may have swapped the token while /users/me was in flight.
+          if (current !== token) {
+            if (!current) {
+              return
+            }
+            // Re-read identity for the token that won.
+            token = current
+            const latest = await api.me()
+            if (api.readToken() !== token) {
+              return
+            }
+            user.value = toBrief(latest)
+          } else {
+            user.value = toBrief(me)
+          }
           try {
             await refreshIfNeeded()
-          } catch (error) {
-            // ignore; 401 cleared token
-            if (error instanceof CandorApiError && error.statusCode === 401) {
-              clearJourneyBeforeGuest = true
-            }
+          } catch {
+            // me() already verified this identity — keep it; do not mint guest.
           }
           if (api.readToken() && user.value) {
             return
           }
+          // Refresh 401 cleared this token — never mint guest over a concurrent login.
+          if (hasSession.value || api.readToken()) {
+            return
+          }
         } catch (error) {
           if (error instanceof CandorApiError && error.statusCode === 401) {
-            clearSession()
-            clearJourneyBeforeGuest = true
+            clearSessionIfToken(token)
+            clearJourneyBeforeGuest = !api.readToken()
           } else {
             // Keep token and journey on transient failures; retry later.
             return
@@ -162,11 +198,48 @@ export const useAuthStore = defineStore('auth', () => {
         }
       }
 
+      // Login may have written a full session while we were deciding to mint guest.
+      if (hasSession.value) {
+        return
+      }
+
+      // Token without in-memory user (e.g. login during bootstrap): hydrate once more.
+      const leftover = api.readToken()
+      if (leftover) {
+        try {
+          const me = await api.me()
+          if (api.readToken() !== leftover) {
+            return
+          }
+          user.value = toBrief(me)
+          if (hasSession.value) {
+            return
+          }
+        } catch (error) {
+          if (error instanceof CandorApiError && error.statusCode === 401) {
+            clearSessionIfToken(leftover)
+            clearJourneyBeforeGuest = !api.readToken()
+          } else {
+            return
+          }
+        }
+      }
+
+      if (hasSession.value || api.readToken()) {
+        return
+      }
+
       if (clearJourneyBeforeGuest) {
         useJourneyStore().clearSession()
       }
+      const beforeGuest = api.readToken()
       try {
-        applySession(await api.guest())
+        const session = await api.guest()
+        // Discard if login wrote a member token while guest mint was in flight.
+        if (api.readToken() !== beforeGuest) {
+          return
+        }
+        applySession(session)
       } catch {
         // Core down: stay anonymous. Plugin/middleware must not 500 the page.
       }

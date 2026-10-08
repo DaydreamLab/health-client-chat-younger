@@ -282,7 +282,7 @@
       data-testid="checkout-card"
     >
       <div
-        v-if="!auth.isMember"
+        v-if="auth.ready && !auth.isMember"
         class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-2xl bg-elevated/80 px-6 text-center backdrop-blur-sm"
         data-testid="checkout-auth-gate"
       >

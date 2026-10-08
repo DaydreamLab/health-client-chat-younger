@@ -47,8 +47,25 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
   let streamCount = 0
   let reportPollCount = 0
   const asMember = Boolean(options.asMember)
-  const sessionUser = asMember ? memberUser : guestUser
-  const sessionToken = asMember ? 'e2e-member-token' : 'e2e-guest-token'
+  let sessionUser = asMember ? memberUser : guestUser
+  let sessionToken = asMember ? 'e2e-member-token' : 'e2e-guest-token'
+
+  function identityFromAuthHeader(header: string | null): {
+    user: typeof guestUser | typeof memberUser
+    token: string
+  } | null {
+    if (!header || !/^Bearer\s+(\S+)$/i.test(header)) {
+      return null
+    }
+    const token = header.replace(/^Bearer\s+/i, '')
+    if (token === 'e2e-member-token') {
+      return { user: memberUser, token }
+    }
+    if (token === 'e2e-guest-token' || token === sessionToken) {
+      return { user: sessionUser, token }
+    }
+    return { user: sessionUser, token: sessionToken }
+  }
   let placedOrder: {
     id: string
     order_no: string
@@ -416,17 +433,22 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
   })
 
   await page.route('**/api/v1/auth/refresh', async (route) => {
+    const identity = identityFromAuthHeader(route.request().headers().authorization ?? null)
+    const user = identity?.user ?? sessionUser
+    const token = identity?.token ?? sessionToken
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data: { token: sessionToken, expires_in: 3600, user: sessionUser }
+        data: { token, expires_in: 3600, user }
       })
     })
   })
 
   await page.route('**/api/v1/users/me', async (route) => {
+    const identity = identityFromAuthHeader(route.request().headers().authorization ?? null)
+    const user = identity?.user ?? sessionUser
     if (route.request().method() === 'PATCH') {
       const body = route.request().postDataJSON() as {
         default_recipient?: {
@@ -443,7 +465,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         body: JSON.stringify({
           status: 'success',
           data: {
-            ...sessionUser,
+            ...user,
             created_at: '2026-01-01T00:00:00Z',
             default_recipient: body.default_recipient
               ? {
@@ -464,29 +486,33 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data: { ...sessionUser, created_at: '2026-01-01T00:00:00Z', default_recipient: null }
+        data: { ...user, created_at: '2026-01-01T00:00:00Z', default_recipient: null }
       })
     })
   })
 
   await page.route('**/api/v1/auth/login', async (route) => {
+    sessionUser = memberUser
+    sessionToken = 'e2e-member-token'
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data: { token: 'e2e-member-token', expires_in: 3600, user: memberUser }
+        data: { token: sessionToken, expires_in: 3600, user: sessionUser }
       })
     })
   })
 
   await page.route('**/api/v1/auth/register', async (route) => {
+    sessionUser = memberUser
+    sessionToken = 'e2e-member-token'
     await route.fulfill({
       status: 201,
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data: { token: 'e2e-member-token', expires_in: 3600, user: memberUser }
+        data: { token: sessionToken, expires_in: 3600, user: sessionUser }
       })
     })
   })
@@ -669,7 +695,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       await route.fallback()
       return
     }
-    if (!options.asMember) {
+    const uploader = identityFromAuthHeader(route.request().headers().authorization ?? null)
+    if (uploader?.user.role !== 'member') {
       await route.fulfill({
         status: 403,
         contentType: 'application/json',

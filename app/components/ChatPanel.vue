@@ -1948,13 +1948,16 @@ function escalate() {
   escalated.value = true
 }
 
-function goRecommend() {
+async function goRecommend() {
   if (readonly.value || escalated.value) {
     return
   }
 
   const path = localePath('/app/recommendations')
-  if (!auth.hasSession) {
+  await auth.ensureSession()
+  // Token in storage is enough to enter; recommendations middleware hydrates.
+  // Only send truly anonymous users to login (no token after ensure).
+  if (!auth.hasSession && !candor.readToken()) {
     return navigateTo({
       path: localePath('/login'),
       query: { redirect: path }

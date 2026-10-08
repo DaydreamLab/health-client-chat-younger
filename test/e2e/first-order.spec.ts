@@ -297,6 +297,45 @@ test.describe('member order detail', () => {
   })
 })
 
+test.describe('login then recommend', () => {
+  test.beforeEach(async ({ page }) => {
+    await mockCandorAuth(page)
+  })
+
+  test('after guest login, view recommend keeps member checkout open', async ({ page, goto }) => {
+    test.setTimeout(90_000)
+    await page.setViewportSize({ width: 1280, height: 800 })
+
+    await goto('/chat', { waitUntil: 'hydration' })
+    await page.evaluate(() => {
+      localStorage.removeItem('candor-paid-orders')
+      localStorage.removeItem('candor.unpaid.journey')
+    })
+
+    await page.getByTestId('chat-upload').click()
+    await expect(page).toHaveURL(/\/login/)
+    await page.locator('input[type="email"]').fill('guest@example.com')
+    await page.locator('input[type="password"]').fill('password1234')
+    await page.getByRole('button', { name: '登入' }).click()
+    await expect(page).toHaveURL(/\/chat/)
+
+    await page.getByTestId('chat-upload-input').setInputFiles(labsFile)
+    await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
+    await page.getByTestId('chat-report-interpret').click()
+    await expect(page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend')).toBeVisible({
+      timeout: 15_000
+    })
+    await page.getByTestId('chat-report-dock-toggle').click()
+    await page.getByTestId('chat-view-recommend').click()
+
+    await expect(page).toHaveURL((url) => {
+      return url.pathname === '/app/recommendations' || url.pathname === '/app/recommendations/'
+    })
+    await expect(page.getByTestId('checkout-auth-gate')).toHaveCount(0)
+    await expect(page.getByTestId('checkout-total')).toBeVisible({ timeout: 15_000 })
+  })
+})
+
 test.describe('member checkout', () => {
   test.beforeEach(async ({ page }) => {
     await mockCandorAuth(page, { asMember: true })
