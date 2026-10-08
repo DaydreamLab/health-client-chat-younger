@@ -32,6 +32,9 @@ export default defineNuxtConfig({
     }
   },
 
+  // Playwright sets this so its dev server does not share .nuxt with `nuxt dev`.
+  buildDir: process.env.NUXT_TEST_BUILD_DIR || '.nuxt',
+
   routeRules: {
     '/chat': { prerender: false },
     '/en/chat': { prerender: false },

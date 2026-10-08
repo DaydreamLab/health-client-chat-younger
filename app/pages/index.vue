@@ -482,9 +482,9 @@ function bindGoalHighlight() {
 }
 const plansHref = computed(() => `${localePath('/')}#plans`)
 const promoSlides = computed(() => [
-  { src: publicAsset('home/acerola-vitamin-c.png'), alt: t('promo.acerola') },
-  { src: publicAsset('home/seaweed-calcium.png'), alt: t('promo.calcium') },
-  { src: publicAsset('home/floraglo-lutein.png'), alt: t('promo.lutein') }
+  { src: publicAsset('home/hemagenics-iron.jpg'), alt: t('promo.hemagenics') },
+  { src: publicAsset('home/iron-glycinate.jpg'), alt: t('promo.glycinate') },
+  { src: publicAsset('home/active-b-complex.jpg'), alt: t('promo.bComplex') }
 ])
 
 const packages = ref<PublicPackage[]>([])
