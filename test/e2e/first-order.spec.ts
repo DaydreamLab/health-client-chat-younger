@@ -27,6 +27,8 @@ test.describe('guest session', () => {
     await page.getByTestId('chat-upload').click()
     await expect(page).toHaveURL(/\/login/)
     expect(page.url()).toContain('redirect=')
+    await expect(page.locator('header').getByTestId('brand')).toHaveAttribute('src', /brand-wordmark\.png$/)
+    await expect(page.locator('header').getByTestId('nav-home')).toHaveCount(0)
   })
 
   test('empty report dock bar shows upload and checkup', async ({ page, goto }) => {

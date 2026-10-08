@@ -77,7 +77,6 @@
             <path d="M4 18h16" />
           </svg>
         </button>
-        <BrandMark />
         <div class="ms-auto flex items-center gap-2">
           <AccountUser avatar-only />
           <LocaleSwitch />
@@ -90,6 +89,14 @@
         class="flex shrink-0 flex-col gap-1 border-b border-default px-4 py-2 text-sm lg:hidden"
         @click="mobileNavOpen = false"
       >
+        <AppButton
+          :to="localePath('/')"
+          variant="ghost"
+          class="justify-start"
+          data-testid="nav-home-mobile"
+        >
+          {{ $t('nav.home') }}
+        </AppButton>
         <AppButton
           v-for="item in mobileNavItems"
           :key="item.label"

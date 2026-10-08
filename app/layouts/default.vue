@@ -54,15 +54,9 @@
           </svg>
         </button>
         <BrandMark
-          v-if="auth.isMember"
-          :on-photo="headerOverHero"
+          v-if="isLogin && !mobileNavOpen"
         />
-        <div
-          v-else
-          class="absolute left-1/2 -translate-x-1/2 lg:static lg:translate-x-0"
-        >
-          <BrandMark :on-photo="headerOverHero" />
-        </div>
+        <HomeNavLink v-else-if="!isHome && !mobileNavOpen" />
         <div class="ms-auto flex items-center gap-2 sm:gap-3">
           <nav class="hidden items-center gap-2 text-sm sm:gap-3 lg:flex">
             <AppButton
@@ -88,6 +82,15 @@
         class="mx-auto flex w-full max-w-6xl flex-col gap-1 px-4 py-2 text-sm sm:px-6 lg:hidden"
         @click="mobileNavOpen = false"
       >
+        <AppButton
+          v-if="!isHome"
+          :to="localePath('/')"
+          variant="ghost"
+          class="justify-start"
+          data-testid="nav-home-mobile"
+        >
+          {{ $t('nav.home') }}
+        </AppButton>
         <AppButton
           v-for="item in homeNavItems"
           :key="item.label"
@@ -123,6 +126,7 @@
                 :src="footerWordmarkSrc"
                 alt=""
                 class="h-9 w-auto"
+                data-testid="footer-brand"
               >
             </NuxtLink>
             <p class="mt-4 text-sm font-medium">
@@ -279,6 +283,7 @@ const mobileNavOpen = ref(false)
 
 const isChat = computed(() => route.path.includes('/chat'))
 const isHome = computed(() => route.path === '/' || route.path === '/en' || route.path === '/en/')
+const isLogin = computed(() => route.path.includes('/login'))
 const heroAtTop = ref(true)
 const scrollSentinel = ref<HTMLElement | null>(null)
 let heroObserver: IntersectionObserver | undefined
