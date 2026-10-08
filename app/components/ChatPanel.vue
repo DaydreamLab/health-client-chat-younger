@@ -763,35 +763,12 @@ const goalClarificationPending = computed(() =>
   goalsClarificationOpen(messages.value, clarifyingGoalLabels.value)
 )
 
-const intakeOpen = computed(() =>
-  goalSelectActive.value
-  || profileGaps.value.length > 0
-  || lastAssistantProfile.value !== null
-  || goalClarificationPending.value
-)
-
-function lineMentionsPackage(line: string) {
-  const planName = selectedPackage.value?.name_zh?.trim()
-  if (planName && line.includes(planName)) {
-    return true
-  }
-  if (/(基礎保養|完整調理)/.test(line) || /\d{3,5}\s*元\s*[/／]?\s*月/.test(line)) {
-    return true
-  }
-  return /方案|兩種選擇/.test(line) && !/[?？]/.test(line)
-}
-
 function displayMessageText(message: ChatMessage) {
-  let text = messageText(message)
+  const text = messageText(message)
   if (message.role === 'assistant' && goalClarificationPending.value) {
-    text = stripFinishedQuizGuide(text)
+    return stripFinishedQuizGuide(text)
   }
-  if (message.role !== 'assistant' || !intakeOpen.value) {
-    return text
-  }
-  const kept = text.split('\n').filter(line => !lineMentionsPackage(line))
-  const out = kept.join('\n').replace(/\n{3,}/g, '\n\n').trim()
-  return out || text
+  return text
 }
 
 function showRecommendCta(message: ChatMessage) {
@@ -863,8 +840,7 @@ watch(
     quizActive.value,
     goalSelectActive.value,
     profileGaps.value.length,
-    selectedCodes.value.length,
-    intakeOpen.value
+    selectedCodes.value.length
   ],
   () => {
     const behavior: ScrollBehavior = pending.value || liveAssistantId.value ? 'auto' : 'smooth'
