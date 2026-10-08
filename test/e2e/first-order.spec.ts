@@ -32,6 +32,16 @@ test.describe('guest session', () => {
   })
 
   test('empty report dock bar shows upload and checkup', async ({ page, goto }) => {
+    await page.route('**/api/v1/client-config', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: { items: [], individual_tests_url: 'https://labs.example/tests' }
+        })
+      })
+    })
     await goto('/chat', { waitUntil: 'hydration' })
     await expect(page.getByTestId('chat-report-dock')).toBeVisible()
     await expect(page.getByTestId('chat-report-dock-empty-prompt')).toContainText('若有檢查可以更清楚各項指標')

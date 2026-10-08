@@ -31,20 +31,6 @@ const emit = defineEmits<{
     data-testid="chat-turn-actions"
   >
     <div
-      v-if="showCheckup && checkupUrl"
-      class="turn-actions-row"
-    >
-      <AppButton
-        :href="checkupUrl"
-        target="_blank"
-        rel="noopener noreferrer"
-        variant="outline"
-        data-testid="chat-message-checkup"
-      >
-        {{ $t('chat.checkupLink') }}
-      </AppButton>
-    </div>
-    <div
       v-if="choices.length"
       class="turn-actions-row"
       data-testid="chat-quiz-options"
@@ -76,9 +62,16 @@ const emit = defineEmits<{
       </AppButton>
     </div>
     <div
-      v-if="showUpload || showRecommend || showRetry"
+      v-if="showRecommend || showUpload || (showCheckup && checkupUrl) || showRetry"
       class="turn-actions-row"
     >
+      <AppButton
+        v-if="showRecommend"
+        data-testid="chat-view-recommend"
+        @click="emit('recommend')"
+      >
+        {{ $t('chat.viewRecommend') }}
+      </AppButton>
       <AppButton
         v-if="showUpload"
         variant="outline"
@@ -89,11 +82,14 @@ const emit = defineEmits<{
         {{ $t('chat.upload') }}
       </AppButton>
       <AppButton
-        v-if="showRecommend"
-        data-testid="chat-view-recommend"
-        @click="emit('recommend')"
+        v-if="showCheckup && checkupUrl"
+        :href="checkupUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+        variant="outline"
+        data-testid="chat-message-checkup"
       >
-        {{ $t('chat.viewRecommend') }}
+        {{ $t('chat.checkupLink') }}
       </AppButton>
       <AppButton
         v-if="showRetry"
