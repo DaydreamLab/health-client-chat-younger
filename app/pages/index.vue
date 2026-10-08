@@ -198,9 +198,9 @@
           <img
             :src="item.src"
             :alt="item.alt"
-            width="1024"
-            height="346"
-            class="aspect-[1024/346] w-full object-cover"
+            width="3840"
+            height="1300"
+            class="aspect-[3840/1300] w-full object-cover"
           >
         </NuxtLink>
       </UCarousel>

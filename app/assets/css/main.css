@@ -989,19 +989,8 @@ button:focus:not(:focus-visible) {
 
   @media (min-width: 1024px) {
     .app-hero-copy {
-      /* 1440px frame uses scale 1.25; keep that same text-to-frame ratio below it. */
+      /* Cap at the previous 1440px frame so wider screens do not enlarge the copy. */
       transform: scale(calc(1.25 * tan(atan2(min(100vw, 1440px), 1440px))));
-    }
-  }
-
-  @media (min-width: 1440px) {
-    .app-hero {
-      background: linear-gradient(90deg, #d7eaf4 0%, #8eb4c9 38%, #2b6991 68%, #012c4e 100%);
-    }
-
-    .app-hero-frame {
-      max-width: 1440px;
-      margin-inline: auto;
     }
   }
 }
