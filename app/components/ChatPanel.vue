@@ -443,9 +443,19 @@ function queryPackageCode(value: unknown): string | undefined {
   return raw !== '' ? raw : undefined
 }
 
-function queryGoalCode(value: unknown) {
-  const raw = queryValue(value).trim()
-  return raw !== '' ? raw : undefined
+function queryGoalCodes(value: unknown): string[] {
+  const raw = Array.isArray(value) ? value : value == null ? [] : [value]
+  const codes: string[] = []
+  for (const item of raw) {
+    if (typeof item !== 'string') {
+      continue
+    }
+    const code = item.trim()
+    if (code !== '' && !codes.includes(code)) {
+      codes.push(code)
+    }
+  }
+  return codes
 }
 
 function queryOrderId(value: unknown) {
@@ -1929,12 +1939,14 @@ async function onSubmit() {
   focusChatInput()
 }
 
-function escalate() {
+async function escalate() {
   if (readonly.value) {
     return
   }
 
-  if (!auth.hasSession) {
+  await auth.ensureSession()
+  // Token in storage is enough (same gate as goRecommend); pinia user may lag.
+  if (!auth.hasSession && !candor.readToken()) {
     const chatPath = selectedPackageCodeFromQuery.value
       ? `${localePath('/chat')}?package=${encodeURIComponent(selectedPackageCodeFromQuery.value)}&handoff=1`
       : `${localePath('/chat')}?handoff=1`
@@ -2029,23 +2041,32 @@ async function restoreReportSession() {
   }
 }
 
-function homeGoalAlreadySent(code: string) {
-  const label = goalOptions.value.find(option => option.code === code)?.label
-  if (!label) {
+function homeGoalsAlreadySent(codes: string[]) {
+  if (codes.length === 0) {
     return false
   }
-  return journey.messages.some(message =>
-    message.role === 'user' && messageText(message).split('、').includes(label)
-  )
+  const labels = codes
+    .map(code => goalOptions.value.find(option => option.code === code)?.label)
+    .filter((label): label is string => Boolean(label))
+  if (labels.length !== codes.length) {
+    return false
+  }
+  return journey.messages.some((message) => {
+    if (message.role !== 'user') {
+      return false
+    }
+    const parts = messageText(message).split('、')
+    return labels.every(label => parts.includes(label))
+  })
 }
 
 function prepareHomeGoal() {
-  const code = queryGoalCode(route.query.goal)
-  if (!code || !journey.conversationId || homeGoalAlreadySent(code)) {
+  const codes = queryGoalCodes(route.query.goal)
+  if (codes.length === 0 || !journey.conversationId || homeGoalsAlreadySent(codes)) {
     return
   }
   const openGoalPick = goalSelectActive.value
-    && goalOptions.value.some(option => option.code === code)
+    && codes.every(code => goalOptions.value.some(option => option.code === code))
     && !journey.messages.some(message => message.role === 'user')
   if (openGoalPick) {
     return
@@ -2054,17 +2075,17 @@ function prepareHomeGoal() {
 }
 
 async function applyHomeGoal() {
-  const code = queryGoalCode(route.query.goal)
-  if (!code || !goalSelectActive.value || pending.value) {
+  const codes = queryGoalCodes(route.query.goal)
+  if (codes.length === 0 || !goalSelectActive.value || pending.value) {
     return
   }
-  if (homeGoalAlreadySent(code)) {
+  if (homeGoalsAlreadySent(codes)) {
     return
   }
-  if (!goalOptions.value.some(option => option.code === code)) {
+  if (!codes.every(code => goalOptions.value.some(option => option.code === code))) {
     return
   }
-  selectedCodes.value = [code]
+  selectedCodes.value = [...codes]
   await confirmMultiSelection()
 }
 

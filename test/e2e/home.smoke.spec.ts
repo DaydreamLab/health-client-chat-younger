@@ -63,6 +63,10 @@ test('guest home page loads', async ({ page, goto }) => {
   await expect(page.getByText('步驟 1')).toHaveCount(0)
   await expect(page.getByRole('heading', { name: '對談', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: '付款', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'AI 顧問與 Younger 專家', exact: true })).toBeVisible()
+  await expect(page.getByTestId('hero-cta-plans')).toContainText('保健品月付方案')
+  await expect(page.getByTestId('hero-cta-labs')).toHaveCount(0)
+  await expect(page.getByTestId('home-goals-cta')).toBeDisabled()
   const hintBox = await page.locator('.app-home-rail-hint').first().boundingBox()
   expect(hintBox).not.toBeNull()
   expect(hintBox?.width ?? 0).toBeGreaterThan(160)
@@ -136,15 +140,36 @@ test('EN switch keeps selected style and translates plans', async ({ page, goto 
   await expect(page.getByText('Full Tune').first()).toBeVisible()
 })
 
-test('home goal chip opens chat and sends that direction', async ({ page, goto }) => {
+test('home goal multi-select starts chat with selected directions', async ({ page, goto }) => {
   await goto('/', { waitUntil: 'hydration' })
 
+  await expect(page.getByTestId('home-goals-cta')).toBeDisabled()
   await page.getByTestId('home-goal-sleep').click()
+  await expect(page.getByTestId('home-goal-sleep')).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByTestId('home-goals-cta')).toBeEnabled()
+  await page.getByTestId('home-goal-weight_loss').click()
+  await expect(page.getByTestId('home-goal-weight_loss')).toHaveAttribute('aria-pressed', 'true')
 
-  await expect(page).toHaveURL(/\/chat\?goal=sleep/)
+  await page.getByTestId('home-goals-cta').click()
+
+  await expect(page).toHaveURL(/\/chat\?/)
+  await expect(page).toHaveURL(/goal=sleep/)
+  await expect(page).toHaveURL(/goal=weight_loss/)
   await expect(page.getByTestId('chat-transcript')).toContainText('睡眠')
+  await expect(page.getByTestId('chat-transcript')).toContainText('減重')
   await expect(page.getByTestId('chat-last-reply')).toContainText('基礎保養')
   await expect(page.getByTestId('chat-quiz-option-sleep')).toHaveCount(0)
+})
+
+test('hero labs CTA opens configured checkup URL', async ({ page, goto }) => {
+  await mockCandorAuth(page, { individualTestsUrl: 'https://labs.example/tests' })
+  await goto('/', { waitUntil: 'hydration' })
+
+  const labs = page.getByTestId('hero-cta-labs')
+  await expect(labs).toBeVisible()
+  await expect(labs).toHaveAttribute('href', 'https://labs.example/tests')
+  await expect(labs).toHaveAttribute('target', '_blank')
+  await expect(labs).toHaveAttribute('rel', 'noopener noreferrer')
 })
 
 test('plan CTA opens chat and AI can reply', async ({ page, goto }) => {
@@ -186,6 +211,7 @@ test('guest escalate and health dashboard without login wall', async ({ page, go
   await goto('/', { waitUntil: 'hydration' })
   await page.getByTestId('hero-cta-chat').click()
   await expect(page).toHaveURL(/\/chat\/?/)
+  await expect(page.getByTestId('chat-last-reply')).toBeVisible()
 
   await page.getByTestId('chat-escalate').click()
   await expect(page.getByTestId('chat-escalated')).toBeVisible()

@@ -38,6 +38,8 @@ export type CandorMockOptions = {
   asMember?: boolean
   /** Seed GET /orders with a paid order after checkout mock. */
   withOrder?: boolean
+  /** GET /client-config individual_tests_url (empty hides hero labs CTA). */
+  individualTestsUrl?: string
 }
 
 /** Mock candor-core auth + chat/report/profile so e2e does not need a live API. */
@@ -85,6 +87,20 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         created_at: '2026-01-01T12:00:00Z'
       }
     : null
+
+  await page.route('**/api/v1/client-config', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: {
+          items: [],
+          individual_tests_url: options.individualTestsUrl ?? ''
+        }
+      })
+    })
+  })
 
   await page.route('**/api/v1/package-plans', async (route) => {
     await route.fulfill({

@@ -55,6 +55,17 @@
               >
                 {{ $t('hero.ctaPlans') }}
               </AppButton>
+              <AppButton
+                v-if="labsHref"
+                class="px-8"
+                :href="labsHref"
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="outline"
+                data-testid="hero-cta-labs"
+              >
+                {{ $t('hero.ctaLabs') }}
+              </AppButton>
             </div>
           </div>
         </div>
@@ -73,18 +84,17 @@
         <p class="mx-auto mt-2 max-w-2xl text-center text-sm text-muted">
           {{ $t('homeGoals.subtitle') }}
         </p>
-        <div
-          ref="goalScroller"
-          class="app-home-goals mt-6"
-        >
-          <NuxtLink
+        <div class="app-home-goals mt-6">
+          <button
             v-for="code in homeGoalCodes"
             :key="code"
-            :to="goalChatPath(code)"
-            class="app-home-goal no-underline"
-            :class="{ 'app-home-goal-active': code === activeHomeGoal }"
+            type="button"
+            class="app-home-goal"
+            :class="{ 'app-home-goal-active': selectedHomeGoals.includes(code) }"
+            :aria-pressed="selectedHomeGoals.includes(code)"
             :data-goal="code"
             :data-testid="`home-goal-${code}`"
+            @click="toggleHomeGoal(code)"
           >
             <span class="text-base font-semibold text-highlighted">
               {{ $t(`homeGoals.${code}`) }}
@@ -92,7 +102,17 @@
             <span class="text-sm leading-5 text-muted">
               {{ $t(`homeGoals.${code}Hint`) }}
             </span>
-          </NuxtLink>
+          </button>
+        </div>
+        <div class="mt-8 flex justify-center">
+          <AppButton
+            class="px-8"
+            :disabled="selectedHomeGoals.length < 1"
+            data-testid="home-goals-cta"
+            @click="startGoalsChat"
+          >
+            {{ $t('hero.ctaChat') }}
+          </AppButton>
         </div>
       </div>
     </section>
@@ -399,10 +419,8 @@ const trustItems = [
 const trustIndex = ref(0)
 const currentTrust = computed(() => trustItems[trustIndex.value] ?? trustItems[0])
 const stepIndex = ref(0)
-const goalScroller = ref<HTMLElement | null>(null)
-const activeHomeGoal = ref<string | null>(null)
-let goalObserver: IntersectionObserver | undefined
-let unbindGoalHighlight: (() => void) | undefined
+const selectedHomeGoals = ref<string[]>([])
+const labsHref = ref('')
 
 function advanceTrust(event: AnimationEvent) {
   if (event.animationName !== 'app-trust-progress') {
@@ -418,68 +436,48 @@ function advanceStep(event: AnimationEvent) {
   stepIndex.value = (stepIndex.value + 1) % stepKeys.length
 }
 
-function closestGoal(root: HTMLElement) {
-  const mid = root.getBoundingClientRect().left + root.clientWidth / 2
-  let bestCode: string | null = null
-  let bestDistance = Infinity
-  for (const card of root.querySelectorAll<HTMLElement>('[data-goal]')) {
-    const box = card.getBoundingClientRect()
-    const distance = Math.abs(box.left + box.width / 2 - mid)
-    const code = card.dataset.goal
-    if (code != null && distance < bestDistance) {
-      bestDistance = distance
-      bestCode = code
-    }
-  }
-  return bestCode
-}
-
-function syncGoalHighlight() {
-  const root = goalScroller.value
-  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  const desktop = window.matchMedia('(min-width: 768px)').matches
-  if (root == null || reduce || desktop) {
-    activeHomeGoal.value = null
+function toggleHomeGoal(code: string) {
+  if (selectedHomeGoals.value.includes(code)) {
+    selectedHomeGoals.value = selectedHomeGoals.value.filter(item => item !== code)
     return
   }
-  activeHomeGoal.value = closestGoal(root)
+  selectedHomeGoals.value = [...selectedHomeGoals.value, code]
 }
 
-function bindGoalHighlight() {
-  const root = goalScroller.value
-  if (root == null) {
+async function startGoalsChat() {
+  if (selectedHomeGoals.value.length < 1) {
     return
   }
-  const desktopQuery = window.matchMedia('(min-width: 768px)')
-  const reduceQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
-  const onMedia = () => {
-    goalObserver?.disconnect()
-    goalObserver = undefined
-    if (desktopQuery.matches || reduceQuery.matches) {
-      activeHomeGoal.value = null
-      return
-    }
-    goalObserver = new IntersectionObserver(() => {
-      syncGoalHighlight()
-    }, {
-      root,
-      threshold: [0.25, 0.5, 0.75, 1]
-    })
-    for (const card of root.querySelectorAll('[data-goal]')) {
-      goalObserver.observe(card)
-    }
-    syncGoalHighlight()
+  const params = new URLSearchParams()
+  for (const code of selectedHomeGoals.value) {
+    params.append('goal', code)
   }
-  onMedia()
-  desktopQuery.addEventListener('change', onMedia)
-  reduceQuery.addEventListener('change', onMedia)
-  unbindGoalHighlight = () => {
-    desktopQuery.removeEventListener('change', onMedia)
-    reduceQuery.removeEventListener('change', onMedia)
-    goalObserver?.disconnect()
-    goalObserver = undefined
+  await navigateTo(`${localePath('/chat')}?${params.toString()}`)
+}
+
+function resolveIndividualTestsUrl(remote: {
+  individual_tests_url?: string | null
+  items?: Array<{ key: string, url: string }>
+}): string {
+  const direct = String(remote.individual_tests_url || '').trim()
+  if (direct) {
+    return direct
+  }
+  const fromItems = remote.items?.find(item => item.key === 'younger-tests')
+  return String(fromItems?.url || '').trim()
+}
+
+async function loadLabsHref() {
+  const fallback = String(config.public.individualTestsUrl || '').trim()
+  try {
+    const remote = await candor.getClientConfig()
+    // Empty string from API is intentional (hide button); only fall back on fetch failure.
+    labsHref.value = resolveIndividualTestsUrl(remote)
+  } catch {
+    labsHref.value = fallback
   }
 }
+
 const plansHref = computed(() => `${localePath('/')}#plans`)
 const promoSlides = computed(() => [
   { src: publicAsset('home/hemagenics-iron.jpg'), alt: t('promo.hemagenics') },
@@ -508,10 +506,6 @@ function packageTitle(pkg: PublicPackage) {
 
 function chatPath(code: string) {
   return `${localePath('/chat')}?package=${encodeURIComponent(code)}`
-}
-
-function goalChatPath(code: string) {
-  return `${localePath('/chat')}?goal=${encodeURIComponent(code)}`
 }
 
 function selectPackage(code: string) {
@@ -549,7 +543,7 @@ const pricingPlans = computed<PricingPlanProps[]>(() => packages.value.map((pkg,
 }))
 
 onMounted(async () => {
-  bindGoalHighlight()
+  void loadLabsHref()
   packagesPending.value = true
   packagesError.value = null
   try {
@@ -560,9 +554,5 @@ onMounted(async () => {
   } finally {
     packagesPending.value = false
   }
-})
-
-onUnmounted(() => {
-  unbindGoalHighlight?.()
 })
 </script>

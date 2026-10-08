@@ -324,6 +324,7 @@ button:focus:not(:focus-visible) {
     background-color: var(--ui-bg-elevated);
     padding: 1rem;
     color: var(--ui-text-highlighted);
+    font: inherit;
     text-align: start;
     cursor: pointer;
     user-select: none;

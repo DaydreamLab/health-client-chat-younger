@@ -70,6 +70,7 @@ export interface LabServicesList {
 
 export interface ClientConfig {
   individual_tests_url: string
+  items?: Array<{ key: string, url: string }>
 }
 
 export interface RecommendationCopy {

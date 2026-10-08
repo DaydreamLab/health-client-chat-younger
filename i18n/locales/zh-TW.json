@@ -41,11 +41,12 @@
     "title": "想看清楚自己的健康，\n先從一次對談開始。",
     "description": "有血檢可以一起看，沒有也能先聊。\n看方案不用登入；上傳或留下資料時，再成為會員。",
     "ctaChat": "開始諮詢",
-    "ctaPlans": "看方案"
+    "ctaPlans": "保健品月付方案",
+    "ctaLabs": "前往血檢"
   },
   "homeGoals": {
     "title": "你想先改善哪裡",
-    "subtitle": "點一個方向，直接開始對談。",
+    "subtitle": "可複選方向，選好後按「開始諮詢」。",
     "sleep": "睡眠",
     "sleepHint": "先聊睡眠",
     "weight_loss": "減重",
@@ -66,13 +67,13 @@
     "twoTitle": "付款",
     "twoHint": "選好方案並付款，後續才打開。",
     "threeLabel": "步驟 3",
-    "threeTitle": "顧問",
-    "threeHint": "解讀、採檢或選品，由顧問接手。",
+    "threeTitle": "AI 顧問與 Younger 專家",
+    "threeHint": "解讀、採檢或選品，與 Younger 專家單獨對談。",
     "oneFrameUser": "我想先看睡眠",
     "oneFrameAssistant": "沒有血檢也能開始。",
     "twoFramePlan": "一般「報告解讀」",
     "twoFrameLock": "付款後開啟",
-    "threeFrameStatus": "顧問已接手"
+    "threeFrameStatus": "與 Younger 專家單獨對談"
   },
   "promo": {
     "label": "產品介紹",
