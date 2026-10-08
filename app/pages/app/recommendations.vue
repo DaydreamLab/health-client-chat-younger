@@ -151,9 +151,6 @@
               {{ hit.term }}
             </span>
           </div>
-          <p class="mt-1 text-sm text-muted">
-            {{ $t('recommendation.rationaleHint') }}
-          </p>
         </div>
         <div
           class="px-5 py-4 space-y-4"
