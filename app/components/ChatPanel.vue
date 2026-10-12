@@ -204,13 +204,6 @@
               />
             </div>
           </article>
-          <ChatRecommendationPreview
-            v-if="showRecommendationPreview"
-            :packages="recommendationPackages"
-            :pending="recommendationPending"
-            :error="recommendationError"
-            @checkout="goRecommend"
-          />
           <p
             v-if="pending && !reportInFlight && !liveAssistantId"
             class="flex items-center gap-2 pb-8 text-sm text-muted"
@@ -354,8 +347,7 @@ import type {
   HealthReport,
   HealthReportResult,
   ProfileAnswerType,
-  ProfileNext,
-  RecommendationPackage
+  ProfileNext
 } from '~/utils/candor-api'
 import { CandorApiError } from '~/utils/candor-api'
 import {
@@ -379,7 +371,6 @@ import {
   reportDockBarVisibility,
   resolveEffectiveGoalOptions
 } from '~/utils/chat-turn-actions'
-import { recommendationRequestFromJourney } from '~/utils/recommendation-request'
 import { storeToRefs } from 'pinia'
 
 const POLL_INTERVAL_MS = 2000
@@ -421,9 +412,6 @@ const resolvedCheckupUrl = ref('')
 const checkupUrlLoaded = ref(false)
 const reportRetryId = ref<string | null>(null)
 const reportResults = ref<HealthReportResult[]>([])
-const recommendationPackages = ref<RecommendationPackage[]>([])
-const recommendationPending = ref(false)
-const recommendationError = ref('')
 const transcriptEl = useTemplateRef<HTMLElement>('transcriptEl')
 const pdfInput = useTemplateRef<HTMLInputElement>('pdfInput')
 const cameraInput = useTemplateRef<HTMLInputElement>('cameraInput')
@@ -794,46 +782,6 @@ function displayMessageText(message: ChatMessage) {
   return text
 }
 
-const showRecommendationPreview = computed(() =>
-  !readonly.value
-  && !escalated.value
-  && (recommendationPending.value
-    || recommendationError.value !== ''
-    || recommendationPackages.value.some(pkg => pkg.items.length > 0))
-)
-
-async function refreshRecommendationPackages() {
-  if (readonly.value || escalated.value) {
-    return
-  }
-  if (!journey.conversationId && !journey.reportId) {
-    recommendationPackages.value = []
-    recommendationError.value = ''
-    return
-  }
-
-  recommendationPending.value = true
-  recommendationError.value = ''
-  try {
-    await auth.ensureSession()
-    if (!candor.readToken()) {
-      return
-    }
-    const result = await candor.createRecommendation(
-      recommendationRequestFromJourney({
-        conversationId: journey.conversationId,
-        reportId: journey.reportId
-      })
-    )
-    recommendationPackages.value = result.packages ?? []
-  } catch {
-    recommendationError.value = t('recommendation.recoError')
-    recommendationPackages.value = []
-  } finally {
-    recommendationPending.value = false
-  }
-}
-
 function showRecommendCta(message: ChatMessage) {
   return turnActionsFor(message).showRecommend
 }
@@ -936,9 +884,6 @@ async function resetConversation() {
   journey.reportDockOpen = false
   journey.reportDockCollapsed = false
   journey.clearSession()
-  recommendationPackages.value = []
-  recommendationError.value = ''
-  recommendationPending.value = false
 
   try {
     await ensureConversation()
@@ -1188,7 +1133,6 @@ async function streamPending() {
       if (!checkupUrlLoaded.value) {
         void loadCheckupLinkUrl()
       }
-      void refreshRecommendationPackages()
     }
     if (journey.hasAnalysis && reportResults.value.length > 0) {
       openReportDock({ expand: false })
@@ -1802,8 +1746,6 @@ async function bindAndInterpret(reportId: string) {
     pendingUserContent.value = t('chat.continueIntake')
     pendingIntent.value = null
     await streamPending()
-  } else {
-    void refreshRecommendationPackages()
   }
 }
 
@@ -2135,15 +2077,6 @@ async function applyHomeGoal() {
   await confirmMultiSelection()
 }
 
-watch(
-  () => [journey.conversationId, journey.reportId, journey.hasAnalysis] as const,
-  () => {
-    if (journey.hasAnalysis || journey.reportId) {
-      void refreshRecommendationPackages()
-    }
-  }
-)
-
 onMounted(async () => {
   if (orderId.value) {
     await loadOrderChat(orderId.value)
@@ -2167,9 +2100,6 @@ onMounted(async () => {
     }
   }
   await restoreReportSession()
-  if (journey.hasAnalysis || journey.reportId) {
-    void refreshRecommendationPackages()
-  }
   scrollToLatest('auto')
 })
 
