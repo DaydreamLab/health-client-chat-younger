@@ -350,7 +350,10 @@ test.describe('login then recommend', () => {
 
 test.describe('member checkout', () => {
   test.beforeEach(async ({ page }) => {
-    await mockCandorAuth(page, { asMember: true })
+    await mockCandorAuth(page, {
+      asMember: true,
+      individualTestsUrl: 'https://labs.example/tests'
+    })
   })
 
   test('empty report dock hides checkup when tests url is empty', async ({ page, goto }) => {
@@ -438,6 +441,13 @@ test.describe('member checkout', () => {
     await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
     await page.getByTestId('chat-report-interpret').click()
     await expect(page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
+    const replyWantMore = page.getByTestId('chat-last-reply').getByTestId('chat-message-want-more-tests')
+    await expect(replyWantMore).toHaveText('我想檢查更多')
+    const recommendBox = await page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend').boundingBox()
+    const replyWantMoreBox = await replyWantMore.boundingBox()
+    expect(recommendBox).not.toBeNull()
+    expect(replyWantMoreBox).not.toBeNull()
+    expect((recommendBox?.x ?? 0) + (recommendBox?.width ?? 0)).toBeLessThan(replyWantMoreBox?.x ?? 0)
     await expect(page.getByTestId('chat-report-loading')).toHaveCount(0)
     await expect(page.getByTestId('chat-report-dock')).toBeVisible()
     await expect(page.getByTestId('chat-report-dock')).toContainText('Vitamin D3')
@@ -448,6 +458,7 @@ test.describe('member checkout', () => {
     await page.reload({ waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('heading', { name: '諮詢' })).toBeVisible()
     await expect(page.getByTestId('chat-view-recommend')).toBeVisible()
+    await expect(page.getByTestId('chat-message-want-more-tests')).toBeVisible()
     await expect(page.getByTestId('chat-input')).toBeVisible()
     await expect(page.getByTestId('chat-chip-plans')).toHaveCount(0)
     await expect(page.getByTestId('chat-escalate')).toBeVisible()

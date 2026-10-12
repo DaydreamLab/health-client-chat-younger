@@ -75,6 +75,16 @@ const emit = defineEmits<{
         {{ $t('chat.viewRecommend') }}
       </AppButton>
       <AppButton
+        v-if="showWantMoreTests && wantMoreTestsUrl"
+        :href="wantMoreTestsUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+        variant="outline"
+        data-testid="chat-message-want-more-tests"
+      >
+        {{ $t('labChart.wantMoreTests') }}
+      </AppButton>
+      <AppButton
         v-if="showUpload"
         variant="outline"
         data-testid="chat-message-upload"
@@ -92,16 +102,6 @@ const emit = defineEmits<{
         data-testid="chat-message-checkup"
       >
         {{ $t('chat.checkupLink') }}
-      </AppButton>
-      <AppButton
-        v-if="showWantMoreTests && wantMoreTestsUrl"
-        :href="wantMoreTestsUrl"
-        target="_blank"
-        rel="noopener noreferrer"
-        variant="outline"
-        data-testid="chat-message-want-more-tests"
-      >
-        {{ $t('labChart.wantMoreTests') }}
       </AppButton>
       <AppButton
         v-if="showRetry"

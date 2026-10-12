@@ -643,13 +643,14 @@ function showCheckupCta(message: ChatMessage) {
 }
 
 function showWantMoreTestsCta(message: ChatMessage) {
-  if (message.role !== 'assistant' || !message.wantMoreTestsOffer) {
+  if (message.role !== 'assistant' || readonly.value || escalated.value) {
     return false
   }
-  if (readonly.value || escalated.value) {
+  if (checkupLinkUrl.value === '') {
     return false
   }
-  return checkupLinkUrl.value !== ''
+  // Fixed beside「查看推薦方案」; also after interpret reply when that bubble is still showing.
+  return showRecommendCta(message) || Boolean(message.wantMoreTestsOffer)
 }
 
 type CheckupOfferFields = {
@@ -2098,6 +2099,7 @@ onMounted(async () => {
 
   journey.hydrate()
   prepareHomeGoal()
+  void loadCheckupLinkUrl()
 
   if (route.query.handoff === '1' && auth.hasSession) {
     escalated.value = true
