@@ -139,7 +139,8 @@
         :prompt="showEmptyReportBar"
         :results="reportResults"
         :report-id="journey.reportId"
-        :show-interpret="showInterpretButton"
+        :show-interpret="reportDockBar.showExplainHighlights"
+        :show-want-more-tests="reportDockBar.showWantMoreTestsLink"
         @update:collapsed="onReportDockCollapsed"
         @updated="onReportResultsUpdated"
         @interpret="askInterpret"
@@ -374,7 +375,9 @@ import {
 import { findIntakeAssistantMessage } from '~/utils/chat-intake'
 import {
   buildTurnActionsVisibility,
-  type ChatTurnUiContext
+  type ChatTurnUiContext,
+  reportDockBarVisibility,
+  resolveEffectiveGoalOptions
 } from '~/utils/chat-turn-actions'
 import { recommendationRequestFromJourney } from '~/utils/recommendation-request'
 import { storeToRefs } from 'pinia'
@@ -514,11 +517,6 @@ const reportStatusLabel = computed(() => {
   const label = t(key)
   return label === key ? status : label
 })
-const showInterpretButton = computed(() =>
-  !readonly.value
-  && !escalated.value
-  && journey.hasAnalysis
-)
 const composerPlaceholder = computed(() =>
   goalSelectActive.value ? t('chat.placeholderGoals') : t('chat.placeholder')
 )
@@ -536,7 +534,13 @@ const messages = computed(() => readonly.value ? viewMessages.value : journey.me
 
 const choiceOptions = computed((): GreetingOption[] => {
   if (goalSelectActive.value) {
-    return goalOptions.value
+    const last = messages.value.find(message => message.id === lastAssistantId.value)
+    return resolveEffectiveGoalOptions({
+      goalSelectActive: true,
+      goalOptions: goalOptions.value,
+      intake: intakeMessage.value,
+      message: last
+    })
   }
   return intakeMessage.value?.options ?? []
 })
@@ -754,6 +758,15 @@ function findIntakeMessage(list: ChatMessage[]): ChatMessage | undefined {
 }
 
 const intakeMessage = computed(() => findIntakeMessage(messages.value))
+
+const reportDockBar = computed(() =>
+  reportDockBarVisibility({
+    ctx: turnUiContext.value,
+    profileQuestionActive: Boolean(lastAssistantProfile.value),
+    reportInterpretSent: journey.reportInterpretSent,
+    promptMode: showEmptyReportBar.value
+  })
+)
 
 function assistantMarkState(message: ChatMessage): 'idle' | 'thinking' | 'speaking' {
   if (message.id !== liveAssistantId.value) {

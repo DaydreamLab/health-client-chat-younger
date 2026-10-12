@@ -3,7 +3,11 @@ import type { ChatMessage } from '../../app/utils/first-order'
 import {
   buildTurnActionsVisibility,
   type ChatTurnUiContext,
+  DEFAULT_CONSULTATION_GOAL_OPTIONS,
   recommendCtaVisible,
+  reportDockBarVisibility,
+  resolveEffectiveGoalOptions,
+  turnConfirmVisible,
   wantMoreTestsCtaVisible
 } from '../../app/utils/chat-turn-actions'
 import { findIntakeAssistantMessage } from '../../app/utils/chat-intake'
@@ -192,5 +196,90 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
     const msg = assistant('latest')
     const ctx = baseCtx({ pending: true, lastAssistantId: 'latest' })
     expect(visibility(msg, ctx, { messages: [msg] }).showRecommend).toBe(false)
+  })
+
+  it('empty goalOptions falls back to defaults; no confirm without chips', () => {
+    const latest = assistant('latest')
+    const ctx = baseCtx({ goalSelectActive: true, lastAssistantId: 'latest' })
+    const withFallback = visibility(latest, ctx, {
+      goalSelectActive: true,
+      goalOptions: [],
+      messages: [latest]
+    })
+    expect(withFallback.choices.length).toBe(DEFAULT_CONSULTATION_GOAL_OPTIONS.length)
+    expect(withFallback.showConfirm).toBe(true)
+
+    expect(
+      resolveEffectiveGoalOptions({
+        goalSelectActive: true,
+        goalOptions: [],
+        intake: assistant('x', { options: [] })
+      })
+    ).toEqual(DEFAULT_CONSULTATION_GOAL_OPTIONS)
+
+    expect(turnConfirmVisible(0, true)).toBe(false)
+  })
+
+  it('recommend shows when checkup url missing; want-more link hidden', () => {
+    const msg = assistant('latest')
+    const ctx = baseCtx({
+      checkupLinkReady: false,
+      hasReportAnalysis: true,
+      lastAssistantId: 'latest'
+    })
+    const v = visibility(msg, ctx, { messages: [msg] })
+    expect(v.showRecommend).toBe(true)
+    expect(v.showWantMoreTests).toBe(false)
+    expect(v.showCheckup).toBe(false)
+  })
+})
+
+describe('reportDockBarVisibility', () => {
+  it('aligns explain highlights with bubble gates', () => {
+    const ctx = baseCtx({ hasReportAnalysis: true })
+    expect(
+      reportDockBarVisibility({
+        ctx,
+        profileQuestionActive: false,
+        reportInterpretSent: false,
+        promptMode: false
+      }).showExplainHighlights
+    ).toBe(true)
+    expect(
+      reportDockBarVisibility({
+        ctx: { ...ctx, pending: true },
+        profileQuestionActive: false,
+        reportInterpretSent: false,
+        promptMode: false
+      }).showExplainHighlights
+    ).toBe(false)
+    expect(
+      reportDockBarVisibility({
+        ctx,
+        profileQuestionActive: false,
+        reportInterpretSent: true,
+        promptMode: false
+      }).showExplainHighlights
+    ).toBe(false)
+  })
+
+  it('want-more on dock requires checkup url', () => {
+    const ctx = baseCtx({ hasReportAnalysis: true, checkupLinkReady: false })
+    expect(
+      reportDockBarVisibility({
+        ctx,
+        profileQuestionActive: false,
+        reportInterpretSent: false,
+        promptMode: false
+      }).showWantMoreTestsLink
+    ).toBe(false)
+    expect(
+      reportDockBarVisibility({
+        ctx: { ...ctx, checkupLinkReady: true },
+        profileQuestionActive: false,
+        reportInterpretSent: false,
+        promptMode: false
+      }).showWantMoreTestsLink
+    ).toBe(true)
   })
 })

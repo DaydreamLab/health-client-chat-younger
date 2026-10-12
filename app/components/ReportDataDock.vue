@@ -7,6 +7,7 @@ const props = defineProps<{
   results: HealthReportResult[]
   reportId?: string | null
   showInterpret?: boolean
+  showWantMoreTests?: boolean
   /** Empty-state bar: suggest copy + upload / checkup CTAs, no table. */
   prompt?: boolean
 }>()
@@ -27,8 +28,8 @@ const urlLoaded = ref(false)
 
 const individualTestsUrl = computed(() => resolvedTestsUrl.value.trim())
 
-const showWantMoreTests = computed(() =>
-  !props.prompt && individualTestsUrl.value !== ''
+const showWantMoreTestsLink = computed(() =>
+  props.showWantMoreTests === true && individualTestsUrl.value !== ''
 )
 
 const showGoCheckup = computed(() =>
@@ -126,7 +127,7 @@ function onUpdated(results: HealthReportResult[]) {
             {{ $t('chat.explainHighlights') }}
           </AppButton>
           <AppButton
-            v-if="showWantMoreTests"
+            v-if="showWantMoreTestsLink"
             :href="individualTestsUrl"
             target="_blank"
             rel="noopener noreferrer"

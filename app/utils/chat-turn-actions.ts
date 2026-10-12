@@ -28,6 +28,40 @@ export interface ChatTurnUiContext {
 
 const LAB_GAP_CODES = new Set(['lab_report', 'checkup', 'blood_test'])
 
+/** Mirrors core ConsultationGoal::defaultCatalog() for empty stream options. */
+export const DEFAULT_CONSULTATION_GOAL_OPTIONS: ChatMessageOption[] = [
+  { code: 'sleep', label: '睡眠' },
+  { code: 'weight_loss', label: '減重' },
+  { code: 'immune_boost', label: '免疫提升' },
+  { code: 'cognitive_function', label: '認知功能' },
+  { code: 'gastrointestinal', label: '腸胃道' }
+]
+
+const MIN_GOAL_CHIPS = 2
+
+export function resolveEffectiveGoalOptions(input: {
+  goalSelectActive: boolean
+  goalOptions: ChatMessageOption[]
+  intake?: ChatMessage
+  message?: ChatMessage
+}): ChatMessageOption[] {
+  if (!input.goalSelectActive) {
+    return input.goalOptions
+  }
+  const candidates = [
+    input.goalOptions,
+    input.message?.options ?? [],
+    input.intake?.options ?? [],
+    DEFAULT_CONSULTATION_GOAL_OPTIONS
+  ]
+  for (const list of candidates) {
+    if (list.length >= MIN_GOAL_CHIPS) {
+      return list
+    }
+  }
+  return []
+}
+
 export function isLatestAssistantMessage(
   message: ChatMessage,
   lastAssistantId?: string
@@ -94,6 +128,7 @@ export function checkupCtaVisible(
   return ctx.checkupLinkReady
 }
 
+/** External link only; does not gate「查看推薦方案」. */
 export function wantMoreTestsCtaVisible(
   ctx: ChatTurnUiContext,
   message: ChatMessage
@@ -105,13 +140,17 @@ export function wantMoreTestsCtaVisible(
     return false
   }
   const latest = isLatestAssistantMessage(message, ctx.lastAssistantId)
+  if (!latest) {
+    return false
+  }
+  const profileQuestionActive = message.turnType === 'profile' && Boolean(message.profileQuestion)
   if (
     recommendCtaVisible({
       readonlyMode: ctx.readonlyMode,
       escalated: ctx.escalated,
       goalSelectActive: ctx.goalSelectActive,
-      profileQuestionActive: message.turnType === 'profile' && Boolean(message.profileQuestion),
-      isLatestAssistant: latest,
+      profileQuestionActive,
+      isLatestAssistant: true,
       reportRetry: ctx.reportRetry,
       pending: ctx.pending,
       hasReportAnalysis: ctx.hasReportAnalysis
@@ -119,7 +158,46 @@ export function wantMoreTestsCtaVisible(
   ) {
     return true
   }
-  return latest && Boolean(message.wantMoreTestsOffer)
+  return Boolean(message.wantMoreTestsOffer)
+}
+
+export interface ReportDockBarInput {
+  ctx: ChatTurnUiContext
+  /** Active profile question on latest intake (same as bubble recommend guard). */
+  profileQuestionActive: boolean
+  reportInterpretSent: boolean
+  promptMode: boolean
+}
+
+export interface ReportDockBarVisibility {
+  showExplainHighlights: boolean
+  showWantMoreTestsLink: boolean
+}
+
+/** Top report dock bar — same gates as bubble TurnActions where applicable. */
+export function reportDockBarVisibility(input: ReportDockBarInput): ReportDockBarVisibility {
+  const { ctx, profileQuestionActive, reportInterpretSent, promptMode } = input
+  if (promptMode) {
+    return {
+      showExplainHighlights: false,
+      showWantMoreTestsLink: false
+    }
+  }
+  const baseBlocked = ctx.readonlyMode || ctx.escalated || ctx.pending || ctx.reportRetry
+  const showExplainHighlights = ctx.hasReportAnalysis
+    && !baseBlocked
+    && !profileQuestionActive
+    && !(ctx.goalSelectActive && !ctx.hasReportAnalysis)
+    && !reportInterpretSent
+  const showWantMoreTestsLink = ctx.hasReportAnalysis
+    && !ctx.readonlyMode
+    && !ctx.escalated
+    && !ctx.pending
+    && ctx.checkupLinkReady
+  return {
+    showExplainHighlights,
+    showWantMoreTestsLink
+  }
 }
 
 export function retryCtaVisible(): boolean {
@@ -148,11 +226,17 @@ export function buildTurnActionsVisibility(input: {
   needsMultiConfirm: boolean
 }): TurnActionsVisibility {
   const { message, ctx, intake, goalOptions, needsMultiConfirm } = input
+  const effectiveGoals = resolveEffectiveGoalOptions({
+    goalSelectActive: ctx.goalSelectActive,
+    goalOptions,
+    intake,
+    message
+  })
   const choices = turnChoicesForMessage(
     message,
     intake,
     ctx.goalSelectActive,
-    goalOptions
+    effectiveGoals
   )
   const latest = isLatestAssistantMessage(message, ctx.lastAssistantId)
   const profileQuestionActive = message.turnType === 'profile' && Boolean(message.profileQuestion)
