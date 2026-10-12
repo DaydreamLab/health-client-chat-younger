@@ -372,6 +372,7 @@ import {
   recommendCtaVisible,
   stripFinishedQuizGuide
 } from '~/utils/first-order'
+import { findIntakeAssistantMessage, turnChoicesForMessage } from '~/utils/chat-intake'
 import { recommendationRequestFromJourney } from '~/utils/recommendation-request'
 import { storeToRefs } from 'pinia'
 
@@ -530,25 +531,6 @@ const selectedPackageCodeFromQuery = computed(() => queryPackageCode(route.query
 
 const messages = computed(() => readonly.value ? viewMessages.value : journey.messages)
 
-function findIntakeMessage(list: ChatMessage[]): ChatMessage | undefined {
-  if (goalSelectActive.value) {
-    return [...list].reverse().find(message =>
-      message.role === 'assistant'
-      && !message.notice
-      && !message.uploadOffer
-      && !message.checkupOffer
-      && !message.wantMoreTestsOffer
-    )
-  }
-  return [...list].reverse().find(message =>
-    message.role === 'assistant'
-    && !message.notice
-    && (Boolean(message.options?.length) || Boolean(message.profileQuestion))
-  )
-}
-
-const intakeMessage = computed(() => findIntakeMessage(messages.value))
-
 const choiceOptions = computed((): GreetingOption[] => {
   if (goalSelectActive.value) {
     return goalOptions.value
@@ -586,10 +568,12 @@ const confirmDisabled = computed(() =>
 )
 
 function choicesFor(message: ChatMessage): GreetingOption[] {
-  if (!intakeMessage.value || message.id !== intakeMessage.value.id) {
-    return []
-  }
-  return choiceOptions.value
+  return turnChoicesForMessage(
+    message,
+    intakeMessage.value,
+    goalSelectActive.value,
+    goalOptions.value
+  )
 }
 
 function showConfirmFor(message: ChatMessage) {
@@ -773,6 +757,15 @@ const lastAssistantId = computed(() => {
   const last = [...messages.value].reverse().find(message => message.role === 'assistant')
   return last?.id
 })
+
+function findIntakeMessage(list: ChatMessage[]): ChatMessage | undefined {
+  return findIntakeAssistantMessage(list, {
+    goalSelectActive: goalSelectActive.value,
+    lastAssistantId: lastAssistantId.value
+  })
+}
+
+const intakeMessage = computed(() => findIntakeMessage(messages.value))
 
 function assistantMarkState(message: ChatMessage): 'idle' | 'thinking' | 'speaking' {
   if (message.id !== liveAssistantId.value) {
