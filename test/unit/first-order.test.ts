@@ -208,6 +208,7 @@ describe('first-order demo', () => {
     }
     expect(recommendCtaVisible(base)).toBe(true)
     expect(recommendCtaVisible({ ...base, goalSelectActive: true })).toBe(false)
+    expect(recommendCtaVisible({ ...base, goalSelectActive: true, hasReportAnalysis: true })).toBe(true)
     expect(recommendCtaVisible({ ...base, profileQuestionActive: true })).toBe(false)
     expect(recommendCtaVisible({ ...base, isLatestAssistant: false })).toBe(false)
     expect(recommendCtaVisible({ ...base, reportRetry: true })).toBe(false)

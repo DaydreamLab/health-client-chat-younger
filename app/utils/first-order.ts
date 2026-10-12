@@ -139,10 +139,13 @@ export function recommendCtaVisible(input: {
   isLatestAssistant: boolean
   reportRetry: boolean
   pending?: boolean
+  /** Report ready: keep「查看推薦方案」even when interpret re-opens goal chips. */
+  hasReportAnalysis?: boolean
 }): boolean {
+  const goalsBlockRecommend = input.goalSelectActive && !input.hasReportAnalysis
   return !input.readonlyMode
     && !input.escalated
-    && !input.goalSelectActive
+    && !goalsBlockRecommend
     && !input.profileQuestionActive
     && input.isLatestAssistant
     && !input.reportRetry
