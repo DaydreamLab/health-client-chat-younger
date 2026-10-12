@@ -46,7 +46,7 @@ test.describe('guest session', () => {
     await expect(page.getByTestId('chat-report-dock')).toBeVisible()
     await expect(page.getByTestId('chat-report-dock-empty-prompt')).toContainText('若有檢查可以更清楚各項指標')
     await expect(page.getByTestId('chat-report-dock-upload')).toHaveText('上傳報告')
-    await expect(page.getByTestId('chat-report-dock-checkup')).toHaveText('前往檢查')
+    await expect(page.getByTestId('chat-report-dock-checkup')).toHaveText('我想檢查')
     await expect(page.getByTestId('chat-report-dock-toggle')).toHaveCount(0)
     await expect(page.getByTestId('chat-photo')).toHaveCount(0)
   })
@@ -384,6 +384,16 @@ test.describe('member checkout', () => {
   })
 
   test('photo tray gallery uploads two images as one report', async ({ page, goto }) => {
+    await page.route('**/api/v1/client-config', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: { items: [], individual_tests_url: 'https://labs.example/tests' }
+        })
+      })
+    })
     await goto('/chat', { waitUntil: 'hydration' })
     await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
     await page.getByTestId('chat-upload').click()
@@ -399,6 +409,21 @@ test.describe('member checkout', () => {
     await expect(page.getByTestId('chat-transcript')).toContainText('已上傳報告照片（2 張）')
     await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('chat-report-dock-empty-prompt')).toHaveCount(0)
+    const wantMore = page.getByTestId('chat-report-want-more-tests')
+    await expect(wantMore).toHaveText('我想檢查更多')
+    await expect(wantMore).toHaveAttribute('href', 'https://labs.example/tests')
+    await expect(page.getByTestId('chat-report-more-tests')).toHaveCount(0)
+    const interpretBox = await page.getByTestId('chat-report-interpret').boundingBox()
+    const wantMoreBox = await wantMore.boundingBox()
+    expect(interpretBox).not.toBeNull()
+    expect(wantMoreBox).not.toBeNull()
+    expect((interpretBox?.x ?? 0) + (interpretBox?.width ?? 0)).toBeLessThan(wantMoreBox?.x ?? 0)
+
+    await page.getByTestId('chat-report-interpret').click()
+    const bubbleWantMore = page.getByTestId('chat-last-reply').getByTestId('chat-message-want-more-tests')
+    await expect(bubbleWantMore).toBeVisible({ timeout: 15_000 })
+    await expect(bubbleWantMore).toHaveText('我想檢查更多')
+    await expect(bubbleWantMore).toHaveAttribute('href', 'https://labs.example/tests')
   })
 
   test('unpaid chat survives refresh via journey storage', async ({ page, goto }) => {

@@ -190,6 +190,8 @@
                 :upload-disabled="!canOfferUpload"
                 :show-checkup="showCheckupCta(message)"
                 :checkup-url="checkupLinkUrl"
+                :show-want-more-tests="showWantMoreTestsCta(message)"
+                :want-more-tests-url="checkupLinkUrl"
                 :show-recommend="showRecommendCta(message)"
                 :show-retry="showRetryCta(message)"
                 :pending="pending"
@@ -519,7 +521,11 @@ const messages = computed(() => readonly.value ? viewMessages.value : journey.me
 function findIntakeMessage(list: ChatMessage[]): ChatMessage | undefined {
   if (goalSelectActive.value) {
     return [...list].reverse().find(message =>
-      message.role === 'assistant' && !message.notice && !message.uploadOffer && !message.checkupOffer
+      message.role === 'assistant'
+      && !message.notice
+      && !message.uploadOffer
+      && !message.checkupOffer
+      && !message.wantMoreTestsOffer
     )
   }
   return [...list].reverse().find(message =>
@@ -628,6 +634,16 @@ function showUploadCta(message: ChatMessage) {
 
 function showCheckupCta(message: ChatMessage) {
   if (message.role !== 'assistant' || !message.checkupOffer) {
+    return false
+  }
+  if (readonly.value || escalated.value) {
+    return false
+  }
+  return checkupLinkUrl.value !== ''
+}
+
+function showWantMoreTestsCta(message: ChatMessage) {
+  if (message.role !== 'assistant' || !message.wantMoreTestsOffer) {
     return false
   }
   if (readonly.value || escalated.value) {
@@ -1122,6 +1138,15 @@ async function streamPending() {
     }, intent)
 
     applyStreamMeta(assistantId, result)
+    if (intent === 'interpret') {
+      const interpretReply = journey.messages.find(item => item.id === assistantId)
+      if (interpretReply) {
+        interpretReply.wantMoreTestsOffer = true
+      }
+      if (!checkupUrlLoaded.value) {
+        void loadCheckupLinkUrl()
+      }
+    }
     if (journey.hasAnalysis && reportResults.value.length > 0) {
       openReportDock({ expand: false })
     }

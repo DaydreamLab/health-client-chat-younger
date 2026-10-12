@@ -10,6 +10,8 @@ defineProps<{
   uploadDisabled: boolean
   showCheckup: boolean
   checkupUrl: string
+  showWantMoreTests: boolean
+  wantMoreTestsUrl: string
   showRecommend: boolean
   showRetry: boolean
   pending: boolean
@@ -26,7 +28,7 @@ const emit = defineEmits<{
 
 <template>
   <div
-    v-if="choices.length || showConfirm || showUpload || showCheckup || showRecommend || showRetry"
+    v-if="choices.length || showConfirm || showUpload || showCheckup || showWantMoreTests || showRecommend || showRetry"
     class="turn-actions"
     data-testid="chat-turn-actions"
   >
@@ -62,7 +64,7 @@ const emit = defineEmits<{
       </AppButton>
     </div>
     <div
-      v-if="showRecommend || showUpload || (showCheckup && checkupUrl) || showRetry"
+      v-if="showRecommend || showUpload || (showCheckup && checkupUrl) || (showWantMoreTests && wantMoreTestsUrl) || showRetry"
       class="turn-actions-row"
     >
       <AppButton
@@ -90,6 +92,16 @@ const emit = defineEmits<{
         data-testid="chat-message-checkup"
       >
         {{ $t('chat.checkupLink') }}
+      </AppButton>
+      <AppButton
+        v-if="showWantMoreTests && wantMoreTestsUrl"
+        :href="wantMoreTestsUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+        variant="outline"
+        data-testid="chat-message-want-more-tests"
+      >
+        {{ $t('labChart.wantMoreTests') }}
       </AppButton>
       <AppButton
         v-if="showRetry"

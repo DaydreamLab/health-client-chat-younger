@@ -38,6 +38,8 @@ export interface ChatMessage {
   uploadOffer?: boolean
   /** Assistant suggested external checkup; show in-bubble checkup link. */
   checkupOffer?: boolean
+  /** After report interpret reply; show in-bubble「我想檢查更多」link. */
+  wantMoreTestsOffer?: boolean
   /** Status note (report progress / ready). Does not replace the active question. */
   notice?: boolean
 }
@@ -171,6 +173,7 @@ export function snapshotChatMessage(message: ChatMessage): ChatMessage {
     profileGaps: message.profileGaps ? [...message.profileGaps] : undefined,
     ...(message.uploadOffer ? { uploadOffer: true } : {}),
     ...(message.checkupOffer ? { checkupOffer: true } : {}),
+    ...(message.wantMoreTestsOffer ? { wantMoreTestsOffer: true } : {}),
     ...(message.notice ? { notice: true } : {})
   }
 }

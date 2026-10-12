@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import type { HealthReportResult } from '~/utils/candor-api'
 
-const MORE_TESTS_ITEM_THRESHOLD = 30
-
 const props = defineProps<{
   open: boolean
   collapsed: boolean
@@ -29,10 +27,8 @@ const urlLoaded = ref(false)
 
 const individualTestsUrl = computed(() => resolvedTestsUrl.value.trim())
 
-const showMoreTests = computed(() =>
-  !props.prompt
-  && props.results.length < MORE_TESTS_ITEM_THRESHOLD
-  && individualTestsUrl.value !== ''
+const showWantMoreTests = computed(() =>
+  !props.prompt && individualTestsUrl.value !== ''
 )
 
 const showGoCheckup = computed(() =>
@@ -122,23 +118,23 @@ function onUpdated(results: HealthReportResult[]) {
         </template>
         <template v-else>
           <AppButton
-            v-if="showMoreTests"
-            :href="individualTestsUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            variant="outline"
-            class="interpret-btn"
-            data-testid="chat-report-more-tests"
-          >
-            {{ $t('labChart.moreTests') }}
-          </AppButton>
-          <AppButton
             v-if="showInterpret"
             class="interpret-btn"
             data-testid="chat-report-interpret"
             @click="emit('interpret')"
           >
             {{ $t('chat.explainHighlights') }}
+          </AppButton>
+          <AppButton
+            v-if="showWantMoreTests"
+            :href="individualTestsUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="outline"
+            class="interpret-btn"
+            data-testid="chat-report-want-more-tests"
+          >
+            {{ $t('labChart.wantMoreTests') }}
           </AppButton>
           <button
             type="button"
