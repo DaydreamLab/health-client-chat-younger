@@ -574,7 +574,9 @@
     "invalidCarrier": "請確認發票載具格式正確。",
     "compositionChanged": "方案組成已更新，請確認後再送出。",
     "reportNotReady": "報告尚未就緒，請稍後再試。",
-    "errorGeneric": "無法完成下單，請稍後再試。"
+    "errorGeneric": "無法完成下單，請稍後再試。",
+    "linepay": "LINE Pay",
+    "atm": "ATM 虛擬帳號"
   },
   "orders": {
     "title": "我的訂單",
@@ -621,7 +623,9 @@
     "cancelReasonPlaceholder": "取消原因（選填）",
     "cancelConfirm": "確認取消",
     "cancelDismiss": "再想想",
-    "cancelError": "無法取消訂單，請稍後再試。"
+    "cancelError": "無法取消訂單，請稍後再試。",
+    "paymentRefunded": "已退款",
+    "invoiceNumber": "發票號碼"
   },
   "footer": {
     "copyright": "© {year} 坦見。保留所有權利。",

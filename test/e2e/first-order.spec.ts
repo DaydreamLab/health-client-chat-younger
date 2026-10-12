@@ -38,7 +38,7 @@ test.describe('guest session', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           status: 'success',
-          data: { items: [], individual_tests_url: 'https://labs.example/tests' }
+          data: { items: [], individual_tests_url: 'https://labs.example/tests', payment_methods: ['card', 'linepay', 'atm'] }
         })
       })
     })
@@ -363,7 +363,7 @@ test.describe('member checkout', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           status: 'success',
-          data: { items: [], individual_tests_url: '' }
+          data: { items: [], individual_tests_url: '', payment_methods: ['card'] }
         })
       })
     })
@@ -393,7 +393,7 @@ test.describe('member checkout', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           status: 'success',
-          data: { items: [], individual_tests_url: 'https://labs.example/tests' }
+          data: { items: [], individual_tests_url: 'https://labs.example/tests', payment_methods: ['card', 'linepay', 'atm'] }
         })
       })
     })

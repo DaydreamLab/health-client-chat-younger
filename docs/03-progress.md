@@ -147,10 +147,11 @@
 |------|------|------|
 | 建單（`lines[]`） | `POST /orders` | 已接 |
 | 列表 | `GET /orders` | 已接 |
-| 詳情 | `GET /order/{id}` | 已接 |
+| 詳情 | `GET /order/{id}` | 已接（含 `refunded`、`invoice_number` 只讀） |
 | 重新付款 | `POST /order/{id}/payment` | 已接 |
 | 取消 | `POST /order/{id}/cancel` | 已接 |
 | 反查對話 | `GET /order/{id}/message` | 已接 |
+| 可用付款方式 | `GET /client-config` → `payment_methods` | 已接 |
 | Provider webhook | `POST /payments/{provider}/callback` | 不做 |
 
 ### 續約

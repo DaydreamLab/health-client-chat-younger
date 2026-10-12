@@ -71,6 +71,7 @@ export interface LabServicesList {
 export interface ClientConfig {
   individual_tests_url: string
   items?: Array<{ key: string, url: string }>
+  payment_methods?: Array<'card' | 'linepay' | 'atm'>
 }
 
 export interface RecommendationCopy {
@@ -356,6 +357,8 @@ export interface OrderDetail {
     email: string
   } | null
   invoice_type?: string | null
+  invoice_status?: string | null
+  invoice_number?: string | null
   created_at?: string
   confirmed_at?: string | null
   payments?: CandorPayment[] | null

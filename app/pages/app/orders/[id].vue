@@ -56,6 +56,14 @@
             {{ $t(`checkout.${order.paymentMethod}`) }}
           </dd>
         </div>
+        <div v-if="order.invoiceNumber">
+          <dt class="text-muted">
+            {{ $t('orders.invoiceNumber') }}
+          </dt>
+          <dd class="mt-1 text-highlighted">
+            {{ order.invoiceNumber }}
+          </dd>
+        </div>
         <div>
           <dt class="text-muted">
             {{ $t('checkout.delivery') }}

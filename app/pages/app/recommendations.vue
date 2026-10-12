@@ -479,8 +479,7 @@
           <label
             v-for="method in paymentMethods"
             :key="method"
-            class="flex items-center gap-2 text-sm"
-            :class="method === 'card' ? 'text-highlighted' : 'text-dimmed'"
+            class="flex items-center gap-2 text-sm text-highlighted"
           >
             <input
               v-model="paymentMethod"
@@ -488,9 +487,8 @@
               class="accent-primary"
               name="payment"
               :value="method"
-              :disabled="method !== 'card'"
             >
-            {{ method === 'card' ? $t('checkout.card') : $t(`checkout.${method}ComingSoon`) }}
+            {{ $t(`checkout.${method}`) }}
           </label>
         </fieldset>
 
@@ -679,8 +677,29 @@ const payPhase = ref<'form' | 'paying' | 'success'>('form')
 const error = ref('')
 const detail = ref<RecommendationPackageItem | null>(null)
 
-const paymentMethods: PaymentMethod[] = ['card', 'linepay', 'atm']
+const DEFAULT_PAYMENT_METHODS: PaymentMethod[] = ['card', 'linepay', 'atm']
+const paymentMethods = ref<PaymentMethod[]>([...DEFAULT_PAYMENT_METHODS])
 const invoiceOptions: InvoiceType[] = ['member', 'cloud', 'company', 'donate']
+
+async function loadPaymentMethods() {
+  try {
+    const config = await candor.getClientConfig()
+    const methods = (config.payment_methods ?? [])
+      .filter((m): m is PaymentMethod => m === 'card' || m === 'linepay' || m === 'atm')
+    if (methods.length > 0) {
+      paymentMethods.value = methods
+      if (!methods.includes(paymentMethod.value)) {
+        paymentMethod.value = methods[0] ?? 'card'
+      }
+    }
+  } catch {
+    paymentMethods.value = [...DEFAULT_PAYMENT_METHODS]
+  }
+}
+
+if (import.meta.client) {
+  void loadPaymentMethods()
+}
 
 const reportPending = ref(false)
 const reportResults = ref<HealthReportResult[]>([])

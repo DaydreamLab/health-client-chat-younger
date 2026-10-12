@@ -574,7 +574,9 @@
     "invalidCarrier": "Check the invoice carrier format.",
     "compositionChanged": "The package composition changed. Review and submit again.",
     "reportNotReady": "The report is not ready yet. Try again later.",
-    "errorGeneric": "Could not place the order. Try again later."
+    "errorGeneric": "Could not place the order. Try again later.",
+    "linepay": "LINE Pay",
+    "atm": "ATM virtual account"
   },
   "orders": {
     "title": "My orders",
@@ -621,7 +623,9 @@
     "cancelReasonPlaceholder": "Reason (optional)",
     "cancelConfirm": "Confirm cancel",
     "cancelDismiss": "Keep order",
-    "cancelError": "Could not cancel the order. Please try again."
+    "cancelError": "Could not cancel the order. Please try again.",
+    "paymentRefunded": "Refunded",
+    "invoiceNumber": "Invoice number"
   },
   "footer": {
     "copyright": "© {year} Candor. All rights reserved.",

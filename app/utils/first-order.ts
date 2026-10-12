@@ -222,6 +222,8 @@ export interface OrderRecord {
   delivery: 'home'
   recipient: OrderRecipient
   invoice: InvoiceType
+  invoiceStatus?: string | null
+  invoiceNumber?: string | null
   messages: ChatMessage[]
   timeline: ShipmentStep[]
 }
@@ -536,6 +538,8 @@ export function orderRecordFromCandorDetail(
     delivery: 'home',
     recipient,
     invoice,
+    invoiceStatus: detail.invoice_status ?? null,
+    invoiceNumber: detail.invoice_number ?? null,
     messages: fallback.messages ? cloneMessages(fallback.messages) : [],
     timeline: confirmedAt
       ? defaultShipmentTimeline(confirmedAt)
