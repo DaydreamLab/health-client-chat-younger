@@ -645,6 +645,7 @@ import {
   composeTaiwanAddress,
   districtsForCity
 } from '~/utils/taiwan-regions'
+import { recommendationRequestFromJourney } from '~/utils/recommendation-request'
 
 definePageMeta({
   layout: 'user',
@@ -812,17 +813,12 @@ async function loadRecommendation() {
   recoPending.value = true
   recoError.value = ''
   try {
-    const body: Parameters<typeof candor.createRecommendation>[0] = {
-      enrich: 'template',
-      limit: 30
-    }
-    if (journey.reportId) {
-      body.report_id = journey.reportId
-    }
-    if (journey.conversationId) {
-      body.conversation_id = journey.conversationId
-    }
-    const result = await candor.createRecommendation(body)
+    const result = await candor.createRecommendation(
+      recommendationRequestFromJourney({
+        conversationId: journey.conversationId,
+        reportId: journey.reportId
+      })
+    )
     recommendation.value = result
     const preferred = journey.selectedPackageCode
     const match = result.packages.find(pkg => pkg.package_plan_code === preferred)

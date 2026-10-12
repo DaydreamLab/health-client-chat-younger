@@ -441,6 +441,8 @@ test.describe('member checkout', () => {
     await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
     await page.getByTestId('chat-report-interpret').click()
     await expect(page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('chat-recommendation-packages')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('chat-package-plan-basic')).toBeVisible()
     const replyWantMore = page.getByTestId('chat-last-reply').getByTestId('chat-message-want-more-tests')
     await expect(replyWantMore).toHaveText('我想檢查更多')
     const recommendBox = await page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend').boundingBox()
