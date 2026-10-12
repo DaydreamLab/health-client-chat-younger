@@ -848,7 +848,8 @@ function showRecommendCta(message: ChatMessage) {
     profileQuestionActive: message.turnType === 'profile' && Boolean(message.profileQuestion),
     isLatestAssistant: message.role === 'assistant' && message.id === lastAssistantId.value,
     reportRetry: Boolean(reportRetryId.value),
-    pending: pending.value
+    pending: pending.value,
+    hasReportAnalysis: journey.hasAnalysis
   })
 }
 
