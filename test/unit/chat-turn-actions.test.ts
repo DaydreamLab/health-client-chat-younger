@@ -1,0 +1,196 @@
+import { describe, expect, it } from 'vitest'
+import type { ChatMessage } from '../../app/utils/first-order'
+import {
+  buildTurnActionsVisibility,
+  type ChatTurnUiContext,
+  recommendCtaVisible,
+  wantMoreTestsCtaVisible
+} from '../../app/utils/chat-turn-actions'
+import { findIntakeAssistantMessage } from '../../app/utils/chat-intake'
+
+const goals = [
+  { code: 'sleep', label: '睡眠' },
+  { code: 'weight', label: '減重' }
+]
+
+function assistant(id: string, extra: Partial<ChatMessage> = {}): ChatMessage {
+  return {
+    id,
+    role: 'assistant',
+    parts: [{ type: 'text', text: 'reply' }],
+    ...extra
+  }
+}
+
+function baseCtx(overrides: Partial<ChatTurnUiContext> = {}): ChatTurnUiContext {
+  return {
+    readonlyMode: false,
+    escalated: false,
+    pending: false,
+    goalSelectActive: false,
+    hasReportAnalysis: false,
+    reportRetry: false,
+    checkupLinkReady: true,
+    lastAssistantId: 'latest',
+    ...overrides
+  }
+}
+
+function visibility(
+  message: ChatMessage,
+  ctx: ChatTurnUiContext,
+  extra: {
+    goalOptions?: typeof goals
+    goalSelectActive?: boolean
+    needsMultiConfirm?: boolean
+    messages?: ChatMessage[]
+  } = {}
+) {
+  const goalSelectActive = extra.goalSelectActive ?? ctx.goalSelectActive
+  const list = extra.messages ?? [message]
+  const intake = findIntakeAssistantMessage(list, {
+    goalSelectActive,
+    lastAssistantId: ctx.lastAssistantId
+  })
+  return buildTurnActionsVisibility({
+    message,
+    ctx: { ...ctx, goalSelectActive },
+    intake,
+    goalOptions: extra.goalOptions ?? goals,
+    needsMultiConfirm: extra.needsMultiConfirm ?? goalSelectActive
+  })
+}
+
+describe('recommendCtaVisible', () => {
+  const base = {
+    readonlyMode: false,
+    escalated: false,
+    goalSelectActive: false,
+    profileQuestionActive: false,
+    isLatestAssistant: true,
+    reportRetry: false
+  }
+
+  it('blocks during opening goal select without report', () => {
+    expect(recommendCtaVisible({ ...base, goalSelectActive: true })).toBe(false)
+  })
+
+  it('allows during post-interpret goal select when analysis ready', () => {
+    expect(
+      recommendCtaVisible({
+        ...base,
+        goalSelectActive: true,
+        hasReportAnalysis: true
+      })
+    ).toBe(true)
+  })
+
+  it('blocks on non-latest, pending, profile question, retry', () => {
+    expect(recommendCtaVisible({ ...base, isLatestAssistant: false })).toBe(false)
+    expect(recommendCtaVisible({ ...base, pending: true })).toBe(false)
+    expect(recommendCtaVisible({ ...base, profileQuestionActive: true })).toBe(false)
+    expect(recommendCtaVisible({ ...base, reportRetry: true })).toBe(false)
+  })
+})
+
+describe('buildTurnActionsVisibility — journey matrix', () => {
+  it('opening goal select: chips on intake only, no recommend', () => {
+    const greeting = assistant('greeting', { options: goals })
+    const ctx = baseCtx({ goalSelectActive: true, lastAssistantId: 'greeting' })
+    const onGreeting = visibility(greeting, ctx, {
+      goalSelectActive: true,
+      messages: [greeting]
+    })
+    expect(onGreeting.choices.map(o => o.code)).toEqual(['sleep', 'weight'])
+    expect(onGreeting.showConfirm).toBe(true)
+    expect(onGreeting.showRecommend).toBe(false)
+    expect(onGreeting.showWantMoreTests).toBe(false)
+  })
+
+  it('post-interpret goal select: chips + recommend + want more on latest', () => {
+    const greeting = assistant('greeting', { options: goals })
+    const interpret = assistant('latest', {
+      options: goals,
+      wantMoreTestsOffer: true
+    })
+    const ctx = baseCtx({
+      goalSelectActive: true,
+      hasReportAnalysis: true,
+      lastAssistantId: 'latest'
+    })
+    const onLatest = visibility(interpret, ctx, {
+      goalSelectActive: true,
+      messages: [greeting, interpret]
+    })
+    expect(onLatest.choices.length).toBe(2)
+    expect(onLatest.showConfirm).toBe(true)
+    expect(onLatest.showRecommend).toBe(true)
+    expect(onLatest.showWantMoreTests).toBe(true)
+    const onGreeting = visibility(greeting, ctx, {
+      goalSelectActive: true,
+      messages: [greeting, interpret]
+    })
+    expect(onGreeting.choices).toEqual([])
+    expect(onGreeting.showRecommend).toBe(false)
+  })
+
+  it('stale interpret bubble: no want-more when no longer latest', () => {
+    const interpret = assistant('old', { wantMoreTestsOffer: true })
+    const followUp = assistant('latest')
+    const ctx = baseCtx({ hasReportAnalysis: true, lastAssistantId: 'latest' })
+    const stale = visibility(interpret, ctx, { messages: [interpret, followUp] })
+    expect(stale.showWantMoreTests).toBe(false)
+    expect(stale.showRecommend).toBe(false)
+    expect(
+      wantMoreTestsCtaVisible(ctx, interpret)
+    ).toBe(false)
+  })
+
+  it('profile quiz on latest: options chips, no recommend', () => {
+    const quiz = assistant('latest', {
+      turnType: 'profile',
+      profileQuestion: { gap_code: 'diet', answer_type: 'enum' },
+      options: [{ code: 'a', label: 'A' }]
+    })
+    const ctx = baseCtx({ lastAssistantId: 'latest' })
+    const v = visibility(quiz, ctx, {
+      messages: [quiz],
+      needsMultiConfirm: false
+    })
+    expect(v.choices).toHaveLength(1)
+    expect(v.showRecommend).toBe(false)
+    expect(v.showUpload).toBe(false)
+  })
+
+  it('upload offer on latest message after quiz', () => {
+    const msg = assistant('latest', { uploadOffer: true })
+    const ctx = baseCtx({ lastAssistantId: 'latest' })
+    expect(visibility(msg, ctx, { messages: [msg] }).showUpload).toBe(true)
+    expect(
+      visibility(msg, ctx, {
+        messages: [msg],
+        goalSelectActive: true
+      }).showUpload
+    ).toBe(false)
+    expect(
+      visibility(msg, baseCtx({
+        lastAssistantId: 'latest',
+        hasReportAnalysis: true
+      }), { messages: [msg] }).showUpload
+    ).toBe(false)
+  })
+
+  it('checkup persists on the bubble that received offer', () => {
+    const old = assistant('old', { checkupOffer: true })
+    const latest = assistant('latest')
+    const ctx = baseCtx({ lastAssistantId: 'latest' })
+    expect(visibility(old, ctx, { messages: [old, latest] }).showCheckup).toBe(true)
+    expect(visibility(latest, ctx, { messages: [old, latest] }).showCheckup).toBe(false)
+  })
+
+  it('pending hides recommend on latest', () => {
+    const msg = assistant('latest')
+    const ctx = baseCtx({ pending: true, lastAssistantId: 'latest' })
+    expect(visibility(msg, ctx, { messages: [msg] }).showRecommend).toBe(false)
+  })
+})

@@ -369,10 +369,13 @@ import {
   assistantStillAsking,
   goalsClarificationOpen,
   inferClarifyingGoalLabels,
-  recommendCtaVisible,
   stripFinishedQuizGuide
 } from '~/utils/first-order'
-import { findIntakeAssistantMessage, turnChoicesForMessage } from '~/utils/chat-intake'
+import { findIntakeAssistantMessage } from '~/utils/chat-intake'
+import {
+  buildTurnActionsVisibility,
+  type ChatTurnUiContext
+} from '~/utils/chat-turn-actions'
 import { recommendationRequestFromJourney } from '~/utils/recommendation-request'
 import { storeToRefs } from 'pinia'
 
@@ -567,17 +570,33 @@ const confirmDisabled = computed(() =>
   || (goalSelectActive.value && selectedCodes.value.length < 1)
 )
 
-function choicesFor(message: ChatMessage): GreetingOption[] {
-  return turnChoicesForMessage(
+const turnUiContext = computed((): ChatTurnUiContext => ({
+  readonlyMode: readonly.value,
+  escalated: escalated.value,
+  pending: pending.value,
+  goalSelectActive: goalSelectActive.value,
+  hasReportAnalysis: journey.hasAnalysis,
+  reportRetry: Boolean(reportRetryId.value),
+  checkupLinkReady: checkupLinkUrl.value !== '',
+  lastAssistantId: lastAssistantId.value
+}))
+
+function turnActionsFor(message: ChatMessage) {
+  return buildTurnActionsVisibility({
     message,
-    intakeMessage.value,
-    goalSelectActive.value,
-    goalOptions.value
-  )
+    ctx: turnUiContext.value,
+    intake: intakeMessage.value,
+    goalOptions: goalOptions.value,
+    needsMultiConfirm: needsMultiConfirm.value
+  })
+}
+
+function choicesFor(message: ChatMessage): GreetingOption[] {
+  return turnActionsFor(message).choices
 }
 
 function showConfirmFor(message: ChatMessage) {
-  return choicesFor(message).length > 0 && needsMultiConfirm.value
+  return turnActionsFor(message).showConfirm
 }
 
 function isConsultationGoalOptions(
@@ -607,46 +626,15 @@ const needsTextInput = computed(() => {
 })
 
 function showUploadCta(message: ChatMessage) {
-  if (message.role !== 'assistant' || message.id !== lastAssistantId.value) {
-    return false
-  }
-  if (readonly.value || escalated.value || journey.hasAnalysis) {
-    return false
-  }
-  // 開場選目標階段不掛上傳；等後端 upload_offer 再開。
-  if (goalSelectActive.value) {
-    return false
-  }
-  // lab_report 問卷題本身不掛上傳。
-  if (
-    message.turnType === 'profile'
-    && message.profileQuestion
-    && LAB_GAP_CODES.has(message.profileQuestion.gap_code)
-  ) {
-    return false
-  }
-  return message.uploadOffer === true
+  return turnActionsFor(message).showUpload
 }
 
 function showCheckupCta(message: ChatMessage) {
-  if (message.role !== 'assistant' || !message.checkupOffer) {
-    return false
-  }
-  if (readonly.value || escalated.value) {
-    return false
-  }
-  return checkupLinkUrl.value !== ''
+  return turnActionsFor(message).showCheckup
 }
 
 function showWantMoreTestsCta(message: ChatMessage) {
-  if (message.role !== 'assistant' || readonly.value || escalated.value) {
-    return false
-  }
-  if (checkupLinkUrl.value === '') {
-    return false
-  }
-  // Fixed beside「查看推薦方案」; also after interpret reply when that bubble is still showing.
-  return showRecommendCta(message) || Boolean(message.wantMoreTestsOffer)
+  return turnActionsFor(message).showWantMoreTests
 }
 
 type CheckupOfferFields = {
@@ -834,20 +822,11 @@ async function refreshRecommendationPackages() {
 }
 
 function showRecommendCta(message: ChatMessage) {
-  return recommendCtaVisible({
-    readonlyMode: readonly.value,
-    escalated: escalated.value,
-    goalSelectActive: goalSelectActive.value,
-    profileQuestionActive: message.turnType === 'profile' && Boolean(message.profileQuestion),
-    isLatestAssistant: message.role === 'assistant' && message.id === lastAssistantId.value,
-    reportRetry: Boolean(reportRetryId.value),
-    pending: pending.value,
-    hasReportAnalysis: journey.hasAnalysis
-  })
+  return turnActionsFor(message).showRecommend
 }
 
-function showRetryCta(_message: ChatMessage) {
-  return false
+function showRetryCta(message: ChatMessage) {
+  return turnActionsFor(message).showRetry
 }
 
 function messageText(message: ChatMessage) {

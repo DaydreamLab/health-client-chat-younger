@@ -126,32 +126,6 @@ export function inferClarifyingGoalLabels(
   return []
 }
 
-/**
- * 「查看推薦方案」出現在最新一則助理訊息上。
- * 還在選改善方向、串流中，或這則本身仍是 profile 題庫題時先不顯示。
- * 兩個改善方向的後續釐清不擋這個按鈕。
- */
-export function recommendCtaVisible(input: {
-  readonlyMode: boolean
-  escalated: boolean
-  goalSelectActive: boolean
-  profileQuestionActive: boolean
-  isLatestAssistant: boolean
-  reportRetry: boolean
-  pending?: boolean
-  /** Report ready: keep「查看推薦方案」even when interpret re-opens goal chips. */
-  hasReportAnalysis?: boolean
-}): boolean {
-  const goalsBlockRecommend = input.goalSelectActive && !input.hasReportAnalysis
-  return !input.readonlyMode
-    && !input.escalated
-    && !goalsBlockRecommend
-    && !input.profileQuestionActive
-    && input.isLatestAssistant
-    && !input.reportRetry
-    && !input.pending
-}
-
 /** Drop the client-appended「問答已完成」guide while clarification is still open. */
 export function stripFinishedQuizGuide(text: string): string {
   const kept = text.split('\n').filter((line) => {
