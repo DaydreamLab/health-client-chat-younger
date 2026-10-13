@@ -171,9 +171,12 @@
         </div>
 
         <div class="mt-10 flex flex-col gap-4 border-t border-white/15 pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <p class="text-sm text-white/70">
-            {{ $t('footer.copyright', { year: footerYear }) }}
-          </p>
+          <div class="space-y-1">
+            <p class="text-sm text-white/70">
+              {{ $t('footer.copyright', { year: footerYear }) }}
+            </p>
+            <BuildVersion class="text-white/50" />
+          </div>
           <div class="flex items-center gap-4 text-white/70">
             <span
               role="img"

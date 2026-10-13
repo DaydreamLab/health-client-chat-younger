@@ -647,6 +647,7 @@
     "hours": "週一至週五 10:00–18:00",
     "socialInstagram": "Instagram",
     "socialFacebook": "Facebook",
-    "socialLine": "LINE"
+    "socialLine": "LINE",
+    "buildVersion": "前台 {fe}／核心 {core}"
   }
 }

@@ -30,6 +30,7 @@
           :items="logoutItems"
           :ui="collapsedNavUi"
         />
+        <BuildVersion class="px-1 text-center text-dimmed" />
       </div>
     </aside>
 
