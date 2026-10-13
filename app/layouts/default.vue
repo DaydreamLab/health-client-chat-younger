@@ -54,7 +54,8 @@
           </svg>
         </button>
         <BrandMark
-          v-if="isLogin && !mobileNavOpen"
+          v-if="(isHome || isLogin) && !mobileNavOpen"
+          :on-photo="headerOverHero"
         />
         <HomeNavLink v-else-if="!isHome && !mobileNavOpen" />
         <div class="ms-auto flex items-center gap-2 sm:gap-3">

@@ -13,11 +13,13 @@ test('home mobile nav stays inside the header toggle', async ({ page, goto }) =>
   await expect(page.getByTestId('home-nav-toggle').locator('svg')).toBeVisible()
   await expect(page.getByRole('button', { name: '語言：繁中' })).toBeVisible()
   await expect(page.locator('header').getByTestId('account-user')).toHaveCount(0)
-  await expect(page.locator('header').getByTestId('brand')).toHaveCount(0)
+  await expect(page.locator('header').getByTestId('brand')).toHaveAttribute('src', /brand-wordmark\.png$/)
+  await expect(page.locator('header').getByTestId('brand-dark')).toHaveCount(0)
   await expect(plans).toBeHidden()
 
   await page.getByTestId('home-nav-toggle').click()
   await expect(page.getByTestId('home-nav-toggle')).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.locator('header').getByTestId('brand')).toHaveCount(0)
   await expect(plans).toBeVisible()
 
   await plans.click()
@@ -26,7 +28,7 @@ test('home mobile nav stays inside the header toggle', async ({ page, goto }) =>
   await expect(page.getByTestId('home-nav-toggle')).toHaveAttribute('aria-expanded', 'false')
 })
 
-test('member home shows the avatar without the header wordmark', async ({ page, goto }) => {
+test('member home shows the avatar with the header wordmark', async ({ page, goto }) => {
   await mockCandorAuth(page, { asMember: true })
   await page.setViewportSize({ width: 390, height: 844 })
   await goto('/', { waitUntil: 'hydration' })
@@ -34,13 +36,13 @@ test('member home shows the avatar without the header wordmark', async ({ page, 
   const account = page.locator('header').getByTestId('account-user')
   await expect(account).toBeVisible()
   await expect(account).toHaveText('GU')
-  await expect(page.locator('header').getByTestId('brand')).toHaveCount(0)
+  await expect(page.locator('header').getByTestId('brand')).toHaveAttribute('src', /brand-wordmark\.png$/)
 })
 
 test('guest home page loads', async ({ page, goto }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   await goto('/', { waitUntil: 'hydration' })
-  await expect(page.locator('header').getByTestId('brand')).toHaveCount(0)
+  await expect(page.locator('header').getByTestId('brand')).toHaveAttribute('src', /brand-wordmark\.png$/)
   await expect(page.locator('header').getByTestId('brand-dark')).toHaveCount(0)
   await expect(page.getByTestId('footer-brand')).toHaveAttribute('src', /brand-wordmark-dark\.png$/)
   await expect(page.getByTestId('build-version')).toContainText('Agent: dev (dev)')
@@ -127,7 +129,7 @@ test('EN switch keeps selected style and translates plans', async ({ page, goto 
   await page.getByRole('button', { name: '語言：繁中' }).click()
 
   await expect(page).toHaveURL(/\/en\/?/)
-  await expect(page.locator('header').getByTestId('brand')).toHaveCount(0)
+  await expect(page.locator('header').getByTestId('brand')).toHaveAttribute('src', /brand-wordmark\.png$/)
   await expect(page.getByRole('heading', { name: 'Where do you want to start?' })).toBeVisible()
   await expect(page.getByTestId('home-goal-sleep')).toContainText('Sleep')
   await expect(page.getByRole('heading', { name: 'Start with a conversation and understand your body.' })).toBeVisible()
@@ -256,9 +258,11 @@ test('day dark toggle sets html class', async ({ page, goto }) => {
   await page.getByTestId('color-mode-toggle').click()
   await expect(page.locator('html')).toHaveClass(/dark/)
   await expect(page.getByTestId('color-mode-toggle')).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.locator('header').getByTestId('brand')).toHaveCount(0)
+  await expect(page.locator('header').getByTestId('brand')).toHaveAttribute('src', /brand-wordmark\.png$/)
   await expect(page.locator('header').getByTestId('brand-dark')).toHaveCount(0)
   await page.evaluate(() => window.scrollTo(0, 480))
+  await expect(page.locator('header')).toHaveAttribute('data-header-state', 'solid')
+  await expect(page.locator('header').getByTestId('brand-dark')).toHaveAttribute('src', /brand-wordmark-dark\.png$/)
   await expect(page.getByRole('heading', { name: '從一次對談開始，看懂自己的身體' }).locator('xpath=ancestor::section[1]')).toHaveCSS('background-color', 'rgb(3, 49, 66)')
   await page.getByTestId('color-mode-toggle').click()
   await expect(page.locator('html')).not.toHaveClass(/dark/)

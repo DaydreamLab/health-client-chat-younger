@@ -5,6 +5,8 @@
         <img
           :src="heroSrc"
           alt=""
+          width="3840"
+          height="2160"
           class="absolute inset-0 size-full object-cover object-[left_top] sm:object-center"
         >
         <div
@@ -397,7 +399,7 @@ function publicAsset(path: string) {
   return `${config.app.baseURL}${path.replace(/^\//, '')}`
 }
 
-const heroSrc = publicAsset('hero-banner.png')
+const heroSrc = publicAsset('hero-banner.jpg')
 const journey = useJourneyStore()
 const candor = useCandorApi()
 const stepKeys = ['one', 'two', 'three'] as const
