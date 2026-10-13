@@ -43,7 +43,7 @@ test('guest home page loads', async ({ page, goto }) => {
   await expect(page.locator('header').getByTestId('brand')).toHaveCount(0)
   await expect(page.locator('header').getByTestId('brand-dark')).toHaveCount(0)
   await expect(page.getByTestId('footer-brand')).toHaveAttribute('src', /brand-wordmark-dark\.png$/)
-  await expect(page.getByTestId('build-version')).toContainText('dev /')
+  await expect(page.getByTestId('build-version')).toContainText('Agent: Version - dev')
   await expect(page.locator('header')).toHaveAttribute('data-header-state', 'overlay')
   await page.evaluate(() => window.scrollTo(0, 240))
   await expect(page.locator('header')).toHaveAttribute('data-header-state', 'solid')

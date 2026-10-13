@@ -175,7 +175,10 @@
             <p class="text-sm text-white/70">
               {{ $t('footer.copyright', { year: footerYear }) }}
             </p>
-            <BuildVersion class="text-white/50" />
+            <BuildVersion
+              v-if="isHome"
+              class="text-white/50"
+            />
           </div>
           <div class="flex items-center gap-4 text-white/70">
             <span

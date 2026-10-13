@@ -2,9 +2,9 @@
   <p
     class="font-mono text-[10px] leading-tight"
     data-testid="build-version"
-    :aria-label="$t('footer.buildVersion', { fe: feLabel, core: coreLabel })"
+    :aria-label="`Agent: Version - ${feLabel} | Core Engine: Version - ${coreLabel}`"
   >
-    {{ feLabel }} / {{ coreLabel }}
+    Agent: Version - {{ feLabel }} | Core Engine: Version - {{ coreLabel }}
   </p>
 </template>
 
@@ -24,7 +24,7 @@ onMounted(async () => {
     const res = await $fetch<{ data?: { revision?: string | null } }>(`${origin}/health`)
     const revision = res?.data?.revision
     if (typeof revision === 'string' && revision.length > 0) {
-      coreLabel.value = revision
+      coreLabel.value = revision.slice(0, 7)
     }
   } catch {
     // keep em-dash when core is unreachable
