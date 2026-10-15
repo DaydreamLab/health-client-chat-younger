@@ -107,6 +107,11 @@ export interface RecommendationPackageItem {
   /** 是否基礎（核心）品；來自主檔，false／缺省視為功能型 */
   is_core?: boolean
   image_url?: string | null
+  /** Expert-review revised snapshot may mark removed lines. */
+  removed?: boolean
+  stored_reason?: string | null
+  display_reason?: string | null
+  display_reason_source?: 'retrieved' | 'stored' | 'engine' | 'personal_risk' | string
 }
 
 export interface ClaimGuardHit {
@@ -175,6 +180,19 @@ export interface RecommendationResponse {
   items: RecommendationItem[]
   packages: RecommendationPackage[]
   excluded?: Array<{ sellable_item_id: string, reason_code: string }> | null
+}
+
+/** Member expert-case-review status / reviewed packages (spec 32). */
+export interface ExpertCaseReviewStatus {
+  id: string
+  conversation_id: string
+  status: 'awaiting_review' | 'reviewed'
+  recommendation_run_id: string
+  created_at: string
+  reviewed_at?: string | null
+  packages?: RecommendationPackage[]
+  summary?: RecommendationResponse['summary'] | null
+  weight_set?: { id: string, version?: string } | null
 }
 
 export interface ConversationGreeting {

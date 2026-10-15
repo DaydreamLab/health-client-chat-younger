@@ -44,7 +44,50 @@
     class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]"
   >
     <div class="space-y-6">
-      <section class="rounded-2xl border border-default bg-elevated p-5">
+      <section
+        v-if="reviewPhase === 'awaiting'"
+        class="rounded-2xl border border-default bg-elevated p-5"
+        data-testid="expert-review-awaiting"
+      >
+        <h2 class="text-xl font-semibold text-highlighted">
+          {{ $t('recommendation.awaitingTitle') }}
+        </h2>
+        <p class="mt-3 text-sm text-muted">
+          {{ $t('recommendation.awaitingBody') }}
+        </p>
+        <p
+          v-if="recoPending"
+          class="mt-3 text-sm text-muted"
+          data-testid="recommendation-loading"
+        >
+          {{ $t('recommendation.recoLoading') }}
+        </p>
+      </section>
+
+      <section
+        v-else-if="reviewPhase === 'ready'"
+        class="rounded-2xl border border-default bg-elevated p-5"
+        data-testid="expert-review-ready"
+      >
+        <h2 class="text-xl font-semibold text-highlighted">
+          {{ $t('recommendation.readyTitle') }}
+        </h2>
+        <p class="mt-3 text-sm text-muted">
+          {{ $t('recommendation.readyBody') }}
+        </p>
+        <AppButton
+          class="mt-6"
+          data-testid="view-reviewed-packages"
+          @click="revealPackages"
+        >
+          {{ $t('recommendation.viewPackages') }}
+        </AppButton>
+      </section>
+
+      <section
+        v-else
+        class="rounded-2xl border border-default bg-elevated p-5"
+      >
         <h2 class="text-xl font-semibold text-highlighted">
           {{ $t('recommendation.packagePick') }}
         </h2>
@@ -133,7 +176,7 @@
       </section>
 
       <section
-        v-if="selectedRationale"
+        v-if="(reviewPhase === 'viewing' || reviewPhase === 'legacy') && selectedRationale"
         class="overflow-hidden rounded-2xl border border-default bg-elevated"
         data-testid="package-rationale"
       >
@@ -192,6 +235,7 @@
       </section>
 
       <section
+        v-if="reviewPhase === 'viewing' || reviewPhase === 'legacy'"
         class="overflow-hidden rounded-2xl border border-default bg-elevated"
         data-testid="package-items"
       >
@@ -278,6 +322,7 @@
     </div>
 
     <aside
+      v-if="reviewPhase === 'viewing' || reviewPhase === 'legacy'"
       class="relative h-fit max-h-none rounded-2xl border border-default bg-elevated p-5 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto"
       data-testid="checkout-card"
     >
@@ -644,6 +689,7 @@ import {
   districtsForCity
 } from '~/utils/taiwan-regions'
 import { recommendationRequestFromJourney } from '~/utils/recommendation-request'
+import { recommendationFromExpertReview } from '~/utils/expert-review'
 
 definePageMeta({
   layout: 'user',
@@ -651,6 +697,7 @@ definePageMeta({
 })
 
 const PAY_HOLD_MS = 3000
+const REVIEW_POLL_MS = 8000
 
 const { t } = useI18n()
 const localePath = useLocalePath()
@@ -659,6 +706,10 @@ const auth = useAuthStore()
 const journey = useJourneyStore()
 const api = useFirstOrderApi()
 const candor = useCandorApi()
+
+type ReviewPhase = 'loading' | 'awaiting' | 'ready' | 'viewing' | 'legacy' | 'error'
+const reviewPhase = ref<ReviewPhase>('loading')
+let reviewPollTimer: ReturnType<typeof setInterval> | null = null
 
 const name = ref(auth.displayName)
 const phone = ref('')
@@ -828,7 +879,31 @@ async function loadReport() {
   }
 }
 
-async function loadRecommendation() {
+function stopReviewPoll() {
+  if (reviewPollTimer) {
+    clearInterval(reviewPollTimer)
+    reviewPollTimer = null
+  }
+}
+
+function applyReviewedPackages(result: RecommendationResponse) {
+  recommendation.value = result
+  const preferred = journey.selectedPackageCode
+  const match = result.packages.find(pkg => pkg.package_plan_code === preferred)
+  selectedPackageCode.value = match?.package_plan_code ?? result.packages[0]?.package_plan_code ?? ''
+  if (selectedPackageCode.value) {
+    journey.selectedPackageCode = selectedPackageCode.value
+  }
+}
+
+function revealPackages() {
+  if (recommendation.value) {
+    reviewPhase.value = 'viewing'
+  }
+}
+
+async function loadLegacyRecommendation() {
+  reviewPhase.value = 'legacy'
   recoPending.value = true
   recoError.value = ''
   try {
@@ -838,19 +913,79 @@ async function loadRecommendation() {
         reportId: journey.reportId
       })
     )
-    recommendation.value = result
-    const preferred = journey.selectedPackageCode
-    const match = result.packages.find(pkg => pkg.package_plan_code === preferred)
-    selectedPackageCode.value = match?.package_plan_code ?? result.packages[0]?.package_plan_code ?? ''
-    if (selectedPackageCode.value) {
-      journey.selectedPackageCode = selectedPackageCode.value
-    }
+    applyReviewedPackages(result)
   } catch {
     recoError.value = t('recommendation.recoError')
     recommendation.value = null
+    reviewPhase.value = 'error'
   } finally {
     recoPending.value = false
   }
+}
+
+async function fetchExpertReviewStatus(createIfMissing: boolean) {
+  const conversationId = journey.conversationId?.trim() ?? ''
+  if (!conversationId || !auth.isMember) {
+    await loadLegacyRecommendation()
+    return
+  }
+
+  recoPending.value = true
+  recoError.value = ''
+  try {
+    let review
+    if (createIfMissing) {
+      try {
+        review = await candor.createExpertReview(conversationId)
+      } catch (err) {
+        if (err instanceof CandorApiError && err.errorCode === 'expert_review_exists') {
+          review = await candor.getExpertReview(conversationId)
+        } else {
+          throw err
+        }
+      }
+    } else {
+      review = await candor.getExpertReview(conversationId)
+    }
+
+    if (review.status === 'awaiting_review') {
+      recommendation.value = null
+      selectedPackageCode.value = ''
+      reviewPhase.value = 'awaiting'
+      if (!reviewPollTimer) {
+        reviewPollTimer = setInterval(() => {
+          void fetchExpertReviewStatus(false)
+        }, REVIEW_POLL_MS)
+      }
+      return
+    }
+
+    stopReviewPoll()
+    const mapped = recommendationFromExpertReview(review)
+    if (!mapped || mapped.packages.length === 0) {
+      recoError.value = t('recommendation.recoError')
+      recommendation.value = null
+      reviewPhase.value = 'error'
+      return
+    }
+    applyReviewedPackages(mapped)
+    reviewPhase.value = reviewPhase.value === 'viewing' ? 'viewing' : 'ready'
+  } catch (err) {
+    stopReviewPoll()
+    if (err instanceof CandorApiError && (err.errorCode === 'member_required' || err.statusCode === 401)) {
+      await loadLegacyRecommendation()
+      return
+    }
+    recoError.value = t('recommendation.recoError')
+    recommendation.value = null
+    reviewPhase.value = 'error'
+  } finally {
+    recoPending.value = false
+  }
+}
+
+async function loadRecommendation() {
+  await fetchExpertReviewStatus(true)
 }
 
 function applyCompositionChanged(pkg: RecommendationPackage) {
@@ -990,5 +1125,9 @@ onMounted(() => {
   void loadReport()
   void loadRecommendation()
   void loadDefaultRecipient()
+})
+
+onUnmounted(() => {
+  stopReviewPoll()
 })
 </script>

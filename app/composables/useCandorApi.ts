@@ -7,6 +7,7 @@ import type {
   ConversationDetachAck,
   ConversationGoalsResult,
   ConversationPackageConfirm,
+  ExpertCaseReviewStatus,
   HealthReport,
   HealthReportList,
   HealthReportPatchResultRequest,
@@ -367,6 +368,18 @@ export function useCandorApi() {
         method: 'POST',
         body
       }),
+
+    createExpertReview: (conversationId: string) =>
+      request<ExpertCaseReviewStatus>(
+        `/conversation/${encodeURIComponent(conversationId)}/expert-review`,
+        { method: 'POST' }
+      ),
+
+    getExpertReview: (conversationId: string) =>
+      request<ExpertCaseReviewStatus>(
+        `/conversation/${encodeURIComponent(conversationId)}/expert-review`,
+        { method: 'GET' }
+      ),
 
     createConversation: (body: {
       report_id?: string

@@ -343,6 +343,12 @@ test.describe('login then recommend', () => {
     await expect(page).toHaveURL((url) => {
       return url.pathname === '/app/recommendations' || url.pathname === '/app/recommendations/'
     })
+    const viewPackages = page.getByTestId('view-reviewed-packages')
+    const packagePlan = page.getByTestId('package-plan-basic')
+    await expect(viewPackages.or(packagePlan)).toBeVisible({ timeout: 15_000 })
+    if (await viewPackages.count()) {
+      await viewPackages.click()
+    }
     await expect(page.getByTestId('checkout-auth-gate')).toHaveCount(0)
     await expect(page.getByTestId('checkout-total')).toBeVisible({ timeout: 15_000 })
   })
@@ -480,6 +486,8 @@ test.describe('member checkout', () => {
     await page.getByTestId('chat-report-dock-toggle').click()
     await page.getByTestId('chat-view-recommend').click()
 
+    await expect(page.getByTestId('view-reviewed-packages')).toBeVisible({ timeout: 15_000 })
+    await page.getByTestId('view-reviewed-packages').click()
     await expect(page.getByTestId('checkout-auth-gate')).toHaveCount(0)
     await expect(page.getByTestId('checkout-total')).toContainText('1,280')
     await expect(page.getByTestId('sellable-item-kind-vitamin_d')).toHaveText('核心')

@@ -437,6 +437,148 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     })
   })
 
+  const reviewedPackages = [
+    {
+      package_plan_code: 'basic',
+      package_plan_name: '基礎保養',
+      price: 1280,
+      period_days: 30,
+      items: [
+        {
+          rank: 1,
+          sellable_item_id: sellableVitD,
+          code: 'vitamin_d',
+          name: '維生素 D',
+          unit_price: 9,
+          daily_dose: 1,
+          monthly_cost: 280,
+          is_core: true,
+          image_url: 'https://cdn.example/catalog/vitamin_d.png',
+          display_reason: '顧問定稿原因'
+        },
+        {
+          rank: 2,
+          sellable_item_id: sellableIron,
+          code: 'iron',
+          name: '鐵蛋白調理',
+          unit_price: 17,
+          daily_dose: 1,
+          monthly_cost: 520,
+          is_core: false
+        },
+        {
+          rank: 3,
+          sellable_item_id: sellableVitC,
+          code: 'vitamin_c',
+          name: '維生素 C',
+          unit_price: 16,
+          daily_dose: 1,
+          monthly_cost: 480,
+          is_core: false
+        }
+      ],
+      used_amount: 1280,
+      remaining: 0,
+      composition_hash: 'sha256:basic',
+      rationale: {
+        headline: '評估與總覽',
+        body: '關注免疫提升',
+        disclaimer: '本建議僅供健康管理參考，非醫療診斷或療效保證。',
+        copy_mode: 'template',
+        groups: [
+          {
+            kind: 'goal',
+            key: 'goal:immune_boost',
+            title: '關注免疫提升',
+            entries: [
+              {
+                code: 'vitamin_c',
+                name: '維生素 C',
+                ingredient_label: '維生素C',
+                line: '建議補充維生素C成份：維生素 C',
+                claim_guard_hits: [{ term: '治癒', severity: 'blocked' }]
+              }
+            ]
+          }
+        ],
+        items: [],
+        claim_guard_hits: [{ term: '治癒', severity: 'blocked' }]
+      }
+    },
+    {
+      package_plan_code: 'advance',
+      package_plan_name: '完整調理',
+      price: 1980,
+      period_days: 30,
+      items: [
+        {
+          rank: 1,
+          sellable_item_id: sellableVitD,
+          code: 'vitamin_d',
+          name: '維生素 D',
+          unit_price: 9,
+          daily_dose: 1,
+          monthly_cost: 280,
+          is_core: true
+        },
+        {
+          rank: 2,
+          sellable_item_id: sellableOmega,
+          code: 'omega3',
+          name: 'Omega-3',
+          unit_price: 9,
+          daily_dose: 1,
+          monthly_cost: 280,
+          is_core: true
+        }
+      ],
+      used_amount: 560,
+      remaining: 1420,
+      composition_hash: 'sha256:advance',
+      rationale: {
+        headline: '評估與總覽',
+        body: '完整調理',
+        disclaimer: '本建議僅供健康管理參考，非醫療診斷或療效保證。',
+        copy_mode: 'template',
+        groups: [],
+        items: [],
+        claim_guard_hits: []
+      }
+    }
+  ]
+
+  await page.route('**/api/v1/conversation/*/expert-review', async (route) => {
+    const method = route.request().method()
+    if (method !== 'GET' && method !== 'POST') {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({
+      status: method === 'POST' ? 201 : 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: {
+          id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+          conversation_id: conversationId,
+          status: 'reviewed',
+          recommendation_run_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+          created_at: '2026-01-01T00:00:00Z',
+          reviewed_at: '2026-01-01T01:00:00Z',
+          packages: reviewedPackages,
+          weight_set: { id: 'ws-e2e', version: '0.1.0' },
+          summary: {
+            top_domains: [],
+            data_gaps: [],
+            profile_gaps: [],
+            strategy_code: 'focus_abnormal',
+            message: null
+          }
+        }
+      })
+    })
+  })
+
   await page.route('**/api/v1/auth/guest', async (route) => {
     await route.fulfill({
       status: 201,
