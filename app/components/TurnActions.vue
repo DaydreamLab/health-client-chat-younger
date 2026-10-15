@@ -12,7 +12,8 @@ defineProps<{
   checkupUrl: string
   showWantMoreTests: boolean
   wantMoreTestsUrl: string
-  showRecommend: boolean
+  showSubmitReview: boolean
+  showViewRecommend: boolean
   showRetry: boolean
   pending: boolean
 }>()
@@ -21,6 +22,7 @@ const emit = defineEmits<{
   choice: [option: GreetingOption]
   confirm: []
   upload: []
+  submitReview: []
   recommend: []
   retry: []
 }>()
@@ -28,7 +30,7 @@ const emit = defineEmits<{
 
 <template>
   <div
-    v-if="choices.length || showConfirm || showUpload || showCheckup || showWantMoreTests || showRecommend || showRetry"
+    v-if="choices.length || showConfirm || showUpload || showCheckup || showWantMoreTests || showSubmitReview || showViewRecommend || showRetry"
     class="turn-actions"
     data-testid="chat-turn-actions"
   >
@@ -64,11 +66,18 @@ const emit = defineEmits<{
       </AppButton>
     </div>
     <div
-      v-if="showRecommend || showUpload || (showCheckup && checkupUrl) || (showWantMoreTests && wantMoreTestsUrl) || showRetry"
+      v-if="showSubmitReview || showViewRecommend || showUpload || (showCheckup && checkupUrl) || (showWantMoreTests && wantMoreTestsUrl) || showRetry"
       class="turn-actions-row"
     >
       <AppButton
-        v-if="showRecommend"
+        v-if="showSubmitReview"
+        data-testid="chat-submit-expert-review"
+        @click="emit('submitReview')"
+      >
+        {{ $t('chat.submitExpertReview') }}
+      </AppButton>
+      <AppButton
+        v-if="showViewRecommend"
         data-testid="chat-view-recommend"
         @click="emit('recommend')"
       >

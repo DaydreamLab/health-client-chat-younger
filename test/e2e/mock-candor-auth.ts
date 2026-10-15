@@ -547,34 +547,96 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     }
   ]
 
+  const expertReviewId = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
+  let memberExpertReviewStatus: 'awaiting_review' | 'reviewed' = 'reviewed'
+
+  await page.route('**/api/v1/expert-case-reviews**', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: {
+          expert_case_reviews: [
+            {
+              id: expertReviewId,
+              conversation_id: conversationId,
+              health_report_id: reportId,
+              status: memberExpertReviewStatus,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T01:00:00Z',
+              reviewed_at: memberExpertReviewStatus === 'reviewed' ? '2026-01-01T01:00:00Z' : null
+            }
+          ]
+        }
+      })
+    })
+  })
+
   await page.route('**/api/v1/conversation/*/expert-review', async (route) => {
     const method = route.request().method()
     if (method !== 'GET' && method !== 'POST') {
       await route.fallback()
       return
     }
+    if (method === 'POST') {
+      memberExpertReviewStatus = 'awaiting_review'
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            id: expertReviewId,
+            conversation_id: conversationId,
+            health_report_id: reportId,
+            status: 'awaiting_review',
+            recommendation_run_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z'
+          }
+        })
+      })
+      return
+    }
     await route.fulfill({
-      status: method === 'POST' ? 201 : 200,
+      status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data: {
-          id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
-          conversation_id: conversationId,
-          status: 'reviewed',
-          recommendation_run_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
-          created_at: '2026-01-01T00:00:00Z',
-          reviewed_at: '2026-01-01T01:00:00Z',
-          packages: reviewedPackages,
-          weight_set: { id: 'ws-e2e', version: '0.1.0' },
-          summary: {
-            top_domains: [],
-            data_gaps: [],
-            profile_gaps: [],
-            strategy_code: 'focus_abnormal',
-            message: null
-          }
-        }
+        data: memberExpertReviewStatus === 'reviewed'
+          ? {
+              id: expertReviewId,
+              conversation_id: conversationId,
+              health_report_id: reportId,
+              status: 'reviewed',
+              recommendation_run_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T01:00:00Z',
+              reviewed_at: '2026-01-01T01:00:00Z',
+              packages: reviewedPackages,
+              weight_set: { id: 'ws-e2e', version: '0.1.0' },
+              summary: {
+                top_domains: [],
+                data_gaps: [],
+                profile_gaps: [],
+                strategy_code: 'focus_abnormal',
+                message: null
+              }
+            }
+          : {
+              id: expertReviewId,
+              conversation_id: conversationId,
+              health_report_id: reportId,
+              status: 'awaiting_review',
+              recommendation_run_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z'
+            }
       })
     })
   })

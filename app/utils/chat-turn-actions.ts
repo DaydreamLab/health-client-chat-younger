@@ -71,6 +71,8 @@ export function isLatestAssistantMessage(
     && message.id === lastAssistantId
 }
 
+export type ExpertReviewUiStatus = 'none' | 'awaiting_review' | 'reviewed'
+
 export function recommendCtaVisible(input: {
   readonlyMode: boolean
   escalated: boolean
@@ -89,6 +91,25 @@ export function recommendCtaVisible(input: {
     && input.isLatestAssistant
     && !input.reportRetry
     && !input.pending
+}
+
+/** Base journey gate for recommend-slot CTAs (submit or view). */
+export function recommendSlotVisible(input: Parameters<typeof recommendCtaVisible>[0]): boolean {
+  return recommendCtaVisible(input)
+}
+
+/** 「提交專家判讀」— only before a case exists / while none. */
+export function submitExpertReviewCtaVisible(
+  input: Parameters<typeof recommendCtaVisible>[0] & { expertReviewStatus: ExpertReviewUiStatus }
+): boolean {
+  return recommendCtaVisible(input) && input.expertReviewStatus === 'none'
+}
+
+/** Real「查看推薦方案」— only after reviewed. */
+export function viewRecommendCtaVisible(
+  input: Parameters<typeof recommendCtaVisible>[0] & { expertReviewStatus: ExpertReviewUiStatus }
+): boolean {
+  return recommendCtaVisible(input) && input.expertReviewStatus === 'reviewed'
 }
 
 export function uploadCtaVisible(
@@ -214,7 +235,10 @@ export interface TurnActionsVisibility {
   showUpload: boolean
   showCheckup: boolean
   showWantMoreTests: boolean
+  /** @deprecated Prefer showSubmitReview / showViewRecommend */
   showRecommend: boolean
+  showSubmitReview: boolean
+  showViewRecommend: boolean
   showRetry: boolean
 }
 
@@ -224,8 +248,10 @@ export function buildTurnActionsVisibility(input: {
   intake?: ChatMessage
   goalOptions: ChatMessageOption[]
   needsMultiConfirm: boolean
+  expertReviewStatus?: ExpertReviewUiStatus
 }): TurnActionsVisibility {
   const { message, ctx, intake, goalOptions, needsMultiConfirm } = input
+  const expertReviewStatus = input.expertReviewStatus ?? 'none'
   const effectiveGoals = resolveEffectiveGoalOptions({
     goalSelectActive: ctx.goalSelectActive,
     goalOptions,
@@ -240,6 +266,19 @@ export function buildTurnActionsVisibility(input: {
   )
   const latest = isLatestAssistantMessage(message, ctx.lastAssistantId)
   const profileQuestionActive = message.turnType === 'profile' && Boolean(message.profileQuestion)
+  const slotInput = {
+    readonlyMode: ctx.readonlyMode,
+    escalated: ctx.escalated,
+    goalSelectActive: ctx.goalSelectActive,
+    profileQuestionActive,
+    isLatestAssistant: latest,
+    reportRetry: ctx.reportRetry,
+    pending: ctx.pending,
+    hasReportAnalysis: ctx.hasReportAnalysis,
+    expertReviewStatus
+  }
+  const showSubmitReview = submitExpertReviewCtaVisible(slotInput)
+  const showViewRecommend = viewRecommendCtaVisible(slotInput)
 
   return {
     choices,
@@ -247,16 +286,9 @@ export function buildTurnActionsVisibility(input: {
     showUpload: uploadCtaVisible(ctx, message),
     showCheckup: checkupCtaVisible(ctx, message),
     showWantMoreTests: wantMoreTestsCtaVisible(ctx, message),
-    showRecommend: recommendCtaVisible({
-      readonlyMode: ctx.readonlyMode,
-      escalated: ctx.escalated,
-      goalSelectActive: ctx.goalSelectActive,
-      profileQuestionActive,
-      isLatestAssistant: latest,
-      reportRetry: ctx.reportRetry,
-      pending: ctx.pending,
-      hasReportAnalysis: ctx.hasReportAnalysis
-    }),
+    showRecommend: showSubmitReview || showViewRecommend,
+    showSubmitReview,
+    showViewRecommend,
     showRetry: retryCtaVisible()
   }
 }

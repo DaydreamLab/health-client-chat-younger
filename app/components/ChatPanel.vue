@@ -193,13 +193,15 @@
                 :checkup-url="checkupLinkUrl"
                 :show-want-more-tests="showWantMoreTestsCta(message)"
                 :want-more-tests-url="checkupLinkUrl"
-                :show-recommend="showRecommendCta(message)"
+                :show-submit-review="showSubmitReviewCta(message)"
+                :show-view-recommend="showViewRecommendCta(message)"
                 :show-retry="showRetryCta(message)"
                 :pending="pending"
                 @choice="onChoice"
                 @confirm="confirmMultiSelection"
                 @upload="openAttachMenu"
-                @recommend="goRecommend"
+                @submit-review="submitExpertReview"
+                @recommend="goViewRecommend"
                 @retry="retryReport"
               />
             </div>
@@ -579,7 +581,8 @@ function turnActionsFor(message: ChatMessage) {
     ctx: turnUiContext.value,
     intake: intakeMessage.value,
     goalOptions: goalOptions.value,
-    needsMultiConfirm: needsMultiConfirm.value
+    needsMultiConfirm: needsMultiConfirm.value,
+    expertReviewStatus: journey.expertReviewStatus
   })
 }
 
@@ -782,8 +785,12 @@ function displayMessageText(message: ChatMessage) {
   return text
 }
 
-function showRecommendCta(message: ChatMessage) {
-  return turnActionsFor(message).showRecommend
+function showSubmitReviewCta(message: ChatMessage) {
+  return turnActionsFor(message).showSubmitReview
+}
+
+function showViewRecommendCta(message: ChatMessage) {
+  return turnActionsFor(message).showViewRecommend
 }
 
 function showRetryCta(message: ChatMessage) {
@@ -1948,20 +1955,71 @@ async function escalate() {
   escalated.value = true
 }
 
-async function goRecommend() {
+async function ensureMemberForReview(redirectPath: string) {
+  await auth.ensureSession()
+  if (!auth.hasSession && !candor.readToken()) {
+    return navigateTo({
+      path: localePath('/login'),
+      query: { redirect: redirectPath }
+    })
+  }
+  return null
+}
+
+/** Submit for expert review → create case → 我的健康. */
+async function submitExpertReview() {
+  if (readonly.value || escalated.value) {
+    return
+  }
+
+  const healthPath = localePath('/app')
+  const redirected = await ensureMemberForReview(healthPath)
+  if (redirected) {
+    return redirected
+  }
+
+  const conversationId = journey.conversationId?.trim() ?? ''
+  if (!conversationId || !auth.isMember) {
+    // Guest / no conversation: keep them on health; do not create a case.
+    return navigateTo(healthPath)
+  }
+
+  try {
+    const review = await candor.createExpertReview(conversationId)
+    journey.expertReviewStatus = review.status === 'reviewed' ? 'reviewed' : 'awaiting_review'
+    if (review.health_report_id) {
+      journey.reportId = review.health_report_id
+    }
+  } catch (err) {
+    if (err instanceof CandorApiError && err.errorCode === 'expert_review_exists') {
+      try {
+        const existing = await candor.getExpertReview(conversationId)
+        journey.expertReviewStatus = existing.status === 'reviewed' ? 'reviewed' : 'awaiting_review'
+        if (existing.health_report_id) {
+          journey.reportId = existing.health_report_id
+        }
+      } catch {
+        journey.expertReviewStatus = 'awaiting_review'
+      }
+    } else {
+      // Surface via navigation to health; list will show empty / user can retry.
+      console.warn('submitExpertReview failed', err)
+    }
+  }
+
+  return navigateTo(healthPath)
+}
+
+/** Real「查看推薦方案」— only after reviewed. */
+async function goViewRecommend() {
   if (readonly.value || escalated.value) {
     return
   }
 
   const path = localePath('/app/recommendations')
-  await auth.ensureSession()
-  // Token in storage is enough to enter; recommendations middleware hydrates.
-  // Only send truly anonymous users to login (no token after ensure).
-  if (!auth.hasSession && !candor.readToken()) {
-    return navigateTo({
-      path: localePath('/login'),
-      query: { redirect: path }
-    })
+  const redirected = await ensureMemberForReview(path)
+  if (redirected) {
+    return redirected
   }
 
   return navigateTo(path)

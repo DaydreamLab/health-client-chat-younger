@@ -7,6 +7,7 @@ import type {
   ConversationDetachAck,
   ConversationGoalsResult,
   ConversationPackageConfirm,
+  ExpertCaseReviewList,
   ExpertCaseReviewStatus,
   HealthReport,
   HealthReportList,
@@ -380,6 +381,20 @@ export function useCandorApi() {
         `/conversation/${encodeURIComponent(conversationId)}/expert-review`,
         { method: 'GET' }
       ),
+
+    listExpertCaseReviews: (params: { limit?: number, offset?: number } = {}) => {
+      const query = new URLSearchParams()
+      if (params.limit != null) {
+        query.set('limit', String(params.limit))
+      }
+      if (params.offset != null) {
+        query.set('offset', String(params.offset))
+      }
+      const qs = query.toString()
+      return request<ExpertCaseReviewList>(
+        `/expert-case-reviews${qs ? `?${qs}` : ''}`
+      )
+    },
 
     createConversation: (body: {
       report_id?: string

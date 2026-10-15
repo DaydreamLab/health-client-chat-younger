@@ -48,6 +48,7 @@ function visibility(
     goalSelectActive?: boolean
     needsMultiConfirm?: boolean
     messages?: ChatMessage[]
+    expertReviewStatus?: 'none' | 'awaiting_review' | 'reviewed'
   } = {}
 ) {
   const goalSelectActive = extra.goalSelectActive ?? ctx.goalSelectActive
@@ -61,7 +62,8 @@ function visibility(
     ctx: { ...ctx, goalSelectActive },
     intake,
     goalOptions: extra.goalOptions ?? goals,
-    needsMultiConfirm: extra.needsMultiConfirm ?? goalSelectActive
+    needsMultiConfirm: extra.needsMultiConfirm ?? goalSelectActive,
+    expertReviewStatus: extra.expertReviewStatus
   })
 }
 
@@ -111,7 +113,7 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
     expect(onGreeting.showWantMoreTests).toBe(false)
   })
 
-  it('post-interpret goal select: chips + recommend + want more on latest', () => {
+  it('post-interpret goal select: chips + submit review + want more on latest', () => {
     const greeting = assistant('greeting', { options: goals })
     const interpret = assistant('latest', {
       options: goals,
@@ -124,10 +126,13 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
     })
     const onLatest = visibility(interpret, ctx, {
       goalSelectActive: true,
-      messages: [greeting, interpret]
+      messages: [greeting, interpret],
+      expertReviewStatus: 'none'
     })
     expect(onLatest.choices.length).toBe(2)
     expect(onLatest.showConfirm).toBe(true)
+    expect(onLatest.showSubmitReview).toBe(true)
+    expect(onLatest.showViewRecommend).toBe(false)
     expect(onLatest.showRecommend).toBe(true)
     expect(onLatest.showWantMoreTests).toBe(true)
     const onGreeting = visibility(greeting, ctx, {
@@ -136,6 +141,35 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
     })
     expect(onGreeting.choices).toEqual([])
     expect(onGreeting.showRecommend).toBe(false)
+  })
+
+  it('reviewed status shows view recommend, not submit', () => {
+    const interpret = assistant('latest', { options: goals })
+    const ctx = baseCtx({
+      goalSelectActive: true,
+      hasReportAnalysis: true,
+      lastAssistantId: 'latest'
+    })
+    const onLatest = visibility(interpret, ctx, {
+      goalSelectActive: true,
+      messages: [interpret],
+      expertReviewStatus: 'reviewed'
+    })
+    expect(onLatest.showSubmitReview).toBe(false)
+    expect(onLatest.showViewRecommend).toBe(true)
+    expect(onLatest.showRecommend).toBe(true)
+  })
+
+  it('awaiting_review hides both recommend CTAs', () => {
+    const interpret = assistant('latest')
+    const ctx = baseCtx({ hasReportAnalysis: true, lastAssistantId: 'latest' })
+    const onLatest = visibility(interpret, ctx, {
+      messages: [interpret],
+      expertReviewStatus: 'awaiting_review'
+    })
+    expect(onLatest.showSubmitReview).toBe(false)
+    expect(onLatest.showViewRecommend).toBe(false)
+    expect(onLatest.showRecommend).toBe(false)
   })
 
   it('stale interpret bubble: no want-more when no longer latest', () => {

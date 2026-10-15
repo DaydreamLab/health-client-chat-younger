@@ -186,13 +186,30 @@ export interface RecommendationResponse {
 export interface ExpertCaseReviewStatus {
   id: string
   conversation_id: string
+  health_report_id?: string | null
   status: 'awaiting_review' | 'reviewed'
   recommendation_run_id: string
   created_at: string
+  updated_at?: string | null
   reviewed_at?: string | null
   packages?: RecommendationPackage[]
   summary?: RecommendationResponse['summary'] | null
   weight_set?: { id: string, version?: string } | null
+}
+
+/** Member list row — never includes packages (GET /expert-case-reviews). */
+export interface ExpertCaseReviewListItem {
+  id: string
+  conversation_id: string
+  health_report_id?: string | null
+  status: 'awaiting_review' | 'reviewed'
+  created_at: string
+  updated_at?: string | null
+  reviewed_at?: string | null
+}
+
+export interface ExpertCaseReviewList {
+  expert_case_reviews: ExpertCaseReviewListItem[]
 }
 
 export interface ConversationGreeting {

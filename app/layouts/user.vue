@@ -149,6 +149,9 @@ const route = useRoute()
 const { t } = useI18n()
 const mobileNavOpen = ref(false)
 
+// Poll expert-case-reviews; awaiting→reviewed auto-navigates to /chat once per session.
+useExpertReviewWatch()
+
 watch(() => route.fullPath, () => {
   mobileNavOpen.value = false
 })

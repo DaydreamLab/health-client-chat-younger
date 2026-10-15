@@ -45,42 +45,22 @@
   >
     <div class="space-y-6">
       <section
-        v-if="reviewPhase === 'awaiting'"
+        v-if="reviewPhase === 'gate'"
         class="rounded-2xl border border-default bg-elevated p-5"
-        data-testid="expert-review-awaiting"
+        data-testid="expert-review-gate"
       >
         <h2 class="text-xl font-semibold text-highlighted">
-          {{ $t('recommendation.awaitingTitle') }}
+          {{ $t('recommendation.gateNotReviewed') }}
         </h2>
         <p class="mt-3 text-sm text-muted">
           {{ $t('recommendation.awaitingBody') }}
         </p>
-        <p
-          v-if="recoPending"
-          class="mt-3 text-sm text-muted"
-          data-testid="recommendation-loading"
-        >
-          {{ $t('recommendation.recoLoading') }}
-        </p>
-      </section>
-
-      <section
-        v-else-if="reviewPhase === 'ready'"
-        class="rounded-2xl border border-default bg-elevated p-5"
-        data-testid="expert-review-ready"
-      >
-        <h2 class="text-xl font-semibold text-highlighted">
-          {{ $t('recommendation.readyTitle') }}
-        </h2>
-        <p class="mt-3 text-sm text-muted">
-          {{ $t('recommendation.readyBody') }}
-        </p>
         <AppButton
           class="mt-6"
-          data-testid="view-reviewed-packages"
-          @click="revealPackages"
+          :to="localePath('/app')"
+          data-testid="expert-review-gate-back"
         >
-          {{ $t('recommendation.viewPackages') }}
+          {{ $t('recommendation.gateBackHealth') }}
         </AppButton>
       </section>
 
@@ -697,7 +677,6 @@ definePageMeta({
 })
 
 const PAY_HOLD_MS = 3000
-const REVIEW_POLL_MS = 8000
 
 const { t } = useI18n()
 const localePath = useLocalePath()
@@ -707,9 +686,9 @@ const journey = useJourneyStore()
 const api = useFirstOrderApi()
 const candor = useCandorApi()
 
-type ReviewPhase = 'loading' | 'awaiting' | 'ready' | 'viewing' | 'legacy' | 'error'
+/** viewing = packages+checkout; gate = not reviewed yet; legacy = guest/no conversation. */
+type ReviewPhase = 'loading' | 'gate' | 'viewing' | 'legacy' | 'error'
 const reviewPhase = ref<ReviewPhase>('loading')
-let reviewPollTimer: ReturnType<typeof setInterval> | null = null
 
 const name = ref(auth.displayName)
 const phone = ref('')
@@ -879,13 +858,6 @@ async function loadReport() {
   }
 }
 
-function stopReviewPoll() {
-  if (reviewPollTimer) {
-    clearInterval(reviewPollTimer)
-    reviewPollTimer = null
-  }
-}
-
 function applyReviewedPackages(result: RecommendationResponse) {
   recommendation.value = result
   const preferred = journey.selectedPackageCode
@@ -893,12 +865,6 @@ function applyReviewedPackages(result: RecommendationResponse) {
   selectedPackageCode.value = match?.package_plan_code ?? result.packages[0]?.package_plan_code ?? ''
   if (selectedPackageCode.value) {
     journey.selectedPackageCode = selectedPackageCode.value
-  }
-}
-
-function revealPackages() {
-  if (recommendation.value) {
-    reviewPhase.value = 'viewing'
   }
 }
 
@@ -923,7 +889,11 @@ async function loadLegacyRecommendation() {
   }
 }
 
-async function fetchExpertReviewStatus(createIfMissing: boolean) {
+/**
+ * Load reviewed packages only. Case creation happens on「提交專家判讀」.
+ * Unreviewed members see a gate back to My Health — no create-on-mount / awaiting poll.
+ */
+async function loadRecommendation() {
   const conversationId = journey.conversationId?.trim() ?? ''
   if (!conversationId || !auth.isMember) {
     await loadLegacyRecommendation()
@@ -933,34 +903,19 @@ async function fetchExpertReviewStatus(createIfMissing: boolean) {
   recoPending.value = true
   recoError.value = ''
   try {
-    let review
-    if (createIfMissing) {
-      try {
-        review = await candor.createExpertReview(conversationId)
-      } catch (err) {
-        if (err instanceof CandorApiError && err.errorCode === 'expert_review_exists') {
-          review = await candor.getExpertReview(conversationId)
-        } else {
-          throw err
-        }
-      }
-    } else {
-      review = await candor.getExpertReview(conversationId)
+    const review = await candor.getExpertReview(conversationId)
+    journey.expertReviewStatus = review.status === 'reviewed' ? 'reviewed' : 'awaiting_review'
+    if (review.health_report_id) {
+      journey.reportId = review.health_report_id
     }
 
-    if (review.status === 'awaiting_review') {
+    if (review.status !== 'reviewed') {
       recommendation.value = null
       selectedPackageCode.value = ''
-      reviewPhase.value = 'awaiting'
-      if (!reviewPollTimer) {
-        reviewPollTimer = setInterval(() => {
-          void fetchExpertReviewStatus(false)
-        }, REVIEW_POLL_MS)
-      }
+      reviewPhase.value = 'gate'
       return
     }
 
-    stopReviewPoll()
     const mapped = recommendationFromExpertReview(review)
     if (!mapped || mapped.packages.length === 0) {
       recoError.value = t('recommendation.recoError')
@@ -969,9 +924,14 @@ async function fetchExpertReviewStatus(createIfMissing: boolean) {
       return
     }
     applyReviewedPackages(mapped)
-    reviewPhase.value = reviewPhase.value === 'viewing' ? 'viewing' : 'ready'
+    reviewPhase.value = 'viewing'
   } catch (err) {
-    stopReviewPoll()
+    if (err instanceof CandorApiError && err.errorCode === 'not_found') {
+      journey.expertReviewStatus = 'none'
+      recommendation.value = null
+      reviewPhase.value = 'gate'
+      return
+    }
     if (err instanceof CandorApiError && (err.errorCode === 'member_required' || err.statusCode === 401)) {
       await loadLegacyRecommendation()
       return
@@ -982,10 +942,6 @@ async function fetchExpertReviewStatus(createIfMissing: boolean) {
   } finally {
     recoPending.value = false
   }
-}
-
-async function loadRecommendation() {
-  await fetchExpertReviewStatus(true)
 }
 
 function applyCompositionChanged(pkg: RecommendationPackage) {
@@ -1125,9 +1081,5 @@ onMounted(() => {
   void loadReport()
   void loadRecommendation()
   void loadDefaultRecipient()
-})
-
-onUnmounted(() => {
-  stopReviewPoll()
 })
 </script>

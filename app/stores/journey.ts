@@ -1,6 +1,7 @@
 import type { ChatMessage } from '~/utils/first-order'
 import { snapshotChatMessage } from '~/utils/first-order'
 import type { ConversationPackage, GreetingOption, ProfileNextQuestion } from '~/utils/candor-api'
+import type { ExpertReviewUiStatus } from '~/utils/chat-turn-actions'
 
 export const JOURNEY_STORAGE_KEY = 'candor.unpaid.journey'
 
@@ -23,6 +24,7 @@ interface JourneySnapshot {
   postQuizGuided: boolean
   profileGaps: string[]
   clarifyingGoals: string[]
+  expertReviewStatus: ExpertReviewUiStatus
 }
 
 const emptySnapshot = (): JourneySnapshot => ({
@@ -43,8 +45,16 @@ const emptySnapshot = (): JourneySnapshot => ({
   activeQuestion: null,
   postQuizGuided: false,
   profileGaps: [],
-  clarifyingGoals: []
+  clarifyingGoals: [],
+  expertReviewStatus: 'none'
 })
+
+function normalizeExpertReviewStatus(value: unknown): ExpertReviewUiStatus {
+  if (value === 'awaiting_review' || value === 'reviewed' || value === 'none') {
+    return value
+  }
+  return 'none'
+}
 
 function readStored(): JourneySnapshot {
   if (!import.meta.client) {
@@ -79,7 +89,8 @@ function readStored(): JourneySnapshot {
       // Old snapshots omit this flag. A bound report already consumed the auto-send path.
       reportInterpretSent: typeof parsed.reportInterpretSent === 'boolean'
         ? parsed.reportInterpretSent
-        : Boolean(hasAnalysis)
+        : Boolean(hasAnalysis),
+      expertReviewStatus: normalizeExpertReviewStatus(parsed.expertReviewStatus)
     }
   } catch {
     return emptySnapshot()
@@ -107,6 +118,7 @@ export const useJourneyStore = defineStore('journey', () => {
   const postQuizGuided = ref(initial.postQuizGuided)
   const profileGaps = ref<string[]>(initial.profileGaps)
   const clarifyingGoals = ref<string[]>(initial.clarifyingGoals)
+  const expertReviewStatus = ref<ExpertReviewUiStatus>(initial.expertReviewStatus)
 
   function snapshotMessages(): ChatMessage[] {
     return messages.value.map(message => snapshotChatMessage(message))
@@ -135,7 +147,8 @@ export const useJourneyStore = defineStore('journey', () => {
       activeQuestion: activeQuestion.value,
       postQuizGuided: postQuizGuided.value,
       profileGaps: [...profileGaps.value],
-      clarifyingGoals: [...clarifyingGoals.value]
+      clarifyingGoals: [...clarifyingGoals.value],
+      expertReviewStatus: expertReviewStatus.value
     }
 
     if (!payload.conversationId && payload.messages.length === 0) {
@@ -165,6 +178,7 @@ export const useJourneyStore = defineStore('journey', () => {
     postQuizGuided.value = false
     profileGaps.value = []
     clarifyingGoals.value = []
+    expertReviewStatus.value = 'none'
     if (import.meta.client) {
       localStorage.removeItem(JOURNEY_STORAGE_KEY)
     }
@@ -193,6 +207,7 @@ export const useJourneyStore = defineStore('journey', () => {
     postQuizGuided.value = stored.postQuizGuided
     profileGaps.value = stored.profileGaps
     clarifyingGoals.value = stored.clarifyingGoals
+    expertReviewStatus.value = stored.expertReviewStatus
   }
 
   if (import.meta.client) {
@@ -215,7 +230,8 @@ export const useJourneyStore = defineStore('journey', () => {
         activeQuestion,
         postQuizGuided,
         profileGaps,
-        clarifyingGoals
+        clarifyingGoals,
+        expertReviewStatus
       ],
       () => {
         persist()
@@ -243,6 +259,7 @@ export const useJourneyStore = defineStore('journey', () => {
     postQuizGuided,
     profileGaps,
     clarifyingGoals,
+    expertReviewStatus,
     snapshotMessages,
     clearSession,
     persist,

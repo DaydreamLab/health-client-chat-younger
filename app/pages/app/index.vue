@@ -5,12 +5,22 @@
         {{ $t('member.title') }}
       </h1>
       <AppButton
-        v-if="auth.isMember"
+        v-if="auth.isMember && headerCta === 'view'"
         :to="localePath('/app/recommendations')"
         variant="primary"
         class="ms-auto"
+        data-testid="health-view-recommend"
       >
         {{ $t('chat.viewRecommend') }}
+      </AppButton>
+      <AppButton
+        v-else-if="auth.isMember && headerCta === 'submit'"
+        :to="localePath('/chat')"
+        variant="primary"
+        class="ms-auto"
+        data-testid="health-submit-expert-review"
+      >
+        {{ $t('chat.submitExpertReview') }}
       </AppButton>
     </div>
 
@@ -145,110 +155,267 @@
         </div>
 
         <section
-          class="min-w-0 flex-1 space-y-3"
-          data-testid="health-reports"
+          class="min-w-0 flex-1 space-y-6"
         >
-          <p
-            v-if="reportsLoading"
-            class="text-sm text-muted"
-            data-testid="health-reports-loading"
-          >
-            {{ $t('member.reportsLoading') }}
-          </p>
-          <p
-            v-else-if="reportsError"
-            class="text-sm text-red-600 dark:text-red-400"
-            data-testid="health-reports-error"
-          >
-            {{ reportsError }}
-          </p>
-          <p
-            v-else-if="!reports.length"
-            class="text-sm text-muted"
-            data-testid="health-reports-empty"
-          >
-            {{ $t('member.reportsEmpty') }}
-          </p>
           <div
-            v-else
             class="space-y-3"
+            data-testid="health-review-records"
           >
-            <template
-              v-for="report in reports"
-              :key="report.id"
+            <h2 class="text-lg font-semibold text-highlighted">
+              {{ $t('member.reviewRecordsTitle') }}
+            </h2>
+            <p
+              v-if="reviewsLoading"
+              class="text-sm text-muted"
+              data-testid="health-reviews-loading"
             >
-              <article
-                v-for="variant in reportVariants"
-                :key="`${report.id}-${variant}`"
-                class="overflow-hidden rounded-2xl border border-default bg-elevated lg:flex lg:max-h-[calc(50dvh+2.75rem)] lg:flex-col"
-                :data-testid="variant === 'primary' ? `health-report-${report.id}` : `health-report-cards-${report.id}`"
+              {{ $t('member.reportsLoading') }}
+            </p>
+            <p
+              v-else-if="reviewsError"
+              class="text-sm text-red-600 dark:text-red-400"
+              data-testid="health-reviews-error"
+            >
+              {{ reviewsError }}
+            </p>
+            <p
+              v-else-if="!reviewRecords.length"
+              class="text-sm text-muted"
+              data-testid="health-reviews-empty"
+            >
+              {{ $t('member.reviewRecordsEmpty') }}
+            </p>
+            <ul
+              v-else
+              class="space-y-3"
+            >
+              <li
+                v-for="review in reviewRecords"
+                :key="review.id"
+                class="rounded-2xl border border-default bg-elevated p-4"
+                :data-testid="`health-review-card-${review.id}`"
+                :data-status="review.status"
               >
-                <div class="flex shrink-0 items-center gap-3 px-5 py-4">
-                  <button
-                    type="button"
-                    class="min-w-0 flex-1 text-start"
-                    :aria-expanded="isReportExpanded(report.id, variant)"
-                    data-testid="health-report-toggle"
-                    @click="toggleReport(report.id, variant)"
-                  >
+                <div class="flex flex-wrap items-start justify-between gap-2">
+                  <div class="min-w-0 space-y-1">
                     <p class="font-medium text-highlighted">
-                      {{ formatReportDate(report.created_at) }}
-                      <span class="ms-2 text-xs font-normal text-muted">
-                        {{ variant === 'primary' ? $t('member.reportStyleTable') : $t('member.reportStyleCards') }}
-                      </span>
+                      {{ review.status === 'reviewed'
+                        ? $t('member.reviewStatusReviewed')
+                        : $t('member.reviewStatusAwaiting') }}
                     </p>
-                    <p class="mt-0.5 text-sm text-muted">
-                      {{ statusLabel(report.status) }}
-                      <span
-                        v-if="report.error"
-                        class="text-red-600 dark:text-red-400"
-                      > · {{ report.error }}</span>
+                    <p class="text-xs text-muted">
+                      {{ review.status === 'reviewed' && review.reviewed_at
+                        ? $t('member.reviewReviewedAt', { time: formatReviewTime(review.reviewed_at) })
+                        : $t('member.reviewSubmittedAt', { time: formatReviewTime(review.created_at) }) }}
                     </p>
-                  </button>
-                  <ReportViewToggle
-                    :mode="viewModeByVariant[variant]"
-                    @update:mode="setViewMode(variant, $event)"
-                  />
-                  <AppButton
-                    variant="outline"
-                    class="report-expand-btn shrink-0"
-                    data-testid="health-report-expand"
-                    @click="openReportSheet(report.id, variant)"
-                  >
-                    {{ $t('member.reportExpand') }}
-                  </AppButton>
-                  <button
-                    type="button"
-                    class="inline-flex size-8 shrink-0 items-center justify-center text-muted"
-                    :aria-expanded="isReportExpanded(report.id, variant)"
-                    :aria-label="isReportExpanded(report.id, variant) ? $t('labChart.collapse') : $t('labChart.expand')"
-                    @click="toggleReport(report.id, variant)"
-                  >
-                    <UIcon
-                      :name="isReportExpanded(report.id, variant) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-                      class="size-4"
-                    />
-                  </button>
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    <AppButton
+                      variant="outline"
+                      :to="localePath('/chat')"
+                      data-testid="health-review-open-chat"
+                      @click="focusReviewConversation(review)"
+                    >
+                      {{ $t('member.reviewOpenChat') }}
+                    </AppButton>
+                    <AppButton
+                      v-if="review.health_report_id"
+                      variant="ghost"
+                      data-testid="health-review-open-report"
+                      @click="openReportFromReview(review.health_report_id)"
+                    >
+                      {{ $t('member.reviewOpenReport') }}
+                    </AppButton>
+                    <AppButton
+                      v-if="review.status === 'reviewed'"
+                      :to="localePath('/app/recommendations')"
+                      data-testid="health-review-view-recommend"
+                      @click="focusReviewConversation(review)"
+                    >
+                      {{ $t('chat.viewRecommend') }}
+                    </AppButton>
+                  </div>
                 </div>
+              </li>
+            </ul>
+          </div>
+
+          <div
+            class="space-y-3"
+            data-testid="health-reports"
+          >
+            <p
+              v-if="reportsLoading"
+              class="text-sm text-muted"
+              data-testid="health-reports-loading"
+            >
+              {{ $t('member.reportsLoading') }}
+            </p>
+            <p
+              v-else-if="reportsError"
+              class="text-sm text-red-600 dark:text-red-400"
+              data-testid="health-reports-error"
+            >
+              {{ reportsError }}
+            </p>
+            <p
+              v-else-if="!reports.length"
+              class="text-sm text-muted"
+              data-testid="health-reports-empty"
+            >
+              {{ $t('member.reportsEmpty') }}
+            </p>
+            <div
+              v-else
+              class="space-y-3"
+            >
+              <template
+                v-for="report in reports"
+                :key="report.id"
+              >
+                <article
+                  v-for="variant in reportVariants"
+                  :key="`${report.id}-${variant}`"
+                  class="overflow-hidden rounded-2xl border border-default bg-elevated lg:flex lg:max-h-[calc(50dvh+2.75rem)] lg:flex-col"
+                  :data-testid="variant === 'primary' ? `health-report-${report.id}` : `health-report-cards-${report.id}`"
+                >
+                  <div class="flex shrink-0 items-center gap-3 px-5 py-4">
+                    <button
+                      type="button"
+                      class="min-w-0 flex-1 text-start"
+                      :aria-expanded="isReportExpanded(report.id, variant)"
+                      data-testid="health-report-toggle"
+                      @click="toggleReport(report.id, variant)"
+                    >
+                      <p class="font-medium text-highlighted">
+                        {{ formatReportDate(report.created_at) }}
+                        <span class="ms-2 text-xs font-normal text-muted">
+                          {{ variant === 'primary' ? $t('member.reportStyleTable') : $t('member.reportStyleCards') }}
+                        </span>
+                      </p>
+                      <p class="mt-0.5 text-sm text-muted">
+                        {{ statusLabel(report.status) }}
+                        <span
+                          v-if="report.error"
+                          class="text-red-600 dark:text-red-400"
+                        > · {{ report.error }}</span>
+                      </p>
+                    </button>
+                    <ReportViewToggle
+                      :mode="viewModeByVariant[variant]"
+                      @update:mode="setViewMode(variant, $event)"
+                    />
+                    <AppButton
+                      variant="outline"
+                      class="report-expand-btn shrink-0"
+                      data-testid="health-report-expand"
+                      @click="openReportSheet(report.id, variant)"
+                    >
+                      {{ $t('member.reportExpand') }}
+                    </AppButton>
+                    <button
+                      type="button"
+                      class="inline-flex size-8 shrink-0 items-center justify-center text-muted"
+                      :aria-expanded="isReportExpanded(report.id, variant)"
+                      :aria-label="isReportExpanded(report.id, variant) ? $t('labChart.collapse') : $t('labChart.expand')"
+                      @click="toggleReport(report.id, variant)"
+                    >
+                      <UIcon
+                        :name="isReportExpanded(report.id, variant) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                        class="size-4"
+                      />
+                    </button>
+                  </div>
+                  <div
+                    v-if="isReportExpanded(report.id, variant)"
+                    class="flex min-h-0 flex-1 flex-col border-t border-default"
+                    data-testid="health-report-detail"
+                  >
+                    <p
+                      v-if="detailLoadingId === report.id"
+                      class="px-5 py-4 text-sm text-muted"
+                    >
+                      {{ $t('member.reportDetailLoading') }}
+                    </p>
+                    <p
+                      v-else-if="detailErrorById[report.id]"
+                      class="px-5 py-4 text-sm text-red-600 dark:text-red-400"
+                    >
+                      {{ detailErrorById[report.id] }}
+                    </p>
+                    <p
+                      v-else-if="!(resultsById[report.id] ?? []).length"
+                      class="px-5 py-4 text-sm text-muted"
+                    >
+                      {{ $t('labChart.empty') }}
+                    </p>
+                    <div
+                      v-else
+                      class="flex min-h-0 flex-1 flex-col"
+                    >
+                      <div class="shrink-0 px-5 pt-4">
+                        <ReportResultLegend />
+                      </div>
+                      <ReportResultTable
+                        v-if="variant === 'primary' && viewModeByVariant[variant] === 'table'"
+                        :results="resultsById[report.id] ?? []"
+                        :show-legend="false"
+                        hide-scrollbar
+                        class="min-h-0 flex-1 px-5 py-4"
+                      />
+                      <ReportResultStrips
+                        v-else-if="viewModeByVariant[variant] === 'table'"
+                        :results="resultsById[report.id] ?? []"
+                        hide-scrollbar
+                        class="min-h-0 flex-1 px-5 py-4"
+                      />
+                      <ReportResultCards
+                        v-else
+                        :results="resultsById[report.id] ?? []"
+                        :position="variant === 'primary' ? 'gauge' : 'rail'"
+                        hide-scrollbar
+                        class="min-h-0 flex-1 px-5 py-4"
+                      />
+                    </div>
+                  </div>
+                </article>
+              </template>
+            </div>
+            <UModal
+              v-model:open="sheetOpen"
+              :title="$t('labChart.dockTitle')"
+              :ui="{
+                content: '!h-[calc(100dvh-3rem)] !max-h-[calc(100dvh-3rem)] !max-w-6xl sm:!max-h-[calc(100dvh-3rem)] sm:!max-w-6xl',
+                header: 'shrink-0',
+                body: 'flex min-h-0 flex-1 flex-col overflow-hidden p-0 sm:p-0'
+              }"
+            >
+              <template #actions>
+                <ReportViewToggle
+                  class="absolute end-14 top-4"
+                  :mode="viewModeByVariant[sheetVariant]"
+                  @update:mode="setViewMode(sheetVariant, $event)"
+                />
+              </template>
+              <template #body>
                 <div
-                  v-if="isReportExpanded(report.id, variant)"
-                  class="flex min-h-0 flex-1 flex-col border-t border-default"
-                  data-testid="health-report-detail"
+                  class="flex min-h-0 flex-1 flex-col"
+                  data-testid="health-report-sheet"
                 >
                   <p
-                    v-if="detailLoadingId === report.id"
+                    v-if="sheetLoading"
                     class="px-5 py-4 text-sm text-muted"
                   >
                     {{ $t('member.reportDetailLoading') }}
                   </p>
                   <p
-                    v-else-if="detailErrorById[report.id]"
+                    v-else-if="sheetError"
                     class="px-5 py-4 text-sm text-red-600 dark:text-red-400"
                   >
-                    {{ detailErrorById[report.id] }}
+                    {{ sheetError }}
                   </p>
                   <p
-                    v-else-if="!(resultsById[report.id] ?? []).length"
+                    v-else-if="!sheetResults.length"
                     class="px-5 py-4 text-sm text-muted"
                   >
                     {{ $t('labChart.empty') }}
@@ -257,104 +424,34 @@
                     v-else
                     class="flex min-h-0 flex-1 flex-col"
                   >
-                    <div class="shrink-0 px-5 pt-4">
+                    <div class="shrink-0 border-b border-default px-5 py-2.5">
                       <ReportResultLegend />
                     </div>
                     <ReportResultTable
-                      v-if="variant === 'primary' && viewModeByVariant[variant] === 'table'"
-                      :results="resultsById[report.id] ?? []"
+                      v-if="sheetVariant === 'primary' && viewModeByVariant[sheetVariant] === 'table'"
+                      :results="sheetResults"
                       :show-legend="false"
                       hide-scrollbar
                       class="min-h-0 flex-1 px-5 py-4"
                     />
                     <ReportResultStrips
-                      v-else-if="viewModeByVariant[variant] === 'table'"
-                      :results="resultsById[report.id] ?? []"
+                      v-else-if="viewModeByVariant[sheetVariant] === 'table'"
+                      :results="sheetResults"
                       hide-scrollbar
                       class="min-h-0 flex-1 px-5 py-4"
                     />
                     <ReportResultCards
                       v-else
-                      :results="resultsById[report.id] ?? []"
-                      :position="variant === 'primary' ? 'gauge' : 'rail'"
+                      :results="sheetResults"
+                      :position="sheetVariant === 'primary' ? 'gauge' : 'rail'"
                       hide-scrollbar
                       class="min-h-0 flex-1 px-5 py-4"
                     />
                   </div>
                 </div>
-              </article>
-            </template>
+              </template>
+            </UModal>
           </div>
-          <UModal
-            v-model:open="sheetOpen"
-            :title="$t('labChart.dockTitle')"
-            :ui="{
-              content: '!h-[calc(100dvh-3rem)] !max-h-[calc(100dvh-3rem)] !max-w-6xl sm:!max-h-[calc(100dvh-3rem)] sm:!max-w-6xl',
-              header: 'shrink-0',
-              body: 'flex min-h-0 flex-1 flex-col overflow-hidden p-0 sm:p-0'
-            }"
-          >
-            <template #actions>
-              <ReportViewToggle
-                class="absolute end-14 top-4"
-                :mode="viewModeByVariant[sheetVariant]"
-                @update:mode="setViewMode(sheetVariant, $event)"
-              />
-            </template>
-            <template #body>
-              <div
-                class="flex min-h-0 flex-1 flex-col"
-                data-testid="health-report-sheet"
-              >
-                <p
-                  v-if="sheetLoading"
-                  class="px-5 py-4 text-sm text-muted"
-                >
-                  {{ $t('member.reportDetailLoading') }}
-                </p>
-                <p
-                  v-else-if="sheetError"
-                  class="px-5 py-4 text-sm text-red-600 dark:text-red-400"
-                >
-                  {{ sheetError }}
-                </p>
-                <p
-                  v-else-if="!sheetResults.length"
-                  class="px-5 py-4 text-sm text-muted"
-                >
-                  {{ $t('labChart.empty') }}
-                </p>
-                <div
-                  v-else
-                  class="flex min-h-0 flex-1 flex-col"
-                >
-                  <div class="shrink-0 border-b border-default px-5 py-2.5">
-                    <ReportResultLegend />
-                  </div>
-                  <ReportResultTable
-                    v-if="sheetVariant === 'primary' && viewModeByVariant[sheetVariant] === 'table'"
-                    :results="sheetResults"
-                    :show-legend="false"
-                    hide-scrollbar
-                    class="min-h-0 flex-1 px-5 py-4"
-                  />
-                  <ReportResultStrips
-                    v-else-if="viewModeByVariant[sheetVariant] === 'table'"
-                    :results="sheetResults"
-                    hide-scrollbar
-                    class="min-h-0 flex-1 px-5 py-4"
-                  />
-                  <ReportResultCards
-                    v-else
-                    :results="sheetResults"
-                    :position="sheetVariant === 'primary' ? 'gauge' : 'rail'"
-                    hide-scrollbar
-                    class="min-h-0 flex-1 px-5 py-4"
-                  />
-                </div>
-              </div>
-            </template>
-          </UModal>
         </section>
       </div>
     </div>
@@ -362,7 +459,12 @@
 </template>
 
 <script setup lang="ts">
-import type { HealthReportResult, HealthReportSummary, UserHealthProfile } from '~/utils/candor-api'
+import type {
+  ExpertCaseReviewListItem,
+  HealthReportResult,
+  HealthReportSummary,
+  UserHealthProfile
+} from '~/utils/candor-api'
 
 definePageMeta({
   layout: 'user',
@@ -387,9 +489,79 @@ const candor = useCandorApi()
 
 const profile = ref<UserHealthProfile | null>(null)
 const profileError = ref('')
+const reviewRecords = ref<ExpertCaseReviewListItem[]>([])
+const reviewsLoading = ref(false)
+const reviewsError = ref('')
 const reports = ref<HealthReportSummary[]>([])
 const reportsLoading = ref(false)
 const reportsError = ref('')
+
+const headerCta = computed<'view' | 'submit' | 'none'>(() => {
+  if (!auth.isMember) {
+    return 'none'
+  }
+  if (journey.expertReviewStatus === 'reviewed') {
+    return 'view'
+  }
+  if (journey.expertReviewStatus === 'awaiting_review') {
+    return 'none'
+  }
+  return 'submit'
+})
+
+function formatReviewTime(value: string) {
+  const ts = Date.parse(value)
+  if (Number.isNaN(ts)) {
+    return value
+  }
+  try {
+    return new Intl.DateTimeFormat(locale.value || 'zh-TW', {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    }).format(new Date(ts))
+  } catch {
+    return value
+  }
+}
+
+function focusReviewConversation(review: ExpertCaseReviewListItem) {
+  journey.conversationId = review.conversation_id
+  if (review.health_report_id) {
+    journey.reportId = review.health_report_id
+  }
+  journey.expertReviewStatus = review.status === 'reviewed' ? 'reviewed' : 'awaiting_review'
+}
+
+function openReportFromReview(reportId: string) {
+  openReportSheet(reportId, 'primary')
+}
+
+async function loadReviews() {
+  if (!auth.isMember) {
+    reviewRecords.value = []
+    reviewsLoading.value = false
+    reviewsError.value = ''
+    return
+  }
+  reviewsLoading.value = true
+  reviewsError.value = ''
+  try {
+    const list = await candor.listExpertCaseReviews({ limit: 50 })
+    reviewRecords.value = list.expert_case_reviews ?? []
+    const forConversation = journey.conversationId
+      ? reviewRecords.value.find(row => row.conversation_id === journey.conversationId)
+      : reviewRecords.value[0]
+    if (forConversation) {
+      journey.expertReviewStatus = forConversation.status === 'reviewed' ? 'reviewed' : 'awaiting_review'
+    } else if (!reviewRecords.value.length) {
+      journey.expertReviewStatus = 'none'
+    }
+  } catch {
+    reviewsError.value = t('member.reviewRecordsLoadError')
+  } finally {
+    reviewsLoading.value = false
+  }
+}
 const reportVariants = ['primary', 'secondary'] as const
 type ReportVariant = (typeof reportVariants)[number]
 type ReportViewMode = 'table' | 'cards'
@@ -630,6 +802,7 @@ async function onAnonymize() {
 
 function loadHealth() {
   void loadProfile()
+  void loadReviews()
   void loadReports()
 }
 
