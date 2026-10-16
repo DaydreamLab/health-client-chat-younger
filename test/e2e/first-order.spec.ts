@@ -97,6 +97,8 @@ test.describe('member order detail', () => {
   test('health profile shows consultation goal labels in Chinese', async ({ page, goto }) => {
     await goto('/app', { waitUntil: 'hydration' })
     await expect(page.getByRole('heading', { name: '我的健康' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '健康報告' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: '專家判讀記錄' })).toBeVisible()
     await expect(page.getByTestId('health-stat-goals')).toContainText('睡眠')
     await expect(page.getByTestId('health-stat-goals')).toContainText('免疫提升')
     await expect(page.getByTestId('health-stat-goals')).not.toContainText('sleep')

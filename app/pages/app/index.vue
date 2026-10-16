@@ -244,6 +244,9 @@
             class="space-y-3"
             data-testid="health-reports"
           >
+            <h2 class="text-lg font-semibold text-highlighted">
+              {{ $t('member.reportsTitle') }}
+            </h2>
             <p
               v-if="reportsLoading"
               class="text-sm text-muted"
