@@ -67,6 +67,27 @@ test.describe('guest session', () => {
     await expect(page.getByTestId('checkout-register')).toBeVisible()
   })
 
+  test('visiting recommendations without report keeps empty report dock on chat', async ({ page, goto }) => {
+    await page.route('**/api/v1/client-config', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: { items: [], individual_tests_url: 'https://labs.example/tests', payment_methods: ['card', 'linepay', 'atm'] }
+        })
+      })
+    })
+    await goto('/chat-ai', { waitUntil: 'hydration' })
+    await expect(page.getByTestId('chat-report-dock')).toBeVisible()
+    await goto('/app/recommendations', { waitUntil: 'hydration' })
+    await expect(page.getByRole('heading', { name: '推薦方案' })).toBeVisible()
+    await goto('/chat-ai', { waitUntil: 'hydration' })
+    await expect(page.getByTestId('chat-report-dock')).toBeVisible()
+    await expect(page.getByTestId('chat-report-dock-empty-prompt')).toContainText('若有檢查可以更清楚各項指標')
+    await expect(page.getByTestId('chat-report-dock-upload')).toHaveText('上傳報告')
+  })
+
   test('guest sees empty orders until a payment', async ({ page, goto }) => {
     await goto('/app/orders', { waitUntil: 'hydration' })
     await page.evaluate(() => localStorage.removeItem('candor-paid-orders'))

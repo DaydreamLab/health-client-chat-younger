@@ -70,7 +70,7 @@ test.describe('standard /chat-ai vs expert /chat', () => {
 
     await goto('/chat-ai', { waitUntil: 'hydration' })
     await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
-    await expect(page.getByTestId('nav-chat-ai')).toHaveText('AI 諮詢')
+    await expect(page.getByTestId('nav-chat-ai')).toHaveCount(0)
     await expect(page.getByTestId('chat-flow-standard')).toHaveText('標準')
 
     await page.getByTestId('chat-upload-input').setInputFiles(labsFile)

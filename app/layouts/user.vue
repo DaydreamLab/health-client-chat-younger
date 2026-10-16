@@ -199,14 +199,6 @@ const navItems = computed<UserNavItem[]>(() => [
     mobileTestId: 'nav-chat-mobile'
   },
   {
-    label: t('nav.chatAi'),
-    icon: 'i-lucide-bot',
-    to: localePath('/chat-ai'),
-    active: isChatAi.value,
-    testId: 'nav-chat-ai',
-    mobileTestId: 'nav-chat-ai-mobile'
-  },
-  {
     label: t('nav.orders'),
     icon: 'i-lucide-package',
     to: localePath('/app/orders'),

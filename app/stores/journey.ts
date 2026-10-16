@@ -69,7 +69,9 @@ function readStored(): JourneySnapshot {
     const parsed = JSON.parse(raw) as Partial<JourneySnapshot>
     const base = emptySnapshot()
     const reportId = typeof parsed.reportId === 'string' ? parsed.reportId : null
-    const hasAnalysis = Boolean(parsed.hasAnalysis)
+    // hasAnalysis requires a bound reportId. Older builds set the flag when opening
+    // recommendations without a report, which hid the empty report dock on chat pages.
+    const hasAnalysis = Boolean(parsed.hasAnalysis) && reportId !== null
     return {
       ...base,
       ...parsed,
@@ -89,7 +91,7 @@ function readStored(): JourneySnapshot {
       // Old snapshots omit this flag. A bound report already consumed the auto-send path.
       reportInterpretSent: typeof parsed.reportInterpretSent === 'boolean'
         ? parsed.reportInterpretSent
-        : Boolean(hasAnalysis),
+        : hasAnalysis,
       expertReviewStatus: normalizeExpertReviewStatus(parsed.expertReviewStatus)
     }
   } catch {

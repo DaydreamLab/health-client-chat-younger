@@ -1089,9 +1089,9 @@ async function onPay(event: Event) {
 }
 
 onMounted(() => {
-  if (!journey.hasAnalysis) {
-    journey.hasAnalysis = true
-  }
+  // Do not set journey.hasAnalysis here — that flag means a ready report is bound
+  // for chat. Visiting recommendations without a report must not hide the empty
+  // report dock bar when the user returns to /chat or /chat-ai.
   void loadReport()
   void loadRecommendation()
   void loadDefaultRecipient()

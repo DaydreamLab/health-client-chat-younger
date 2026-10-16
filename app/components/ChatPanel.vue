@@ -502,7 +502,8 @@ const showEmptyReportBar = computed(() =>
   !readonly.value
   && !escalated.value
   && !showReportStatusBanner.value
-  && !journey.hasAnalysis
+  // Only a bound report counts as analysis; visiting recommendations must not hide this bar.
+  && !(journey.hasAnalysis && journey.reportId)
 )
 const reportDockVisible = computed(() =>
   showEmptyReportBar.value || journey.reportDockOpen
