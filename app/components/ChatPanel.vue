@@ -2,8 +2,15 @@
   <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-default">
     <header class="flex shrink-0 flex-wrap items-center gap-3 px-4 py-4 sm:px-6">
       <div class="min-w-0 flex-1">
-        <h1 class="text-lg font-semibold text-highlighted">
-          {{ $t(readonly ? 'chat.viewOnlyTitle' : 'chat.title') }}
+        <h1 class="flex items-center gap-2 text-lg font-semibold text-highlighted">
+          <span>{{ $t(readonly ? 'chat.viewOnlyTitle' : (isStandardFlow ? 'nav.chatAi' : 'chat.title')) }}</span>
+          <span
+            v-if="isStandardFlow && !readonly"
+            class="app-badge app-badge-pending"
+            data-testid="chat-flow-standard"
+          >
+            {{ $t('chat.standard') }}
+          </span>
         </h1>
         <p
           v-if="escalated && !readonly"
@@ -197,6 +204,7 @@
                 :show-view-recommend="showViewRecommendCta(message)"
                 :show-retry="showRetryCta(message)"
                 :pending="pending"
+                :flow="isStandardFlow ? 'standard' : undefined"
                 @choice="onChoice"
                 @confirm="confirmMultiSelection"
                 @upload="openAttachMenu"
@@ -375,6 +383,10 @@ import {
 } from '~/utils/chat-turn-actions'
 import { storeToRefs } from 'pinia'
 
+const props = defineProps<{
+  flow?: 'standard'
+}>()
+
 const POLL_INTERVAL_MS = 2000
 const LAB_GAP_CODES = new Set(['lab_report', 'checkup', 'blood_test'])
 
@@ -397,6 +409,10 @@ const {
 } = storeToRefs(journey)
 const ordersApi = useFirstOrderApi()
 const candor = useCandorApi()
+
+const isStandardFlow = computed(() =>
+  props.flow === 'standard' || route.meta.flow === 'standard'
+)
 
 const input = ref('')
 const composing = ref(false)
@@ -582,7 +598,8 @@ function turnActionsFor(message: ChatMessage) {
     intake: intakeMessage.value,
     goalOptions: goalOptions.value,
     needsMultiConfirm: needsMultiConfirm.value,
-    expertReviewStatus: journey.expertReviewStatus
+    expertReviewStatus: journey.expertReviewStatus,
+    flow: isStandardFlow.value ? 'standard' : undefined
   })
 }
 
@@ -1966,9 +1983,9 @@ async function ensureMemberForReview(redirectPath: string) {
   return null
 }
 
-/** Submit for expert review → create case → 我的健康. */
+/** Submit for expert review → create case → 我的健康. Standard flow never calls this. */
 async function submitExpertReview() {
-  if (readonly.value || escalated.value) {
+  if (isStandardFlow.value || readonly.value || escalated.value) {
     return
   }
 
@@ -2010,16 +2027,21 @@ async function submitExpertReview() {
   return navigateTo(healthPath)
 }
 
-/** Real「查看推薦方案」— only after reviewed. */
+/** 「查看推薦方案」. Standard flow skips expert review and keeps `flow=standard` on the URL. */
 async function goViewRecommend() {
   if (readonly.value || escalated.value) {
     return
   }
 
   const path = localePath('/app/recommendations')
-  const redirected = await ensureMemberForReview(path)
+  const target = isStandardFlow.value ? `${path}?flow=standard` : path
+  const redirected = await ensureMemberForReview(target)
   if (redirected) {
     return redirected
+  }
+
+  if (isStandardFlow.value) {
+    return navigateTo({ path, query: { flow: 'standard' } })
   }
 
   return navigateTo(path)

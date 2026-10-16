@@ -16,6 +16,8 @@ defineProps<{
   showViewRecommend: boolean
   showRetry: boolean
   pending: boolean
+  /** `standard` never submits expert review; the recommend button stays「查看推薦方案」. */
+  flow?: 'standard'
 }>()
 
 const emit = defineEmits<{
@@ -70,7 +72,7 @@ const emit = defineEmits<{
       class="turn-actions-row"
     >
       <AppButton
-        v-if="showSubmitReview"
+        v-if="showSubmitReview && flow !== 'standard'"
         data-testid="chat-submit-expert-review"
         @click="emit('submitReview')"
       >
@@ -79,6 +81,7 @@ const emit = defineEmits<{
       <AppButton
         v-if="showViewRecommend"
         data-testid="chat-view-recommend"
+        :data-flow="flow === 'standard' ? 'standard' : undefined"
         @click="emit('recommend')"
       >
         {{ $t('chat.viewRecommend') }}

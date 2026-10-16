@@ -49,6 +49,7 @@ function visibility(
     needsMultiConfirm?: boolean
     messages?: ChatMessage[]
     expertReviewStatus?: 'none' | 'awaiting_review' | 'reviewed'
+    flow?: 'standard'
   } = {}
 ) {
   const goalSelectActive = extra.goalSelectActive ?? ctx.goalSelectActive
@@ -63,7 +64,8 @@ function visibility(
     intake,
     goalOptions: extra.goalOptions ?? goals,
     needsMultiConfirm: extra.needsMultiConfirm ?? goalSelectActive,
-    expertReviewStatus: extra.expertReviewStatus
+    expertReviewStatus: extra.expertReviewStatus,
+    flow: extra.flow
   })
 }
 
@@ -158,6 +160,21 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
     expect(onLatest.showSubmitReview).toBe(false)
     expect(onLatest.showViewRecommend).toBe(true)
     expect(onLatest.showRecommend).toBe(true)
+  })
+
+  it('standard flow shows view recommend and never submit', () => {
+    const interpret = assistant('latest')
+    const ctx = baseCtx({ hasReportAnalysis: true, lastAssistantId: 'latest' })
+    for (const expertReviewStatus of ['none', 'awaiting_review', 'reviewed'] as const) {
+      const onLatest = visibility(interpret, ctx, {
+        messages: [interpret],
+        expertReviewStatus,
+        flow: 'standard'
+      })
+      expect(onLatest.showSubmitReview).toBe(false)
+      expect(onLatest.showViewRecommend).toBe(true)
+      expect(onLatest.showRecommend).toBe(true)
+    }
   })
 
   it('awaiting_review hides both recommend CTAs', () => {

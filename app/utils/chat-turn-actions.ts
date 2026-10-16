@@ -10,6 +10,7 @@ import { turnChoicesForMessage } from './chat-intake'
  * | 問卷 profile 題 (quiz) | intake 上 options | 否（該則為 profile） | 否 | 最新 + upload_offer | 該則 checkupOffer |
  * | 判讀後補選目標 (goalSelect + hasAnalysis) | 最新助理 + goalOptions | 最新助理 | 最新助理 | 否 | 該則 checkupOffer |
  * | 自由對話 / 釐清後 | 否（除非再次 goalSelect） | 最新助理 | 最新且 recommend 或 wantMoreTestsOffer | 同上 | 該則 checkupOffer |
+ * | standard（/chat-ai） | 同上 | 推薦槽一律「查看推薦方案」，不看專家狀態、不提交判讀 | 同上 | 同上 | 同上 |
  * | pending / readonly / escalated | 照舊但 CTA 多數禁用或隱藏 | 否 | 否 | 否 | 否（readonly/escalated） |
  * | 非最新助理 bubble | 否 | 否 | 否（不因舊 wantMoreTestsOffer） | 否 | 該則若有 checkupOffer |
  */
@@ -110,6 +111,13 @@ export function viewRecommendCtaVisible(
   input: Parameters<typeof recommendCtaVisible>[0] & { expertReviewStatus: ExpertReviewUiStatus }
 ): boolean {
   return recommendCtaVisible(input) && input.expertReviewStatus === 'reviewed'
+}
+
+/** `/chat-ai` standard flow: same recommend slot, always「查看推薦方案」. */
+export function standardViewRecommendCtaVisible(
+  input: Parameters<typeof recommendCtaVisible>[0]
+): boolean {
+  return recommendCtaVisible(input)
 }
 
 export function uploadCtaVisible(
@@ -249,9 +257,12 @@ export function buildTurnActionsVisibility(input: {
   goalOptions: ChatMessageOption[]
   needsMultiConfirm: boolean
   expertReviewStatus?: ExpertReviewUiStatus
+  /** `standard` skips expert-review submit and always offers「查看推薦方案」. */
+  flow?: 'standard'
 }): TurnActionsVisibility {
   const { message, ctx, intake, goalOptions, needsMultiConfirm } = input
   const expertReviewStatus = input.expertReviewStatus ?? 'none'
+  const standardFlow = input.flow === 'standard'
   const effectiveGoals = resolveEffectiveGoalOptions({
     goalSelectActive: ctx.goalSelectActive,
     goalOptions,
@@ -277,8 +288,10 @@ export function buildTurnActionsVisibility(input: {
     hasReportAnalysis: ctx.hasReportAnalysis,
     expertReviewStatus
   }
-  const showSubmitReview = submitExpertReviewCtaVisible(slotInput)
-  const showViewRecommend = viewRecommendCtaVisible(slotInput)
+  const showSubmitReview = standardFlow ? false : submitExpertReviewCtaVisible(slotInput)
+  const showViewRecommend = standardFlow
+    ? standardViewRecommendCtaVisible(slotInput)
+    : viewRecommendCtaVisible(slotInput)
 
   return {
     choices,

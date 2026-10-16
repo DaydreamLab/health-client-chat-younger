@@ -39,6 +39,8 @@ export default defineNuxtConfig({
   routeRules: {
     '/chat': { prerender: false },
     '/en/chat': { prerender: false },
+    '/chat-ai': { prerender: false },
+    '/en/chat-ai': { prerender: false },
     '/app/**': { prerender: false },
     '/en/app/**': { prerender: false }
   },
@@ -49,7 +51,7 @@ export default defineNuxtConfig({
     prerender: {
       crawlLinks: true,
       routes: ['/', '/en'],
-      ignore: ['/chat', '/en/chat']
+      ignore: ['/chat', '/en/chat', '/chat-ai', '/en/chat-ai']
     }
   },
 
@@ -104,7 +106,8 @@ export default defineNuxtConfig({
         'lucide:list',
         'lucide:layout-grid',
         'lucide:camera',
-        'lucide:x'
+        'lucide:x',
+        'lucide:bot'
       ]
     }
   }

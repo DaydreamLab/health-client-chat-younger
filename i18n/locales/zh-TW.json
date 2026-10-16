@@ -16,6 +16,7 @@
     "renewals": "續約",
     "profile": "個人資料",
     "chat": "諮詢",
+    "chatAi": "AI 諮詢",
     "logout": "登出",
     "menu": "選單",
     "startChat": "開始諮詢"
@@ -337,6 +338,7 @@
   },
   "chat": {
     "title": "諮詢",
+    "standard": "標準",
     "placeholder": "想補充什麼可以直接打在這裡…",
     "placeholderGoals": "選至少一個方向後按確認，或直接打字…",
     "send": "送出",

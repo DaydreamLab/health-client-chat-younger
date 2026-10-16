@@ -79,6 +79,7 @@
 | 報告結果唯讀 | `/chat` 報告 dock | 可用 | 已接 | 完成 |
 | Profile 問卷 | `/chat` | 可用 | 已接 | 完成 |
 | 對話（建立／綁定／目標／價格帶／SSE） | `/chat` | 可用 | 已接 | 完成 |
+| AI 諮詢（標準建議與結帳） | `/chat-ai` → `/app/recommendations?flow=standard` | 可用 | 已接 | 完成 |
 | 同步訊息（非 SSE） | — | 無 | Mock | Backlog |
 | 建議／價格帶／建單（品項顯示 `image_url`） | `/app/recommendations` | 可用 | 已接 | 完成 |
 | 血檢主檔列表 | — | 無 | 接線中 | Backlog |

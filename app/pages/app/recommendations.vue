@@ -893,7 +893,21 @@ async function loadLegacyRecommendation() {
  * Load reviewed packages only. Case creation happens on「提交專家判讀」.
  * Unreviewed members see a gate back to My Health — no create-on-mount / awaiting poll.
  */
+function isStandardFlow(): boolean {
+  const raw = route.query.flow
+  if (Array.isArray(raw)) {
+    return raw.includes('standard')
+  }
+  return raw === 'standard'
+}
+
 async function loadRecommendation() {
+  // Standard (/chat-ai): direct recommendation + checkout. No expert case, no review poll.
+  if (isStandardFlow()) {
+    await loadLegacyRecommendation()
+    return
+  }
+
   const conversationId = journey.conversationId?.trim() ?? ''
   if (!conversationId || !auth.isMember) {
     await loadLegacyRecommendation()

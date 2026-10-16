@@ -10,7 +10,8 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 |------|--------------------|----------|-------------------|
 | `/` | default | 逛站、方案入口 | 可無 token；進旅程時 guest |
 | `/login` | default | 登入／註冊 | `POST /auth/login`、`/auth/register` |
-| `/chat` | `user` + `chat-layout` | 對話 SSE、目標／價格帶；上傳報告僅 member（guest 導向登入） | guest 可對話；`POST /health-reports` 需 member |
+| `/chat` | `user` + `chat-layout` | 對話 SSE、目標／價格帶；上傳報告僅 member（guest 導向登入）。推薦槽在尚未建案時為「提交專家判讀」 | guest 可對話；`POST /health-reports` 需 member；會員「提交專家判讀」為 `POST /conversation/{id}/expert-review` |
+| `/chat-ai` | `user` + `chat-layout` | 與 `/chat` 共用對話。標準流程（畫面「標準」）推薦槽為「查看推薦方案」，進入 `/app/recommendations?flow=standard` | 同 `/chat` 對話；建議只打 `POST /recommendations` 後結帳，不呼叫 expert-review |
 | `/app` | `user` + `auth` | 我的健康：profile 摘要卡＋報告列表（最新一筆展開判讀表）；guest 顯示登入門檻 | `GET /profile`；`GET /health-reports`；展開時 `GET /health-reports/{id}`（member） |
 | `/app/wearables` | `user` + `auth` | 穿戴裝置即將上線佔位 | 無（殼） |
 | `/app/renewals` | `user` + `auth` | 待續約即將上線佔位（列表與續約對話暫不從這頁進入） | 無（殼）；client 仍保留 `GET /renewals/due`、`renewal_of_order_id` |
@@ -33,7 +34,11 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 
 | UI | 主要檔案 |
 |----|----------|
-| Chat | `pages/chat.vue`、`components/ChatPanel.vue`、`components/TurnActions.vue` |
+| Chat | `pages/chat.vue`、`pages/chat-ai.vue`、`components/ChatPanel.vue`、`components/TurnActions.vue` |
+
+## 諮詢對話（`/chat` 與 `/chat-ai`）
+
+`/chat-ai`（導覽「AI 諮詢」，英文 `/en/chat-ai`）與 `/chat` 共用 `ChatPanel`。`flow=standard` 時推薦槽只顯示「查看推薦方案」，導向 `/app/recommendations?flow=standard`，建議頁只載入直接建議（`POST /recommendations`）與既有結帳，不建立專家案件、不輪詢判讀、通過後也不自動回對話。`/chat` 與我的健康判讀卡仍走專家判讀。
 
 ## 諮詢對話（`/chat`）
 

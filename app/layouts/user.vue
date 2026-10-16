@@ -124,7 +124,7 @@
       </nav>
       <main
         class="flex min-h-0 flex-1 flex-col"
-        :class="isChat
+        :class="isChat || isChatAi
           ? 'overflow-hidden p-0'
           : 'overflow-y-auto p-4 sm:p-6 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'"
       >
@@ -156,7 +156,8 @@ watch(() => route.fullPath, () => {
   mobileNavOpen.value = false
 })
 
-const isChat = computed(() => route.path.includes('/chat'))
+const isChatAi = computed(() => route.path.includes('/chat-ai'))
+const isChat = computed(() => route.path.includes('/chat') && !isChatAi.value)
 const isOrders = computed(() => route.path.includes('/orders'))
 const isRenewals = computed(() => route.path.includes('/renewals'))
 const isRecommendations = computed(() => route.path.includes('/recommendations'))
@@ -196,6 +197,14 @@ const navItems = computed<UserNavItem[]>(() => [
     active: isChat.value,
     testId: 'nav-chat',
     mobileTestId: 'nav-chat-mobile'
+  },
+  {
+    label: t('nav.chatAi'),
+    icon: 'i-lucide-bot',
+    to: localePath('/chat-ai'),
+    active: isChatAi.value,
+    testId: 'nav-chat-ai',
+    mobileTestId: 'nav-chat-ai-mobile'
   },
   {
     label: t('nav.orders'),
