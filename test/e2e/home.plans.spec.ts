@@ -31,6 +31,17 @@ test('catalog package-plans API drives strikethrough, features, and badges', asy
   await expect(plans.getByText('API 基礎功能二')).toBeVisible()
 })
 
+test('EN locale plan subtitles use English without Chinese API descriptions', async ({ page, goto }) => {
+  await mockCandorAuth(page, { packagePlans: 'legacy' })
+  await goto('/en/', { waitUntil: 'hydration' })
+
+  const plans = page.locator('#plans')
+  await expect(plans.getByText('對應異常指標的基礎補充')).toHaveCount(0)
+  await expect(plans.getByText('基礎保養＋加強項目')).toHaveCount(0)
+  await expect(plans.getByText('Base supplements for out-of-range markers').first()).toBeVisible()
+  await expect(plans.getByText('Basic Care plus strengthening add-ons')).toBeVisible()
+})
+
 test('catalog API skips strikethrough when original_price is null or equals price', async ({ page, goto }) => {
   await mockCandorAuth(page, { packagePlans: 'no-strikethrough' })
   await goto('/', { waitUntil: 'hydration' })
