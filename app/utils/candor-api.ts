@@ -50,6 +50,14 @@ export interface PublicPackage {
   price: number
   period_days: number
   description?: string | null
+  original_price?: number | null
+  features?: string[] | null
+  features_en?: string[] | null
+  badge?: string | null
+  badge_en?: string | null
+  highlight?: boolean | null
+  pack_capacity?: number
+  core_count?: number
 }
 
 export interface PackagePlansList {
