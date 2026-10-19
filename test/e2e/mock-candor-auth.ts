@@ -29,7 +29,12 @@ const goalOptions = [
   { code: 'gastrointestinal', label: '腸胃道' }
 ]
 
-export type PackagePlansMockMode = 'legacy' | 'catalog' | 'no-strikethrough'
+export type PackagePlansMockMode
+  = | 'legacy'
+    | 'catalog'
+    | 'no-strikethrough'
+    | 'description-en'
+    | 'description-en-null'
 
 export type CandorMockOptions = {
   /** When true, stream after goals returns a profile sex turn until answered. */
@@ -107,12 +112,42 @@ const noStrikethroughPackagePlans = [
   }
 ]
 
+/** Post–core #49: field present but null → client i18n fallback. */
+const descriptionEnNullPackagePlans = [
+  {
+    ...legacyPackagePlans[0],
+    description_en: null
+  },
+  {
+    ...legacyPackagePlans[1],
+    description_en: null
+  }
+]
+
+/** Distinct API copy so e2e can assert description_en wins over i18n. */
+const descriptionEnDistinctPackagePlans = [
+  {
+    ...legacyPackagePlans[0],
+    description_en: 'E2E API basic description_en'
+  },
+  {
+    ...legacyPackagePlans[1],
+    description_en: 'E2E API advance description_en'
+  }
+]
+
 function packagePlansForMode(mode: PackagePlansMockMode = 'legacy') {
   if (mode === 'catalog') {
     return catalogPackagePlans
   }
   if (mode === 'no-strikethrough') {
     return noStrikethroughPackagePlans
+  }
+  if (mode === 'description-en') {
+    return descriptionEnDistinctPackagePlans
+  }
+  if (mode === 'description-en-null') {
+    return descriptionEnNullPackagePlans
   }
   return legacyPackagePlans
 }

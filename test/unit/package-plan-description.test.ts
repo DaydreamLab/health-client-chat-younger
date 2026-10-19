@@ -30,6 +30,10 @@ describe('resolvePlanDescription', () => {
     expect(resolvePlanDescription(base, 'en', t)).toBe('EN basic subtitle')
   })
 
+  it('falls back to i18n on English locale when description_en is null', () => {
+    expect(resolvePlanDescription({ ...base, description_en: null }, 'en', t)).toBe('EN basic subtitle')
+  })
+
   it('does not expose Chinese description on English locale', () => {
     expect(resolvePlanDescription(base, 'en', t)).not.toContain('對應')
   })
