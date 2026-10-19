@@ -490,13 +490,51 @@ const promoSlides = computed(() => [
 const packages = ref<PublicPackage[]>([])
 const packagesPending = ref(true)
 const packagesError = ref<string | null>(null)
-const listPrices: Record<string, number> = {
-  basic: 8000,
-  advance: 12000
-}
 const featureKeyGroups: Record<string, readonly string[]> = {
   basic: ['basicFeature1', 'basicFeature2', 'basicFeature3'],
   advance: ['advanceFeature1', 'advanceFeature2', 'advanceFeature3']
+}
+
+function packageHasCatalogFields(pkg: PublicPackage) {
+  return 'original_price' in pkg
+    || 'features' in pkg
+    || 'features_en' in pkg
+    || 'badge' in pkg
+    || 'badge_en' in pkg
+    || 'highlight' in pkg
+}
+
+function resolveListPrice(pkg: PublicPackage) {
+  const original = pkg.original_price
+  if (original == null || original <= pkg.price) {
+    return null
+  }
+  return original
+}
+
+function resolvePlanFeatures(pkg: PublicPackage) {
+  const fromApi = locale.value === 'en' ? pkg.features_en : pkg.features
+  if (fromApi?.length) {
+    return fromApi
+  }
+  const featureKeys = featureKeyGroups[pkg.code]
+  return featureKeys?.map(key => t(`plans.${key}`)) ?? []
+}
+
+function resolvePlanBadge(pkg: PublicPackage, recommendedFallback: boolean) {
+  if (packageHasCatalogFields(pkg)) {
+    const raw = locale.value === 'en' ? pkg.badge_en : pkg.badge
+    const text = raw?.trim()
+    return text || undefined
+  }
+  return recommendedFallback ? t('shop.recommended') : undefined
+}
+
+function resolvePlanHighlight(pkg: PublicPackage, recommendedFallback: boolean) {
+  if (pkg.highlight !== undefined && pkg.highlight !== null) {
+    return pkg.highlight
+  }
+  return recommendedFallback
 }
 
 function packageTitle(pkg: PublicPackage) {
@@ -515,29 +553,29 @@ function selectPackage(code: string) {
 }
 
 const pricingPlans = computed<PricingPlanProps[]>(() => packages.value.map((pkg, index) => {
-  const recommended = index === packages.value.length - 1
-  const listPrice = listPrices[pkg.code]
-  const featureKeys = featureKeyGroups[pkg.code]
+  const recommendedFallback = index === packages.value.length - 1
+  const listPrice = resolveListPrice(pkg)
+  const highlight = resolvePlanHighlight(pkg, recommendedFallback)
   return {
     title: packageTitle(pkg),
     description: pkg.description || undefined,
     price: formatTwd(listPrice ?? pkg.price),
     discount: listPrice == null ? undefined : formatTwd(pkg.price),
     billingCycle: t('plans.billingCycle'),
-    features: featureKeys?.map(key => t(`plans.${key}`)),
+    features: resolvePlanFeatures(pkg),
     ui: {
       featureTitle: 'whitespace-normal overflow-visible text-clip text-pretty',
-      root: recommended ? 'ring-[3px]' : 'ring-2',
+      root: highlight ? 'ring-[3px]' : 'ring-2',
       price: 'order-1',
       discount: 'order-2',
       billing: 'order-3'
     },
-    badge: recommended ? t('shop.recommended') : undefined,
-    highlight: recommended,
+    badge: resolvePlanBadge(pkg, recommendedFallback),
+    highlight,
     button: {
       'label': t('plans.cta'),
       'to': chatPath(pkg.code),
-      'variant': recommended ? 'solid' : 'outline',
+      'variant': highlight ? 'solid' : 'outline',
       'onClick': () => selectPackage(pkg.code),
       'data-testid': `package-${pkg.code}`
     } as PricingPlanProps['button']

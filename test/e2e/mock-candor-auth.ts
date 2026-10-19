@@ -29,6 +29,8 @@ const goalOptions = [
   { code: 'gastrointestinal', label: '腸胃道' }
 ]
 
+export type PackagePlansMockMode = 'legacy' | 'catalog' | 'no-strikethrough'
+
 export type CandorMockOptions = {
   /** When true, stream after goals returns a profile sex turn until answered. */
   profileQuiz?: boolean
@@ -40,6 +42,79 @@ export type CandorMockOptions = {
   withOrder?: boolean
   /** GET /client-config individual_tests_url (empty hides hero labs CTA). */
   individualTestsUrl?: string
+  /** GET /package-plans payload shape (default legacy = pre-catalog API). */
+  packagePlans?: PackagePlansMockMode
+}
+
+const legacyPackagePlans = [
+  {
+    code: 'basic',
+    name: '基礎保養',
+    name_en: 'Basic Care',
+    price: 5000,
+    period_days: 30,
+    description: '對應異常指標的基礎補充'
+  },
+  {
+    code: 'advance',
+    name: '完整調理',
+    name_en: 'Full Tune',
+    price: 9000,
+    period_days: 30,
+    description: '基礎保養＋加強項目'
+  }
+]
+
+const catalogPackagePlans = [
+  {
+    code: 'basic',
+    name: '基礎保養',
+    name_en: 'Basic Care',
+    price: 5000,
+    original_price: 8000,
+    period_days: 30,
+    description: '對應異常指標的基礎補充',
+    features: ['API 基礎功能一', 'API 基礎功能二', 'API 基礎功能三'],
+    features_en: ['API basic feature one', 'API basic feature two', 'API basic feature three'],
+    badge: null,
+    badge_en: null,
+    highlight: false
+  },
+  {
+    code: 'advance',
+    name: '完整調理',
+    name_en: 'Full Tune',
+    price: 9000,
+    original_price: 12000,
+    period_days: 30,
+    description: '基礎保養＋加強項目',
+    features: ['API 進階功能一', 'API 進階功能二', 'API 進階功能三'],
+    features_en: ['API advance feature one', 'API advance feature two', 'API advance feature three'],
+    badge: '推薦',
+    badge_en: 'Recommended',
+    highlight: true
+  }
+]
+
+const noStrikethroughPackagePlans = [
+  {
+    ...catalogPackagePlans[0],
+    original_price: null
+  },
+  {
+    ...catalogPackagePlans[1],
+    original_price: 9000
+  }
+]
+
+function packagePlansForMode(mode: PackagePlansMockMode = 'legacy') {
+  if (mode === 'catalog') {
+    return catalogPackagePlans
+  }
+  if (mode === 'no-strikethrough') {
+    return noStrikethroughPackagePlans
+  }
+  return legacyPackagePlans
 }
 
 /** Mock candor-core auth + chat/report/profile so e2e does not need a live API. */
@@ -109,24 +184,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       body: JSON.stringify({
         status: 'success',
         data: {
-          package_plans: [
-            {
-              code: 'basic',
-              name: '基礎保養',
-              name_en: 'Basic Care',
-              price: 5000,
-              period_days: 30,
-              description: '對應異常指標的基礎補充'
-            },
-            {
-              code: 'advance',
-              name: '完整調理',
-              name_en: 'Full Tune',
-              price: 9000,
-              period_days: 30,
-              description: '基礎保養＋加強項目'
-            }
-          ]
+          package_plans: packagePlansForMode(options.packagePlans)
         }
       })
     })
