@@ -3,7 +3,7 @@
     class="h-48 w-full"
     viewBox="0 0 420 180"
     role="img"
-    :aria-label="$t('member.trendTitle')"
+    :aria-label="ariaLabel ?? $t('member.trendTitle')"
   >
     <defs>
       <linearGradient
@@ -26,7 +26,7 @@
       </linearGradient>
     </defs>
     <path
-      :d="areaPath"
+      :d="chart.areaPath"
       fill="url(#health-trend-fill)"
     />
     <polyline
@@ -35,11 +35,11 @@
       stroke-width="3"
       stroke-linecap="round"
       stroke-linejoin="round"
-      :points="linePoints"
+      :points="chart.linePoints"
       class="app-trend-line"
     />
     <g
-      v-for="point in plotted"
+      v-for="point in chart.plotted"
       :key="point.key"
     >
       <circle
@@ -58,7 +58,7 @@
         fill="currentColor"
         font-size="11"
       >
-        {{ $t(`member.months.${point.key}`) }}
+        {{ pointLabel(point) }}
       </text>
       <text
         :x="point.x"
@@ -77,22 +77,24 @@
 
 <script setup lang="ts">
 import { healthTrend } from '~/utils/health-demo'
+import type { HealthTrendChartPoint } from '~/utils/health-trend-chart'
+import { plotHealthTrend } from '~/utils/health-trend-chart'
 
-const width = 420
-const height = 180
-const padX = 28
-const padTop = 24
-const padBottom = 36
-const values = healthTrend.map(item => item.value)
-const min = Math.min(...values) - 8
-const max = Math.max(...values) + 4
+const props = defineProps<{
+  points?: HealthTrendChartPoint[]
+  ariaLabel?: string
+}>()
 
-const plotted = healthTrend.map((item, index) => {
-  const x = padX + (index / (healthTrend.length - 1)) * (width - padX * 2)
-  const y = padTop + (1 - (item.value - min) / (max - min)) * (height - padTop - padBottom)
-  return { ...item, x, y }
-})
+const { t } = useI18n()
 
-const linePoints = plotted.map(point => `${point.x},${point.y}`).join(' ')
-const areaPath = `M ${plotted[0]!.x} ${height - padBottom} L ${plotted.map(point => `${point.x} ${point.y}`).join(' L ')} L ${plotted.at(-1)!.x} ${height - padBottom} Z`
+const series = computed(() => props.points ?? [...healthTrend])
+
+const chart = computed(() => plotHealthTrend(series.value))
+
+function pointLabel(point: HealthTrendChartPoint) {
+  if (point.label) {
+    return point.label
+  }
+  return t(`member.months.${point.key}`)
+}
 </script>
