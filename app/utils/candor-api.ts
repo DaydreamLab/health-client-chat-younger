@@ -50,6 +50,7 @@ export interface PublicPackage {
   price: number
   period_days: number
   description?: string | null
+  description_en?: string | null
   original_price?: number | null
   features?: string[] | null
   features_en?: string[] | null

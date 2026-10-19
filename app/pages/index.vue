@@ -389,6 +389,7 @@
 <script setup lang="ts">
 import type { PricingPlanProps } from '@nuxt/ui'
 import type { PublicPackage } from '~/utils/candor-api'
+import { resolveListPrice, resolvePlanDescription } from '~/utils/package-plan-display'
 import { formatTwd } from '~/utils/first-order'
 
 const { t, locale } = useI18n()
@@ -504,14 +505,6 @@ function packageHasCatalogFields(pkg: PublicPackage) {
     || 'highlight' in pkg
 }
 
-function resolveListPrice(pkg: PublicPackage) {
-  const original = pkg.original_price
-  if (original == null || original <= pkg.price) {
-    return null
-  }
-  return original
-}
-
 function resolvePlanFeatures(pkg: PublicPackage) {
   const fromApi = locale.value === 'en' ? pkg.features_en : pkg.features
   if (fromApi?.length) {
@@ -558,7 +551,7 @@ const pricingPlans = computed<PricingPlanProps[]>(() => packages.value.map((pkg,
   const highlight = resolvePlanHighlight(pkg, recommendedFallback)
   return {
     title: packageTitle(pkg),
-    description: pkg.description || undefined,
+    description: resolvePlanDescription(pkg, locale.value, t),
     price: formatTwd(listPrice ?? pkg.price),
     discount: listPrice == null ? undefined : formatTwd(pkg.price),
     billingCycle: t('plans.billingCycle'),
