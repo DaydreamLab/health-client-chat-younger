@@ -2,6 +2,8 @@ export interface HealthTrendChartPoint {
   key: string
   value: number
   label?: string
+  /** When set, X-axis uses locale-aware weekday (Mon–Sun / 週一–週日) instead of `label`. */
+  weekdayIndex?: number
 }
 
 export interface PlottedTrendPoint extends HealthTrendChartPoint {

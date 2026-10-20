@@ -21,11 +21,18 @@
     </div>
 
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <div class="flex flex-wrap gap-2">
+      <div
+        class="app-wearables-segment flex flex-wrap gap-1"
+        role="tablist"
+        :aria-label="$t('wearables.metricTabs.label')"
+      >
         <AppButton
           v-for="metric in metricOptions"
           :key="metric"
-          :variant="selectedMetric === metric ? 'primary' : 'outline'"
+          class="!px-3 !py-1 text-sm"
+          :variant="selectedMetric === metric ? 'primary' : 'segment'"
+          role="tab"
+          :aria-selected="selectedMetric === metric"
           :data-testid="`wearables-metric-${metric}`"
           @click="selectedMetric = metric"
         >
@@ -71,6 +78,7 @@
       <HealthTrendChart
         class="mt-4"
         :points="summary.trend"
+        :metric-type="selectedMetric"
         :aria-label="metricTitle"
       />
       <p

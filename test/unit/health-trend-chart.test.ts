@@ -13,13 +13,14 @@ describe('plotHealthTrend', () => {
     expect(chart.areaPath.startsWith('M ')).toBe(true)
   })
 
-  it('accepts custom wearable labels without changing point count', () => {
+  it('accepts weekdayIndex and custom labels without changing point count', () => {
     const points = [
-      { key: 'd1', value: 60, label: 'Mon' },
-      { key: 'd2', value: 65, label: 'Tue' }
+      { key: 'd1', value: 60, weekdayIndex: 0 },
+      { key: 'd2', value: 65, label: '2' }
     ]
     const chart = plotHealthTrend(points)
     expect(chart.plotted).toHaveLength(2)
-    expect(chart.plotted[0]?.label).toBe('Mon')
+    expect(chart.plotted[0]?.weekdayIndex).toBe(0)
+    expect(chart.plotted[1]?.label).toBe('2')
   })
 })

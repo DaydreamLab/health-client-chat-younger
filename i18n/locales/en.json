@@ -46,6 +46,16 @@
       "steps": "Steps",
       "sleep_minutes": "Sleep"
     },
+    "metricTabs": {
+      "label": "Metric"
+    },
+    "units": {
+      "bpmShort": "bpm",
+      "chartBpm": "{value} bpm",
+      "chartSteps": "{value} steps",
+      "chartSleepMinutes": "{value} min",
+      "chartSleepDuration": "{hours}h {minutes}m"
+    },
     "range": {
       "label": "Trend range",
       "days": "Last {count} days"

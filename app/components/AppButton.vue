@@ -34,7 +34,7 @@ defineOptions({ inheritAttrs: false })
 const props = withDefaults(defineProps<{
   to?: string
   href?: string
-  variant?: 'primary' | 'outline' | 'ghost'
+  variant?: 'primary' | 'outline' | 'ghost' | 'segment'
   type?: 'button' | 'submit'
   class?: string
 }>(), {
@@ -53,7 +53,8 @@ const classes = computed(() => [
   {
     primary: 'app-btn-primary',
     outline: 'app-btn-outline',
-    ghost: 'app-btn-ghost'
+    ghost: 'app-btn-ghost',
+    segment: 'app-btn-segment'
   }[props.variant],
   props.class
 ])

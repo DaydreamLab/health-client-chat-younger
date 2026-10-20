@@ -69,7 +69,7 @@
         font-size="11"
         font-weight="600"
       >
-        {{ point.value }}
+        {{ formatPointValue(point) }}
       </text>
     </g>
   </svg>
@@ -79,22 +79,36 @@
 import { healthTrend } from '~/utils/health-demo'
 import type { HealthTrendChartPoint } from '~/utils/health-trend-chart'
 import { plotHealthTrend } from '~/utils/health-trend-chart'
+import type { WearableMetricType } from '~/utils/wearables-mock'
+import { formatTrendWeekdayLabel, formatWearableChartValue } from '~/utils/wearables-format'
 
 const props = defineProps<{
   points?: HealthTrendChartPoint[]
   ariaLabel?: string
+  /** When set, chart point labels include localized units (wearables detail). */
+  metricType?: WearableMetricType
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const series = computed(() => props.points ?? [...healthTrend])
 
 const chart = computed(() => plotHealthTrend(series.value))
 
 function pointLabel(point: HealthTrendChartPoint) {
+  if (point.weekdayIndex !== undefined) {
+    return formatTrendWeekdayLabel(point.weekdayIndex, locale.value)
+  }
   if (point.label) {
     return point.label
   }
   return t(`member.months.${point.key}`)
+}
+
+function formatPointValue(point: HealthTrendChartPoint) {
+  if (props.metricType) {
+    return formatWearableChartValue(point.value, props.metricType, locale.value, t)
+  }
+  return String(point.value)
 }
 </script>

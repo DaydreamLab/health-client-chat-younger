@@ -205,6 +205,26 @@ button:focus:not(:focus-visible) {
     color: var(--ui-text-highlighted);
   }
 
+  .app-wearables-segment {
+    border-radius: 0.75rem;
+    border: 1px solid var(--ui-border);
+    padding: 0.25rem;
+  }
+
+  .app-btn-segment {
+    height: auto;
+    min-height: 2rem;
+    padding-inline: 0.75rem;
+    border: 0;
+    background: transparent;
+    color: var(--ui-text-highlighted);
+  }
+
+  .app-btn-segment:hover {
+    background-color: var(--ui-bg-muted);
+    color: var(--ui-text-highlighted);
+  }
+
   .app-icon-toggle {
     display: inline-flex;
     align-items: center;

@@ -21,7 +21,7 @@
       <li data-testid="wearables-report-ref-hr">
         {{ $t('wearables.reportReference.avgHr', {
           value: reference.avg_resting_hr,
-          unit: reference.resting_hr_unit
+          unit: hrUnit
         }) }}
       </li>
     </ul>
@@ -42,14 +42,17 @@
 <script setup lang="ts">
 import type { WearableReportReference } from '~/utils/wearables-mock'
 import { wearablesReportReferenceMock } from '~/utils/wearables-mock'
+import { localizedRestingHrUnit } from '~/utils/wearables-format'
 
 const props = defineProps<{
   reference?: WearableReportReference
 }>()
 
 const localePath = useLocalePath()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const reference = computed(() => props.reference ?? wearablesReportReferenceMock)
+
+const hrUnit = computed(() => localizedRestingHrUnit(locale.value, t))
 
 const sleepLabel = computed(() => {
   const total = reference.value.avg_sleep_minutes
