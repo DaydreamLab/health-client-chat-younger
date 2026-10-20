@@ -31,7 +31,27 @@ test('catalog package-plans API drives strikethrough, features, and badges', asy
   await expect(plans.getByText('API 基礎功能二')).toBeVisible()
 })
 
-test('EN locale plan subtitles use English without Chinese API descriptions', async ({ page, goto }) => {
+test('EN subtitles use description_en when API provides it', async ({ page, goto }) => {
+  await mockCandorAuth(page, { packagePlans: 'description-en' })
+  await goto('/en/', { waitUntil: 'hydration' })
+
+  const plans = page.locator('#plans')
+  await expect(plans.getByText('E2E API basic description_en')).toBeVisible()
+  await expect(plans.getByText('E2E API advance description_en')).toBeVisible()
+  await expect(plans.getByText('對應異常指標的基礎補充')).toHaveCount(0)
+})
+
+test('EN subtitles fall back to i18n when description_en is null', async ({ page, goto }) => {
+  await mockCandorAuth(page, { packagePlans: 'description-en-null' })
+  await goto('/en/', { waitUntil: 'hydration' })
+
+  const plans = page.locator('#plans')
+  await expect(plans.getByText('Base supplements for out-of-range markers').first()).toBeVisible()
+  await expect(plans.getByText('Basic Care plus strengthening add-ons')).toBeVisible()
+  await expect(plans.getByText('對應異常指標的基礎補充')).toHaveCount(0)
+})
+
+test('EN subtitles fall back to i18n when legacy API omits description_en', async ({ page, goto }) => {
   await mockCandorAuth(page, { packagePlans: 'legacy' })
   await goto('/en/', { waitUntil: 'hydration' })
 
