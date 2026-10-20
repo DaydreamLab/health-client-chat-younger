@@ -1,6 +1,8 @@
 import { expect, test } from '@nuxt/test-utils/playwright'
 import {
+  assertTrendLineMatchesPoints,
   boxesOverlap,
+  parseTrendLinePath,
   trendLabelCollidesWithGeometry
 } from '../../app/utils/health-trend-chart'
 import { mockCandorAuth } from './mock-candor-auth'
@@ -21,18 +23,24 @@ async function expectChartLabelsClear(page: import('@playwright/test').Page) {
       x: Number(el.getAttribute('cx')),
       y: Number(el.getAttribute('cy'))
     }))
-    return { labels, circles, viewHeight: svg.viewBox.baseVal.height }
+    const line = svg.querySelector('[data-testid="wearables-trend-line"]')
+    const linePath = line?.getAttribute('d') ?? ''
+    const dasharray = line ? getComputedStyle(line).strokeDasharray : ''
+    return { labels, circles, linePath, dasharray, viewHeight: svg.viewBox.baseVal.height }
   })
 
   expect(payload.labels.length).toBeGreaterThan(0)
   expect(payload.circles.length).toBe(payload.labels.length)
 
+  expect(payload.dasharray).toBe('none')
+  const lineVertices = parseTrendLinePath(payload.linePath)
   const plotted = payload.circles.map((point, index) => ({
     key: `p${index}`,
     value: 0,
     x: point.x,
     y: point.y
   }))
+  assertTrendLineMatchesPoints(lineVertices, plotted)
 
   for (const label of payload.labels) {
     expect(label.top).toBeGreaterThanOrEqual(0)

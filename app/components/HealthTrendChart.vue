@@ -1,14 +1,15 @@
 <template>
   <svg
-    class="h-56 w-full"
+    class="h-56 w-full overflow-visible"
     :viewBox="`0 0 ${chart.width} ${chart.height}`"
     role="img"
     :aria-label="ariaLabel ?? $t('member.trendTitle')"
     :data-testid="metricType ? 'wearables-trend-chart' : undefined"
+    :style="trendLineCssVars"
   >
     <defs>
       <linearGradient
-        id="health-trend-fill"
+        :id="gradientId"
         x1="0"
         y1="0"
         x2="0"
@@ -28,20 +29,64 @@
     </defs>
     <path
       :d="chart.areaPath"
-      fill="url(#health-trend-fill)"
+      :fill="`url(#${gradientId})`"
     />
-    <polyline
+    <g
+      v-for="point in chart.plotted"
+      :key="`axis-${point.key}`"
+    >
+      <text
+        :x="point.x"
+        :y="xAxisLabelY"
+        text-anchor="middle"
+        class="text-muted"
+        fill="currentColor"
+        font-size="11"
+      >
+        {{ pointLabel(point) }}
+      </text>
+    </g>
+    <text
+      v-for="label in wearablesValueLabels"
+      :key="`value-${label.index}`"
+      :x="label.x"
+      :y="label.y"
+      text-anchor="middle"
+      dominant-baseline="middle"
+      class="pointer-events-none text-highlighted wearables-trend-value-label"
+      fill="currentColor"
+      font-size="11"
+      font-weight="600"
+    >
+      {{ label.text }}
+    </text>
+    <text
+      v-for="point in chart.plotted"
+      v-show="!metricType"
+      :key="`member-value-${point.key}`"
+      :x="point.x"
+      :y="point.y - 18"
+      text-anchor="middle"
+      class="pointer-events-none text-highlighted"
+      fill="currentColor"
+      font-size="11"
+      font-weight="600"
+    >
+      {{ point.value }}
+    </text>
+    <path
       fill="none"
       stroke="var(--color-chart-primary)"
       stroke-width="3"
       stroke-linecap="round"
       stroke-linejoin="round"
-      :points="chart.linePoints"
-      class="app-trend-line"
+      :d="chart.linePath"
+      :class="metricType ? 'wearables-trend-line' : 'app-trend-line'"
+      :data-testid="metricType ? 'wearables-trend-line' : undefined"
     />
     <g
       v-for="point in chart.plotted"
-      :key="point.key"
+      :key="`point-${point.key}`"
     >
       <title v-if="metricType">
         {{ pointTooltip(point) }}
@@ -54,43 +99,7 @@
         stroke="var(--color-chart-primary)"
         stroke-width="2"
       />
-      <text
-        :x="point.x"
-        :y="xAxisLabelY"
-        text-anchor="middle"
-        class="text-muted"
-        fill="currentColor"
-        font-size="11"
-      >
-        {{ pointLabel(point) }}
-      </text>
-      <text
-        v-if="!metricType"
-        :x="point.x"
-        :y="point.y - 18"
-        text-anchor="middle"
-        class="text-highlighted"
-        fill="currentColor"
-        font-size="11"
-        font-weight="600"
-      >
-        {{ point.value }}
-      </text>
     </g>
-    <text
-      v-for="label in wearablesValueLabels"
-      :key="`value-${label.index}`"
-      :x="label.x"
-      :y="label.y"
-      text-anchor="middle"
-      dominant-baseline="middle"
-      class="text-highlighted wearables-trend-value-label"
-      fill="currentColor"
-      font-size="11"
-      font-weight="600"
-    >
-      {{ label.text }}
-    </text>
   </svg>
 </template>
 
@@ -113,6 +122,7 @@ const props = defineProps<{
 }>()
 
 const { t, locale } = useI18n()
+const gradientId = `health-trend-fill-${useId()}`
 
 const series = computed(() => props.points ?? [...healthTrend])
 
@@ -136,6 +146,10 @@ const trendLayout = computed(() => {
 
 const chart = computed(() => trendLayout.value.chart)
 const wearablesValueLabels = computed(() => trendLayout.value.valueLabels)
+
+const trendLineCssVars = computed(() => ({
+  '--trend-path-length': String(chart.value.pathLength)
+}))
 
 const xAxisLabelY = computed(() => chart.value.height - chart.value.padBottom + 16)
 

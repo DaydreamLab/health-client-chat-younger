@@ -54,6 +54,8 @@ export function plotHealthTrend(
 ): {
   plotted: PlottedTrendPoint[]
   linePoints: string
+  linePath: string
+  pathLength: number
   areaPath: string
   padBottom: number
   padTop: number
@@ -75,8 +77,73 @@ export function plotHealthTrend(
     return { ...item, x, y }
   })
   const linePoints = plotted.map(point => `${point.x},${point.y}`).join(' ')
+  const linePath = buildTrendLinePath(plotted)
+  const pathLength = measureTrendPathLength(plotted)
   const areaPath = `M ${plotted[0]!.x} ${height - padBottom} L ${plotted.map(point => `${point.x} ${point.y}`).join(' L ')} L ${plotted.at(-1)!.x} ${height - padBottom} Z`
-  return { plotted, linePoints, areaPath, padBottom, padTop, height, width }
+  return { plotted, linePoints, linePath, pathLength, areaPath, padBottom, padTop, height, width }
+}
+
+export function buildTrendLinePath(plotted: PlottedTrendPoint[]): string {
+  if (!plotted.length) {
+    return ''
+  }
+  return `M ${plotted.map(point => `${point.x} ${point.y}`).join(' L ')}`
+}
+
+export function measureTrendPathLength(plotted: PlottedTrendPoint[]): number {
+  let length = 0
+  for (let index = 1; index < plotted.length; index++) {
+    const prev = plotted[index - 1]!
+    const next = plotted[index]!
+    length += Math.hypot(next.x - prev.x, next.y - prev.y)
+  }
+  return Math.ceil(length + 24)
+}
+
+export function parseTrendLinePath(pathAttribute: string): Array<{ x: number, y: number }> {
+  const numbers = pathAttribute.match(/-?\d*\.?\d+/g)?.map(Number) ?? []
+  const vertices: Array<{ x: number, y: number }> = []
+  for (let index = 0; index + 1 < numbers.length; index += 2) {
+    const x = numbers[index]
+    const y = numbers[index + 1]
+    if (x === undefined || y === undefined) {
+      continue
+    }
+    vertices.push({ x, y })
+  }
+  return vertices
+}
+
+export function parseTrendLinePoints(pointsAttribute: string): Array<{ x: number, y: number }> {
+  return pointsAttribute
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((pair) => {
+      const [rawX, rawY] = pair.split(',')
+      return { x: Number(rawX), y: Number(rawY) }
+    })
+}
+
+export function assertTrendLineMatchesPoints(
+  lineVertices: Array<{ x: number, y: number }>,
+  plotted: PlottedTrendPoint[]
+): void {
+  if (lineVertices.length !== plotted.length) {
+    throw new Error(`Trend line has ${lineVertices.length} vertices, expected ${plotted.length}`)
+  }
+  for (let index = 0; index < plotted.length; index++) {
+    const vertex = lineVertices[index]!
+    const point = plotted[index]!
+    if (Math.hypot(vertex.x - point.x, vertex.y - point.y) > 0.5) {
+      throw new Error(`Trend line vertex ${index} does not match plotted point`)
+    }
+  }
+  const last = lineVertices.at(-1)!
+  const lastPoint = plotted.at(-1)!
+  if (Math.hypot(last.x - lastPoint.x, last.y - lastPoint.y) > 0.5) {
+    throw new Error('Trend line does not reach the final data point')
+  }
 }
 
 export function estimateTrendLabelWidth(text: string, locale: string): number {
