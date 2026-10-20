@@ -144,6 +144,7 @@ import {
   getWearableMetricSummary,
   type WearableMetricType
 } from '~/utils/wearables-mock'
+import { formatSleepDurationMinutes } from '~/utils/wearables-format'
 
 definePageMeta({
   layout: 'user',
@@ -198,9 +199,9 @@ const formattedAverage = computed(() => {
   if (selectedMetric.value === 'steps') {
     return t('wearables.detail.avgSteps', { value: summary.value.average.toLocaleString(locale.value) })
   }
-  const hours = Math.floor(summary.value.average / 60)
-  const minutes = summary.value.average % 60
-  return t('wearables.detail.avgSleep', { hours, minutes })
+  return t('wearables.detail.avgSleep', {
+    value: formatSleepDurationMinutes(summary.value.average, t)
+  })
 })
 
 const secondaryAverages = computed(() => {
@@ -212,12 +213,9 @@ const secondaryAverages = computed(() => {
   if (!steps || !sleep) {
     return ''
   }
-  const sleepHours = Math.floor(sleep.average / 60)
-  const sleepMinutes = sleep.average % 60
   return t('wearables.detail.secondaryLine', {
     steps: steps.average.toLocaleString(locale.value),
-    hours: sleepHours,
-    minutes: sleepMinutes
+    sleep: formatSleepDurationMinutes(sleep.average, t)
   })
 })
 

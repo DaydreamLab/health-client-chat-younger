@@ -23,6 +23,11 @@ test('capture wearables screenshots zh', async ({ page, goto }) => {
   })
   await goto('/app/wearables/apple-watch', { waitUntil: 'hydration' })
   await expect(page.getByTestId('wearables-detail')).toBeVisible()
+  await page.getByTestId('wearables-metric-resting_hr').click()
+  await page.screenshot({
+    path: path.join(artifactsDir, `${prefix}-wearables-detail-hr-zh.png`),
+    fullPage: true
+  })
   await page.getByTestId('wearables-metric-sleep_minutes').click()
   await page.screenshot({
     path: path.join(artifactsDir, `${prefix}-wearables-detail-sleep-zh.png`),
@@ -39,6 +44,11 @@ test('capture wearables screenshots en', async ({ page, goto }) => {
   })
   await goto('/en/app/wearables/apple-watch', { waitUntil: 'hydration' })
   await expect(page.getByTestId('wearables-detail')).toBeVisible()
+  await page.getByTestId('wearables-metric-resting_hr').click()
+  await page.screenshot({
+    path: path.join(artifactsDir, `${prefix}-wearables-detail-hr-en.png`),
+    fullPage: true
+  })
   await page.getByTestId('wearables-metric-sleep_minutes').click()
   await page.screenshot({
     path: path.join(artifactsDir, `${prefix}-wearables-detail-sleep-en.png`),

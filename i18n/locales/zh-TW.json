@@ -53,8 +53,9 @@
       "bpmShort": "次/分",
       "chartBpm": "{value} 次/分",
       "chartSteps": "{value} 步",
-      "chartSleepMinutes": "{value} 分",
-      "chartSleepDuration": "{hours} 小時 {minutes} 分"
+      "sleepHoursOnly": "{hours} 小時",
+      "sleepMinutesOnly": "{minutes} 分",
+      "sleepMixed": "{hours} 小時 {minutes} 分"
     },
     "range": {
       "label": "趨勢時間範圍",
@@ -88,8 +89,8 @@
       "sleepTitle": "睡眠",
       "avgBpm": "平均 {value} 次/分",
       "avgSteps": "平均 {value} 步",
-      "avgSleep": "平均 {hours} 小時 {minutes} 分",
-      "secondaryLine": "平均步數 {steps}｜平均睡眠 {hours} 小時 {minutes} 分（範例）",
+      "avgSleep": "平均 {value}",
+      "secondaryLine": "平均步數 {steps}｜平均睡眠 {sleep}（範例）",
       "reportCta": "查看相關健康報告與建議 ›"
     },
     "reportReference": {

@@ -1,7 +1,7 @@
 <template>
   <svg
-    class="h-48 w-full"
-    viewBox="0 0 420 180"
+    class="h-52 w-full"
+    :viewBox="`0 0 420 ${chart.height}`"
     role="img"
     :aria-label="ariaLabel ?? $t('member.trendTitle')"
   >
@@ -39,9 +39,12 @@
       class="app-trend-line"
     />
     <g
-      v-for="point in chart.plotted"
+      v-for="(point, index) in chart.plotted"
       :key="point.key"
     >
+      <title v-if="metricType">
+        {{ pointTooltip(point) }}
+      </title>
       <circle
         :cx="point.x"
         :cy="point.y"
@@ -52,7 +55,7 @@
       />
       <text
         :x="point.x"
-        :y="168"
+        :y="xAxisLabelY"
         text-anchor="middle"
         class="text-muted"
         fill="currentColor"
@@ -61,8 +64,9 @@
         {{ pointLabel(point) }}
       </text>
       <text
+        v-if="showValueLabels"
         :x="point.x"
-        :y="point.y - 10"
+        :y="point.y - valueLabelOffset(index)"
         text-anchor="middle"
         class="text-highlighted"
         fill="currentColor"
@@ -78,7 +82,11 @@
 <script setup lang="ts">
 import { healthTrend } from '~/utils/health-demo'
 import type { HealthTrendChartPoint } from '~/utils/health-trend-chart'
-import { plotHealthTrend } from '~/utils/health-trend-chart'
+import {
+  HEALTH_TREND_VALUE_LABEL_MAX_POINTS,
+  healthTrendValueLabelOffset,
+  plotHealthTrend
+} from '~/utils/health-trend-chart'
 import type { WearableMetricType } from '~/utils/wearables-mock'
 import { formatTrendWeekdayLabel, formatWearableChartValue } from '~/utils/wearables-format'
 
@@ -95,6 +103,15 @@ const series = computed(() => props.points ?? [...healthTrend])
 
 const chart = computed(() => plotHealthTrend(series.value))
 
+const showValueLabels = computed(() => {
+  if (props.metricType) {
+    return series.value.length <= HEALTH_TREND_VALUE_LABEL_MAX_POINTS
+  }
+  return true
+})
+
+const xAxisLabelY = computed(() => chart.value.height - chart.value.padBottom + 16)
+
 function pointLabel(point: HealthTrendChartPoint) {
   if (point.weekdayIndex !== undefined) {
     return formatTrendWeekdayLabel(point.weekdayIndex, locale.value)
@@ -110,5 +127,15 @@ function formatPointValue(point: HealthTrendChartPoint) {
     return formatWearableChartValue(point.value, props.metricType, locale.value, t)
   }
   return String(point.value)
+}
+
+function pointTooltip(point: HealthTrendChartPoint) {
+  const value = formatPointValue(point)
+  const axis = pointLabel(point)
+  return `${axis}: ${value}`
+}
+
+function valueLabelOffset(index: number) {
+  return healthTrendValueLabelOffset(index, chart.value.plotted)
 }
 </script>

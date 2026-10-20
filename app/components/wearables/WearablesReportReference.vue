@@ -42,7 +42,7 @@
 <script setup lang="ts">
 import type { WearableReportReference } from '~/utils/wearables-mock'
 import { wearablesReportReferenceMock } from '~/utils/wearables-mock'
-import { localizedRestingHrUnit } from '~/utils/wearables-format'
+import { formatSleepDurationMinutes, localizedRestingHrUnit } from '~/utils/wearables-format'
 
 const props = defineProps<{
   reference?: WearableReportReference
@@ -54,10 +54,5 @@ const reference = computed(() => props.reference ?? wearablesReportReferenceMock
 
 const hrUnit = computed(() => localizedRestingHrUnit(locale.value, t))
 
-const sleepLabel = computed(() => {
-  const total = reference.value.avg_sleep_minutes
-  const hours = Math.floor(total / 60)
-  const minutes = total % 60
-  return t('wearables.detail.avgSleep', { hours, minutes })
-})
+const sleepLabel = computed(() => formatSleepDurationMinutes(reference.value.avg_sleep_minutes, t))
 </script>

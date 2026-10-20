@@ -53,8 +53,9 @@
       "bpmShort": "bpm",
       "chartBpm": "{value} bpm",
       "chartSteps": "{value} steps",
-      "chartSleepMinutes": "{value} min",
-      "chartSleepDuration": "{hours}h {minutes}m"
+      "sleepHoursOnly": "{hours}h",
+      "sleepMinutesOnly": "{minutes}m",
+      "sleepMixed": "{hours}h {minutes}m"
     },
     "range": {
       "label": "Trend range",
@@ -88,8 +89,8 @@
       "sleepTitle": "Sleep",
       "avgBpm": "{value} bpm avg",
       "avgSteps": "Avg {value} steps",
-      "avgSleep": "Avg {hours}h {minutes}m",
-      "secondaryLine": "Avg steps {steps} · avg sleep {hours}h {minutes}m (sample)",
+      "avgSleep": "Avg {value}",
+      "secondaryLine": "Avg steps {steps} · avg sleep {sleep} (sample)",
       "reportCta": "View related health report ›"
     },
     "reportReference": {

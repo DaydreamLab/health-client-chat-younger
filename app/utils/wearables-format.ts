@@ -6,6 +6,21 @@ export function formatTrendWeekdayLabel(weekdayIndex: number, locale: string): s
   return new Intl.DateTimeFormat(locale === 'en' ? 'en-US' : 'zh-TW', { weekday: 'short' }).format(monday)
 }
 
+export function formatSleepDurationMinutes(
+  totalMinutes: number,
+  t: (key: string, params?: Record<string, unknown>) => string
+): string {
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  if (hours > 0 && minutes === 0) {
+    return t('wearables.units.sleepHoursOnly', { hours })
+  }
+  if (hours === 0) {
+    return t('wearables.units.sleepMinutesOnly', { minutes: totalMinutes })
+  }
+  return t('wearables.units.sleepMixed', { hours, minutes })
+}
+
 export function formatWearableChartValue(
   value: number,
   metric: WearableMetricType,
@@ -20,12 +35,7 @@ export function formatWearableChartValue(
       value: value.toLocaleString(locale === 'en' ? 'en-US' : 'zh-TW')
     })
   }
-  const hours = Math.floor(value / 60)
-  const minutes = value % 60
-  if (hours > 0) {
-    return t('wearables.units.chartSleepDuration', { hours, minutes })
-  }
-  return t('wearables.units.chartSleepMinutes', { value })
+  return formatSleepDurationMinutes(value, t)
 }
 
 export function localizedRestingHrUnit(locale: string, t: (key: string) => string): string {
