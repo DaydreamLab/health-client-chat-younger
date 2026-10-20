@@ -22,11 +22,80 @@
     "startChat": "開始諮詢"
   },
   "wearables": {
-    "eyebrow": "穿戴裝置",
-    "title": "即將上線",
-    "subtitle": "之後可以把手錶與健康手環的數據接到這裡，和報告一起看。目前還在準備中，先從諮詢或我的健康開始。",
-    "ctaHealth": "回我的健康",
-    "ctaChat": "開始諮詢"
+    "pageTitle": "穿戴裝置",
+    "sampleData": "範例資料",
+    "disclaimer": "此建議可能參考裝置資料，僅供參考，不構成診斷。",
+    "deviceNameSample": "{name}（範例）",
+    "lastSync": "最後同步：{time}",
+    "syncToday": "今天 {time}",
+    "syncDaysAgo": "{count} 天前",
+    "lastUpdated": "最後更新：{time}",
+    "metricsLine": "資料：{metrics}",
+    "addDevice": "＋ 連結新裝置",
+    "authExpiredInline": "需重新授權才能繼續同步",
+    "backToList": "返回裝置列表",
+    "deviceNotFound": "找不到此裝置（範例）。",
+    "status": {
+      "connected": "已連結",
+      "delayed": "同步延遲",
+      "auth_expired": "授權過期",
+      "sync_error": "同步失敗"
+    },
+    "metrics": {
+      "resting_hr": "心率",
+      "steps": "步數",
+      "sleep_minutes": "睡眠"
+    },
+    "range": {
+      "label": "趨勢時間範圍",
+      "days": "近 {count} 天"
+    },
+    "empty": {
+      "title": "尚未連結任何裝置",
+      "body": "連結穿戴裝置後，可看到心率、步數與睡眠趨勢，並作為健康建議的參考。",
+      "cta": "連結裝置",
+      "syncHint": "已連結但沒有資料？同步通常需要數分鐘"
+    },
+    "noData": {
+      "title": "同步中／尚無資料",
+      "body": "裝置已連結，資料同步通常需要數分鐘。請稍後再查看趨勢。"
+    },
+    "errors": {
+      "authTitle": "無法同步 {name}",
+      "authBody": "授權已過期。最後成功同步：{time}",
+      "staleData": "目前顯示的是舊資料。",
+      "syncTitle": "同步失敗 {name}",
+      "syncBody": "暫時無法連線，系統會自動重試。"
+    },
+    "actions": {
+      "reauthorize": "重新授權",
+      "later": "稍後再說",
+      "retryNow": "立即重試"
+    },
+    "detail": {
+      "restingHrTitle": "靜止心率",
+      "stepsTitle": "步數",
+      "sleepTitle": "睡眠",
+      "avgBpm": "{value} bpm 平均",
+      "avgSteps": "平均 {value} 步",
+      "avgSleep": "平均 {hours} 小時 {minutes} 分",
+      "secondaryLine": "平均步數 {steps}｜平均睡眠 {hours} 小時 {minutes} 分（範例）",
+      "reportCta": "查看相關健康報告與建議 ›"
+    },
+    "reportReference": {
+      "title": "參考裝置資料",
+      "avgSleep": "近 7 天平均睡眠 {value}",
+      "avgHr": "靜止心率 {value} {unit}",
+      "cta": "查看裝置趨勢 ›"
+    },
+    "demoNav": {
+      "hint": "展示用：切換範例狀態（query demo）",
+      "list": "裝置列表",
+      "empty": "未連結",
+      "noData": "無資料",
+      "errors": "錯誤狀態",
+      "report": "報告入口"
+    }
   },
   "colorMode": {
     "label": "外觀",

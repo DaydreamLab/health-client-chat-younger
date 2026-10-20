@@ -454,6 +454,10 @@
                 </div>
               </template>
             </UModal>
+            <WearablesReportReference
+              v-if="showWearablesReportReference"
+              class="mt-4"
+            />
           </div>
         </section>
       </div>
@@ -482,6 +486,12 @@ const auth = useAuthStore()
 // SSR always paints the guest lock. Keep that through hydration, then follow the session
 // so a full reload does not leave pointer-events-none on a member page.
 const previewLocked = ref(nuxtApp.isHydrating || !auth.isMember)
+
+const showWearablesReportReference = computed(() => {
+  const raw = route.query.wearables_report
+  const value = Array.isArray(raw) ? raw[0] : raw
+  return value === '1' || value === 'demo'
+})
 
 function syncPreviewLock() {
   previewLocked.value = !auth.isMember

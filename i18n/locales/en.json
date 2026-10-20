@@ -22,11 +22,80 @@
     "startChat": "Start consult"
   },
   "wearables": {
-    "eyebrow": "Wearables",
-    "title": "Coming soon",
-    "subtitle": "Watch and band data will land here alongside your reports. We’re still building this — keep going in consult or My health for now.",
-    "ctaHealth": "Back to My health",
-    "ctaChat": "Start consult"
+    "pageTitle": "Wearables",
+    "sampleData": "Sample data",
+    "disclaimer": "Suggestions may reference device data for illustration only; not a diagnosis.",
+    "deviceNameSample": "{name} (sample)",
+    "lastSync": "Last sync: {time}",
+    "syncToday": "Today {time}",
+    "syncDaysAgo": "{count} days ago",
+    "lastUpdated": "Last updated: {time}",
+    "metricsLine": "Metrics: {metrics}",
+    "addDevice": "+ Link a device",
+    "authExpiredInline": "Re-authorize to keep syncing",
+    "backToList": "Back to devices",
+    "deviceNotFound": "Device not found (sample).",
+    "status": {
+      "connected": "Linked",
+      "delayed": "Sync delayed",
+      "auth_expired": "Auth expired",
+      "sync_error": "Sync failed"
+    },
+    "metrics": {
+      "resting_hr": "Heart rate",
+      "steps": "Steps",
+      "sleep_minutes": "Sleep"
+    },
+    "range": {
+      "label": "Trend range",
+      "days": "Last {count} days"
+    },
+    "empty": {
+      "title": "No devices linked yet",
+      "body": "After linking a wearable, you can view heart rate, steps, and sleep trends as reference for health guidance.",
+      "cta": "Link device",
+      "syncHint": "Linked but no data yet? Sync usually takes a few minutes."
+    },
+    "noData": {
+      "title": "Syncing / no data yet",
+      "body": "Your device is linked. Trend data usually appears within a few minutes."
+    },
+    "errors": {
+      "authTitle": "Cannot sync {name}",
+      "authBody": "Authorization expired. Last successful sync: {time}",
+      "staleData": "Showing older data.",
+      "syncTitle": "Sync failed — {name}",
+      "syncBody": "Temporarily offline. We will retry automatically."
+    },
+    "actions": {
+      "reauthorize": "Re-authorize",
+      "later": "Not now",
+      "retryNow": "Retry now"
+    },
+    "detail": {
+      "restingHrTitle": "Resting heart rate",
+      "stepsTitle": "Steps",
+      "sleepTitle": "Sleep",
+      "avgBpm": "{value} bpm avg",
+      "avgSteps": "Avg {value} steps",
+      "avgSleep": "Avg {hours}h {minutes}m",
+      "secondaryLine": "Avg steps {steps} · avg sleep {hours}h {minutes}m (sample)",
+      "reportCta": "View related health report ›"
+    },
+    "reportReference": {
+      "title": "Referenced device data",
+      "avgSleep": "7-day avg sleep {value}",
+      "avgHr": "Resting HR {value} {unit}",
+      "cta": "View device trends ›"
+    },
+    "demoNav": {
+      "hint": "Demo: switch sample states (demo query)",
+      "list": "Device list",
+      "empty": "Not linked",
+      "noData": "No data",
+      "errors": "Errors",
+      "report": "Report entry"
+    }
   },
   "colorMode": {
     "label": "Appearance",
