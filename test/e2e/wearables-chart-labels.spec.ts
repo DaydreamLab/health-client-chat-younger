@@ -1,59 +1,65 @@
 import { expect, test } from '@nuxt/test-utils/playwright'
+import {
+  boxesOverlap,
+  trendLabelCollidesWithGeometry
+} from '../../app/utils/health-trend-chart'
 import { mockCandorAuth } from './mock-candor-auth'
 
 test.beforeEach(async ({ page }) => {
   await mockCandorAuth(page, { asMember: true })
 })
 
-type Box = { x: number, y: number, width: number, height: number }
-
-function overlaps(a: Box, b: Box) {
-  return a.x < b.x + b.width
-    && a.x + a.width > b.x
-    && a.y < b.y + b.height
-    && a.y + a.height > b.y
-}
-
-async function expectChartLabelsClean(page: import('@playwright/test').Page) {
+async function expectChartLabelsClear(page: import('@playwright/test').Page) {
   const chart = page.getByTestId('wearables-trend-chart')
   await expect(chart).toBeVisible()
-  const { boxes, viewHeight } = await chart.evaluate((svg) => {
-    const labels = Array.from(svg.querySelectorAll('.wearables-trend-value-label'))
-    const boxes = labels.map((el) => {
+  const payload = await chart.evaluate((svg) => {
+    const labels = Array.from(svg.querySelectorAll('.wearables-trend-value-label')).map((el) => {
       const box = (el as SVGGraphicsElement).getBBox()
-      return { x: box.x, y: box.y, width: box.width, height: box.height }
+      return { left: box.x, right: box.x + box.width, top: box.y, bottom: box.y + box.height }
     })
-    return { boxes, viewHeight: svg.viewBox.baseVal.height }
+    const circles = Array.from(svg.querySelectorAll('circle')).map(el => ({
+      x: Number(el.getAttribute('cx')),
+      y: Number(el.getAttribute('cy'))
+    }))
+    return { labels, circles, viewHeight: svg.viewBox.baseVal.height }
   })
-  expect(boxes.length).toBeGreaterThan(0)
-  for (const box of boxes) {
-    expect(box.y).toBeGreaterThanOrEqual(0)
-    expect(box.y + box.height).toBeLessThanOrEqual(viewHeight)
+
+  expect(payload.labels.length).toBeGreaterThan(0)
+  expect(payload.circles.length).toBe(payload.labels.length)
+
+  const plotted = payload.circles.map((point, index) => ({
+    key: `p${index}`,
+    value: 0,
+    x: point.x,
+    y: point.y
+  }))
+
+  for (const label of payload.labels) {
+    expect(label.top).toBeGreaterThanOrEqual(0)
+    expect(label.bottom).toBeLessThanOrEqual(payload.viewHeight)
+    expect(trendLabelCollidesWithGeometry(label, plotted)).toBe(false)
   }
-  for (let i = 0; i < boxes.length; i++) {
-    for (let j = i + 1; j < boxes.length; j++) {
-      expect(overlaps(boxes[i]!, boxes[j]!)).toBe(false)
+
+  for (let i = 0; i < payload.labels.length; i++) {
+    for (let j = i + 1; j < payload.labels.length; j++) {
+      expect(boxesOverlap(payload.labels[i]!, payload.labels[j]!)).toBe(false)
     }
   }
 }
 
-const metrics = [
-  { id: 'resting_hr', enTitle: 'Resting heart rate', zhPath: '/app/wearables/apple-watch?metric=resting_hr' },
-  { id: 'steps', enTitle: 'Steps', zhPath: '/app/wearables/apple-watch?metric=steps' },
-  { id: 'sleep_minutes', enTitle: 'Sleep', zhPath: '/app/wearables/apple-watch?metric=sleep_minutes' }
-] as const
+const metrics = ['resting_hr', 'steps', 'sleep_minutes'] as const
 
 for (const metric of metrics) {
-  test(`en 7-day ${metric.id} chart labels do not overlap or clip`, async ({ page, goto }) => {
-    await goto(`/en/app/wearables/apple-watch?metric=${metric.id}`, { waitUntil: 'hydration' })
-    await expect(page.getByTestId(`wearables-metric-${metric.id}`)).toHaveClass(/app-btn-primary/)
-    await expectChartLabelsClean(page)
+  test(`en 7-day ${metric} chart labels avoid clip, overlap, line and points`, async ({ page, goto }) => {
+    await goto(`/en/app/wearables/apple-watch?metric=${metric}`, { waitUntil: 'hydration' })
+    await expect(page.getByTestId(`wearables-metric-${metric}`)).toHaveClass(/app-btn-primary/)
+    await expectChartLabelsClear(page)
   })
 
-  test(`zh 7-day ${metric.id} chart labels do not overlap or clip`, async ({ page, goto }) => {
-    await goto(metric.zhPath, { waitUntil: 'hydration' })
-    await expect(page.getByTestId(`wearables-metric-${metric.id}`)).toHaveClass(/app-btn-primary/)
-    await expectChartLabelsClean(page)
+  test(`zh 7-day ${metric} chart labels avoid clip, overlap, line and points`, async ({ page, goto }) => {
+    await goto(`/app/wearables/apple-watch?metric=${metric}`, { waitUntil: 'hydration' })
+    await expect(page.getByTestId(`wearables-metric-${metric}`)).toHaveClass(/app-btn-primary/)
+    await expectChartLabelsClear(page)
   })
 }
 

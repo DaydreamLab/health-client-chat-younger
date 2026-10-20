@@ -2,10 +2,8 @@ import { describe, expect, it } from 'vitest'
 import en from '../../i18n/locales/en.json'
 import zh from '../../i18n/locales/zh-TW.json'
 import {
-  formatSleepChartPointCompact,
   formatSleepDurationMinutes,
   formatTrendWeekdayLabel,
-  formatWearableChartPointValue,
   formatWearableChartValue,
   localizedRestingHrUnit
 } from '../../app/utils/wearables-format'
@@ -68,30 +66,16 @@ describe('formatSleepDurationMinutes', () => {
   })
 })
 
-describe('formatSleepChartPointCompact', () => {
-  it('uses h:mm for zh chart points', () => {
-    expect(formatSleepChartPointCompact(390)).toBe('6:30')
-    expect(formatSleepChartPointCompact(430)).toBe('7:10')
-    expect(formatSleepChartPointCompact(45)).toBe('0:45')
-  })
-})
-
-describe('formatWearableChartPointValue', () => {
-  it('uses compact sleep in zh and full units in en', () => {
-    expect(formatWearableChartPointValue(405, 'sleep_minutes', 'zh-TW', tZh)).toBe('6:45')
-    expect(formatWearableChartPointValue(405, 'sleep_minutes', 'en', tEn)).toBe('6h 45m')
-  })
-})
-
 describe('formatWearableChartValue', () => {
   it('adds bpm and steps units in English', () => {
     expect(formatWearableChartValue(62, 'resting_hr', 'en', tEn)).toBe('62 bpm')
     expect(formatWearableChartValue(8800, 'steps', 'en', tEn)).toBe('8,800 steps')
   })
 
-  it('formats sleep through duration helper', () => {
+  it('formats sleep with full zh duration on chart points', () => {
     expect(formatWearableChartValue(390, 'sleep_minutes', 'en', tEn)).toBe('6h 30m')
     expect(formatWearableChartValue(420, 'sleep_minutes', 'en', tEn)).toBe('7h')
+    expect(formatWearableChartValue(405, 'sleep_minutes', 'zh-TW', tZh)).toBe('6 小時 45 分')
   })
 })
 

@@ -103,11 +103,7 @@ import {
   plotHealthTrendWithValueLabels
 } from '~/utils/health-trend-chart'
 import type { WearableMetricType } from '~/utils/wearables-mock'
-import {
-  formatTrendWeekdayLabel,
-  formatWearableChartPointValue,
-  formatWearableChartValue
-} from '~/utils/wearables-format'
+import { formatTrendWeekdayLabel, formatWearableChartValue } from '~/utils/wearables-format'
 
 const props = defineProps<{
   points?: HealthTrendChartPoint[]
@@ -133,9 +129,9 @@ const trendLayout = computed(() => {
     return { chart: plotHealthTrend(points), valueLabels: [] as ReturnType<typeof plotHealthTrendWithValueLabels>['valueLabels'] }
   }
   const texts = points.map(point =>
-    formatWearableChartPointValue(point.value, props.metricType!, locale.value, t)
+    formatWearableChartValue(point.value, props.metricType!, locale.value, t)
   )
-  return plotHealthTrendWithValueLabels(points, texts, locale.value)
+  return plotHealthTrendWithValueLabels(points, texts, locale.value, props.metricType)
 })
 
 const chart = computed(() => trendLayout.value.chart)

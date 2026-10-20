@@ -11,7 +11,7 @@ describe('plotHealthTrend', () => {
     expect(chart.plotted.at(-1)?.value).toBe(84)
     expect(chart.linePoints).toMatch(/^\d+(\.\d+)?,\d+(\.\d+)?( \d+(\.\d+)?,\d+(\.\d+)?){3}$/)
     expect(chart.areaPath.startsWith('M ')).toBe(true)
-    expect(chart.padTop).toBeGreaterThanOrEqual(48)
+    expect(chart.padTop).toBeGreaterThanOrEqual(52)
   })
 
   it('accepts weekdayIndex and custom labels without changing point count', () => {

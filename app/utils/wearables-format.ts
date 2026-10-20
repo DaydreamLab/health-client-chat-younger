@@ -21,12 +21,6 @@ export function formatSleepDurationMinutes(
   return t('wearables.units.sleepMixed', { hours, minutes })
 }
 
-export function formatSleepChartPointCompact(totalMinutes: number): string {
-  const hours = Math.floor(totalMinutes / 60)
-  const minutes = totalMinutes % 60
-  return `${hours}:${String(minutes).padStart(2, '0')}`
-}
-
 export function formatWearableChartValue(
   value: number,
   metric: WearableMetricType,
@@ -42,19 +36,6 @@ export function formatWearableChartValue(
     })
   }
   return formatSleepDurationMinutes(value, t)
-}
-
-/** Compact strings for chart point labels (full duration in tooltips and summaries). */
-export function formatWearableChartPointValue(
-  value: number,
-  metric: WearableMetricType,
-  locale: string,
-  t: (key: string, params?: Record<string, unknown>) => string
-): string {
-  if (metric === 'sleep_minutes' && locale !== 'en') {
-    return formatSleepChartPointCompact(value)
-  }
-  return formatWearableChartValue(value, metric, locale, t)
 }
 
 export function localizedRestingHrUnit(locale: string, t: (key: string) => string): string {
