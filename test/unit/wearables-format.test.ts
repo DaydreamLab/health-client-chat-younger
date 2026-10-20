@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import en from '../../i18n/locales/en.json'
 import zh from '../../i18n/locales/zh-TW.json'
 import {
+  formatSleepChartPointCompact,
   formatSleepDurationMinutes,
   formatTrendWeekdayLabel,
+  formatWearableChartPointValue,
   formatWearableChartValue,
   localizedRestingHrUnit
 } from '../../app/utils/wearables-format'
@@ -63,6 +65,21 @@ describe('formatSleepDurationMinutes', () => {
 
   it.each(cases)('formats $minutes minutes in zh-TW', ({ minutes, zh: expected }) => {
     expect(formatSleepDurationMinutes(minutes, tZh)).toBe(expected)
+  })
+})
+
+describe('formatSleepChartPointCompact', () => {
+  it('uses h:mm for zh chart points', () => {
+    expect(formatSleepChartPointCompact(390)).toBe('6:30')
+    expect(formatSleepChartPointCompact(430)).toBe('7:10')
+    expect(formatSleepChartPointCompact(45)).toBe('0:45')
+  })
+})
+
+describe('formatWearableChartPointValue', () => {
+  it('uses compact sleep in zh and full units in en', () => {
+    expect(formatWearableChartPointValue(405, 'sleep_minutes', 'zh-TW', tZh)).toBe('6:45')
+    expect(formatWearableChartPointValue(405, 'sleep_minutes', 'en', tEn)).toBe('6h 45m')
   })
 })
 

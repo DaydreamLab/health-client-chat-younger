@@ -1,9 +1,10 @@
 <template>
   <svg
-    class="h-52 w-full"
-    :viewBox="`0 0 420 ${chart.height}`"
+    class="h-56 w-full"
+    :viewBox="`0 0 ${chart.width} ${chart.height}`"
     role="img"
     :aria-label="ariaLabel ?? $t('member.trendTitle')"
+    :data-testid="metricType ? 'wearables-trend-chart' : undefined"
   >
     <defs>
       <linearGradient
@@ -39,7 +40,7 @@
       class="app-trend-line"
     />
     <g
-      v-for="(point, index) in chart.plotted"
+      v-for="point in chart.plotted"
       :key="point.key"
     >
       <title v-if="metricType">
@@ -64,18 +65,32 @@
         {{ pointLabel(point) }}
       </text>
       <text
-        v-if="showValueLabels"
+        v-if="!metricType"
         :x="point.x"
-        :y="point.y - valueLabelOffset(index)"
+        :y="point.y - 18"
         text-anchor="middle"
         class="text-highlighted"
         fill="currentColor"
         font-size="11"
         font-weight="600"
       >
-        {{ formatPointValue(point) }}
+        {{ point.value }}
       </text>
     </g>
+    <text
+      v-for="label in wearablesValueLabels"
+      :key="`value-${label.index}`"
+      :x="label.x"
+      :y="label.y"
+      text-anchor="middle"
+      dominant-baseline="middle"
+      class="text-highlighted wearables-trend-value-label"
+      fill="currentColor"
+      font-size="11"
+      font-weight="600"
+    >
+      {{ label.text }}
+    </text>
   </svg>
 </template>
 
@@ -84,11 +99,15 @@ import { healthTrend } from '~/utils/health-demo'
 import type { HealthTrendChartPoint } from '~/utils/health-trend-chart'
 import {
   HEALTH_TREND_VALUE_LABEL_MAX_POINTS,
-  healthTrendValueLabelOffset,
-  plotHealthTrend
+  plotHealthTrend,
+  plotHealthTrendWithValueLabels
 } from '~/utils/health-trend-chart'
 import type { WearableMetricType } from '~/utils/wearables-mock'
-import { formatTrendWeekdayLabel, formatWearableChartValue } from '~/utils/wearables-format'
+import {
+  formatTrendWeekdayLabel,
+  formatWearableChartPointValue,
+  formatWearableChartValue
+} from '~/utils/wearables-format'
 
 const props = defineProps<{
   points?: HealthTrendChartPoint[]
@@ -101,14 +120,26 @@ const { t, locale } = useI18n()
 
 const series = computed(() => props.points ?? [...healthTrend])
 
-const chart = computed(() => plotHealthTrend(series.value))
-
 const showValueLabels = computed(() => {
   if (props.metricType) {
     return series.value.length <= HEALTH_TREND_VALUE_LABEL_MAX_POINTS
   }
   return true
 })
+
+const trendLayout = computed(() => {
+  const points = series.value
+  if (!props.metricType || !showValueLabels.value) {
+    return { chart: plotHealthTrend(points), valueLabels: [] as ReturnType<typeof plotHealthTrendWithValueLabels>['valueLabels'] }
+  }
+  const texts = points.map(point =>
+    formatWearableChartPointValue(point.value, props.metricType!, locale.value, t)
+  )
+  return plotHealthTrendWithValueLabels(points, texts, locale.value)
+})
+
+const chart = computed(() => trendLayout.value.chart)
+const wearablesValueLabels = computed(() => trendLayout.value.valueLabels)
 
 const xAxisLabelY = computed(() => chart.value.height - chart.value.padBottom + 16)
 
@@ -122,20 +153,12 @@ function pointLabel(point: HealthTrendChartPoint) {
   return t(`member.months.${point.key}`)
 }
 
-function formatPointValue(point: HealthTrendChartPoint) {
-  if (props.metricType) {
-    return formatWearableChartValue(point.value, props.metricType, locale.value, t)
-  }
-  return String(point.value)
-}
-
 function pointTooltip(point: HealthTrendChartPoint) {
-  const value = formatPointValue(point)
+  if (!props.metricType) {
+    return String(point.value)
+  }
+  const value = formatWearableChartValue(point.value, props.metricType, locale.value, t)
   const axis = pointLabel(point)
   return `${axis}: ${value}`
-}
-
-function valueLabelOffset(index: number) {
-  return healthTrendValueLabelOffset(index, chart.value.plotted)
 }
 </script>

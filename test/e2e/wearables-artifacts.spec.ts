@@ -14,6 +14,22 @@ test.beforeEach(async ({ page }) => {
   await mockCandorAuth(page, { asMember: true })
 })
 
+async function captureDetail(
+  page: import('@playwright/test').Page,
+  goto: (url: string, opts?: { waitUntil?: 'hydration' }) => Promise<void>,
+  basePath: string,
+  metric: 'resting_hr' | 'steps' | 'sleep_minutes',
+  slug: string
+) {
+  await goto(`${basePath}?metric=${metric}`, { waitUntil: 'hydration' })
+  await expect(page.getByTestId('wearables-detail')).toBeVisible()
+  await expect(page.getByTestId(`wearables-metric-${metric}`)).toHaveClass(/app-btn-primary/)
+  await page.screenshot({
+    path: path.join(artifactsDir, `${prefix}-wearables-detail-${slug}.png`),
+    fullPage: true
+  })
+}
+
 test('capture wearables screenshots zh', async ({ page, goto }) => {
   await goto('/app/wearables', { waitUntil: 'hydration' })
   await expect(page.getByTestId('wearables-page')).toBeVisible()
@@ -21,18 +37,10 @@ test('capture wearables screenshots zh', async ({ page, goto }) => {
     path: path.join(artifactsDir, `${prefix}-wearables-list-zh.png`),
     fullPage: true
   })
-  await goto('/app/wearables/apple-watch', { waitUntil: 'hydration' })
-  await expect(page.getByTestId('wearables-detail')).toBeVisible()
-  await page.getByTestId('wearables-metric-resting_hr').click()
-  await page.screenshot({
-    path: path.join(artifactsDir, `${prefix}-wearables-detail-hr-zh.png`),
-    fullPage: true
-  })
-  await page.getByTestId('wearables-metric-sleep_minutes').click()
-  await page.screenshot({
-    path: path.join(artifactsDir, `${prefix}-wearables-detail-sleep-zh.png`),
-    fullPage: true
-  })
+  const basePath = '/app/wearables/apple-watch'
+  await captureDetail(page, goto, basePath, 'resting_hr', 'hr-zh')
+  await captureDetail(page, goto, basePath, 'steps', 'steps-zh')
+  await captureDetail(page, goto, basePath, 'sleep_minutes', 'sleep-zh')
 })
 
 test('capture wearables screenshots en', async ({ page, goto }) => {
@@ -42,16 +50,8 @@ test('capture wearables screenshots en', async ({ page, goto }) => {
     path: path.join(artifactsDir, `${prefix}-wearables-list-en.png`),
     fullPage: true
   })
-  await goto('/en/app/wearables/apple-watch', { waitUntil: 'hydration' })
-  await expect(page.getByTestId('wearables-detail')).toBeVisible()
-  await page.getByTestId('wearables-metric-resting_hr').click()
-  await page.screenshot({
-    path: path.join(artifactsDir, `${prefix}-wearables-detail-hr-en.png`),
-    fullPage: true
-  })
-  await page.getByTestId('wearables-metric-sleep_minutes').click()
-  await page.screenshot({
-    path: path.join(artifactsDir, `${prefix}-wearables-detail-sleep-en.png`),
-    fullPage: true
-  })
+  const basePath = '/en/app/wearables/apple-watch'
+  await captureDetail(page, goto, basePath, 'resting_hr', 'hr-en')
+  await captureDetail(page, goto, basePath, 'steps', 'steps-en')
+  await captureDetail(page, goto, basePath, 'sleep_minutes', 'sleep-en')
 })

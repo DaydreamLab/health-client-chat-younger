@@ -34,7 +34,7 @@
           role="tab"
           :aria-selected="selectedMetric === metric"
           :data-testid="`wearables-metric-${metric}`"
-          @click="selectedMetric = metric"
+          @click="setSelectedMetric(metric)"
         >
           {{ $t(`wearables.metrics.${metric}`) }}
         </AppButton>
@@ -163,8 +163,34 @@ const device = computed(() => getWearableDevice(deviceId.value))
 const metricOptions: WearableMetricType[] = ['resting_hr', 'steps', 'sleep_minutes']
 const rangeOptions = [7, 30] as const
 
-const selectedMetric = ref<WearableMetricType>('resting_hr')
+function parseWearableMetricQuery(raw: unknown): WearableMetricType | null {
+  const value = Array.isArray(raw) ? raw[0] : raw
+  if (value === 'resting_hr' || value === 'steps' || value === 'sleep_minutes') {
+    return value
+  }
+  return null
+}
+
+const selectedMetric = ref<WearableMetricType>(parseWearableMetricQuery(route.query.metric) ?? 'resting_hr')
 const selectedRange = ref<7 | 30>(7)
+
+watch(
+  () => route.query.metric,
+  (raw) => {
+    const parsed = parseWearableMetricQuery(raw)
+    if (parsed && parsed !== selectedMetric.value) {
+      selectedMetric.value = parsed
+    }
+  }
+)
+
+function setSelectedMetric(metric: WearableMetricType) {
+  selectedMetric.value = metric
+  navigateTo({
+    path: route.path,
+    query: { ...route.query, metric }
+  }, { replace: true })
+}
 
 const summary = computed(() => {
   if (!device.value) {
