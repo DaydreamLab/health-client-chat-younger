@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { HealthReportResult } from '../../app/utils/candor-api'
-import { resultGaugePct, resultScale } from '../../app/utils/report-result-status'
+import {
+  displayResultName,
+  hasResultInterpretation,
+  resultGaugePct,
+  resultScale
+} from '../../app/utils/report-result-status'
 
 function row(partial: Partial<HealthReportResult>): HealthReportResult {
   return {
@@ -96,5 +101,28 @@ describe('resultScale', () => {
       critical_low: 30,
       critical_high: 110
     }))).toBeCloseTo(50)
+  })
+})
+
+describe('displayResultName', () => {
+  it('prefers name_zh over raw_name', () => {
+    expect(displayResultName(row({
+      name_zh: '低密度脂蛋白',
+      raw_name: 'LDL'
+    }))).toBe('低密度脂蛋白')
+  })
+
+  it('falls back to raw_name then biomarker_id', () => {
+    expect(displayResultName(row({ raw_name: 'LDL' }))).toBe('LDL')
+    expect(displayResultName(row({ biomarker_id: 'bio-1' }))).toBe('bio-1')
+    expect(displayResultName(row({}))).toBe('—')
+  })
+})
+
+describe('hasResultInterpretation', () => {
+  it('is true when description or possible_causes is non-empty', () => {
+    expect(hasResultInterpretation(row({ description: '說明' }))).toBe(true)
+    expect(hasResultInterpretation(row({ possible_causes: '原因' }))).toBe(true)
+    expect(hasResultInterpretation(row({ description: '  ', possible_causes: '' }))).toBe(false)
   })
 })

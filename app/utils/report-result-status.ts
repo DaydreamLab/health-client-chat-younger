@@ -191,3 +191,23 @@ export function displayResultValue(r: HealthReportResult) {
   }
   return r.raw_value != null ? String(r.raw_value) : '—'
 }
+
+/** Prefer core name_zh; fall back to report raw_name then biomarker_id. */
+export function displayResultName(r: HealthReportResult) {
+  const zh = r.name_zh != null ? String(r.name_zh).trim() : ''
+  if (zh !== '') {
+    return zh
+  }
+  const raw = r.raw_name != null ? String(r.raw_name).trim() : ''
+  if (raw !== '') {
+    return raw
+  }
+  const id = r.biomarker_id != null ? String(r.biomarker_id).trim() : ''
+  return id !== '' ? id : '—'
+}
+
+export function hasResultInterpretation(r: HealthReportResult) {
+  const description = r.description != null ? String(r.description).trim() : ''
+  const causes = r.possible_causes != null ? String(r.possible_causes).trim() : ''
+  return description !== '' || causes !== ''
+}

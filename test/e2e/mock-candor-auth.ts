@@ -1091,22 +1091,32 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
             {
               id: 'result-e2e-1',
               raw_name: 'Vitamin D3',
+              name_zh: '維生素 D3',
+              name_zh_source: 'dictionary',
               raw_value: '31.8',
               value_numeric: 31.8,
               unit: 'ng/mL',
               ref_low: 50,
               ref_high: 80,
-              needs_review: false
+              needs_review: false,
+              range_status: 'low',
+              description: '維生素 D 與骨骼與免疫狀態相關的常見指標。',
+              possible_causes: '偏低可能與日照不足或攝取不足有關。'
             },
             {
               id: 'result-e2e-2',
               raw_name: 'Vitamin B12',
+              name_zh: '維生素 B12',
+              name_zh_source: 'dictionary',
               raw_value: '1275',
               value_numeric: 1275,
               unit: 'pg/mL',
               ref_low: 800,
               ref_high: 1200,
-              needs_review: false
+              needs_review: false,
+              range_status: 'high',
+              description: '維生素 B12 是常見營養相關檢驗指標。',
+              possible_causes: '偏高可能與補充劑使用或檢測條件有關。'
             }
           ]
         }
