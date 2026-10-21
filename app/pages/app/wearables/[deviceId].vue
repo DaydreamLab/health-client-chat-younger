@@ -152,6 +152,7 @@ definePageMeta({
 })
 
 const route = useRoute()
+const router = useRouter()
 const localePath = useLocalePath()
 const { t, locale } = useI18n()
 
@@ -171,24 +172,18 @@ function parseWearableMetricQuery(raw: unknown): WearableMetricType | null {
   return null
 }
 
-const selectedMetric = ref<WearableMetricType>(parseWearableMetricQuery(route.query.metric) ?? 'resting_hr')
+// Prefer vue-router currentRoute: prerender hydration strips then restores ?metric=,
+// and useRoute()/PageRouteSymbol can miss that query-only update (zh stuck on HR).
+const selectedMetric = computed(() => {
+  return parseWearableMetricQuery(router.currentRoute.value.query.metric) ?? 'resting_hr'
+})
 const selectedRange = ref<7 | 30>(7)
 
-watch(
-  () => route.query.metric,
-  (raw) => {
-    const parsed = parseWearableMetricQuery(raw)
-    if (parsed && parsed !== selectedMetric.value) {
-      selectedMetric.value = parsed
-    }
-  }
-)
-
 function setSelectedMetric(metric: WearableMetricType) {
-  selectedMetric.value = metric
-  navigateTo({
-    path: route.path,
-    query: { ...route.query, metric }
+  const current = router.currentRoute.value
+  return navigateTo({
+    path: current.path,
+    query: { ...current.query, metric }
   }, { replace: true })
 }
 
