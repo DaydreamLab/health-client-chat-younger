@@ -128,17 +128,30 @@ test.describe('member order detail', () => {
 
   test('report card collapses in place and opens a reading window', async ({ page, goto }) => {
     const reportId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
-    const results = Array.from({ length: 24 }, (_, index) => ({
-      id: `result-e2e-${index}`,
-      raw_name: `Marker ${index}`,
-      raw_value: String(40 + index),
-      value_numeric: 40 + index,
-      unit: 'U/L',
-      ref_low: 10,
-      ref_high: 40,
-      critical_high: 60,
-      needs_review: false
-    }))
+    const results = Array.from({ length: 24 }, (_, index) => {
+      const value = 40 + index
+      const outOfRange = value > 40
+      return {
+        id: `result-e2e-${index}`,
+        raw_name: `Marker ${index}`,
+        name_zh: `指標 ${index}`,
+        name_zh_source: 'ai' as const,
+        raw_value: String(value),
+        value_numeric: value,
+        unit: 'U/L',
+        ref_low: 10,
+        ref_high: 40,
+        critical_high: 60,
+        needs_review: false,
+        range_status: outOfRange ? 'high' as const : 'normal' as const,
+        ...(outOfRange
+          ? {
+              description: `指標 ${index} 是常見檢驗項目。`,
+              possible_causes: `偏高可能與生活型態有關（${index}）。`
+            }
+          : {})
+      }
+    })
     await page.route('**/api/v1/health-reports', async (route) => {
       const path = new URL(route.request().url()).pathname.replace(/\/$/, '')
       if (route.request().method() !== 'GET' || !path.endsWith('/health-reports')) {
@@ -189,6 +202,9 @@ test.describe('member order detail', () => {
     await expect(card.getByTestId('health-report-expand')).toHaveText('展開報告')
     await expect(card.getByTestId('health-report-detail')).toBeVisible()
     await expect(card.getByTestId('report-result-row-result-e2e-0')).toBeVisible()
+    await expect(card.getByTestId('report-result-row-result-e2e-0')).toContainText('指標 0')
+    await expect(card.getByTestId('report-result-row-result-e2e-1')).toContainText('這個指標是什麼')
+    await expect(card.getByTestId('report-result-row-result-e2e-1')).toContainText('可能原因')
 
     const shell = await page.evaluate(() => {
       const sidebar = document.getElementById('user-sidebar')
@@ -476,7 +492,8 @@ test.describe('member checkout', () => {
     expect((recommendBox?.x ?? 0) + (recommendBox?.width ?? 0)).toBeLessThan(replyWantMoreBox?.x ?? 0)
     await expect(page.getByTestId('chat-report-loading')).toHaveCount(0)
     await expect(page.getByTestId('chat-report-dock')).toBeVisible()
-    await expect(page.getByTestId('chat-report-dock')).toContainText('Vitamin D3')
+    await expect(page.getByTestId('chat-report-dock')).toContainText('維生素 D3')
+    await expect(page.getByTestId('chat-report-dock')).toContainText('可能原因')
     await expect(page.getByTestId('chat-escalate')).toBeVisible()
     expect(await page.evaluate(() => localStorage.getItem('candor-paid-orders'))).toBeNull()
     expect(await page.evaluate(() => localStorage.getItem('candor.unpaid.journey'))).toContain('conversationId')

@@ -438,6 +438,9 @@ export interface HealthReportResult {
   id: string
   biomarker_id?: string | null
   raw_name?: string | null
+  /** Display Chinese name from core (extract → dictionary → AI → raw). */
+  name_zh?: string | null
+  name_zh_source?: 'report' | 'ai' | 'dictionary' | 'raw' | null
   raw_value?: string | null
   raw_unit?: string | null
   value_numeric?: number | null
@@ -451,6 +454,11 @@ export interface HealthReportResult {
   confidence?: number | null
   needs_review?: boolean
   page?: number | null
+  /** Versus ref_low/ref_high only; present when core enriches the report. */
+  range_status?: 'low' | 'high' | 'normal' | 'unknown' | null
+  /** Out-of-range copy only; omit when empty. */
+  description?: string | null
+  possible_causes?: string | null
 }
 
 export interface HealthReport {

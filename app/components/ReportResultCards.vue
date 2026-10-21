@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import type { HealthReportResult } from '~/utils/candor-api'
 import {
+  displayResultName,
   displayResultValue,
   formatResultRef,
+  hasResultInterpretation,
   resultGaugePct,
   resultScale,
   resultStatusClass
@@ -99,7 +101,7 @@ const cards = computed(() => props.results.map(row => ({
         </div>
         <div class="flex min-w-0 flex-1 flex-col">
           <p class="truncate text-sm font-semibold text-highlighted">
-            {{ card.row.raw_name || card.row.biomarker_id || '—' }}
+            {{ displayResultName(card.row) }}
           </p>
           <div class="mt-1 flex items-center gap-2">
             <p
@@ -118,6 +120,24 @@ const cards = computed(() => props.results.map(row => ({
                 :style="{ left: `${card.gaugePct}%` }"
               />
             </div>
+          </div>
+          <div
+            v-if="hasResultInterpretation(card.row)"
+            class="mt-2 space-y-1 text-xs text-muted"
+            :data-testid="`report-result-interpretation-${card.row.id}`"
+          >
+            <p
+              v-if="card.row.description"
+              class="line-clamp-3"
+            >
+              <span class="font-medium text-highlighted">{{ $t('labChart.description') }}：</span>{{ card.row.description }}
+            </p>
+            <p
+              v-if="card.row.possible_causes"
+              class="line-clamp-3"
+            >
+              <span class="font-medium text-highlighted">{{ $t('labChart.possibleCauses') }}：</span>{{ card.row.possible_causes }}
+            </p>
           </div>
           <div class="mt-auto flex items-baseline justify-between gap-2 pt-2">
             <p class="min-w-0 text-xs text-highlighted">

@@ -535,6 +535,8 @@
     "unit": "Unit",
     "refRange": "Reference",
     "position": "Position",
+    "description": "What this marker is",
+    "possibleCauses": "Possible causes",
     "collapse": "Collapse",
     "expand": "Expand",
     "close": "Close",

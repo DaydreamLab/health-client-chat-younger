@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import type { HealthReportResult } from '~/utils/candor-api'
 import {
+  displayResultName,
   displayResultValue,
   formatResultRef,
+  hasResultInterpretation,
   resultGaugePct,
   resultStatusClass,
   resultStatusLabel
@@ -89,8 +91,22 @@ defineEmits<{
                 :class="resultStatusClass(row)"
               />{{ resultStatusLabel(resultStatusClass(row)) }}
             </td>
-            <td class="border-b border-dashed border-default px-2.5 py-2.5 font-semibold text-highlighted">
-              {{ row.raw_name || row.biomarker_id || '—' }}
+            <td class="border-b border-dashed border-default px-2.5 py-2.5 text-highlighted">
+              <p class="font-semibold">
+                {{ displayResultName(row) }}
+              </p>
+              <div
+                v-if="hasResultInterpretation(row)"
+                class="mt-1.5 space-y-1 text-xs font-normal text-muted"
+                :data-testid="`report-result-interpretation-${row.id}`"
+              >
+                <p v-if="row.description">
+                  <span class="font-medium text-highlighted">{{ $t('labChart.description') }}：</span>{{ row.description }}
+                </p>
+                <p v-if="row.possible_causes">
+                  <span class="font-medium text-highlighted">{{ $t('labChart.possibleCauses') }}：</span>{{ row.possible_causes }}
+                </p>
+              </div>
             </td>
             <td
               class="border-b border-dashed border-default px-2.5 py-2.5 text-base font-bold"
