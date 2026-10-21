@@ -21,13 +21,20 @@
     </div>
 
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <div class="flex flex-wrap gap-2">
+      <div
+        class="app-wearables-segment flex flex-wrap gap-1"
+        role="tablist"
+        :aria-label="$t('wearables.metricTabs.label')"
+      >
         <AppButton
           v-for="metric in metricOptions"
           :key="metric"
-          :variant="selectedMetric === metric ? 'primary' : 'outline'"
+          class="!px-3 !py-1 text-sm"
+          :variant="selectedMetric === metric ? 'primary' : 'segment'"
+          role="tab"
+          :aria-selected="selectedMetric === metric"
           :data-testid="`wearables-metric-${metric}`"
-          @click="selectedMetric = metric"
+          @click="setSelectedMetric(metric)"
         >
           {{ $t(`wearables.metrics.${metric}`) }}
         </AppButton>
@@ -71,6 +78,7 @@
       <HealthTrendChart
         class="mt-4"
         :points="summary.trend"
+        :metric-type="selectedMetric"
         :aria-label="metricTitle"
       />
       <p
@@ -136,6 +144,7 @@ import {
   getWearableMetricSummary,
   type WearableMetricType
 } from '~/utils/wearables-mock'
+import { formatSleepDurationMinutes } from '~/utils/wearables-format'
 
 definePageMeta({
   layout: 'user',
@@ -154,8 +163,34 @@ const device = computed(() => getWearableDevice(deviceId.value))
 const metricOptions: WearableMetricType[] = ['resting_hr', 'steps', 'sleep_minutes']
 const rangeOptions = [7, 30] as const
 
-const selectedMetric = ref<WearableMetricType>('resting_hr')
+function parseWearableMetricQuery(raw: unknown): WearableMetricType | null {
+  const value = Array.isArray(raw) ? raw[0] : raw
+  if (value === 'resting_hr' || value === 'steps' || value === 'sleep_minutes') {
+    return value
+  }
+  return null
+}
+
+const selectedMetric = ref<WearableMetricType>(parseWearableMetricQuery(route.query.metric) ?? 'resting_hr')
 const selectedRange = ref<7 | 30>(7)
+
+watch(
+  () => route.query.metric,
+  (raw) => {
+    const parsed = parseWearableMetricQuery(raw)
+    if (parsed && parsed !== selectedMetric.value) {
+      selectedMetric.value = parsed
+    }
+  }
+)
+
+function setSelectedMetric(metric: WearableMetricType) {
+  selectedMetric.value = metric
+  navigateTo({
+    path: route.path,
+    query: { ...route.query, metric }
+  }, { replace: true })
+}
 
 const summary = computed(() => {
   if (!device.value) {
@@ -190,9 +225,9 @@ const formattedAverage = computed(() => {
   if (selectedMetric.value === 'steps') {
     return t('wearables.detail.avgSteps', { value: summary.value.average.toLocaleString(locale.value) })
   }
-  const hours = Math.floor(summary.value.average / 60)
-  const minutes = summary.value.average % 60
-  return t('wearables.detail.avgSleep', { hours, minutes })
+  return t('wearables.detail.avgSleep', {
+    value: formatSleepDurationMinutes(summary.value.average, t)
+  })
 })
 
 const secondaryAverages = computed(() => {
@@ -204,12 +239,9 @@ const secondaryAverages = computed(() => {
   if (!steps || !sleep) {
     return ''
   }
-  const sleepHours = Math.floor(sleep.average / 60)
-  const sleepMinutes = sleep.average % 60
   return t('wearables.detail.secondaryLine', {
     steps: steps.average.toLocaleString(locale.value),
-    hours: sleepHours,
-    minutes: sleepMinutes
+    sleep: formatSleepDurationMinutes(sleep.average, t)
   })
 })
 

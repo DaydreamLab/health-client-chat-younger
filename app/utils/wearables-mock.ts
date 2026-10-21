@@ -7,8 +7,10 @@ export type WearableDemoState = 'list' | 'empty' | 'no_data' | 'errors'
 export interface WearableTrendPoint {
   key: string
   value: number
-  /** X-axis label; chart uses this when set instead of member.months i18n */
-  label: string
+  /** X-axis label for day-of-month series; omit when `weekdayIndex` is set */
+  label?: string
+  /** 0 = Monday … 6 = Sunday for 7-day trends */
+  weekdayIndex?: number
 }
 
 export interface WearableDevice {
@@ -48,13 +50,13 @@ export function parseWearableDemoState(raw: string | null | undefined): Wearable
 }
 
 const restingHr7: WearableTrendPoint[] = [
-  { key: 'd1', value: 60, label: '一' },
-  { key: 'd2', value: 65, label: '二' },
-  { key: 'd3', value: 63, label: '三' },
-  { key: 'd4', value: 62, label: '四' },
-  { key: 'd5', value: 64, label: '五' },
-  { key: 'd6', value: 61, label: '六' },
-  { key: 'd7', value: 62, label: '日' }
+  { key: 'd1', value: 60, weekdayIndex: 0 },
+  { key: 'd2', value: 65, weekdayIndex: 1 },
+  { key: 'd3', value: 63, weekdayIndex: 2 },
+  { key: 'd4', value: 62, weekdayIndex: 3 },
+  { key: 'd5', value: 64, weekdayIndex: 4 },
+  { key: 'd6', value: 61, weekdayIndex: 5 },
+  { key: 'd7', value: 62, weekdayIndex: 6 }
 ]
 
 const restingHr30: WearableTrendPoint[] = Array.from({ length: 30 }, (_, index) => {
@@ -68,13 +70,13 @@ const restingHr30: WearableTrendPoint[] = Array.from({ length: 30 }, (_, index) 
 })
 
 const steps7: WearableTrendPoint[] = [
-  { key: 'd1', value: 6200, label: '一' },
-  { key: 'd2', value: 9100, label: '二' },
-  { key: 'd3', value: 7800, label: '三' },
-  { key: 'd4', value: 8400, label: '四' },
-  { key: 'd5', value: 7200, label: '五' },
-  { key: 'd6', value: 10200, label: '六' },
-  { key: 'd7', value: 8800, label: '日' }
+  { key: 'd1', value: 6200, weekdayIndex: 0 },
+  { key: 'd2', value: 9100, weekdayIndex: 1 },
+  { key: 'd3', value: 7800, weekdayIndex: 2 },
+  { key: 'd4', value: 8400, weekdayIndex: 3 },
+  { key: 'd5', value: 7200, weekdayIndex: 4 },
+  { key: 'd6', value: 10200, weekdayIndex: 5 },
+  { key: 'd7', value: 8800, weekdayIndex: 6 }
 ]
 
 const steps30: WearableTrendPoint[] = Array.from({ length: 30 }, (_, index) => ({
@@ -84,13 +86,13 @@ const steps30: WearableTrendPoint[] = Array.from({ length: 30 }, (_, index) => (
 }))
 
 const sleep7: WearableTrendPoint[] = [
-  { key: 'd1', value: 390, label: '一' },
-  { key: 'd2', value: 420, label: '二' },
-  { key: 'd3', value: 405, label: '三' },
-  { key: 'd4', value: 398, label: '四' },
-  { key: 'd5', value: 412, label: '五' },
-  { key: 'd6', value: 430, label: '六' },
-  { key: 'd7', value: 408, label: '日' }
+  { key: 'd1', value: 390, weekdayIndex: 0 },
+  { key: 'd2', value: 420, weekdayIndex: 1 },
+  { key: 'd3', value: 405, weekdayIndex: 2 },
+  { key: 'd4', value: 398, weekdayIndex: 3 },
+  { key: 'd5', value: 412, weekdayIndex: 4 },
+  { key: 'd6', value: 430, weekdayIndex: 5 },
+  { key: 'd7', value: 408, weekdayIndex: 6 }
 ]
 
 const sleep30: WearableTrendPoint[] = Array.from({ length: 30 }, (_, index) => ({

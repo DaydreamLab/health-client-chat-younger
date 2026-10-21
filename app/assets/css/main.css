@@ -205,6 +205,26 @@ button:focus:not(:focus-visible) {
     color: var(--ui-text-highlighted);
   }
 
+  .app-wearables-segment {
+    border-radius: 0.75rem;
+    border: 1px solid var(--ui-border);
+    padding: 0.25rem;
+  }
+
+  .app-btn-segment {
+    height: auto;
+    min-height: 2rem;
+    padding-inline: 0.75rem;
+    border: 0;
+    background: transparent;
+    color: var(--ui-text-highlighted);
+  }
+
+  .app-btn-segment:hover {
+    background-color: var(--ui-bg-muted);
+    color: var(--ui-text-highlighted);
+  }
+
   .app-icon-toggle {
     display: inline-flex;
     align-items: center;
@@ -472,9 +492,15 @@ button:focus:not(:focus-visible) {
   }
 
   .app-trend-line {
-    stroke-dasharray: 900;
-    stroke-dashoffset: 900;
+    stroke-dasharray: var(--trend-path-length, 1200);
+    stroke-dashoffset: var(--trend-path-length, 1200);
     animation: app-trend-draw 2.4s ease-out 0.2s forwards;
+  }
+
+  .wearables-trend-line {
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+    animation: none;
   }
 
   @keyframes app-trend-draw {
