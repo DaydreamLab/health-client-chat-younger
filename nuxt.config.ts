@@ -37,12 +37,15 @@ export default defineNuxtConfig({
   buildDir: process.env.NUXT_TEST_BUILD_DIR || '.nuxt',
 
   routeRules: {
+    // Chat is interactive / auth-heavy; keep out of the static crawl.
     '/chat': { prerender: false },
     '/en/chat': { prerender: false },
     '/chat-ai': { prerender: false },
-    '/en/chat-ai': { prerender: false },
-    '/app/**': { prerender: false },
-    '/en/app/**': { prerender: false }
+    '/en/chat-ai': { prerender: false }
+    // Do NOT set `/app/**` or `/en/app/**` to prerender:false.
+    // crawlLinks already emits their index.html with data-src → `_payload.json`;
+    // prerender:false skipped only the payload file and caused console 404s on
+    // GitHub Pages while direct URL / refresh still need the static HTML (200).
   },
 
   compatibilityDate: '2026-06-30',

@@ -181,7 +181,10 @@
 | 項目 | 結論 |
 |------|------|
 | 重新整理後語言跳回中文 | **全站行為／未重現為 bug**：`prefix_except_default` + `detectBrowserLanguage.redirectOn: 'root'`。實測 `/en/app/wearables/...`、`/en`、`/en/app` 重新整理後 `html[lang]=en` 且文案維持英文；`LocaleSwitch` 寫入 `i18n_redirected=en` 後 refresh 亦維持。非穿戴頁獨有，故不改 i18n。 |
+| 英文 document title 有時仍為「坦見」 | **已修**：`app.vue` 的 `useHead`／`useSeoMeta` 改為函式／響應式；觸發為中文進站後切英文（app 不 remount、title 字串不更新）。直接開已 prerender 的 `/en` HTML 本來就是 Candor。 |
+| `/en/app/**/_payload.json` 404 | **已修（方案 1）**：根因是 `routeRules` 對 `/app/**`、`/en/app/**` 設 `prerender:false`，crawlLinks 仍寫出 `index.html`（含 `data-src`→`_payload.json`）但 payload 被 skip。拿掉該 `prerender:false`，讓 HTML 與 payload 一併產生。**不可**用 `prerender.ignore` 排除 `/app`（GH Pages 無靜態 HTML 會真 404）。未改 `payloadExtraction`。 |
+| 手機 7 天圖頭尾標籤溢出 | **已修**：`layoutHealthTrendValueLabels` 夾在 chart width 內，頭尾 xShift 往內偏。 |
 
 ---
 
-**最後更新**：2026-10-21（穿戴詳細頁圖表顯示修正；語言重新整理調查結論見上）
+**最後更新**：2026-10-21（穿戴圖標籤／英文 title／payload 404）

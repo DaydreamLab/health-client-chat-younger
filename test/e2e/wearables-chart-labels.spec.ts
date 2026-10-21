@@ -26,7 +26,14 @@ async function expectChartLabelsClear(page: import('@playwright/test').Page) {
     const line = svg.querySelector('[data-testid="wearables-trend-line"]')
     const linePath = line?.getAttribute('d') ?? ''
     const dasharray = line ? getComputedStyle(line).strokeDasharray : ''
-    return { labels, circles, linePath, dasharray, viewHeight: svg.viewBox.baseVal.height }
+    return {
+      labels,
+      circles,
+      linePath,
+      dasharray,
+      viewHeight: svg.viewBox.baseVal.height,
+      viewWidth: svg.viewBox.baseVal.width
+    }
   })
 
   expect(payload.labels.length).toBeGreaterThan(0)
@@ -45,6 +52,8 @@ async function expectChartLabelsClear(page: import('@playwright/test').Page) {
   for (const label of payload.labels) {
     expect(label.top).toBeGreaterThanOrEqual(0)
     expect(label.bottom).toBeLessThanOrEqual(payload.viewHeight)
+    expect(label.left).toBeGreaterThanOrEqual(-0.5)
+    expect(label.right).toBeLessThanOrEqual(payload.viewWidth + 0.5)
     expect(trendLabelCollidesWithGeometry(label, plotted)).toBe(false)
   }
 
@@ -53,6 +62,29 @@ async function expectChartLabelsClear(page: import('@playwright/test').Page) {
       expect(boxesOverlap(payload.labels[i]!, payload.labels[j]!)).toBe(false)
     }
   }
+}
+
+async function expectChartLabelsInsideCard(page: import('@playwright/test').Page) {
+  const chart = page.getByTestId('wearables-trend-chart')
+  await expect(chart).toBeVisible()
+  const result = await page.evaluate(() => {
+    const svg = document.querySelector('[data-testid="wearables-trend-chart"]')
+    const card = svg?.closest('section')
+    if (!svg || !card) {
+      return { ok: false as const, reason: 'missing chart or card' }
+    }
+    const cardBox = card.getBoundingClientRect()
+    const overflows: string[] = []
+    for (const el of svg.querySelectorAll('.wearables-trend-value-label')) {
+      const box = el.getBoundingClientRect()
+      const text = (el.textContent ?? '').trim()
+      if (box.left < cardBox.left - 0.5 || box.right > cardBox.right + 0.5) {
+        overflows.push(`${text} L=${box.left.toFixed(1)} R=${box.right.toFixed(1)} card=${cardBox.left.toFixed(1)}..${cardBox.right.toFixed(1)}`)
+      }
+    }
+    return { ok: overflows.length === 0, overflows }
+  })
+  expect(result.ok, JSON.stringify(result)).toBe(true)
 }
 
 const metrics = ['resting_hr', 'steps', 'sleep_minutes'] as const
@@ -77,3 +109,32 @@ test('metric query selects matching active tab for sleep', async ({ page, goto }
   await expect(page.getByTestId('wearables-metric-resting_hr')).toHaveClass(/app-btn-segment/)
   await expect(page.getByRole('heading', { level: 2, name: 'Sleep' })).toBeVisible()
 })
+
+// Reported overflow: Oura EN steps at 390/430; matrix covers both devices × metrics × locales at 390.
+test('mobile 430px en oura-ring steps labels stay inside card', async ({ page, goto }) => {
+  await page.setViewportSize({ width: 430, height: 844 })
+  await goto('/en/app/wearables/oura-ring?metric=steps', { waitUntil: 'hydration' })
+  await expect(page.getByTestId('wearables-metric-steps')).toHaveClass(/app-btn-primary/)
+  await expectChartLabelsClear(page)
+  await expectChartLabelsInsideCard(page)
+})
+
+for (const device of ['oura-ring', 'apple-watch'] as const) {
+  for (const metric of metrics) {
+    test(`mobile 390px en ${device} ${metric} labels stay inside card`, async ({ page, goto }) => {
+      await page.setViewportSize({ width: 390, height: 844 })
+      await goto(`/en/app/wearables/${device}?metric=${metric}`, { waitUntil: 'hydration' })
+      await expect(page.getByTestId(`wearables-metric-${metric}`)).toHaveClass(/app-btn-primary/)
+      await expectChartLabelsClear(page)
+      await expectChartLabelsInsideCard(page)
+    })
+
+    test(`mobile 390px zh ${device} ${metric} labels stay inside card`, async ({ page, goto }) => {
+      await page.setViewportSize({ width: 390, height: 844 })
+      await goto(`/app/wearables/${device}?metric=${metric}`, { waitUntil: 'hydration' })
+      await expect(page.getByTestId(`wearables-metric-${metric}`)).toHaveClass(/app-btn-primary/)
+      await expectChartLabelsClear(page)
+      await expectChartLabelsInsideCard(page)
+    })
+  }
+}
