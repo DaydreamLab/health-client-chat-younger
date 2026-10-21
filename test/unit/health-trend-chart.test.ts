@@ -4,10 +4,14 @@ import {
   assertTrendLineMatchesPoints,
   parseTrendLinePath,
   HEALTH_TREND_CHART_WIDTH,
+  HEALTH_TREND_POINT_AXIS_CLEARANCE,
+  HEALTH_TREND_POINT_RADIUS,
   plotHealthTrend,
-  plotHealthTrendWithValueLabels
+  plotHealthTrendWithValueLabels,
+  shouldShowTrendAxisLabel
 } from '../../app/utils/health-trend-chart'
 import { formatWearableChartValue } from '../../app/utils/wearables-format'
+import { getWearableMetricSummary } from '../../app/utils/wearables-mock'
 
 describe('plotHealthTrend', () => {
   it('plots default health demo trend with four points', () => {
@@ -55,5 +59,36 @@ describe('plotHealthTrend', () => {
     expect(chart.plotted).toHaveLength(2)
     expect(chart.plotted[0]?.weekdayIndex).toBe(0)
     expect(chart.plotted[1]?.label).toBe('2')
+  })
+
+  it('keeps lowest steps points above the X-axis label band', () => {
+    const trend = getWearableMetricSummary('oura-ring', 'steps', 7)!.trend
+    const texts = trend.map(point => formatWearableChartValue(point.value, 'steps', 'en', (key, params) => {
+      if (key === 'wearables.units.chartSteps') {
+        return `${params?.value} steps`
+      }
+      return key
+    }))
+    const { chart } = plotHealthTrendWithValueLabels(trend, texts, 'en', 'steps')
+    const labelTop = chart.height - chart.padBottom + 16 - 11
+    for (const point of chart.plotted) {
+      expect(point.y + HEALTH_TREND_POINT_RADIUS).toBeLessThanOrEqual(labelTop - 1)
+    }
+    expect(HEALTH_TREND_POINT_AXIS_CLEARANCE).toBeGreaterThan(HEALTH_TREND_POINT_RADIUS)
+  })
+})
+
+describe('shouldShowTrendAxisLabel', () => {
+  it('shows every label for a 7-day series', () => {
+    for (let index = 0; index < 7; index++) {
+      expect(shouldShowTrendAxisLabel(index, 7)).toBe(true)
+    }
+  })
+
+  it('thins 30-day labels to interval ticks plus ends', () => {
+    const visible = Array.from({ length: 30 }, (_, index) => index)
+      .filter(index => shouldShowTrendAxisLabel(index, 30))
+      .map(index => index + 1)
+    expect(visible).toEqual([1, 5, 10, 15, 20, 25, 30])
   })
 })

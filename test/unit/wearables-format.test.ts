@@ -4,6 +4,7 @@ import zh from '../../i18n/locales/zh-TW.json'
 import {
   formatSleepDurationMinutes,
   formatTrendWeekdayLabel,
+  formatWearableChartUnit,
   formatWearableChartValue,
   localizedRestingHrUnit
 } from '../../app/utils/wearables-format'
@@ -76,6 +77,20 @@ describe('formatWearableChartValue', () => {
     expect(formatWearableChartValue(390, 'sleep_minutes', 'en', tEn)).toBe('6h 30m')
     expect(formatWearableChartValue(420, 'sleep_minutes', 'en', tEn)).toBe('7h')
     expect(formatWearableChartValue(405, 'sleep_minutes', 'zh-TW', tZh)).toBe('6 小時 45 分')
+  })
+})
+
+describe('formatWearableChartUnit', () => {
+  it('matches 7-day chart unit wording in English', () => {
+    expect(formatWearableChartUnit('resting_hr', tEn)).toBe('bpm')
+    expect(formatWearableChartUnit('steps', tEn)).toBe('steps')
+    expect(formatWearableChartUnit('sleep_minutes', tEn)).toBe('h')
+  })
+
+  it('matches 7-day chart unit wording in zh-TW', () => {
+    expect(formatWearableChartUnit('resting_hr', tZh)).toBe('次/分')
+    expect(formatWearableChartUnit('steps', tZh)).toBe('步')
+    expect(formatWearableChartUnit('sleep_minutes', tZh)).toBe('小時')
   })
 })
 

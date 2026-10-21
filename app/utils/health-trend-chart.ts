@@ -20,8 +20,18 @@ const padBottom = 40
 export const HEALTH_TREND_LINE_STROKE_WIDTH = 3
 export const HEALTH_TREND_POINT_RADIUS = 4.5
 
+/**
+ * Keep plotted points above X-axis weekday/day labels (label baseline is
+ * padBottom-relative + ~16; font ~11; circle radius extends below center).
+ */
+export const HEALTH_TREND_POINT_AXIS_CLEARANCE
+  = HEALTH_TREND_POINT_RADIUS + 28
+
 /** Show per-point value labels up to this many points; denser series rely on tooltips. */
 export const HEALTH_TREND_VALUE_LABEL_MAX_POINTS = 7
+
+/** Dense day series: show first, last, and every Nth day label. */
+export const HEALTH_TREND_AXIS_LABEL_INTERVAL = 5
 
 const LABEL_LINE_HEIGHT = 14
 const LABEL_MARGIN_TOP = 4
@@ -71,9 +81,11 @@ export function plotHealthTrend(
   const values = points.map(item => item.value)
   const min = Math.min(...values) - 10
   const max = Math.max(...values) + 6
+  const plotBottom = height - padBottom - HEALTH_TREND_POINT_AXIS_CLEARANCE
+  const plotSpan = Math.max(plotBottom - padTop, 1)
   const plotted = points.map((item, index) => {
     const x = padX + (index / (points.length - 1)) * (width - padX * 2)
-    const y = padTop + (1 - (item.value - min) / (max - min)) * (height - padTop - padBottom)
+    const y = padTop + (1 - (item.value - min) / (max - min)) * plotSpan
     return { ...item, x, y }
   })
   const linePoints = plotted.map(point => `${point.x},${point.y}`).join(' ')
@@ -345,6 +357,25 @@ export function plotHealthTrendWithValueLabels(
   }
   assertTrendValueLabelsClear(valueLabels, chart.plotted, chart.height)
   return { chart, valueLabels }
+}
+
+/**
+ * Whether to draw an X-axis label for a point in a (possibly dense) series.
+ * Short series (≤7) show every label; longer series use interval ticks.
+ */
+export function shouldShowTrendAxisLabel(
+  index: number,
+  pointCount: number,
+  interval = HEALTH_TREND_AXIS_LABEL_INTERVAL
+): boolean {
+  if (pointCount <= HEALTH_TREND_VALUE_LABEL_MAX_POINTS) {
+    return true
+  }
+  if (index === 0 || index === pointCount - 1) {
+    return true
+  }
+  const dayNumber = index + 1
+  return dayNumber % interval === 0
 }
 
 /** @deprecated Use layoutHealthTrendValueLabels */
