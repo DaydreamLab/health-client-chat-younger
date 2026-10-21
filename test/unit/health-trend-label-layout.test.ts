@@ -56,7 +56,7 @@ describe('plotHealthTrendWithValueLabels', () => {
       )
       const { chart, valueLabels } = plotHealthTrendWithValueLabels(trend, texts, 'en', metric)
       expect(valueLabels).toHaveLength(7)
-      assertTrendValueLabelsClear(valueLabels, chart.plotted, chart.height)
+      assertTrendValueLabelsClear(valueLabels, chart.plotted, chart.height, chart.width)
     })
 
     it(`lays out 7-day ${metric} in zh-TW without label overlap or geometry hits`, () => {
@@ -66,7 +66,7 @@ describe('plotHealthTrendWithValueLabels', () => {
       )
       const { chart, valueLabels } = plotHealthTrendWithValueLabels(trend, texts, 'zh-TW', metric)
       expect(valueLabels).toHaveLength(7)
-      assertTrendValueLabelsClear(valueLabels, chart.plotted, chart.height)
+      assertTrendValueLabelsClear(valueLabels, chart.plotted, chart.height, chart.width)
       if (metric === 'sleep_minutes') {
         expect(texts).toContain('6 小時 30 分')
         expect(texts).toContain('7 小時')

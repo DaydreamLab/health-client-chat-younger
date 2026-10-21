@@ -76,6 +76,58 @@ describe('plotHealthTrend', () => {
     }
     expect(HEALTH_TREND_POINT_AXIS_CLEARANCE).toBeGreaterThan(HEALTH_TREND_POINT_RADIUS)
   })
+
+  it('keeps 7-day value labels inside the chart width for en/zh metrics', () => {
+    const tEn = (key: string, params?: Record<string, unknown>) => {
+      if (key === 'wearables.units.chartSteps') {
+        return `${params?.value} steps`
+      }
+      if (key === 'wearables.units.chartBpm') {
+        return `${params?.value} bpm`
+      }
+      if (key === 'wearables.units.sleepHoursOnly') {
+        return `${params?.hours}h`
+      }
+      if (key === 'wearables.units.sleepMinutesOnly') {
+        return `${params?.minutes}m`
+      }
+      if (key === 'wearables.units.sleepMixed') {
+        return `${params?.hours}h ${params?.minutes}m`
+      }
+      return key
+    }
+    const tZh = (key: string, params?: Record<string, unknown>) => {
+      if (key === 'wearables.units.chartSteps') {
+        return `${params?.value} 步`
+      }
+      if (key === 'wearables.units.chartBpm') {
+        return `${params?.value} bpm`
+      }
+      if (key === 'wearables.units.sleepHoursOnly') {
+        return `${params?.hours} 小時`
+      }
+      if (key === 'wearables.units.sleepMinutesOnly') {
+        return `${params?.minutes} 分`
+      }
+      if (key === 'wearables.units.sleepMixed') {
+        return `${params?.hours} 小時 ${params?.minutes} 分`
+      }
+      return key
+    }
+
+    for (const metric of ['steps', 'resting_hr', 'sleep_minutes'] as const) {
+      for (const [locale, t] of [['en', tEn], ['zh-TW', tZh]] as const) {
+        const trend = getWearableMetricSummary('oura-ring', metric, 7)!.trend
+        const texts = trend.map(point => formatWearableChartValue(point.value, metric, locale, t))
+        const { chart, valueLabels } = plotHealthTrendWithValueLabels(trend, texts, locale, metric)
+        expect(valueLabels).toHaveLength(trend.length)
+        for (const label of valueLabels) {
+          expect(label.left).toBeGreaterThanOrEqual(0)
+          expect(label.right).toBeLessThanOrEqual(chart.width)
+        }
+      }
+    }
+  })
 })
 
 describe('shouldShowTrendAxisLabel', () => {

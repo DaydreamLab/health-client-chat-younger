@@ -37,6 +37,15 @@ const LABEL_LINE_HEIGHT = 14
 const LABEL_MARGIN_TOP = 4
 const LABEL_POINT_CLEARANCE = 10
 const LABEL_LINE_CLEARANCE = 5
+/** Keep value labels inside the SVG viewBox (mobile cards have little side margin). */
+export const HEALTH_TREND_LABEL_EDGE_PAD = 2
+
+/** Prefer centered, then small shifts; avoid leaping to ±36 first (edge overflow). */
+const LABEL_X_SHIFTS_CENTERED = [0, -12, 12, -24, 24, -36, 36] as const
+/** First point: bias inward (positive x). */
+const LABEL_X_SHIFTS_START = [0, 12, 24, 36, -12, -24, -36] as const
+/** Last point: bias inward (negative x). */
+const LABEL_X_SHIFTS_END = [0, -12, -24, -36, 12, 24, 36] as const
 
 export interface TrendValueLabelBox {
   index: number
@@ -232,7 +241,8 @@ export function trendLabelCollidesWithGeometry(
 export function assertTrendValueLabelsClear(
   labels: TrendValueLabelBox[],
   plotted: PlottedTrendPoint[],
-  chartHeight: number
+  chartHeight: number,
+  chartWidth = HEALTH_TREND_CHART_WIDTH
 ): void {
   for (const label of labels) {
     if (label.top < LABEL_MARGIN_TOP) {
@@ -240,6 +250,12 @@ export function assertTrendValueLabelsClear(
     }
     if (label.bottom > chartHeight - 4) {
       throw new Error(`Label ${label.index} clipped at bottom`)
+    }
+    if (label.left < HEALTH_TREND_LABEL_EDGE_PAD - 0.01) {
+      throw new Error(`Label ${label.index} clipped at left`)
+    }
+    if (label.right > chartWidth - HEALTH_TREND_LABEL_EDGE_PAD + 0.01) {
+      throw new Error(`Label ${label.index} clipped at right`)
     }
     if (trendLabelCollidesWithGeometry(label, plotted)) {
       throw new Error(`Label ${label.index} collides with line or point`)
@@ -254,6 +270,16 @@ export function assertTrendValueLabelsClear(
   }
 }
 
+function xShiftsForLabelIndex(index: number, pointCount: number): readonly number[] {
+  if (index === 0) {
+    return LABEL_X_SHIFTS_START
+  }
+  if (index === pointCount - 1) {
+    return LABEL_X_SHIFTS_END
+  }
+  return LABEL_X_SHIFTS_CENTERED
+}
+
 function chartWidthForLocale(locale: string, metric?: string): number {
   if (metric === 'steps') {
     return locale === 'en' ? 560 : 580
@@ -265,17 +291,19 @@ export function layoutHealthTrendValueLabels(
   plotted: PlottedTrendPoint[],
   texts: string[],
   locale: string,
-  chart: { height: number, padBottom: number }
+  chart: { height: number, padBottom: number, width: number }
 ): TrendValueLabelBox[] {
   const placed: TrendValueLabelBox[] = []
   const xAxisReserve = chart.padBottom + 20
   const gaps = [16, 24, 32, 42, 52, 62]
-  const xShifts = [-36, -24, -12, 0, 12, 24, 36]
+  const minLeft = HEALTH_TREND_LABEL_EDGE_PAD
+  const maxRight = chart.width - HEALTH_TREND_LABEL_EDGE_PAD
 
   for (let index = 0; index < plotted.length; index++) {
     const point = plotted[index]!
     const text = texts[index] ?? ''
     const labelWidth = estimateTrendLabelWidth(text, locale)
+    const xShifts = xShiftsForLabelIndex(index, plotted.length)
 
     let chosen: TrendValueLabelBox | null = null
     for (const above of [true, false]) {
@@ -285,6 +313,9 @@ export function layoutHealthTrendValueLabels(
           const half = labelWidth / 2
           const left = centerX - half
           const right = centerX + half
+          if (left < minLeft || right > maxRight) {
+            continue
+          }
           const centerY = above
             ? point.y - gap - LABEL_LINE_HEIGHT / 2
             : point.y + gap + LABEL_LINE_HEIGHT / 2
@@ -323,7 +354,26 @@ export function layoutHealthTrendValueLabels(
     }
 
     if (!chosen) {
-      throw new Error(`Unable to place label for trend point ${index}`)
+      // Last resort: pin to the inward edge so the label stays in the card.
+      const half = labelWidth / 2
+      const minCenter = minLeft + half
+      const maxCenter = maxRight - half
+      const centerX = Math.min(maxCenter, Math.max(minCenter, point.x))
+      const centerY = Math.max(
+        LABEL_MARGIN_TOP + LABEL_LINE_HEIGHT / 2,
+        point.y - 16 - LABEL_LINE_HEIGHT / 2
+      )
+      chosen = {
+        index,
+        x: centerX,
+        y: centerY,
+        text,
+        above: true,
+        left: centerX - half,
+        right: centerX + half,
+        top: centerY - LABEL_LINE_HEIGHT / 2,
+        bottom: centerY + LABEL_LINE_HEIGHT / 2
+      }
     }
     placed.push(chosen)
   }
@@ -347,7 +397,7 @@ export function plotHealthTrendWithValueLabels(
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
-      assertTrendValueLabelsClear(valueLabels, chart.plotted, chart.height)
+      assertTrendValueLabelsClear(valueLabels, chart.plotted, chart.height, chart.width)
       break
     } catch {
       extraPadTop += 12
@@ -355,7 +405,7 @@ export function plotHealthTrendWithValueLabels(
       valueLabels = layoutHealthTrendValueLabels(chart.plotted, texts, locale, chart)
     }
   }
-  assertTrendValueLabelsClear(valueLabels, chart.plotted, chart.height)
+  assertTrendValueLabelsClear(valueLabels, chart.plotted, chart.height, chart.width)
   return { chart, valueLabels }
 }
 

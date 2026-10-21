@@ -3,7 +3,7 @@ const { locale, t } = useI18n()
 const config = useRuntimeConfig()
 
 useHead({
-  title: t('meta.title'),
+  title: () => t('meta.title'),
   meta: [
     { name: 'viewport', content: 'width=device-width, initial-scale=1' }
   ],
@@ -12,13 +12,13 @@ useHead({
     { rel: 'icon', href: `${config.app.baseURL}favicon.ico` }
   ],
   htmlAttrs: {
-    lang: locale
+    lang: () => locale.value
   }
 })
 
 useSeoMeta({
-  title: t('meta.title'),
-  description: t('meta.description')
+  title: () => t('meta.title'),
+  description: () => t('meta.description')
 })
 </script>
 
