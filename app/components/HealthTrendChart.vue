@@ -32,7 +32,7 @@
       :fill="`url(#${gradientId})`"
     />
     <g
-      v-for="point in chart.plotted"
+      v-for="point in axisLabelPoints"
       :key="`axis-${point.key}`"
     >
       <text
@@ -47,6 +47,19 @@
       </text>
     </g>
     <text
+      v-if="denseChartUnit"
+      :x="12"
+      :y="18"
+      text-anchor="start"
+      class="pointer-events-none text-muted"
+      fill="currentColor"
+      font-size="11"
+      font-weight="600"
+      data-testid="wearables-chart-unit"
+    >
+      {{ denseChartUnit }}
+    </text>
+    <text
       v-for="label in wearablesValueLabels"
       :key="`value-${label.index}`"
       :x="label.x"
@@ -60,20 +73,23 @@
     >
       {{ label.text }}
     </text>
-    <text
+    <template
       v-for="point in chart.plotted"
-      v-show="!metricType"
       :key="`member-value-${point.key}`"
-      :x="point.x"
-      :y="point.y - 18"
-      text-anchor="middle"
-      class="pointer-events-none text-highlighted"
-      fill="currentColor"
-      font-size="11"
-      font-weight="600"
     >
-      {{ point.value }}
-    </text>
+      <text
+        v-if="!metricType"
+        :x="point.x"
+        :y="point.y - 18"
+        text-anchor="middle"
+        class="pointer-events-none text-highlighted"
+        fill="currentColor"
+        font-size="11"
+        font-weight="600"
+      >
+        {{ point.value }}
+      </text>
+    </template>
     <path
       fill="none"
       stroke="var(--color-chart-primary)"
@@ -109,10 +125,15 @@ import type { HealthTrendChartPoint } from '~/utils/health-trend-chart'
 import {
   HEALTH_TREND_VALUE_LABEL_MAX_POINTS,
   plotHealthTrend,
-  plotHealthTrendWithValueLabels
+  plotHealthTrendWithValueLabels,
+  shouldShowTrendAxisLabel
 } from '~/utils/health-trend-chart'
 import type { WearableMetricType } from '~/utils/wearables-mock'
-import { formatTrendWeekdayLabel, formatWearableChartValue } from '~/utils/wearables-format'
+import {
+  formatTrendWeekdayLabel,
+  formatWearableChartUnit,
+  formatWearableChartValue
+} from '~/utils/wearables-format'
 
 const props = defineProps<{
   points?: HealthTrendChartPoint[]
@@ -146,6 +167,20 @@ const trendLayout = computed(() => {
 
 const chart = computed(() => trendLayout.value.chart)
 const wearablesValueLabels = computed(() => trendLayout.value.valueLabels)
+
+const axisLabelPoints = computed(() =>
+  chart.value.plotted.filter((_, index) =>
+    shouldShowTrendAxisLabel(index, chart.value.plotted.length)
+  )
+)
+
+/** Dense series (e.g. 30-day) omit per-point value labels; show unit like 7-day wording. */
+const denseChartUnit = computed(() => {
+  if (!props.metricType || showValueLabels.value) {
+    return ''
+  }
+  return formatWearableChartUnit(props.metricType, t)
+})
 
 const trendLineCssVars = computed(() => ({
   '--trend-path-length': String(chart.value.pathLength)

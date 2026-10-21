@@ -40,7 +40,7 @@
         </AppButton>
       </div>
       <div
-        class="flex gap-1 rounded-xl border border-default p-1"
+        class="app-wearables-range flex gap-1 rounded-xl border border-default p-1"
         role="group"
         :aria-label="$t('wearables.range.label')"
       >

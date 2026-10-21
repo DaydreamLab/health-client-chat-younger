@@ -211,6 +211,15 @@ button:focus:not(:focus-visible) {
     padding: 0.25rem;
   }
 
+  /*
+   * Segmented metric/range toggles: skip color transitions so switching the
+   * active pill does not look like the control (or page) briefly fading.
+   */
+  .app-wearables-segment .app-btn,
+  .app-wearables-range .app-btn {
+    transition: none;
+  }
+
   .app-btn-segment {
     height: auto;
     min-height: 2rem;

@@ -74,7 +74,7 @@
 | 個人資料（顯示名稱／密碼／常用收件） | `/app/me` | 可用 | 已接 | 完成 |
 | 去識別化 | `/app` 隱私區 | 可用 | 已接 | 完成 |
 | 我的健康（profile 卡＋報告列表） | `/app` | 可用 | 已接 | 完成 |
-| 穿戴裝置 | `/app/wearables` | 範例畫面（假資料） | 不做 API | Beta 展示 |
+| 穿戴裝置 | `/app/wearables` | 範例畫面（假資料；詳細頁圖表軸距／單位／低點間距／分頁切換無過渡閃爍已修） | 不做 API | Beta 展示 |
 | 報告上傳／輪詢／重試 | `/chat`（上傳需 member） | 可用 | 已接 | 完成 |
 | 報告結果唯讀 | `/chat` 報告 dock | 可用 | 已接 | 完成 |
 | Profile 問卷 | `/chat` | 可用 | 已接 | 完成 |
@@ -176,6 +176,12 @@
 |------|------|
 | `server/api/*` mock BFF 退役 | 已完成（M5；目錄已刪） |
 
+### 已知／調查備註
+
+| 項目 | 結論 |
+|------|------|
+| 重新整理後語言跳回中文 | **全站行為／未重現為 bug**：`prefix_except_default` + `detectBrowserLanguage.redirectOn: 'root'`。實測 `/en/app/wearables/...`、`/en`、`/en/app` 重新整理後 `html[lang]=en` 且文案維持英文；`LocaleSwitch` 寫入 `i18n_redirected=en` 後 refresh 亦維持。非穿戴頁獨有，故不改 i18n。 |
+
 ---
 
-**最後更新**：2026-09-30（建議頁與訂單明細顯示目錄 `image_url`；接線切片與 candor-core `docs/04` Younger 區一致）
+**最後更新**：2026-10-21（穿戴詳細頁圖表顯示修正；語言重新整理調查結論見上）

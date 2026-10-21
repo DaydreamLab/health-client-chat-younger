@@ -38,6 +38,23 @@ export function formatWearableChartValue(
   return formatSleepDurationMinutes(value, t)
 }
 
+/**
+ * Unit wording aligned with 7-day chart value labels (`chartBpm` / `chartSteps` /
+ * sleep duration keys), for dense charts that omit per-point labels.
+ */
+export function formatWearableChartUnit(
+  metric: WearableMetricType,
+  t: (key: string) => string
+): string {
+  if (metric === 'resting_hr') {
+    return t('wearables.units.chartUnitBpm')
+  }
+  if (metric === 'steps') {
+    return t('wearables.units.chartUnitSteps')
+  }
+  return t('wearables.units.chartUnitSleep')
+}
+
 export function localizedRestingHrUnit(locale: string, t: (key: string) => string): string {
   return locale === 'en' ? 'bpm' : t('wearables.units.bpmShort')
 }

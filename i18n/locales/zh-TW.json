@@ -53,6 +53,9 @@
       "bpmShort": "次/分",
       "chartBpm": "{value} 次/分",
       "chartSteps": "{value} 步",
+      "chartUnitBpm": "次/分",
+      "chartUnitSteps": "步",
+      "chartUnitSleep": "小時",
       "sleepHoursOnly": "{hours} 小時",
       "sleepMinutesOnly": "{minutes} 分",
       "sleepMixed": "{hours} 小時 {minutes} 分"

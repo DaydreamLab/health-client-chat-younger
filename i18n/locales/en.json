@@ -53,6 +53,9 @@
       "bpmShort": "bpm",
       "chartBpm": "{value} bpm",
       "chartSteps": "{value} steps",
+      "chartUnitBpm": "bpm",
+      "chartUnitSteps": "steps",
+      "chartUnitSleep": "h",
       "sleepHoursOnly": "{hours}h",
       "sleepMinutesOnly": "{minutes}m",
       "sleepMixed": "{hours}h {minutes}m"
