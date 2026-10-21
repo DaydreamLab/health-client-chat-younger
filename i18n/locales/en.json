@@ -125,12 +125,16 @@
     "title": "See your health clearly —\nstart with a conversation.",
     "description": "Bring a lab report if you have one; you can still chat without it.\nBrowse plans without signing in. Become a member to upload or save your details.",
     "ctaChat": "Start consult",
+    "ctaUpload": "Upload a blood test for a free reading",
+    "ctaYoungerLabs": "No report? Book a Younger blood test",
     "ctaPlans": "Monthly supplement plan",
     "ctaLabs": "Get a blood test"
   },
   "homeGoals": {
     "title": "Where do you want to start?",
     "subtitle": "Select one or more directions, then tap Start consult.",
+    "cta": "Start consult",
+    "ctaUpload": "Upload a report",
     "sleep": "Sleep",
     "sleepHint": "Start with sleep",
     "weight_loss": "Weight loss",
@@ -151,23 +155,36 @@
     "twoTitle": "Pay",
     "twoHint": "Pick a plan and pay. What comes next opens then.",
     "threeLabel": "Step 3",
-    "threeTitle": "AI advisor and Younger experts",
-    "threeHint": "Reading, collection, or product picks — talk with a Younger expert on their own.",
+    "threeTitle": "AI and Younger advisors",
+    "threeHint": "Reading, collection, or product picks — talk with a Younger advisor on their own.",
     "oneFrameUser": "I want to start with sleep.",
     "oneFrameAssistant": "You can start without a blood test.",
     "twoFramePlan": "Report reading",
     "twoFrameLock": "Opens after payment",
-    "threeFrameStatus": "Talk with a Younger expert on their own"
+    "threeFrameStatus": "Talk with a Younger advisor on their own"
   },
   "promo": {
     "label": "Product highlights",
+    "title": "Custom functional medical supplements",
+    "body": "Skip guessing. From your labs and conversation, we match medical-grade formulas (such as Hemagenics iron protein and an active B complex) to what you actually need.",
     "hemagenics": "Hemagenics iron protein complex",
     "glycinate": "Iron glycinate",
     "bComplex": "Active B complex"
   },
+  "youngerLabs": {
+    "title": "No blood test on hand? Leave it to the Younger team.",
+    "body": "Precise improvement starts with objective data. We work with **Younger** for a full, in-person blood test you can book online.\nThat starts your AI and advisor reading.",
+    "cta": "Learn about and book a Younger blood test"
+  },
   "plans": {
     "title": "Choose your monthly plan",
     "subtitle": "Two plans to help you understand yourself better",
+    "offerName": "Limited early-bird plan",
+    "offerPrice": "Project price: $4,500 (value over $6,000+)",
+    "offerFeature1": "Free AI OCR report reading",
+    "offerFeature2": "A Younger advisor reviews it with you",
+    "offerFeature3": "A custom functional medical supplement set worth $6,000",
+    "offerNote": "Note: after the early-bird period, the platform moves to fully automated AI reading and more health tools. This is the last window for a hands-on advisor.",
     "billingCycle": "/ mo",
     "cta": "Start with this plan",
     "basicDescription": "Base supplements for out-of-range markers",
@@ -219,6 +236,8 @@
   },
   "reviews": {
     "title": "What members say",
+    "cta": "Start consult",
+    "ctaEarlyBird": "Reserve an early-bird advisor slot",
     "oneGoal": "Improve sleep",
     "one": "The conversation made the report clear, so I knew what to look at next.",
     "oneBy": "Taipei · Mr. Zhang",
@@ -249,7 +268,9 @@
     "advisorTitle": "An advisor takes over",
     "advisorHint": "Suggestions follow your conversation and report. They are for health management, not a medical diagnosis.",
     "recordTitle": "Tied to your record",
-    "recordHint": "Reports and plans stay on your account, so later charts and items match the same person."
+    "recordHint": "Reports and plans stay on your account, so later charts and items match the same person.",
+    "wearableTitle": "All-day wearable health tracking",
+    "wearableHint": "Coming soon. Support for wearable devices, daily health data, reminders, and **OCR reading** as your health assistant."
   },
   "login": {
     "title": "Log in so we can match your records",

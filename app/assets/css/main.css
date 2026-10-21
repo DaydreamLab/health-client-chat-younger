@@ -949,15 +949,20 @@ button:focus:not(:focus-visible) {
   }
 
   .app-hero-actions {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    display: grid;
+    grid-template-columns: 1fr;
     gap: 0.75rem;
+    width: 100%;
   }
 
   .app-hero-actions .app-btn {
     width: 100%;
+    height: auto;
+    min-height: 2.5rem;
+    padding-block: 0.5rem;
+    line-height: 1.25;
+    text-align: center;
+    white-space: normal;
   }
 
   .app-hero .app-btn:focus-visible {
@@ -991,15 +996,13 @@ button:focus:not(:focus-visible) {
     background-color: rgb(255 255 255 / 0.12);
   }
 
-  @media (min-width: 360px) {
+  @media (min-width: 640px) {
     .app-hero-actions {
-      flex-direction: row;
-      flex-wrap: wrap;
+      grid-template-columns: 1fr 1fr;
     }
 
-    .app-hero-actions .app-btn {
-      width: auto;
-      min-width: 9rem;
+    .app-hero-actions .app-btn:last-child:nth-child(odd) {
+      grid-column: 1 / -1;
     }
   }
 

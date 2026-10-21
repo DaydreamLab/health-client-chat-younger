@@ -19,47 +19,36 @@
               data-testid="brand-hero"
               class="text-lg font-medium tracking-wide"
             >
-              <span class="sr-only">{{ $t('hero.eyebrow') }}</span>
-              <span
-                class="app-hero-cycle"
-                aria-hidden="true"
-              >
-                <span>{{ $t('hero.eyebrowLead') }}</span>
-                <span class="app-hero-cycle-dot">·</span>
-                <span class="app-hero-cycle-slot">
-                  <span
-                    v-for="key in eyebrowWordKeys"
-                    :key="key"
-                    class="app-hero-cycle-word"
-                  >{{ $t(`hero.${key}`) }}</span>
-                </span>
-              </span>
+              {{ $t('hero.eyebrow') }}
             </p>
             <h1 class="mt-3 whitespace-pre-line text-[clamp(1.5rem,calc((100vw-2.5rem)/11),1.875rem)] font-semibold tracking-tight min-[375px]:text-4xl sm:text-5xl">
               {{ $t('hero.title') }}
             </h1>
-            <p class="mt-4 whitespace-pre-line text-xs text-white/85 min-[375px]:text-sm">
-              {{ $t('hero.description') }}
-            </p>
+            <!-- eslint-disable vue/no-v-html -->
+            <p
+              class="mt-4 whitespace-pre-line text-xs text-white/85 min-[375px]:text-sm"
+              v-html="renderInline($t('hero.description'))"
+            />
+            <!-- eslint-enable vue/no-v-html -->
             <div class="app-hero-actions mt-7">
               <AppButton
-                class="px-8"
+                class="px-4"
                 :to="localePath('/chat')"
                 data-testid="hero-cta-chat"
               >
                 {{ $t('hero.ctaChat') }}
               </AppButton>
               <AppButton
-                class="px-8"
-                :to="`${localePath('/')}#plans`"
+                class="px-4"
+                :to="localePath('/chat')"
                 variant="outline"
-                data-testid="hero-cta-plans"
+                data-testid="hero-cta-upload"
               >
-                {{ $t('hero.ctaPlans') }}
+                {{ $t('hero.ctaUpload') }}
               </AppButton>
               <AppButton
                 v-if="labsHref"
-                class="px-8"
+                class="px-4"
                 :href="labsHref"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -67,6 +56,25 @@
                 data-testid="hero-cta-labs"
               >
                 {{ $t('hero.ctaLabs') }}
+              </AppButton>
+              <AppButton
+                v-if="showYoungerLabs"
+                class="px-4"
+                :href="labsHref || undefined"
+                :target="labsHref ? '_blank' : undefined"
+                :rel="labsHref ? 'noopener noreferrer' : undefined"
+                variant="outline"
+                data-testid="hero-cta-younger-labs"
+              >
+                {{ $t('hero.ctaYoungerLabs') }}
+              </AppButton>
+              <AppButton
+                class="px-4"
+                :to="`${localePath('/')}#plans`"
+                variant="outline"
+                data-testid="hero-cta-plans"
+              >
+                {{ $t('hero.ctaPlans') }}
               </AppButton>
             </div>
           </div>
@@ -83,9 +91,12 @@
         <h2 class="text-center text-2xl font-bold text-highlighted sm:text-3xl">
           {{ $t('homeGoals.title') }}
         </h2>
-        <p class="mx-auto mt-2 max-w-2xl text-center text-sm text-muted">
-          {{ $t('homeGoals.subtitle') }}
-        </p>
+        <!-- eslint-disable vue/no-v-html -->
+        <p
+          class="mx-auto mt-2 max-w-2xl text-center text-sm text-muted"
+          v-html="renderInline($t('homeGoals.subtitle'))"
+        />
+        <!-- eslint-enable vue/no-v-html -->
         <div class="app-home-goals mt-6">
           <button
             v-for="code in homeGoalCodes"
@@ -106,14 +117,22 @@
             </span>
           </button>
         </div>
-        <div class="mt-8 flex justify-center">
+        <div class="mt-8 flex flex-wrap justify-center gap-3">
           <AppButton
             class="px-8"
             :disabled="selectedHomeGoals.length < 1"
             data-testid="home-goals-cta"
             @click="startGoalsChat"
           >
-            {{ $t('hero.ctaChat') }}
+            {{ $t('homeGoals.cta') }}
+          </AppButton>
+          <AppButton
+            class="px-8"
+            variant="outline"
+            :to="localePath('/chat')"
+            data-testid="home-goals-cta-upload"
+          >
+            {{ $t('homeGoals.ctaUpload') }}
           </AppButton>
         </div>
       </div>
@@ -145,9 +164,12 @@
             <h3 class="app-home-rail-title text-2xl font-semibold text-highlighted">
               {{ $t(`steps.${step}Title`) }}
             </h3>
-            <p class="app-home-rail-hint mt-2 whitespace-pre-line text-sm leading-6 text-muted">
-              {{ $t(`steps.${step}Hint`) }}
-            </p>
+            <!-- eslint-disable vue/no-v-html -->
+            <p
+              class="app-home-rail-hint mt-2 whitespace-pre-line text-sm leading-6 text-muted"
+              v-html="renderInline($t(`steps.${step}Hint`))"
+            />
+            <!-- eslint-enable vue/no-v-html -->
             <div
               class="app-home-rail-frame"
               aria-hidden="true"
@@ -191,9 +213,50 @@
     </section>
 
     <section
-      class="pb-16 sm:pb-20"
-      :aria-label="$t('promo.label')"
+      v-if="showYoungerLabs"
+      class="py-12 sm:py-16"
+      :aria-label="$t('youngerLabs.title')"
+      data-testid="home-younger-labs"
     >
+      <div class="mx-auto max-w-6xl px-4 sm:px-6">
+        <h2 class="text-center text-2xl font-bold text-highlighted sm:text-3xl">
+          {{ $t('youngerLabs.title') }}
+        </h2>
+        <!-- eslint-disable vue/no-v-html -->
+        <p
+          class="mx-auto mt-2 max-w-2xl text-center text-sm text-muted"
+          v-html="renderInline($t('youngerLabs.body'))"
+        />
+        <!-- eslint-enable vue/no-v-html -->
+        <div class="mt-8 flex justify-center">
+          <AppButton
+            class="px-8"
+            :href="labsHref || undefined"
+            :target="labsHref ? '_blank' : undefined"
+            :rel="labsHref ? 'noopener noreferrer' : undefined"
+            data-testid="home-younger-labs-cta"
+          >
+            {{ $t('youngerLabs.cta') }}
+          </AppButton>
+        </div>
+      </div>
+    </section>
+
+    <section
+      class="pb-12 sm:pb-16"
+      :aria-label="$t('promo.title')"
+    >
+      <div class="mx-auto max-w-6xl px-4 pt-8 pb-4 text-center sm:px-6 sm:pt-10">
+        <p class="text-sm font-medium text-primary">
+          {{ $t('promo.label') }}
+        </p>
+        <h2 class="mt-2 text-2xl font-bold text-highlighted sm:text-3xl">
+          {{ $t('promo.title') }}
+        </h2>
+        <p class="mx-auto mt-2 max-w-2xl text-sm leading-6 text-muted">
+          {{ $t('promo.body') }}
+        </p>
+      </div>
       <UCarousel
         v-slot="{ item }"
         loop
@@ -235,23 +298,39 @@
       class="scroll-mt-24 bg-brand-100 py-12 dark:bg-brand-900 sm:py-16"
     >
       <div class="mx-auto max-w-6xl px-4 sm:px-6">
-        <h2 class="text-2xl font-semibold text-highlighted sm:text-3xl">
+        <h2 class="text-center text-2xl font-bold text-highlighted sm:text-3xl">
           {{ $t('plans.title') }}
         </h2>
-        <p class="mt-2 max-w-2xl text-sm text-muted">
-          {{ $t('plans.subtitle') }}
-        </p>
+        <div class="mx-auto mt-6 max-w-xl rounded-xl border border-default bg-elevated p-6 text-left">
+          <p class="text-lg font-semibold text-highlighted">
+            {{ $t('plans.offerName') }}
+          </p>
+          <p class="mt-1 text-sm text-muted">
+            {{ $t('plans.offerPrice') }}
+          </p>
+          <ul class="mt-4 list-disc space-y-2 ps-5 text-sm leading-6 text-highlighted">
+            <li
+              v-for="key in planOfferFeatureKeys"
+              :key="key"
+            >
+              {{ $t(`plans.${key}`) }}
+            </li>
+          </ul>
+          <p class="mt-4 text-xs leading-5 text-muted">
+            {{ $t('plans.offerNote') }}
+          </p>
+        </div>
 
         <p
           v-if="packagesError"
-          class="mt-6 text-sm text-error"
+          class="mt-6 text-center text-sm text-error"
           data-testid="packages-error"
         >
           {{ packagesError }}
         </p>
         <p
           v-else-if="packagesPending"
-          class="mt-6 text-sm text-muted"
+          class="mt-6 text-center text-sm text-muted"
           data-testid="packages-loading"
         >
           {{ $t('plans.loading') }}
@@ -313,9 +392,12 @@
                   >
                     {{ $t(`trust.${item.key}Title`) }}
                   </h3>
-                  <p class="mt-1 text-sm leading-6 text-muted">
-                    {{ $t(`trust.${item.key}Hint`) }}
-                  </p>
+                  <!-- eslint-disable vue/no-v-html -->
+                  <p
+                    class="mt-1 text-sm leading-6 text-muted"
+                    v-html="renderInline($t(`trust.${item.key}Hint`))"
+                  />
+                  <!-- eslint-enable vue/no-v-html -->
                 </div>
               </li>
             </ol>
@@ -325,61 +407,75 @@
     </section>
 
     <section
-      class="overflow-hidden bg-brand-100 pt-12 pb-16 dark:bg-brand-900 sm:pt-16 sm:pb-20"
-      :aria-label="$t('reviews.title')"
+      class="bg-brand-100 dark:bg-brand-900"
+      :class="showHomeReviews ? 'overflow-hidden pt-12 pb-16 sm:pt-16 sm:pb-20' : 'py-12 sm:py-16'"
+      :aria-label="showHomeReviews ? $t('reviews.title') : undefined"
       data-testid="home-reviews"
     >
-      <div class="mx-auto max-w-6xl px-4 text-center sm:px-6">
-        <h2 class="text-2xl font-bold text-highlighted sm:text-3xl">
-          {{ $t('reviews.title') }}
-        </h2>
-      </div>
-      <ul class="sr-only">
-        <li
-          v-for="key in reviewKeys"
-          :key="key"
-        >
-          {{ $t(`reviews.${key}Goal`) }} {{ $t(`reviews.${key}`) }} {{ $t(`reviews.${key}By`) }}
-        </li>
-      </ul>
-      <UMarquee
-        pause-on-hover
-        :overlay="false"
-        aria-hidden="true"
-        :ui="{ root: '[--duration:40s] [--gap:--spacing(3)]', content: '!items-stretch py-4' }"
-        class="mt-4"
-      >
-        <article
-          v-for="key in reviewKeys"
-          :key="key"
-          class="flex w-72 shrink-0 items-start gap-3 self-stretch rounded-2xl border border-default bg-elevated p-4"
-        >
-          <span
-            class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary"
-            aria-hidden="true"
+      <template v-if="showHomeReviews">
+        <div class="mx-auto max-w-6xl px-4 text-center sm:px-6">
+          <h2 class="text-2xl font-bold text-highlighted sm:text-3xl">
+            {{ $t('reviews.title') }}
+          </h2>
+        </div>
+        <ul class="sr-only">
+          <li
+            v-for="key in reviewKeys"
+            :key="key"
           >
-            {{ $t(`reviews.${key}Initial`) }}
-          </span>
-          <div class="flex min-w-0 flex-1 flex-col self-stretch">
-            <p class="text-sm font-medium text-primary">
-              {{ $t(`reviews.${key}Goal`) }}
-            </p>
-            <p class="mt-1 text-base leading-6 text-highlighted">
-              {{ $t(`reviews.${key}`) }}
-            </p>
-            <p class="mt-auto pt-2 text-sm text-muted">
-              {{ $t(`reviews.${key}By`) }}
-            </p>
-          </div>
-        </article>
-      </UMarquee>
-      <div class="flex justify-center px-4">
+            {{ $t(`reviews.${key}Goal`) }} {{ $t(`reviews.${key}`) }} {{ $t(`reviews.${key}By`) }}
+          </li>
+        </ul>
+        <UMarquee
+          pause-on-hover
+          :overlay="false"
+          aria-hidden="true"
+          :ui="{ root: '[--duration:40s] [--gap:--spacing(3)]', content: '!items-stretch py-4' }"
+          class="mt-4"
+        >
+          <article
+            v-for="key in reviewKeys"
+            :key="key"
+            class="flex w-72 shrink-0 items-start gap-3 self-stretch rounded-2xl border border-default bg-elevated p-4"
+          >
+            <span
+              class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary"
+              aria-hidden="true"
+            >
+              {{ $t(`reviews.${key}Initial`) }}
+            </span>
+            <div class="flex min-w-0 flex-1 flex-col self-stretch">
+              <p class="text-sm font-medium text-primary">
+                {{ $t(`reviews.${key}Goal`) }}
+              </p>
+              <p class="mt-1 text-base leading-6 text-highlighted">
+                {{ $t(`reviews.${key}`) }}
+              </p>
+              <p class="mt-auto pt-2 text-sm text-muted">
+                {{ $t(`reviews.${key}By`) }}
+              </p>
+            </div>
+          </article>
+        </UMarquee>
+      </template>
+      <div
+        class="mx-auto flex max-w-2xl flex-col gap-3 px-4 sm:flex-row sm:px-6"
+        :class="showHomeReviews ? 'mt-8' : undefined"
+      >
         <AppButton
-          class="px-8"
+          class="w-full px-8 sm:flex-1"
           :to="localePath('/chat')"
           data-testid="home-reviews-cta"
         >
-          {{ $t('hero.ctaChat') }}
+          {{ $t('reviews.cta') }}
+        </AppButton>
+        <AppButton
+          class="w-full px-8 sm:flex-1"
+          variant="outline"
+          :to="plansHref"
+          data-testid="home-early-bird-cta"
+        >
+          {{ $t('reviews.ctaEarlyBird') }}
         </AppButton>
       </div>
     </section>
@@ -400,6 +496,15 @@ function publicAsset(path: string) {
   return `${config.app.baseURL}${path.replace(/^\//, '')}`
 }
 
+function renderInline(source: string) {
+  return source
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br>')
+}
+
 const heroSrc = publicAsset('hero-banner.jpg')
 const journey = useJourneyStore()
 const candor = useCandorApi()
@@ -411,13 +516,20 @@ const homeGoalCodes = [
   'cognitive_function',
   'gastrointestinal'
 ] as const
-const eyebrowWordKeys = ['eyebrowAdvisor', 'eyebrowLabs', 'eyebrowConsult'] as const
 const reviewKeys = ['one', 'two', 'three', 'four', 'five'] as const
+const planOfferFeatureKeys = ['offerFeature1', 'offerFeature2', 'offerFeature3'] as const
+// Younger 實體檢測。預設關閉；開啟後才顯示該區與 Banner「預約 Younger 實體血檢」。
+const showYoungerLabs = false
+// 顧客好評先隱藏，文案保留在 i18n，最底部按鈕仍顯示。
+const showHomeReviews = false
 const trustItems = [
+  // TODO: 待確認 — 第 1 點「業界首創」用詞待團隊確認
   { key: 'data', src: publicAsset('home/trust-data.png') },
   { key: 'pace', src: publicAsset('home/trust-pace.png') },
   { key: 'advisor', src: publicAsset('home/trust-advisor.png') },
-  { key: 'record', src: publicAsset('home/trust-record.png') }
+  { key: 'record', src: publicAsset('home/trust-record.png') },
+  // TODO: 待確認 — 第 5 點穿戴裝置全日健康數據追蹤待團隊確認
+  { key: 'wearable', src: publicAsset('home/trust-record.png') }
 ] as const
 const trustIndex = ref(0)
 const currentTrust = computed(() => trustItems[trustIndex.value] ?? trustItems[0])

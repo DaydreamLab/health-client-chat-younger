@@ -10,8 +10,8 @@ test('legacy package-plans API keeps i18n features and last-plan highlight', asy
   await expect(plans.getByText('NT$9,000')).toBeVisible()
   await expect(plans.getByText('NT$8,000')).toHaveCount(0)
   await expect(plans.getByText('NT$12,000')).toHaveCount(0)
-  await expect(plans.getByText('對談或上傳血檢後組成品項').first()).toBeVisible()
-  await expect(plans.getByText('含基礎保養的全部項目')).toBeVisible()
+  await expect(plans.getByText('享有 AI OCR 免費報告解析').first()).toBeVisible()
+  await expect(plans.getByText('Younger 顧問親自介入協作').first()).toBeVisible()
   await expect(plans.getByText('推薦', { exact: true })).toBeVisible()
 })
 
