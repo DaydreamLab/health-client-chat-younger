@@ -192,16 +192,25 @@
               <div
                 v-for="(entry, entryIndex) in group.entries"
                 :key="`${group.key}-${entry.code}-${entryIndex}`"
-                class="flex flex-wrap items-center gap-2 text-sm text-muted"
+                class="space-y-1"
                 data-testid="rationale-entry"
               >
-                <span>- 建議補充{{ entry.ingredient_label }}成份：</span>
-                <span
-                  class="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
-                  data-testid="rationale-product-badge"
+                <div class="flex flex-wrap items-center gap-2 text-sm text-muted">
+                  <span>- 建議補充{{ entry.ingredient_label }}成份：</span>
+                  <span
+                    class="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
+                    data-testid="rationale-product-badge"
+                  >
+                    {{ entry.name }}
+                  </span>
+                </div>
+                <p
+                  v-if="displayReasonForProductCode(entry.code)"
+                  class="text-sm text-muted whitespace-pre-wrap leading-relaxed"
+                  data-testid="rationale-display-reason"
                 >
-                  {{ entry.name }}
-                </span>
+                  {{ displayReasonForProductCode(entry.code) }}
+                </p>
               </div>
             </div>
           </template>
@@ -807,6 +816,22 @@ const selectedPackage = computed(() =>
 )
 const selectedRationale = computed(() => selectedPackage.value?.rationale ?? null)
 const rationaleGroups = computed(() => selectedRationale.value?.groups ?? [])
+const displayReasonByProductCode = computed(() => {
+  const map = new Map<string, string>()
+  for (const item of selectedPackage.value?.items ?? []) {
+    const reason = item.display_reason?.trim()
+    if (!reason) {
+      continue
+    }
+    if (item.code) {
+      map.set(item.code, reason)
+    }
+  }
+  return map
+})
+function displayReasonForProductCode(code: string): string | null {
+  return displayReasonByProductCode.value.get(code) ?? null
+}
 const checkoutPrice = computed(() => selectedPackage.value?.price ?? 0)
 const canCheckout = computed(() =>
   Boolean(auth.isMember && selectedPackage.value && selectedPackage.value.items.length > 0 && selectedPackage.value.composition_hash)

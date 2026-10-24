@@ -348,7 +348,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   daily_servings_min: 1,
                   daily_servings_max: 1,
                   monthly_cost: 480,
-                  is_core: false
+                  is_core: false,
+                  display_reason: '顧問定稿原因'
                 }
               ],
               used_amount: 1280,
@@ -546,8 +547,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           daily_dose: 1,
           monthly_cost: 280,
           is_core: true,
-          image_url: 'https://cdn.example/catalog/vitamin_d.png',
-          display_reason: '顧問定稿原因'
+          image_url: 'https://cdn.example/catalog/vitamin_d.png'
         },
         {
           rank: 2,
@@ -567,7 +567,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           unit_price: 16,
           daily_dose: 1,
           monthly_cost: 480,
-          is_core: false
+          is_core: false,
+          display_reason: '顧問定稿原因'
         }
       ],
       used_amount: 1280,

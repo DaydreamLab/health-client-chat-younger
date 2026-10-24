@@ -62,6 +62,8 @@ test.describe('guest session', () => {
     await expect(page.getByTestId('rationale-group').first()).toBeVisible()
     await expect(page.getByTestId('rationale-entry').first()).toContainText('建議補充')
     await expect(page.getByTestId('rationale-product-badge').first()).toBeVisible()
+    await expect(page.getByTestId('rationale-display-reason').first()).toContainText('顧問定稿原因')
+    await expect(page.getByTestId('package-items')).not.toContainText('顧問定稿原因')
     await expect(page.getByTestId('checkout-auth-gate')).toBeVisible()
     await expect(page.getByTestId('checkout-login')).toBeVisible()
     await expect(page.getByTestId('checkout-register')).toBeVisible()
