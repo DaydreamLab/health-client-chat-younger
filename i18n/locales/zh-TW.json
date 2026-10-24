@@ -755,6 +755,20 @@
     "paymentRefunded": "已退款",
     "invoiceNumber": "發票號碼"
   },
+  "privacy": {
+    "metaTitle": "隱私權政策",
+    "loading": "載入隱私權政策中…",
+    "loadError": "無法載入隱私權政策，請稍後再試。",
+    "retry": "重新載入",
+    "updatedAt": "更新日期：{date}",
+    "version": "版本 {version}"
+  },
+  "cookieConsent": {
+    "ariaLabel": "Cookie 與隱私權同意",
+    "message": "我們使用必要的 Cookie 與本機儲存，以維持登入狀態並改善服務體驗。繼續使用即表示你同意我們依隱私權政策處理相關資料。",
+    "privacyLink": "隱私權政策",
+    "accept": "我了解"
+  },
   "footer": {
     "copyright": "© {year} 坦見。保留所有權利。",
     "tagline": "你的生理數據顧問",

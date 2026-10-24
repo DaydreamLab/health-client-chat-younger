@@ -49,6 +49,13 @@ export type CandorMockOptions = {
   individualTestsUrl?: string
   /** GET /package-plans payload shape (default legacy = pre-catalog API). */
   packagePlans?: PackagePlansMockMode
+  /**
+   * Seed `candor.privacy.consent.version` before each navigation.
+   * Default matches the mocked privacy-policy version so the cookie banner
+   * does not cover other e2e flows. Pass `false` to leave storage empty
+   * (first-visit banner tests), or an older string to force re-prompt.
+   */
+  privacyConsentVersion?: string | false
 }
 
 const legacyPackagePlans = [
@@ -152,6 +159,9 @@ function packagePlansForMode(mode: PackagePlansMockMode = 'legacy') {
   return legacyPackagePlans
 }
 
+const MOCK_PRIVACY_POLICY_VERSION = '2026-10-24'
+const PRIVACY_CONSENT_STORAGE_KEY = 'candor.privacy.consent.version'
+
 /** Mock candor-core auth + chat/report/profile so e2e does not need a live API. */
 export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}) {
   let quizAnswered = false
@@ -160,6 +170,14 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
   let reportPollCount = 0
   const asMember = Boolean(options.asMember)
   let sessionUser = asMember ? memberUser : guestUser
+
+  // Keep cookie banner out of unrelated flows unless a test opts out / seeds a stale version.
+  if (options.privacyConsentVersion !== false) {
+    const version = options.privacyConsentVersion ?? MOCK_PRIVACY_POLICY_VERSION
+    await page.addInitScript(({ key, value }) => {
+      localStorage.setItem(key, value)
+    }, { key: PRIVACY_CONSENT_STORAGE_KEY, value: version })
+  }
   let sessionToken = asMember ? 'e2e-member-token' : 'e2e-guest-token'
 
   function identityFromAuthHeader(header: string | null): {
@@ -207,6 +225,26 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         data: {
           items: [],
           individual_tests_url: options.individualTestsUrl ?? ''
+        }
+      })
+    })
+  })
+
+  await page.route('**/api/v1/legal/privacy-policy', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: {
+          title: '隱私權政策',
+          body: '## 我們如何使用資料\n\n本服務使用**必要 Cookie** 與本機儲存以維持登入狀態。\n\n詳見版本說明。',
+          version: MOCK_PRIVACY_POLICY_VERSION,
+          updated_at: '2026-10-24T00:00:00Z'
         }
       })
     })

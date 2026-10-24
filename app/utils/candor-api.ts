@@ -521,6 +521,14 @@ export interface AnonymizeAccepted {
   user_id?: string | null
 }
 
+/** Public privacy policy document (`GET /legal/privacy-policy`). */
+export interface PrivacyPolicy {
+  title: string
+  body: string
+  version: string
+  updated_at: string
+}
+
 export interface ProfileAnswerSaved {
   saved: true
   profile_gaps: string[]
@@ -601,3 +609,6 @@ export class CandorApiError extends Error {
 }
 
 export const TOKEN_STORAGE_KEY = 'candor.guest.token'
+
+/** localStorage key for the privacy-policy `version` the user last accepted (cookie consent). */
+export const PRIVACY_CONSENT_VERSION_KEY = 'candor.privacy.consent.version'

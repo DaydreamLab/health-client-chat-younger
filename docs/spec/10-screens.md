@@ -9,6 +9,7 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 | 路徑 | Layout／middleware | 主要能力 | Core 呼叫（摘要） |
 |------|--------------------|----------|-------------------|
 | `/` | default | 逛站、方案入口 | 可無 token；進旅程時 guest |
+| `/privacy` | default | 隱私權政策（Markdown）；首訪 Cookie 同意橫幅鍵結 `version` | `GET /legal/privacy-policy`（公開，無需 token） |
 | `/login` | default | 登入／註冊 | `POST /auth/login`、`/auth/register` |
 | `/chat` | `user` + `chat-layout` | 對話 SSE、目標／價格帶；上傳報告僅 member（guest 導向登入）。推薦槽在尚未建案時為「提交專家判讀」 | guest 可對話；`POST /health-reports` 需 member；會員「提交專家判讀」為 `POST /conversation/{id}/expert-review` |
 | `/chat-ai` | `user` + `chat-layout` | 與 `/chat` 共用對話。標準流程（畫面「標準」）推薦槽為「查看推薦方案」，進入 `/app/recommendations?flow=standard` | 同 `/chat` 對話；建議只打 `POST /recommendations` 後結帳，不呼叫 expert-review |
@@ -51,6 +52,12 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 | 個人資料 | `pages/app/me.vue`、側欄／`AccountUser` |
 | 訂單 | `pages/app/orders/*`、`stores/orders.ts`、`components/ShipmentTimeline.vue`、`OrderChatModal.vue` |
 | 報告表 | `components/ReportResultTable.vue`、`ReportDataDock.vue` |
+| 隱私權／Cookie 同意 | `pages/privacy.vue`、`components/CookieConsentBanner.vue`、`utils/privacy-consent.ts`；footer「隱私權政策」→ `/privacy` |
+
+## Cookie 同意
+
+- 首次進入（或隱私權政策 `version` 變更後）於全站顯示固定橫幅；同意後以 `localStorage` 鍵 `candor.privacy.consent.version`（`PRIVACY_CONSENT_VERSION_KEY`）寫入當次 `data.version`。
+- 無類別／細項同意 UI；橫幅連到 `/privacy`。
 
 ## 相關
 

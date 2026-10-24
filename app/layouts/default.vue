@@ -149,10 +149,21 @@
               <ul class="mt-4 space-y-2.5">
                 <li
                   v-for="item in column.items"
-                  :key="item"
+                  :key="item.label"
                 >
-                  <span class="text-sm text-white/70">
-                    {{ item }}
+                  <NuxtLink
+                    v-if="item.to"
+                    :to="item.to"
+                    class="text-sm text-white/70 underline-offset-2 transition hover:text-white hover:underline"
+                    :data-testid="item.testId"
+                  >
+                    {{ item.label }}
+                  </NuxtLink>
+                  <span
+                    v-else
+                    class="text-sm text-white/70"
+                  >
+                    {{ item.label }}
                   </span>
                 </li>
               </ul>
@@ -261,27 +272,31 @@ const footerColumns = computed(() => [
   {
     title: t('footer.explore'),
     items: [
-      t('footer.explorePlans'),
-      t('footer.exploreChat'),
-      t('footer.exploreHealth')
+      { label: t('footer.explorePlans') },
+      { label: t('footer.exploreChat') },
+      { label: t('footer.exploreHealth') }
     ],
     contact: false
   },
   {
     title: t('footer.support'),
     items: [
-      t('footer.supportFaq'),
-      t('footer.supportContact'),
-      t('footer.supportOrders')
+      { label: t('footer.supportFaq') },
+      { label: t('footer.supportContact') },
+      { label: t('footer.supportOrders') }
     ],
     contact: true
   },
   {
     title: t('footer.about'),
     items: [
-      t('footer.aboutUs'),
-      t('footer.privacy'),
-      t('footer.terms')
+      { label: t('footer.aboutUs') },
+      {
+        label: t('footer.privacy'),
+        to: localePath('/privacy'),
+        testId: 'footer-privacy'
+      },
+      { label: t('footer.terms') }
     ],
     contact: false
   }

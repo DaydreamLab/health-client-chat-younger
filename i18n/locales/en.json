@@ -755,6 +755,20 @@
     "paymentRefunded": "Refunded",
     "invoiceNumber": "Invoice number"
   },
+  "privacy": {
+    "metaTitle": "Privacy policy",
+    "loading": "Loading privacy policy…",
+    "loadError": "Could not load the privacy policy. Please try again later.",
+    "retry": "Retry",
+    "updatedAt": "Updated {date}",
+    "version": "Version {version}"
+  },
+  "cookieConsent": {
+    "ariaLabel": "Cookie and privacy consent",
+    "message": "We use essential cookies and local storage to keep you signed in and improve the experience. By continuing, you agree that we process related data under our privacy policy.",
+    "privacyLink": "Privacy policy",
+    "accept": "Got it"
+  },
   "footer": {
     "copyright": "© {year} Candor. All rights reserved.",
     "tagline": "Your physiological data advisor",

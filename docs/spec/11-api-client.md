@@ -20,6 +20,12 @@
 - 只寫 `localStorage`；禁止 query／hash／log。
 - `POST /auth/refresh` 在過期前換票；401 後停止重試風暴並清 session。
 
+## 隱私權政策（公開）
+
+- 端點：`GET /legal/privacy-policy`（`auth: false`），方法 `useCandorApi().getPrivacyPolicy()`。
+- 成功 `data`：`{ title, body, version, updated_at }`；`body` 為繁中 Markdown。
+- Cookie 同意鍵：`candor.privacy.consent.version`（`PRIVACY_CONSENT_VERSION_KEY`）＝使用者已同意的 `data.version`；版本變更須重新提示。
+
 ## 錯誤 envelope
 
 成功：`{ "status": "success", "data": … }`。失敗：
