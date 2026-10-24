@@ -215,11 +215,39 @@
             </div>
           </template>
           <p
-            v-else
+            v-else-if="selectedRationale.body"
             class="text-sm text-muted whitespace-pre-wrap leading-relaxed"
           >
             {{ selectedRationale.body }}
           </p>
+          <div
+            v-if="orphanDisplayReasons.length"
+            class="space-y-3"
+            :class="{ 'border-t border-default pt-4': rationaleGroups.length || selectedRationale.body }"
+            data-testid="rationale-orphan-reasons"
+          >
+            <div
+              v-for="orphan in orphanDisplayReasons"
+              :key="`orphan-${orphan.code}`"
+              class="space-y-1"
+              data-testid="rationale-orphan-reason"
+            >
+              <div class="flex flex-wrap items-center gap-2 text-sm text-muted">
+                <span
+                  class="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
+                  data-testid="rationale-orphan-product-badge"
+                >
+                  {{ orphan.name }}
+                </span>
+              </div>
+              <p
+                class="text-sm text-muted whitespace-pre-wrap leading-relaxed"
+                data-testid="rationale-display-reason"
+              >
+                {{ orphan.reason }}
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -832,6 +860,32 @@ const displayReasonByProductCode = computed(() => {
 function displayReasonForProductCode(code: string): string | null {
   return displayReasonByProductCode.value.get(code) ?? null
 }
+const rationaleEntryProductCodes = computed(() => {
+  const codes = new Set<string>()
+  for (const group of rationaleGroups.value) {
+    for (const entry of group.entries) {
+      if (entry.code) {
+        codes.add(entry.code)
+      }
+    }
+  }
+  return codes
+})
+const orphanDisplayReasons = computed(() => {
+  const orphans: Array<{ code: string, name: string, reason: string }> = []
+  for (const item of selectedPackage.value?.items ?? []) {
+    const reason = item.display_reason?.trim()
+    if (!reason || !item.code || rationaleEntryProductCodes.value.has(item.code)) {
+      continue
+    }
+    orphans.push({
+      code: item.code,
+      name: item.name?.trim() || item.code,
+      reason
+    })
+  }
+  return orphans
+})
 const checkoutPrice = computed(() => selectedPackage.value?.price ?? 0)
 const canCheckout = computed(() =>
   Boolean(auth.isMember && selectedPackage.value && selectedPackage.value.items.length > 0 && selectedPackage.value.composition_hash)

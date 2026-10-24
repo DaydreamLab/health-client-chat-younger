@@ -324,7 +324,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   daily_servings_max: 1,
                   monthly_cost: 280,
                   is_core: true,
-                  image_url: 'https://cdn.example/catalog/vitamin_d.png'
+                  image_url: 'https://cdn.example/catalog/vitamin_d.png',
+                  display_reason: '無分組定稿原因'
                 },
                 {
                   rank: 2,
@@ -380,13 +381,6 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                     key: 'signal:LDL:190',
                     title: '低密度脂蛋白 190 mg/dL 偏高',
                     entries: [
-                      {
-                        code: 'vitamin_d',
-                        name: '維生素 D',
-                        ingredient_label: '維生素D',
-                        line: '建議補充維生素D成份：維生素 D',
-                        claim_guard_hits: []
-                      },
                       {
                         code: 'iron',
                         name: '鐵蛋白調理',
@@ -547,7 +541,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           daily_dose: 1,
           monthly_cost: 280,
           is_core: true,
-          image_url: 'https://cdn.example/catalog/vitamin_d.png'
+          image_url: 'https://cdn.example/catalog/vitamin_d.png',
+          display_reason: '無分組定稿原因'
         },
         {
           rank: 2,
