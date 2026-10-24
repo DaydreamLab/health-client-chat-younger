@@ -324,7 +324,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   daily_servings_max: 1,
                   monthly_cost: 280,
                   is_core: true,
-                  image_url: 'https://cdn.example/catalog/vitamin_d.png'
+                  image_url: 'https://cdn.example/catalog/vitamin_d.png',
+                  display_reason: '無分組定稿原因'
                 },
                 {
                   rank: 2,
@@ -348,7 +349,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   daily_servings_min: 1,
                   daily_servings_max: 1,
                   monthly_cost: 480,
-                  is_core: false
+                  is_core: false,
+                  display_reason: '顧問定稿原因'
                 }
               ],
               used_amount: 1280,
@@ -379,13 +381,6 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                     key: 'signal:LDL:190',
                     title: '低密度脂蛋白 190 mg/dL 偏高',
                     entries: [
-                      {
-                        code: 'vitamin_d',
-                        name: '維生素 D',
-                        ingredient_label: '維生素D',
-                        line: '建議補充維生素D成份：維生素 D',
-                        claim_guard_hits: []
-                      },
                       {
                         code: 'iron',
                         name: '鐵蛋白調理',
@@ -547,7 +542,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           monthly_cost: 280,
           is_core: true,
           image_url: 'https://cdn.example/catalog/vitamin_d.png',
-          display_reason: '顧問定稿原因'
+          display_reason: '無分組定稿原因'
         },
         {
           rank: 2,
@@ -567,7 +562,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           unit_price: 16,
           daily_dose: 1,
           monthly_cost: 480,
-          is_core: false
+          is_core: false,
+          display_reason: '顧問定稿原因'
         }
       ],
       used_amount: 1280,
