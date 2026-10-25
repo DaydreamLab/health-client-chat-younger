@@ -31,6 +31,7 @@
   "wearables": {
     "pageTitle": "穿戴裝置",
     "sampleData": "範例資料",
+    "sampleChip": "範例",
     "comingSoonHint": "真實裝置串接即將上線；以下為介面預覽用的範例資料。",
     "disclaimer": "此建議可能參考裝置資料，僅供參考，不構成診斷。",
     "deviceNameSample": "{name}（範例）",
@@ -101,7 +102,12 @@
       "avgBpm": "平均 {value} 次/分",
       "avgSteps": "平均 {value} 步",
       "avgSleep": "平均 {value}",
-      "secondaryLine": "平均步數 {steps}｜平均睡眠 {sleep}（範例）",
+      "avgBpmSuffix": "次／分 · 平均",
+      "avgStepsSuffix": "步 · 平均",
+      "avgSleepSuffix": "· 平均",
+      "secondaryLine": "平均步數 {steps}｜平均睡眠 {sleep}",
+      "secondaryStepsLabel": "平均步數",
+      "secondarySleepLabel": "平均睡眠",
       "reportCta": "查看相關健康報告與建議 ›"
     },
     "reportReference": {
@@ -111,6 +117,7 @@
       "cta": "查看裝置趨勢 ›"
     },
     "demoNav": {
+      "disclosure": "預覽狀態（工程用）",
       "hint": "展示用：切換範例狀態（query demo）",
       "list": "裝置列表",
       "empty": "未連結",

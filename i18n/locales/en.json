@@ -31,6 +31,7 @@
   "wearables": {
     "pageTitle": "Wearables",
     "sampleData": "Sample data",
+    "sampleChip": "Sample",
     "comingSoonHint": "Live device linking is coming soon. Below is a UI preview with sample data.",
     "disclaimer": "Suggestions may reference device data for illustration only; not a diagnosis.",
     "deviceNameSample": "{name} (sample)",
@@ -101,7 +102,12 @@
       "avgBpm": "{value} bpm avg",
       "avgSteps": "Avg {value} steps",
       "avgSleep": "Avg {value}",
-      "secondaryLine": "Avg steps {steps} · avg sleep {sleep} (sample)",
+      "avgBpmSuffix": "bpm · avg",
+      "avgStepsSuffix": "steps · avg",
+      "avgSleepSuffix": "· avg",
+      "secondaryLine": "Avg steps {steps} · avg sleep {sleep}",
+      "secondaryStepsLabel": "Avg steps",
+      "secondarySleepLabel": "Avg sleep",
       "reportCta": "View related health report ›"
     },
     "reportReference": {
@@ -111,6 +117,7 @@
       "cta": "View device trends ›"
     },
     "demoNav": {
+      "disclosure": "Preview states (engineering)",
       "hint": "Demo: switch sample states (demo query)",
       "list": "Device list",
       "empty": "Not linked",
