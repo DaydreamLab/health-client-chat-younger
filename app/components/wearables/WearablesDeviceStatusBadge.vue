@@ -20,9 +20,12 @@ const badgeClass = computed(() => {
     case 'connected':
       return 'app-badge-started'
     case 'delayed':
-      return 'app-badge-pending'
+      return 'app-badge-warning'
+    case 'auth_expired':
+    case 'sync_error':
+      return 'app-badge-error'
     default:
-      return 'app-badge-demo'
+      return 'app-badge-pending'
   }
 })
 </script>

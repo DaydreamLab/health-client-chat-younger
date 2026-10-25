@@ -1,23 +1,27 @@
 <template>
-  <nav
-    class="flex flex-wrap gap-2 rounded-2xl border border-dashed border-default bg-elevated/60 p-3 text-xs"
-    aria-label="Wearables demo states"
+  <details
+    class="mt-2 text-xs text-dimmed"
     data-testid="wearables-demo-nav"
   >
-    <span class="w-full text-muted">
-      {{ $t('wearables.demoNav.hint') }}
-    </span>
-    <AppButton
-      v-for="item in items"
-      :key="item.state"
-      class="!px-2.5 !py-1 text-xs"
-      :variant="item.active ? 'primary' : 'outline'"
-      :to="item.to"
-      :data-testid="`wearables-demo-${item.state}`"
+    <summary class="cursor-pointer select-none text-dimmed">
+      {{ $t('wearables.demoNav.disclosure') }}
+    </summary>
+    <nav
+      class="mt-2 flex flex-wrap gap-1.5"
+      :aria-label="$t('wearables.demoNav.hint')"
     >
-      {{ item.label }}
-    </AppButton>
-  </nav>
+      <AppButton
+        v-for="item in items"
+        :key="item.state"
+        class="!h-auto !px-2 !py-1 text-[11px]"
+        :variant="item.active ? 'primary' : 'outline'"
+        :to="item.to"
+        :data-testid="`wearables-demo-${item.state}`"
+      >
+        {{ item.label }}
+      </AppButton>
+    </nav>
+  </details>
 </template>
 
 <script setup lang="ts">

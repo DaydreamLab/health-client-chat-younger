@@ -1,13 +1,13 @@
 <template>
   <div
     v-if="device"
-    class="mx-auto w-full max-w-2xl space-y-6"
+    class="w-full space-y-6"
     data-testid="wearables-detail"
   >
     <div class="flex flex-wrap items-center gap-2">
       <AppButton
         variant="ghost"
-        class="!px-2"
+        class="!h-11 !px-2"
         :to="localePath('/app/wearables')"
         data-testid="wearables-detail-back"
       >
@@ -15,17 +15,12 @@
           name="i-lucide-chevron-left"
           class="size-4"
         />
-        {{ deviceLabel(device.display_name) }}
+        {{ device.display_name }}
       </AppButton>
       <WearablesComingSoonBadge />
-      <WearablesSampleBadge class="ms-auto" />
     </div>
-    <p
-      class="text-sm leading-6 text-muted"
-      data-testid="wearables-coming-soon-hint"
-    >
-      {{ $t('wearables.comingSoonHint') }}
-    </p>
+
+    <WearablesPreviewBanner />
 
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div
@@ -68,19 +63,20 @@
       v-if="summary && hasTrendData"
       class="rounded-2xl border border-default bg-elevated p-5"
     >
-      <div class="flex flex-wrap items-baseline gap-2">
-        <h2 class="text-lg font-semibold text-highlighted">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="text-sm font-semibold text-muted">
           {{ metricTitle }}
         </h2>
-        <span class="text-sm text-muted">
-          {{ $t('wearables.sampleData') }}
-        </span>
+        <WearablesSampleBadge />
       </div>
       <p
-        class="mt-2 text-2xl font-semibold text-highlighted"
+        class="mt-1.5 text-3xl font-extrabold tracking-tight text-highlighted"
         data-testid="wearables-metric-average"
       >
-        {{ formattedAverage }}
+        <span>{{ averagePrimary }}</span>
+        <span class="ms-1 text-sm font-semibold text-muted">
+          {{ averageSuffix }}
+        </span>
       </p>
       <HealthTrendChart
         class="mt-4"
@@ -88,20 +84,27 @@
         :metric-type="selectedMetric"
         :aria-label="metricTitle"
       />
-      <p
-        class="mt-4 text-sm text-muted"
+      <div
+        v-if="secondaryAverages.length"
+        class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted"
         data-testid="wearables-secondary-averages"
       >
-        {{ secondaryAverages }}
-      </p>
+        <span
+          v-for="item in secondaryAverages"
+          :key="item.label"
+        >
+          {{ item.label }}
+          <b class="font-bold text-highlighted">{{ item.value }}</b>
+        </span>
+      </div>
       <p
-        class="mt-2 text-sm text-muted"
+        class="mt-2 text-xs text-dimmed"
         data-testid="wearables-last-updated"
       >
         {{ $t('wearables.lastUpdated', { time: formatSyncTime(summary.last_updated_at) }) }}
       </p>
       <AppButton
-        class="mt-4"
+        class="mt-4 min-h-11 w-full"
         variant="outline"
         :to="localePath('/app')"
         data-testid="wearables-view-report"
@@ -123,14 +126,14 @@
       </p>
     </section>
 
-    <p class="text-xs leading-5 text-muted">
+    <p class="text-center text-xs leading-5 text-dimmed">
       {{ $t('wearables.disclaimer') }}
     </p>
   </div>
 
   <div
     v-else
-    class="mx-auto max-w-2xl rounded-2xl border border-default bg-elevated p-8 text-center"
+    class="w-full rounded-2xl border border-default bg-elevated p-8 text-center"
     data-testid="wearables-device-missing"
   >
     <p class="text-muted">
@@ -203,10 +206,6 @@ const summary = computed(() => {
 
 const hasTrendData = computed(() => !demoNoData.value && Boolean(summary.value?.trend.length))
 
-function deviceLabel(name: string) {
-  return t('wearables.deviceNameSample', { name })
-}
-
 const metricTitle = computed(() => {
   if (selectedMetric.value === 'resting_hr') {
     return t('wearables.detail.restingHrTitle')
@@ -217,34 +216,51 @@ const metricTitle = computed(() => {
   return t('wearables.detail.sleepTitle')
 })
 
-const formattedAverage = computed(() => {
+const averagePrimary = computed(() => {
   if (!summary.value) {
     return ''
   }
   if (selectedMetric.value === 'resting_hr') {
-    return t('wearables.detail.avgBpm', { value: summary.value.average })
+    return String(summary.value.average)
   }
   if (selectedMetric.value === 'steps') {
-    return t('wearables.detail.avgSteps', { value: summary.value.average.toLocaleString(locale.value) })
+    return summary.value.average.toLocaleString(locale.value)
   }
-  return t('wearables.detail.avgSleep', {
-    value: formatSleepDurationMinutes(summary.value.average, t)
-  })
+  return formatSleepDurationMinutes(summary.value.average, t)
+})
+
+const averageSuffix = computed(() => {
+  if (!summary.value) {
+    return ''
+  }
+  if (selectedMetric.value === 'resting_hr') {
+    return t('wearables.detail.avgBpmSuffix')
+  }
+  if (selectedMetric.value === 'steps') {
+    return t('wearables.detail.avgStepsSuffix')
+  }
+  return t('wearables.detail.avgSleepSuffix')
 })
 
 const secondaryAverages = computed(() => {
   if (!device.value || selectedMetric.value !== 'resting_hr' || selectedRange.value !== 7) {
-    return ''
+    return [] as Array<{ label: string, value: string }>
   }
   const steps = getWearableMetricSummary(device.value.id, 'steps', 7)
   const sleep = getWearableMetricSummary(device.value.id, 'sleep_minutes', 7)
   if (!steps || !sleep) {
-    return ''
+    return []
   }
-  return t('wearables.detail.secondaryLine', {
-    steps: steps.average.toLocaleString(locale.value),
-    sleep: formatSleepDurationMinutes(sleep.average, t)
-  })
+  return [
+    {
+      label: t('wearables.detail.secondaryStepsLabel'),
+      value: steps.average.toLocaleString(locale.value)
+    },
+    {
+      label: t('wearables.detail.secondarySleepLabel'),
+      value: formatSleepDurationMinutes(sleep.average, t)
+    }
+  ]
 })
 
 function formatSyncTime(iso: string) {

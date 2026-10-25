@@ -1,6 +1,6 @@
 <template>
   <div
-    class="mx-auto w-full max-w-2xl space-y-6"
+    class="w-full space-y-6"
     data-testid="wearables-page"
   >
     <div class="flex flex-wrap items-center gap-2">
@@ -8,16 +8,9 @@
         {{ $t('wearables.pageTitle') }}
       </h1>
       <WearablesComingSoonBadge />
-      <WearablesSampleBadge class="ms-auto" />
     </div>
-    <p
-      class="text-sm leading-6 text-muted"
-      data-testid="wearables-coming-soon-hint"
-    >
-      {{ $t('wearables.comingSoonHint') }}
-    </p>
 
-    <WearablesDemoStateNav />
+    <WearablesPreviewBanner />
 
     <WearablesReportReference
       v-if="demoView === 'report'"
@@ -40,7 +33,7 @@
           {{ $t('wearables.empty.body') }}
         </p>
         <AppButton
-          class="mt-6"
+          class="mt-6 min-h-11 w-full sm:w-auto"
           data-testid="wearables-link-device"
         >
           {{ $t('wearables.empty.cta') }}
@@ -109,40 +102,61 @@
         <li
           v-for="device in devices"
           :key="device.id"
-          class="rounded-2xl border border-default bg-elevated p-4"
+          class="rounded-2xl border border-default bg-elevated transition-colors hover:border-primary/40"
           :data-testid="`wearables-device-${device.id}`"
         >
-          <div class="flex flex-wrap items-start justify-between gap-2">
-            <div class="min-w-0">
-              <AppButton
-                variant="ghost"
-                class="!h-auto !p-0 text-start font-semibold text-highlighted hover:bg-transparent"
-                :to="localePath(`/app/wearables/${device.id}`)"
-                :data-testid="`wearables-device-link-${device.id}`"
-              >
-                {{ deviceLabel(device.display_name) }}
-              </AppButton>
+          <NuxtLink
+            :to="localePath(`/app/wearables/${device.id}`)"
+            class="flex gap-3.5 p-4"
+            :data-testid="`wearables-device-link-${device.id}`"
+          >
+            <div
+              class="grid size-11 shrink-0 place-items-center rounded-full bg-primary/15 text-primary"
+              aria-hidden="true"
+            >
+              <UIcon
+                :name="deviceIcon(device.id)"
+                class="size-5"
+              />
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-semibold text-highlighted">
+                  {{ device.display_name }}
+                </span>
+                <WearablesSampleChip />
+                <WearablesDeviceStatusBadge
+                  class="ms-auto max-sm:ms-0"
+                  :status="device.status"
+                />
+              </div>
               <p class="mt-1 text-sm text-muted">
                 {{ $t('wearables.lastSync', { time: formatSyncTime(device.last_synced_at) }) }}
               </p>
-              <p
+              <div
                 v-if="device.metrics.length && demoState !== 'no_data'"
-                class="mt-1 text-xs text-muted"
+                class="mt-2 flex flex-wrap gap-1.5"
               >
-                {{ $t('wearables.metricsLine', { metrics: metricsLabel(device.metrics) }) }}
-              </p>
+                <span
+                  v-for="metric in device.metrics"
+                  :key="metric"
+                  class="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted"
+                >
+                  {{ $t(`wearables.metrics.${metric}`) }}
+                </span>
+              </div>
             </div>
-            <WearablesDeviceStatusBadge :status="device.status" />
-          </div>
+          </NuxtLink>
           <div
             v-if="device.status === 'auth_expired'"
-            class="mt-3 flex flex-wrap items-center gap-2"
+            class="flex flex-wrap items-center gap-2 border-t border-default px-4 py-3 ps-[4.25rem] text-xs text-error"
           >
-            <p class="text-sm text-muted">
+            <p>
               {{ $t('wearables.authExpiredInline') }}
             </p>
             <AppButton
               variant="outline"
+              class="!h-9 !border-error !px-3 !text-xs !text-error hover:!bg-error/5"
               data-testid="wearables-reauth-inline"
             >
               {{ $t('wearables.actions.reauthorize') }}
@@ -152,17 +166,19 @@
       </ul>
 
       <AppButton
-        class="w-full sm:w-auto"
+        class="min-h-11 w-full sm:w-auto"
         variant="outline"
         data-testid="wearables-add-device"
       >
         {{ $t('wearables.addDevice') }}
       </AppButton>
 
-      <p class="text-xs leading-5 text-muted">
+      <p class="text-center text-xs leading-5 text-dimmed">
         {{ $t('wearables.disclaimer') }}
       </p>
     </template>
+
+    <WearablesDemoStateNav />
   </div>
 </template>
 
@@ -170,8 +186,7 @@
 import {
   WEARABLE_DEMO_STATE_QUERY,
   devicesForDemoState,
-  parseWearableDemoState,
-  type WearableMetricType
+  parseWearableDemoState
 } from '~/utils/wearables-mock'
 
 definePageMeta({
@@ -197,12 +212,11 @@ const demoState = computed(() => {
 
 const devices = computed(() => devicesForDemoState(demoState.value))
 
-function deviceLabel(name: string) {
-  return t('wearables.deviceNameSample', { name })
-}
-
-function metricsLabel(metrics: WearableMetricType[]) {
-  return metrics.map(metric => t(`wearables.metrics.${metric}`)).join(locale.value === 'en' ? ', ' : '・')
+function deviceIcon(deviceId: string) {
+  if (deviceId.includes('oura')) {
+    return 'i-lucide-circle-dot'
+  }
+  return 'i-lucide-watch'
 }
 
 function formatSyncTime(iso: string) {
@@ -238,7 +252,7 @@ const errorBanners = computed(() => {
     banners.push({
       id: 'garmin-auth',
       testId: 'wearables-error-auth',
-      title: t('wearables.errors.authTitle', { name: deviceLabel(garmin.display_name) }),
+      title: t('wearables.errors.authTitle', { name: garmin.display_name }),
       body: t('wearables.errors.authBody', {
         time: formatSyncTime(garmin.last_success_sync_at ?? garmin.last_synced_at)
       }),
@@ -253,7 +267,7 @@ const errorBanners = computed(() => {
     banners.push({
       id: 'oura-sync',
       testId: 'wearables-error-sync',
-      title: t('wearables.errors.syncTitle', { name: deviceLabel(oura.display_name) }),
+      title: t('wearables.errors.syncTitle', { name: oura.display_name }),
       body: t('wearables.errors.syncBody'),
       staleNote: undefined,
       actions: [
