@@ -93,12 +93,30 @@ test.describe('guest session', () => {
     await expect(page.getByTestId('chat-report-dock-upload')).toHaveText('上傳報告')
   })
 
-  test('guest sees empty orders until a payment', async ({ page, goto }) => {
+  test('guest sees auth gate on orders with return path and chat exit', async ({ page, goto }) => {
     await goto('/app/orders', { waitUntil: 'hydration' })
-    await page.evaluate(() => localStorage.removeItem('candor-paid-orders'))
     await expect(page.getByRole('heading', { name: '我的訂單' })).toBeVisible()
     await expect(page.getByTestId('nav-orders')).toBeVisible()
+    await expect(page.getByTestId('orders-auth-gate')).toBeVisible()
+    await expect(page.getByTestId('orders-empty')).toHaveCount(0)
+    await expect(page.getByTestId('orders-login')).toBeVisible()
+    await expect(page.getByTestId('orders-register')).toBeVisible()
+    await expect(page.getByTestId('orders-back-chat')).toBeVisible()
+    await page.getByTestId('orders-login').click()
+    await expect(page).toHaveURL(/\/login/)
+    expect(page.url()).toContain('redirect=')
+    expect(decodeURIComponent(new URL(page.url()).searchParams.get('redirect') || '')).toMatch(/\/app\/orders/)
+  })
+})
+
+test.describe('member orders list states', () => {
+  test('member with no orders sees shared empty state', async ({ page, goto }) => {
+    await mockCandorAuth(page, { asMember: true, withOrder: false })
+    await goto('/app/orders', { waitUntil: 'hydration' })
+    await expect(page.getByTestId('orders-auth-gate')).toHaveCount(0)
     await expect(page.getByTestId('orders-empty')).toBeVisible()
+    await expect(page.getByTestId('orders-empty')).toContainText('尚無訂單')
+    await expect(page.getByTestId('orders-empty-chat')).toBeVisible()
   })
 })
 

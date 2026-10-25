@@ -21,6 +21,13 @@
     "menu": "Menu",
     "startChat": "Start consult"
   },
+  "memberShell": {
+    "loading": "Loading…",
+    "retry": "Try again",
+    "login": "Log in",
+    "register": "Register",
+    "backToChat": "Back to consult"
+  },
   "wearables": {
     "pageTitle": "Wearables",
     "sampleData": "Sample data",
@@ -709,7 +716,11 @@
   "orders": {
     "title": "My orders",
     "subtitle": "Your orders from Candor. Unpaid consults stay on this device until checkout.",
+    "guestRequired": "Sign in to view My orders",
+    "guestRequiredHint": "Members can see orders and shipment progress. Register to keep this consult, or log in if you already have an account.",
+    "loading": "Loading orders…",
     "empty": "No orders yet. They appear here after payment.",
+    "emptyCta": "Start consult",
     "emptyError": "Could not load orders. Try again later.",
     "number": "Order no.",
     "date": "Order date",
