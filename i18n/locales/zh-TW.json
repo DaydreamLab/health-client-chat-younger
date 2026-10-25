@@ -14,6 +14,7 @@
     "comingSoon": "即將上線",
     "orders": "我的訂單",
     "renewals": "續約",
+    "notifications": "通知",
     "profile": "個人資料",
     "chat": "諮詢",
     "chatAi": "AI 諮詢",
@@ -27,6 +28,38 @@
     "login": "登入",
     "register": "註冊",
     "backToChat": "回到諮詢"
+  },
+  "notifications": {
+    "title": "通知",
+    "subtitle": "帳號與方案相關的重要更新會出現在這裡。亦會以 email 發送給已註冊會員。",
+    "guestSubtitle": "登入後可查看帳號與方案相關通知。",
+    "sampleData": "範例資料",
+    "demoHint": "會員通知 inbox API 尚未接線；以下為介面預覽範例。加上 ?demo=empty 可看空狀態。",
+    "markAllRead": "全部標為已讀",
+    "guestRequired": "登入查看通知",
+    "guestRequiredHint": "通知中心屬於會員中心。註冊歡迎、專家定稿等更新會集中在這裡，並以 email 發送。",
+    "filterLabel": "篩選通知",
+    "filterAll": "全部",
+    "filterUnread": "未讀",
+    "emptyTitle": "目前沒有通知",
+    "emptyHint": "有新的帳號或方案更新時，會顯示在這裡，並同步寄到您的 email。",
+    "time": {
+      "today": "今天 {time}",
+      "yesterday": "昨天",
+      "lastWeek": "上週"
+    },
+    "kinds": {
+      "expert_report_finalized": {
+        "title": "專家已完成判讀定稿",
+        "body": "營養專家已確認您的健康報告判讀。可在「我的健康」查看。",
+        "cta": "查看報告／方案"
+      },
+      "member_welcome": {
+        "title": "歡迎加入 Candor",
+        "body": "建議先完善顯示名稱與常用收件。",
+        "cta": "完善個人資料"
+      }
+    }
   },
   "wearables": {
     "pageTitle": "穿戴裝置",
