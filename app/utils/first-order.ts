@@ -224,6 +224,12 @@ export interface OrderRecord {
   invoice: InvoiceType
   invoiceStatus?: string | null
   invoiceNumber?: string | null
+  /** Human label for invoice carrier row (e.g. 載具). */
+  invoiceCarrierLabel?: string | null
+  trackingNumber?: string | null
+  trackingUrl?: string | null
+  /** Line quantity for list summary (defaults to 1). */
+  quantity?: number
   messages: ChatMessage[]
   timeline: ShipmentStep[]
 }
@@ -443,6 +449,40 @@ function defaultShipmentTimeline(confirmedAt: string): ShipmentStep[] {
   ]
 }
 
+/** Expand API order status into a shipment timeline for list/detail pills. */
+export function timelineFromOrderStatus(
+  status: string | undefined,
+  createdAt: string,
+  confirmedAt?: string | null
+): ShipmentStep[] {
+  const base = confirmedAt || createdAt
+  if (status === 'delivered') {
+    return [
+      { id: 'confirmed', at: base },
+      { id: 'picking', at: base },
+      { id: 'shipped', at: base },
+      { id: 'delivered', at: base }
+    ]
+  }
+  if (status === 'shipped') {
+    return [
+      { id: 'confirmed', at: base },
+      { id: 'picking', at: base },
+      { id: 'shipped', at: base },
+      { id: 'delivered', at: null }
+    ]
+  }
+  if (status === 'confirmed') {
+    return defaultShipmentTimeline(base)
+  }
+  return [
+    { id: 'confirmed', at: null },
+    { id: 'picking', at: null },
+    { id: 'shipped', at: null },
+    { id: 'delivered', at: null }
+  ]
+}
+
 function cloneMessages(messages: ChatMessage[]): ChatMessage[] {
   return messages.map(message => ({
     ...message,
@@ -518,10 +558,6 @@ export function orderRecordFromCandorDetail(
   const invoice: InvoiceType = invoiceRaw === 'company' || invoiceRaw === 'donate' || invoiceRaw === 'cloud' || invoiceRaw === 'member'
     ? invoiceRaw
     : 'member'
-  const confirmedAt = detail.status === 'confirmed' || detail.status === 'shipped' || detail.status === 'delivered'
-    ? (detail.confirmed_at ?? createdAt)
-    : null
-
   return {
     id: detail.id,
     number: detail.order_no,
@@ -540,22 +576,13 @@ export function orderRecordFromCandorDetail(
     invoice,
     invoiceStatus: detail.invoice_status ?? null,
     invoiceNumber: detail.invoice_number ?? null,
+    quantity: 1,
     messages: fallback.messages ? cloneMessages(fallback.messages) : [],
-    timeline: confirmedAt
-      ? defaultShipmentTimeline(confirmedAt)
-      : [
-          { id: 'confirmed', at: null },
-          { id: 'picking', at: null },
-          { id: 'shipped', at: null },
-          { id: 'delivered', at: null }
-        ]
+    timeline: timelineFromOrderStatus(detail.status, createdAt, detail.confirmed_at)
   }
 }
 
 export function orderRecordFromCandorSummary(summary: OrderSummary): OrderRecord {
-  const confirmedAt = summary.status === 'confirmed' || summary.status === 'shipped' || summary.status === 'delivered'
-    ? summary.created_at
-    : null
   return {
     id: summary.id,
     number: summary.order_no,
@@ -571,14 +598,8 @@ export function orderRecordFromCandorSummary(summary: OrderSummary): OrderRecord
     delivery: 'home',
     recipient: { name: '', phone: '', address: '', email: '' },
     invoice: 'member',
+    quantity: 1,
     messages: [],
-    timeline: confirmedAt
-      ? defaultShipmentTimeline(confirmedAt)
-      : [
-          { id: 'confirmed', at: null },
-          { id: 'picking', at: null },
-          { id: 'shipped', at: null },
-          { id: 'delivered', at: null }
-        ]
+    timeline: timelineFromOrderStatus(summary.status, summary.created_at)
   }
 }
