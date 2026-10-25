@@ -17,8 +17,15 @@
         />
         {{ deviceLabel(device.display_name) }}
       </AppButton>
+      <WearablesComingSoonBadge />
       <WearablesSampleBadge class="ms-auto" />
     </div>
+    <p
+      class="text-sm leading-6 text-muted"
+      data-testid="wearables-coming-soon-hint"
+    >
+      {{ $t('wearables.comingSoonHint') }}
+    </p>
 
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div

@@ -31,6 +31,7 @@
   "wearables": {
     "pageTitle": "Wearables",
     "sampleData": "Sample data",
+    "comingSoonHint": "Live device linking is coming soon. Below is a UI preview with sample data.",
     "disclaimer": "Suggestions may reference device data for illustration only; not a diagnosis.",
     "deviceNameSample": "{name} (sample)",
     "lastSync": "Last sync: {time}",
