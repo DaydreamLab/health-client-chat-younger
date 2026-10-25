@@ -281,7 +281,11 @@ test('guest escalate and health dashboard without login wall', async ({ page, go
   await expect(page.getByTestId('user-header')).toBeHidden()
   await expect(page.getByTestId('user-sidebar').getByRole('button', { name: '語言：繁中' })).toBeVisible()
   await expect(page.getByTestId('user-sidebar').getByTestId('color-mode-toggle')).toBeVisible()
-  await expect(page.getByTestId('account-user').first()).toHaveAttribute('title', 'Guest')
+  await expect(page.getByTestId('user-sidebar').getByTestId('account-user')).toHaveCount(0)
+  await expect(page.getByTestId('user-sidebar').getByTestId('guest-login-rail')).toBeVisible()
+  await expect(page.getByTestId('user-sidebar').getByTestId('guest-login-rail')).toHaveText(/登入/)
+  await expect(page.getByTestId('nav-logout')).toHaveCount(0)
+  await expect(page.getByTestId('user-sidebar').getByRole('button', { name: '登出' })).toHaveCount(0)
 })
 
 test('day dark toggle sets html class', async ({ page, goto }) => {
@@ -315,11 +319,13 @@ test('mobile nav stays inside the header toggle', async ({ page, goto }) => {
   expect(headerAfter?.y).toBe(0)
   expect(await page.evaluate(() => window.scrollY)).toBe(0)
   await expect(page.locator('main')).toHaveCSS('scrollbar-width', 'none')
-  const account = page.getByTestId('user-header').getByTestId('account-user')
-  await expect(account).toHaveAttribute('title', 'Guest')
-  await expect(account).toHaveText('GU')
+  await expect(page.getByTestId('user-header').getByTestId('account-user')).toHaveCount(0)
+  const guestLogin = page.getByTestId('user-header').getByTestId('guest-login-header')
+  await expect(guestLogin).toBeVisible()
+  await expect(guestLogin).toHaveText(/登入/)
   await expect(page.getByTestId('user-nav-toggle').locator('svg')).toBeVisible()
   await expect(page.getByTestId('nav-chat-mobile')).toBeHidden()
+  await expect(page.getByTestId('nav-logout-mobile')).toHaveCount(0)
 
   await expect(page.getByTestId('user-header').getByTestId('brand')).toHaveCount(0)
 
@@ -327,6 +333,10 @@ test('mobile nav stays inside the header toggle', async ({ page, goto }) => {
   await expect(page.getByTestId('user-nav-toggle')).toHaveAttribute('aria-expanded', 'true')
   await expect(page.getByTestId('nav-home-mobile')).toBeVisible()
   await expect(page.getByTestId('nav-chat-mobile')).toBeVisible()
+  await expect(page.getByTestId('guest-login-drawer')).toBeVisible()
+  await expect(page.getByTestId('guest-login-drawer')).toHaveText(/登入/)
+  await expect(page.getByTestId('nav-logout-mobile')).toHaveCount(0)
+  await expect(page.locator('#user-mobile-nav').getByRole('button', { name: '登出' })).toHaveCount(0)
 
   await page.getByTestId('nav-chat-mobile').click()
   await expect(page).toHaveURL(/\/chat\/?/)
@@ -336,4 +346,23 @@ test('mobile nav stays inside the header toggle', async ({ page, goto }) => {
 
   await page.getByTestId('user-nav-toggle').click()
   await expect(page.getByTestId('nav-home-mobile')).toBeVisible()
+  await page.getByTestId('guest-login-drawer').click()
+  await expect(page).toHaveURL(/\/login\?.*mode=login/)
+})
+
+test('member chrome keeps avatar and logout', async ({ page, goto }) => {
+  await mockCandorAuth(page, { asMember: true })
+  await goto('/app', { waitUntil: 'hydration' })
+
+  await expect(page.getByTestId('user-sidebar').getByTestId('account-user')).toBeVisible()
+  await expect(page.getByTestId('user-sidebar').getByTestId('guest-login-rail')).toHaveCount(0)
+  await expect(page.getByTestId('nav-logout')).toBeVisible()
+  await expect(page.getByTestId('nav-logout')).toContainText('登出')
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(page.getByTestId('user-header').getByTestId('account-user')).toBeVisible()
+  await expect(page.getByTestId('user-header').getByTestId('guest-login-header')).toHaveCount(0)
+  await page.getByTestId('user-nav-toggle').click()
+  await expect(page.getByTestId('nav-logout-mobile')).toBeVisible()
+  await expect(page.getByTestId('guest-login-drawer')).toHaveCount(0)
 })

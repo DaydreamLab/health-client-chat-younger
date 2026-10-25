@@ -22,14 +22,28 @@
       <div class="mt-auto flex w-full min-w-0 shrink-0 flex-col items-center space-y-2 border-t border-default pt-4">
         <LocaleSwitch />
         <ColorModeSwitch />
-        <AccountUser avatar-only />
-        <UNavigationMenu
-          class="w-full"
-          orientation="vertical"
-          collapsed
-          :items="logoutItems"
-          :ui="collapsedNavUi"
+        <AccountUser
+          v-if="auth.isMember"
+          avatar-only
         />
+        <GuestLoginControl
+          v-else-if="auth.ready"
+          variant="rail"
+          test-id="guest-login-rail"
+        />
+        <div
+          v-if="auth.isMember"
+          class="w-full"
+          data-testid="nav-logout"
+        >
+          <UNavigationMenu
+            class="w-full"
+            orientation="vertical"
+            collapsed
+            :items="logoutItems"
+            :ui="collapsedNavUi"
+          />
+        </div>
       </div>
     </aside>
 
@@ -78,14 +92,23 @@
           </svg>
         </button>
         <div class="ms-auto flex items-center gap-2">
-          <AccountUser avatar-only />
           <LocaleSwitch />
           <ColorModeSwitch />
+          <AccountUser
+            v-if="auth.isMember"
+            avatar-only
+          />
+          <GuestLoginControl
+            v-else-if="auth.ready"
+            variant="chip"
+            test-id="guest-login-header"
+          />
         </div>
       </header>
       <nav
         v-show="mobileNavOpen"
         id="user-mobile-nav"
+        data-testid="user-mobile-nav"
         class="flex shrink-0 flex-col gap-1 border-b border-default px-4 py-2 text-sm lg:hidden"
         @click="mobileNavOpen = false"
       >
@@ -115,12 +138,19 @@
           </span>
         </AppButton>
         <AppButton
+          v-if="auth.isMember"
           variant="ghost"
           class="justify-start"
+          data-testid="nav-logout-mobile"
           @click="logout"
         >
           {{ $t('nav.logout') }}
         </AppButton>
+        <GuestLoginControl
+          v-else-if="auth.ready"
+          variant="drawer"
+          test-id="guest-login-drawer"
+        />
       </nav>
       <main
         class="flex min-h-0 flex-1 flex-col"
