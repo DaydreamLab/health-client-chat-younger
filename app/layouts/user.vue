@@ -187,6 +187,7 @@ const navItems = computed<UserNavItem[]>(() => [
     icon: 'i-lucide-watch',
     to: localePath('/app/wearables'),
     active: isWearable.value,
+    badge: t('nav.comingSoon'),
     testId: 'nav-wearable',
     mobileTestId: 'nav-wearable-mobile'
   },

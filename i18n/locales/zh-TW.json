@@ -31,6 +31,7 @@
   "wearables": {
     "pageTitle": "穿戴裝置",
     "sampleData": "範例資料",
+    "comingSoonHint": "真實裝置串接即將上線；以下為介面預覽用的範例資料。",
     "disclaimer": "此建議可能參考裝置資料，僅供參考，不構成診斷。",
     "deviceNameSample": "{name}（範例）",
     "lastSync": "最後同步：{time}",

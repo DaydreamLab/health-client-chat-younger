@@ -7,8 +7,15 @@
       <h1 class="text-2xl font-semibold text-highlighted">
         {{ $t('wearables.pageTitle') }}
       </h1>
+      <WearablesComingSoonBadge />
       <WearablesSampleBadge class="ms-auto" />
     </div>
+    <p
+      class="text-sm leading-6 text-muted"
+      data-testid="wearables-coming-soon-hint"
+    >
+      {{ $t('wearables.comingSoonHint') }}
+    </p>
 
     <WearablesDemoStateNav />
 
