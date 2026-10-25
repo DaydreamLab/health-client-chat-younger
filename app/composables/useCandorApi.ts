@@ -23,6 +23,7 @@ import type {
   OrderMessages,
   OrderPaymentCreated,
   PackagePlansList,
+  PrivacyPolicy,
   ProfileAnswerResult,
   ProfileNext,
   RecommendationResponse,
@@ -347,6 +348,9 @@ export function useCandorApi() {
 
     getClientConfig: () =>
       request<ClientConfig>('/client-config', { method: 'GET', auth: false }),
+
+    getPrivacyPolicy: () =>
+      request<PrivacyPolicy>('/legal/privacy-policy', { method: 'GET', auth: false }),
 
     /** @deprecated use listPackagePlans */
     listPackages: () =>
