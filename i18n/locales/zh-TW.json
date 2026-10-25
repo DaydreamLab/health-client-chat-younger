@@ -21,6 +21,13 @@
     "menu": "選單",
     "startChat": "開始諮詢"
   },
+  "memberShell": {
+    "loading": "載入中…",
+    "retry": "再試一次",
+    "login": "登入",
+    "register": "註冊",
+    "backToChat": "回到諮詢"
+  },
   "wearables": {
     "pageTitle": "穿戴裝置",
     "sampleData": "範例資料",
@@ -709,7 +716,11 @@
   "orders": {
     "title": "我的訂單",
     "subtitle": "這裡顯示你的訂單。未結帳前的諮詢會暫存在本機，重整後可接續。",
+    "guestRequired": "登入後查看我的訂單",
+    "guestRequiredHint": "會員才能看訂單與出貨進度。註冊會保留目前諮詢；已有帳號請直接登入。",
+    "loading": "載入訂單中…",
     "empty": "尚無訂單。完成付款後訂單會出現在這裡。",
+    "emptyCta": "開始諮詢",
     "emptyError": "無法載入訂單，請稍後再試。",
     "number": "訂單編號",
     "date": "訂單日期",

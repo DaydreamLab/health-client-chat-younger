@@ -28,41 +28,17 @@
       class="relative"
       data-testid="health-body"
     >
-      <div
+      <MemberAuthGate
         v-if="previewLocked"
-        class="absolute inset-0 z-10 flex min-h-72 flex-col items-center justify-center gap-3 rounded-2xl bg-elevated/85 px-6 py-12 text-center backdrop-blur-sm"
-        data-testid="health-auth-gate"
-      >
-        <span class="flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/20">
-          <UIcon
-            name="i-lucide-heart-pulse"
-            class="size-7"
-          />
-        </span>
-        <p class="text-base font-semibold text-highlighted">
-          {{ $t('member.guestRequired') }}
-        </p>
-        <p class="max-w-sm text-sm leading-6 text-muted">
-          {{ $t('member.guestRequiredHint') }}
-        </p>
-        <div class="mt-2 flex w-full max-w-xs flex-col gap-2 sm:flex-row">
-          <AppButton
-            class="w-full"
-            :to="loginRedirect"
-            data-testid="health-login"
-          >
-            {{ $t('member.login') }}
-          </AppButton>
-          <AppButton
-            class="w-full"
-            variant="outline"
-            :to="registerRedirect"
-            data-testid="health-register"
-          >
-            {{ $t('member.register') }}
-          </AppButton>
-        </div>
-      </div>
+        variant="overlay"
+        :title="$t('member.guestRequired')"
+        :hint="$t('member.guestRequiredHint')"
+        icon="i-lucide-heart-pulse"
+        test-id="health-auth-gate"
+        login-test-id="health-login"
+        register-test-id="health-register"
+        back-to-chat-test-id="health-back-chat"
+      />
 
       <div
         class="flex flex-col gap-6 lg:flex-row lg:items-start"
@@ -612,13 +588,6 @@ const sheetResults = computed(() => {
 const anonymizeOpen = ref(false)
 const anonymizePending = ref(false)
 const anonymizeError = ref('')
-
-const loginRedirect = computed(() =>
-  `${localePath('/login')}?redirect=${encodeURIComponent(route.fullPath)}&mode=login`
-)
-const registerRedirect = computed(() =>
-  `${localePath('/login')}?redirect=${encodeURIComponent(route.fullPath)}&mode=register`
-)
 
 const profileCards = computed(() => {
   const p = profile.value

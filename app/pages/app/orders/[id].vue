@@ -1,6 +1,36 @@
 <template>
+  <MemberAuthGate
+    v-if="gateLocked"
+    :title="$t('orders.guestRequired')"
+    :hint="$t('orders.guestRequiredHint')"
+    icon="i-lucide-package"
+    test-id="order-detail-auth-gate"
+    login-test-id="order-detail-login"
+    register-test-id="order-detail-register"
+    back-to-chat-test-id="order-detail-back-chat"
+  />
+  <MemberLoadingState
+    v-else-if="loading"
+    :message="$t('orders.loading')"
+    test-id="order-detail-loading"
+  />
+  <MemberErrorState
+    v-else-if="loadError"
+    :message="$t('orders.emptyError')"
+    test-id="order-detail-error"
+    retry-test-id="order-detail-retry"
+    @retry="loadOrder"
+  />
+  <MemberEmptyState
+    v-else-if="!order"
+    :message="$t('orders.empty')"
+    test-id="order-detail-empty"
+    :cta-label="$t('orders.back')"
+    :cta-to="localePath('/app/orders')"
+    cta-test-id="order-detail-back-list"
+  />
   <div
-    v-if="order"
+    v-else
     class="space-y-6"
   >
     <AppButton
@@ -262,12 +292,6 @@
       @close="chatOpen = false"
     />
   </div>
-  <p
-    v-else
-    class="text-sm text-muted"
-  >
-    {{ $t('orders.empty') }}
-  </p>
 </template>
 
 <script setup lang="ts">
@@ -281,14 +305,23 @@ definePageMeta({
 
 const route = useRoute()
 const localePath = useLocalePath()
+const nuxtApp = useNuxtApp()
 const { t } = useI18n()
+const auth = useAuthStore()
 const api = useFirstOrderApi()
 const order = ref<OrderRecord | null>(null)
+const loading = ref(true)
+const loadError = ref(false)
 const chatOpen = ref(false)
 const cancelOpen = ref(false)
 const cancelReason = ref('')
 const actionPending = ref(false)
 const actionError = ref('')
+const gateLocked = ref(nuxtApp.isHydrating || !auth.isMember)
+
+function syncGate() {
+  gateLocked.value = !auth.isMember
+}
 
 const orderItems = computed<OrderItemLine[]>(() => {
   if (!order.value) {
@@ -369,12 +402,39 @@ async function onCancelConfirm() {
   }
 }
 
-onMounted(async () => {
-  const id = String(route.params.id)
+async function loadOrder() {
+  if (!auth.isMember) {
+    order.value = null
+    loading.value = false
+    loadError.value = false
+    return
+  }
+
+  loading.value = true
+  loadError.value = false
   try {
-    order.value = await api.getOrder(id)
+    order.value = await api.getOrder(String(route.params.id))
   } catch {
     order.value = null
+    loadError.value = true
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  syncGate()
+  void loadOrder()
+})
+
+watch(() => auth.isMember, (member) => {
+  syncGate()
+  if (member) {
+    void loadOrder()
+  } else {
+    order.value = null
+    loadError.value = false
+    loading.value = false
   }
 })
 </script>

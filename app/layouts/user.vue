@@ -148,6 +148,7 @@ const journey = useJourneyStore()
 const route = useRoute()
 const { t } = useI18n()
 const mobileNavOpen = ref(false)
+// Future 通知 unread: useMemberNavExtension().notificationBadgeLabel — do not add 諮詢紀錄.
 
 // Poll expert-case-reviews; awaiting→reviewed auto-navigates to /chat once per session.
 useExpertReviewWatch()
