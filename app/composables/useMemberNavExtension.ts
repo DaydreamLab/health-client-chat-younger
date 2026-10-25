@@ -1,18 +1,25 @@
 /**
- * Extension point for future member-rail extras (e.g. 通知 unread badge).
- * Keep null / empty until a notification center is wired — do not invent
- * a second hub chrome or a 諮詢紀錄 nav item.
+ * Member-rail extras: notification unread badge for `/app/notifications`.
+ * Do not invent a second hub chrome or a 諮詢紀錄 nav item.
  */
 export function useMemberNavExtension() {
-  /** Unread notification count for a future rail badge. Null = hide. */
-  const notificationBadgeCount = ref<number | null>(null)
+  const auth = useAuthStore()
+  const notifications = useNotificationsStore()
+
+  /** Unread notification count. Null = hide (guest or none). */
+  const notificationBadgeCount = computed(() => {
+    if (!auth.isMember) {
+      return null
+    }
+    const count = notifications.unreadCount
+    return count > 0 ? count : null
+  })
 
   const notificationBadgeLabel = computed(() => {
-    const count = notificationBadgeCount.value
-    if (count == null || count <= 0) {
+    if (!auth.isMember) {
       return undefined
     }
-    return count > 99 ? '99+' : String(count)
+    return notifications.unreadBadgeLabel
   })
 
   return {

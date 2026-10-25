@@ -54,7 +54,7 @@
       >
         <button
           type="button"
-          class="app-icon-toggle shrink-0"
+          class="app-icon-toggle relative shrink-0"
           :aria-expanded="mobileNavOpen"
           :aria-label="$t('nav.menu')"
           aria-controls="user-mobile-nav"
@@ -90,6 +90,12 @@
             <path d="M4 12h16" />
             <path d="M4 18h16" />
           </svg>
+          <span
+            v-if="showHamUnreadDot"
+            class="nav-unread-dot"
+            data-testid="user-nav-toggle-unread-dot"
+            aria-hidden="true"
+          />
         </button>
         <div class="ms-auto flex items-center gap-2">
           <LocaleSwitch />
@@ -131,7 +137,14 @@
         >
           {{ item.label }}
           <span
-            v-if="item.badge"
+            v-if="item.countBadge"
+            class="app-badge-count ms-auto"
+            data-testid="nav-notifications-badge-mobile"
+          >
+            {{ item.countBadge }}
+          </span>
+          <span
+            v-else-if="item.badge"
             class="app-badge app-badge-pending ms-1 scale-90"
           >
             {{ item.badge }}
@@ -170,15 +183,18 @@ import type { NavigationMenuItem } from '@nuxt/ui'
 interface UserNavItem extends NavigationMenuItem {
   testId?: string
   mobileTestId?: string
+  /** Coral unread count (notifications); distinct from coming-soon chip. */
+  countBadge?: string
 }
 
 const localePath = useLocalePath()
 const auth = useAuthStore()
 const journey = useJourneyStore()
+const notifications = useNotificationsStore()
+const { notificationBadgeLabel } = useMemberNavExtension()
 const route = useRoute()
 const { t } = useI18n()
 const mobileNavOpen = ref(false)
-// Future 通知 unread: useMemberNavExtension().notificationBadgeLabel — do not add 諮詢紀錄.
 
 // Poll expert-case-reviews; awaiting→reviewed auto-navigates to /chat once per session.
 useExpertReviewWatch()
@@ -192,6 +208,7 @@ const isChat = computed(() => route.path.includes('/chat') && !isChatAi.value)
 const isOrders = computed(() => route.path.includes('/orders'))
 const isRenewals = computed(() => route.path.includes('/renewals'))
 const isRecommendations = computed(() => route.path.includes('/recommendations'))
+const isNotifications = computed(() => route.path.includes('/notifications'))
 const isProfile = computed(() => route.path.includes('/app/me'))
 const isWearable = computed(() => route.path.includes('/app/wearables'))
 const isHealth = computed(() => route.path.includes('/app')
@@ -199,10 +216,12 @@ const isHealth = computed(() => route.path.includes('/app')
   && !isOrders.value
   && !isRenewals.value
   && !isRecommendations.value
+  && !isNotifications.value
   && !isProfile.value
   && !isWearable.value)
+const showHamUnreadDot = computed(() => Boolean(notificationBadgeLabel.value))
 const collapsedNavUi = {
-  link: 'flex-col gap-1 items-center',
+  link: 'flex-col gap-1 items-center relative',
   linkLabel: 'block text-[10px]/3 text-center'
 }
 const navItems = computed<UserNavItem[]>(() => [
@@ -247,6 +266,15 @@ const navItems = computed<UserNavItem[]>(() => [
     mobileTestId: 'nav-renewals-mobile'
   },
   {
+    label: t('nav.notifications'),
+    icon: 'i-lucide-bell',
+    to: localePath('/app/notifications'),
+    active: isNotifications.value,
+    countBadge: notificationBadgeLabel.value,
+    testId: 'nav-notifications',
+    mobileTestId: 'nav-notifications-mobile'
+  },
+  {
     label: t('nav.profile'),
     icon: 'i-lucide-user-round',
     to: localePath('/app/me'),
@@ -260,8 +288,18 @@ const desktopNavItems = computed<NavigationMenuItem[]>(() => navItems.value.map(
     label: item.label,
     icon: item.icon,
     to: item.to,
-    active: item.active,
-    badge: item.badge
+    active: item.active
+  }
+
+  if (item.countBadge) {
+    desktopItem.badge = {
+      label: item.countBadge,
+      color: 'error',
+      size: 'sm',
+      class: 'app-nav-count-badge'
+    }
+  } else if (item.badge) {
+    desktopItem.badge = item.badge
   }
 
   if (item.testId) {
@@ -275,8 +313,30 @@ const mobileNavItems = computed(() => navItems.value.map(item => ({
   to: typeof item.to === 'string' ? item.to : localePath('/app'),
   active: Boolean(item.active),
   badge: typeof item.badge === 'string' ? item.badge : undefined,
+  countBadge: item.countBadge,
   mobileTestId: item.mobileTestId
 })))
+
+function syncNotificationBadge() {
+  if (!auth.isMember) {
+    notifications.clear()
+    return
+  }
+  // Keep rail badge warm for members (sample inbox until core API).
+  // Honor ?demo=empty only while on the notifications page.
+  const demoRaw = route.query.demo
+  const demoValue = Array.isArray(demoRaw) ? demoRaw[0] : demoRaw
+  const emptyDemo = route.path.includes('/notifications') && demoValue === 'empty'
+  notifications.loadForMember(emptyDemo ? 'empty' : 'sample')
+}
+
+onMounted(() => {
+  syncNotificationBadge()
+})
+
+watch([() => auth.isMember, () => route.fullPath], () => {
+  syncNotificationBadge()
+})
 const logoutItems = computed<NavigationMenuItem[]>(() => [
   {
     label: t('nav.logout'),
