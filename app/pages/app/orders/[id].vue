@@ -32,93 +32,99 @@
   <div
     v-else
     class="space-y-6"
+    data-testid="order-detail"
   >
-    <AppButton
-      :to="localePath('/app/orders')"
-      variant="ghost"
-      class="px-0"
-    >
-      ← {{ $t('orders.back') }}
-    </AppButton>
+    <div>
+      <NuxtLink
+        :to="localePath('/app/orders')"
+        class="inline-flex items-center gap-1 text-sm font-medium text-primary"
+        data-testid="order-detail-back"
+      >
+        {{ $t('orders.back') }}
+      </NuxtLink>
+      <div class="mt-3 flex flex-wrap items-center gap-2">
+        <h1
+          class="text-2xl font-semibold text-highlighted"
+          data-testid="order-number"
+        >
+          {{ $t('orders.detailTitle', { number: order.number }) }}
+        </h1>
+        <OrdersStatusPill :order="order" />
+        <span
+          v-if="usingDemo"
+          class="app-badge app-badge-demo"
+          data-testid="orders-sample-badge"
+        >
+          {{ $t('orders.sampleData') }}
+        </span>
+      </div>
+    </div>
 
-    <section class="rounded-2xl border border-default bg-elevated p-5">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p class="text-xs text-muted">
-            {{ $t('orders.number') }}
-          </p>
-          <h1
-            class="text-2xl font-semibold tabular-nums text-highlighted"
-            data-testid="order-number"
+    <section
+      class="rounded-2xl border border-default bg-elevated p-5"
+      data-testid="order-package-items"
+    >
+      <h2 class="text-sm font-semibold text-muted">
+        {{ $t('orders.sectionItems') }}
+      </h2>
+      <ul
+        v-if="orderItems.length"
+        class="mt-3 space-y-3"
+      >
+        <li
+          v-for="item in orderItems"
+          :key="item.code"
+          class="flex items-start justify-between gap-3"
+          :data-testid="`order-item-${item.code}`"
+        >
+          <span class="min-w-0 font-medium text-highlighted">
+            {{ item.name }}
+          </span>
+          <span
+            v-if="item.monthlyCost != null"
+            class="shrink-0 text-base font-semibold tabular-nums text-primary"
           >
-            {{ order.number }}
-          </h1>
-        </div>
-        <p class="text-2xl font-semibold tabular-nums text-primary">
+            {{ formatTwd(item.monthlyCost) }}
+          </span>
+          <span
+            v-else
+            class="shrink-0 text-base font-semibold tabular-nums text-primary"
+          >
+            {{ formatTwd(order.amount) }}
+          </span>
+        </li>
+      </ul>
+      <div
+        v-else
+        class="mt-3 flex items-start justify-between gap-3"
+      >
+        <span class="font-medium text-highlighted">
+          {{ orderProductSummary(order) || $t('orders.itemsEmpty') }}
+        </span>
+        <span class="shrink-0 text-base font-semibold tabular-nums text-primary">
+          {{ formatTwd(order.amount) }}
+        </span>
+      </div>
+    </section>
+
+    <section
+      class="rounded-2xl border border-default bg-elevated p-5"
+      data-testid="order-payment-section"
+    >
+      <h2 class="text-sm font-semibold text-muted">
+        {{ $t('orders.sectionPayment') }}
+      </h2>
+      <div class="mt-3 flex flex-wrap items-start justify-between gap-3">
+        <p
+          class="text-highlighted"
+          data-testid="order-payment-status"
+        >
+          {{ paymentProviderLabel }} / {{ paymentLabel(order) }}
+        </p>
+        <p class="text-base font-semibold tabular-nums text-highlighted">
           {{ formatTwd(order.amount) }}
         </p>
       </div>
-      <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-        <div>
-          <dt class="text-muted">
-            {{ $t('orders.date') }}
-          </dt>
-          <dd class="mt-1 tabular-nums text-highlighted">
-            {{ formatWhen(order.createdAt) }}
-          </dd>
-        </div>
-        <div>
-          <dt class="text-muted">
-            {{ $t('orders.paymentStatus') }}
-          </dt>
-          <dd
-            class="mt-1 text-highlighted"
-            data-testid="order-payment-status"
-          >
-            {{ paymentLabel(order) }}
-          </dd>
-        </div>
-        <div>
-          <dt class="text-muted">
-            {{ $t('orders.payment') }}
-          </dt>
-          <dd class="mt-1 text-highlighted">
-            {{ $t(`checkout.${order.paymentMethod}`) }}
-          </dd>
-        </div>
-        <div v-if="order.invoiceNumber">
-          <dt class="text-muted">
-            {{ $t('orders.invoiceNumber') }}
-          </dt>
-          <dd class="mt-1 text-highlighted">
-            {{ order.invoiceNumber }}
-          </dd>
-        </div>
-        <div>
-          <dt class="text-muted">
-            {{ $t('checkout.delivery') }}
-          </dt>
-          <dd class="mt-1 text-highlighted">
-            {{ $t('checkout.deliveryHome') }}
-          </dd>
-        </div>
-        <div>
-          <dt class="text-muted">
-            {{ $t('orders.recipient') }}
-          </dt>
-          <dd class="mt-1 text-highlighted">
-            {{ order.recipient.name }} · {{ order.recipient.phone }}
-          </dd>
-        </div>
-        <div>
-          <dt class="text-muted">
-            {{ $t('orders.address') }}
-          </dt>
-          <dd class="mt-1 text-highlighted">
-            {{ order.recipient.address }}
-          </dd>
-        </div>
-      </dl>
 
       <div
         v-if="showRepay || showCancel"
@@ -186,99 +192,82 @@
       </p>
     </section>
 
-    <section class="rounded-2xl border border-default bg-elevated p-5">
-      <h2 class="font-semibold text-highlighted">
-        {{ $t('orders.timeline') }}
-      </h2>
-      <div class="mt-4">
-        <ShipmentTimeline :timeline="order.timeline" />
-      </div>
-    </section>
-
     <section
-      class="overflow-hidden rounded-2xl border border-default bg-elevated"
-      data-testid="order-package-items"
+      class="rounded-2xl border border-default bg-elevated p-5"
+      data-testid="order-invoice-section"
     >
-      <div class="border-b border-default px-5 py-4">
-        <h2 class="font-semibold text-highlighted">
-          {{ $t('orders.packageItems') }}
-        </h2>
-        <p
-          v-if="order.packageName || order.packagePlanCode"
-          class="mt-1 text-sm text-muted"
-        >
-          {{ order.packageName || order.packagePlanCode }}
-          <span class="tabular-nums text-highlighted"> · {{ formatTwd(order.amount) }}</span>
-        </p>
-      </div>
-      <ul
-        v-if="orderItems.length"
-        class="divide-y divide-default"
-      >
-        <li
-          v-for="item in orderItems"
-          :key="item.code"
-          class="flex items-start gap-3 px-5 py-4"
-          :data-testid="`order-item-${item.code}`"
-        >
-          <span class="mt-0.5 size-10 shrink-0 overflow-hidden rounded-xl bg-primary/10 text-primary">
-            <img
-              v-if="item.imageUrl"
-              :src="item.imageUrl"
-              :alt="item.name || ''"
-              class="size-full object-cover"
-              loading="lazy"
-              data-testid="order-item-image"
-            >
-            <span
-              v-else
-              class="flex size-full items-center justify-center"
-            >
-              <UIcon
-                name="i-lucide-pill"
-                class="size-5"
-              />
-            </span>
-          </span>
-          <span class="min-w-0 flex-1">
-            <span class="flex flex-wrap items-center gap-2">
-              <span class="font-medium text-highlighted">
-                {{ item.name }}
-              </span>
-              <span
-                class="app-badge"
-                :class="item.isCore ? 'app-badge-demo' : 'app-badge-pending'"
-                :data-testid="`order-item-kind-${item.code}`"
-              >
-                {{ item.isCore ? $t('recommendation.itemKindCore') : $t('recommendation.itemKindFunctional') }}
-              </span>
-            </span>
-          </span>
-          <span class="flex shrink-0 flex-col items-end gap-1">
-            <span
-              class="app-badge app-badge-pending"
-              :data-testid="`order-item-dose-${item.code}`"
-            >
-              {{ doseLabel(item.dailyDose) }}
-            </span>
-            <span
-              v-if="item.monthlyCost != null"
-              class="text-sm tabular-nums text-muted"
-            >
-              {{ formatTwd(item.monthlyCost) }}
-            </span>
-          </span>
-        </li>
-      </ul>
+      <h2 class="text-sm font-semibold text-muted">
+        {{ $t('orders.sectionInvoice') }}
+      </h2>
+      <p class="mt-3 text-highlighted">
+        {{ invoiceSummary }}
+      </p>
       <p
-        v-else
-        class="px-5 py-6 text-sm text-muted"
+        v-if="order.invoiceNumber"
+        class="mt-1 text-sm tabular-nums text-muted"
       >
-        {{ $t('orders.itemsEmpty') }}
+        {{ $t('orders.invoiceNumber') }}：{{ order.invoiceNumber }}
       </p>
     </section>
 
+    <section
+      class="rounded-2xl border border-default bg-elevated p-5"
+      data-testid="order-shipping-section"
+    >
+      <h2 class="text-sm font-semibold text-muted">
+        {{ $t('orders.sectionShipping') }}
+      </h2>
+      <dl class="mt-3 space-y-2 text-sm">
+        <div>
+          <dt class="inline text-muted">
+            {{ $t('orders.recipient') }}：
+          </dt>
+          <dd class="inline text-highlighted">
+            {{ order.recipient.name || '—' }}
+          </dd>
+        </div>
+        <div>
+          <dt class="inline text-muted">
+            {{ $t('orders.address') }}：
+          </dt>
+          <dd class="inline text-highlighted">
+            {{ order.recipient.address || '—' }}
+          </dd>
+        </div>
+        <div v-if="order.trackingNumber">
+          <dt class="inline text-muted">
+            {{ $t('orders.trackingNumber') }}：
+          </dt>
+          <dd class="inline">
+            <a
+              v-if="order.trackingUrl"
+              :href="order.trackingUrl"
+              class="inline-flex items-center gap-1 font-medium text-primary"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="order-tracking-link"
+            >
+              <span class="tabular-nums">{{ order.trackingNumber }}</span>
+              <UIcon
+                name="i-lucide-external-link"
+                class="size-3.5"
+                aria-hidden="true"
+              />
+            </a>
+            <span
+              v-else
+              class="tabular-nums text-highlighted"
+              data-testid="order-tracking-number"
+            >
+              {{ order.trackingNumber }}
+            </span>
+          </dd>
+        </div>
+      </dl>
+    </section>
+
     <AppButton
+      variant="outline"
       data-testid="order-view-chat"
       @click="chatOpen = true"
     >
@@ -296,6 +285,8 @@
 
 <script setup lang="ts">
 import { formatTwd, type OrderItemLine, type OrderRecord } from '~/utils/first-order'
+import { orderProductSummary } from '~/utils/order-display'
+import { getDemoOrder, isDemoOrderId } from '~/utils/orders-mock'
 import { canCancelOrder, canRepayOrder } from '~/utils/order-actions'
 
 definePageMeta({
@@ -312,6 +303,7 @@ const api = useFirstOrderApi()
 const order = ref<OrderRecord | null>(null)
 const loading = ref(true)
 const loadError = ref(false)
+const usingDemo = ref(false)
 const chatOpen = ref(false)
 const cancelOpen = ref(false)
 const cancelReason = ref('')
@@ -340,20 +332,23 @@ const orderItems = computed<OrderItemLine[]>(() => {
 const showRepay = computed(() => order.value ? canRepayOrder(order.value) : false)
 const showCancel = computed(() => order.value ? canCancelOrder(order.value) : false)
 
-function formatWhen(value: string) {
-  return value.replace('T', ' ').slice(0, 16).replace(/-/g, '/')
-}
-
-function formatDoseCount(value: number): string {
-  if (Number.isInteger(value)) {
-    return String(value)
+const paymentProviderLabel = computed(() => {
+  if (!order.value) {
+    return ''
   }
-  return String(value)
-}
+  const key = `orders.provider.${order.value.paymentMethod}`
+  const label = t(key)
+  return label === key ? t(`checkout.${order.value.paymentMethod}`) : label
+})
 
-function doseLabel(count: number) {
-  return t('orders.doseLocked', { count: formatDoseCount(count) })
-}
+const invoiceSummary = computed(() => {
+  if (!order.value) {
+    return ''
+  }
+  const typeLabel = t(`orders.invoiceType.${order.value.invoice}`)
+  const carrier = order.value.invoiceCarrierLabel || t('orders.invoiceCarrierDefault')
+  return `${typeLabel} / ${carrier}`
+})
 
 function paymentLabel(current: OrderRecord) {
   const status = current.paymentStatus || 'unpaid'
@@ -362,7 +357,7 @@ function paymentLabel(current: OrderRecord) {
 }
 
 async function onRepay() {
-  if (!order.value || actionPending.value) {
+  if (!order.value || actionPending.value || usingDemo.value) {
     return
   }
   actionPending.value = true
@@ -383,7 +378,7 @@ async function onRepay() {
 }
 
 async function onCancelConfirm() {
-  if (!order.value || actionPending.value) {
+  if (!order.value || actionPending.value || usingDemo.value) {
     return
   }
   actionPending.value = true
@@ -407,16 +402,31 @@ async function loadOrder() {
     order.value = null
     loading.value = false
     loadError.value = false
+    usingDemo.value = false
     return
   }
 
+  const id = String(route.params.id)
   loading.value = true
   loadError.value = false
   try {
-    order.value = await api.getOrder(String(route.params.id))
+    if (isDemoOrderId(id)) {
+      order.value = getDemoOrder(id)
+      usingDemo.value = true
+      return
+    }
+    order.value = await api.getOrder(id)
+    usingDemo.value = false
   } catch {
-    order.value = null
-    loadError.value = true
+    const demo = getDemoOrder(id)
+    if (demo) {
+      order.value = demo
+      usingDemo.value = true
+    } else {
+      order.value = null
+      loadError.value = true
+      usingDemo.value = false
+    }
   } finally {
     loading.value = false
   }
@@ -435,6 +445,13 @@ watch(() => auth.isMember, (member) => {
     order.value = null
     loadError.value = false
     loading.value = false
+    usingDemo.value = false
+  }
+})
+
+watch(() => route.params.id, () => {
+  if (auth.isMember) {
+    void loadOrder()
   }
 })
 </script>

@@ -716,6 +716,8 @@
   "orders": {
     "title": "我的訂單",
     "subtitle": "這裡顯示你的訂單。未結帳前的諮詢會暫存在本機，重整後可接續。",
+    "sampleData": "範例資料",
+    "demoHint": "金流正式開通前，若尚無真實訂單會顯示介面預覽範例。加上 ?demo=empty 可看空狀態。",
     "guestRequired": "登入後查看我的訂單",
     "guestRequiredHint": "會員才能看訂單與出貨進度。註冊會保留目前諮詢；已有帳號請直接登入。",
     "loading": "載入訂單中…",
@@ -725,6 +727,11 @@
     "number": "訂單編號",
     "date": "訂單日期",
     "amount": "訂購總額",
+    "detailTitle": "訂單詳情 {number}",
+    "sectionItems": "品項清單",
+    "sectionPayment": "付款資訊",
+    "sectionInvoice": "發票",
+    "sectionShipping": "收件與物流",
     "payment": "付款方式",
     "paymentStatus": "付款狀態",
     "paymentPaid": "已付款",
@@ -732,6 +739,19 @@
     "paymentFailed": "付款失敗",
     "paymentExpired": "已逾期",
     "paymentUnpaid": "未付款",
+    "paymentRefunded": "已退款",
+    "provider": {
+      "card": "藍新",
+      "linepay": "LINE Pay",
+      "atm": "ATM"
+    },
+    "status": {
+      "awaitingPayment": "等待付款",
+      "paid": "已付款",
+      "shipping": "出貨中",
+      "completed": "已完成",
+      "cancelled": "已取消"
+    },
     "package": "方案",
     "packageItems": "購買方案",
     "items": "品項",
@@ -751,9 +771,17 @@
     "shipped": "出貨",
     "delivered": "已送達",
     "awaitingPayment": "等待付款",
-    "back": "回到訂單列表",
+    "back": "返回訂單列表",
     "recipient": "收件人",
     "address": "地址",
+    "trackingNumber": "物流單號",
+    "invoiceType": {
+      "member": "電子發票",
+      "cloud": "電子發票",
+      "company": "電子發票",
+      "donate": "捐贈發票"
+    },
+    "invoiceCarrierDefault": "載具",
     "repay": "重新付款",
     "repayError": "無法重新發起付款，請稍後再試。",
     "cancel": "取消訂單",
@@ -763,7 +791,6 @@
     "cancelConfirm": "確認取消",
     "cancelDismiss": "再想想",
     "cancelError": "無法取消訂單，請稍後再試。",
-    "paymentRefunded": "已退款",
     "invoiceNumber": "發票號碼"
   },
   "privacy": {

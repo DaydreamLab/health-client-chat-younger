@@ -716,6 +716,8 @@
   "orders": {
     "title": "My orders",
     "subtitle": "Your orders from Candor. Unpaid consults stay on this device until checkout.",
+    "sampleData": "Sample data",
+    "demoHint": "Until live payment is on, sample orders preview the UI when you have none. Add ?demo=empty to see the empty state.",
     "guestRequired": "Sign in to view My orders",
     "guestRequiredHint": "Members can see orders and shipment progress. Register to keep this consult, or log in if you already have an account.",
     "loading": "Loading orders…",
@@ -725,6 +727,11 @@
     "number": "Order no.",
     "date": "Order date",
     "amount": "Total",
+    "detailTitle": "Order detail {number}",
+    "sectionItems": "Items",
+    "sectionPayment": "Payment",
+    "sectionInvoice": "Invoice",
+    "sectionShipping": "Shipping",
     "payment": "Payment",
     "paymentStatus": "Payment status",
     "paymentPaid": "Paid",
@@ -732,6 +739,19 @@
     "paymentFailed": "Failed",
     "paymentExpired": "Expired",
     "paymentUnpaid": "Unpaid",
+    "paymentRefunded": "Refunded",
+    "provider": {
+      "card": "NewebPay",
+      "linepay": "LINE Pay",
+      "atm": "ATM"
+    },
+    "status": {
+      "awaitingPayment": "Awaiting payment",
+      "paid": "Paid",
+      "shipping": "Shipping",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
     "package": "Package",
     "packageItems": "Package",
     "items": "Items",
@@ -751,9 +771,17 @@
     "shipped": "Shipped",
     "delivered": "Delivered",
     "awaitingPayment": "Awaiting payment",
-    "back": "Back to orders",
+    "back": "Back to order list",
     "recipient": "Recipient",
     "address": "Address",
+    "trackingNumber": "Tracking no.",
+    "invoiceType": {
+      "member": "E-invoice",
+      "cloud": "E-invoice",
+      "company": "E-invoice",
+      "donate": "Donation invoice"
+    },
+    "invoiceCarrierDefault": "Carrier",
     "repay": "Pay again",
     "repayError": "Could not start payment. Please try again.",
     "cancel": "Cancel order",
@@ -763,7 +791,6 @@
     "cancelConfirm": "Confirm cancel",
     "cancelDismiss": "Keep order",
     "cancelError": "Could not cancel the order. Please try again.",
-    "paymentRefunded": "Refunded",
     "invoiceNumber": "Invoice number"
   },
   "privacy": {

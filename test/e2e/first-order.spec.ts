@@ -110,13 +110,40 @@ test.describe('guest session', () => {
 })
 
 test.describe('member orders list states', () => {
-  test('member with no orders sees shared empty state', async ({ page, goto }) => {
+  test('member with no API orders sees sample filled list until金流', async ({ page, goto }) => {
     await mockCandorAuth(page, { asMember: true, withOrder: false })
     await goto('/app/orders', { waitUntil: 'hydration' })
+    await expect(page.getByTestId('orders-auth-gate')).toHaveCount(0)
+    await expect(page.getByTestId('orders-sample-badge')).toBeVisible()
+    await expect(page.getByTestId('orders-list')).toBeVisible()
+    await expect(page.getByTestId('order-card-demo-order-paid')).toBeVisible()
+    await expect(page.getByTestId('order-card-demo-order-paid').getByTestId('order-card-number')).toHaveText('ORD-20261020-001')
+    await expect(page.getByTestId('order-card-demo-order-paid').getByTestId('order-card-summary')).toContainText('保健品月付方案')
+    await expect(page.getByTestId('order-card-demo-order-paid').getByTestId('order-status')).toHaveAttribute('data-status', 'paid')
+    await expect(page.getByTestId('order-card-demo-order-shipping').getByTestId('order-status')).toHaveAttribute('data-status', 'shipping')
+    await expect(page.getByTestId('order-card-demo-order-completed').getByTestId('order-status')).toHaveAttribute('data-status', 'completed')
+
+    await page.getByTestId('order-card-demo-order-shipping').click()
+    await expect(page).toHaveURL(/\/app\/orders\/demo-order-shipping/)
+    await expect(page.getByTestId('order-detail')).toBeVisible()
+    await expect(page.getByTestId('order-number')).toContainText('ORD-20261018-002')
+    await expect(page.getByTestId('order-package-items')).toBeVisible()
+    await expect(page.getByTestId('order-payment-section')).toContainText('藍新')
+    await expect(page.getByTestId('order-invoice-section')).toBeVisible()
+    await expect(page.getByTestId('order-shipping-section')).toContainText('張小明')
+    await expect(page.getByTestId('order-tracking-link')).toBeVisible()
+    await page.getByTestId('order-detail-back').click()
+    await expect(page).toHaveURL(/\/app\/orders\/?/)
+  })
+
+  test('member can force empty orders with ?demo=empty', async ({ page, goto }) => {
+    await mockCandorAuth(page, { asMember: true, withOrder: false })
+    await goto('/app/orders?demo=empty', { waitUntil: 'hydration' })
     await expect(page.getByTestId('orders-auth-gate')).toHaveCount(0)
     await expect(page.getByTestId('orders-empty')).toBeVisible()
     await expect(page.getByTestId('orders-empty')).toContainText('尚無訂單')
     await expect(page.getByTestId('orders-empty-chat')).toBeVisible()
+    await expect(page.getByTestId('orders-list')).toHaveCount(0)
   })
 })
 
@@ -125,17 +152,17 @@ test.describe('member order detail', () => {
     await mockCandorAuth(page, { asMember: true, withOrder: true })
   })
 
-  test('order detail shows catalog image when present', async ({ page, goto }) => {
+  test('order detail shows Irice section cards with package items', async ({ page, goto }) => {
     await goto('/app/orders/eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', { waitUntil: 'hydration' })
+    await expect(page.getByTestId('order-detail')).toBeVisible()
     await expect(page.getByTestId('order-number')).toContainText('ORD-260101-000001')
+    await expect(page.getByTestId('order-detail-back')).toBeVisible()
     await expect(page.getByTestId('order-package-items')).toBeVisible()
-    await expect(page.getByTestId('order-item-vitamin_d').getByTestId('order-item-image')).toHaveAttribute(
-      'src',
-      'https://cdn.example/catalog/vitamin_d.png'
-    )
-    await expect(page.getByTestId('order-item-kind-vitamin_d')).toHaveText('核心')
-    await expect(page.getByTestId('order-item-kind-iron')).toHaveText('功能型')
-    await expect(page.getByTestId('order-item-iron').getByTestId('order-item-image')).toHaveCount(0)
+    await expect(page.getByTestId('order-item-vitamin_d')).toContainText('維生素 D')
+    await expect(page.getByTestId('order-item-iron')).toContainText('鐵蛋白調理')
+    await expect(page.getByTestId('order-payment-section')).toBeVisible()
+    await expect(page.getByTestId('order-invoice-section')).toBeVisible()
+    await expect(page.getByTestId('order-shipping-section')).toContainText('林晏婷')
   })
 
   test('health profile shows consultation goal labels in Chinese', async ({ page, goto }) => {
