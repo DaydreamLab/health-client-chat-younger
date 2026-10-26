@@ -1,114 +1,134 @@
+import { CandorApiError } from '~/utils/candor-api'
+import { mapInboxNotification } from '~/utils/notifications-map'
 import {
   formatUnreadBadgeLabel,
-  type NotificationItem,
-  type NotificationsDemoMode
+  type NotificationItem
 } from '~/utils/notifications'
-import { listDemoNotifications } from '~/utils/notifications-mock'
-
-/** Persisted read ids for mock inbox (until core inbox API exists). */
-const READ_IDS_KEY = 'candor.notifications.readIds'
-
-function readStoredReadIds(): Set<string> {
-  if (!import.meta.client) {
-    return new Set()
-  }
-
-  try {
-    const raw = localStorage.getItem(READ_IDS_KEY)
-    if (!raw) {
-      return new Set()
-    }
-    const parsed = JSON.parse(raw) as unknown
-    if (!Array.isArray(parsed)) {
-      return new Set()
-    }
-    return new Set(parsed.filter((id): id is string => typeof id === 'string'))
-  } catch {
-    return new Set()
-  }
-}
-
-function writeStoredReadIds(ids: Set<string>) {
-  if (!import.meta.client) {
-    return
-  }
-  localStorage.setItem(READ_IDS_KEY, JSON.stringify([...ids]))
-}
-
-function applyReadState(items: NotificationItem[], readIds: Set<string>): NotificationItem[] {
-  return items.map(item => ({
-    ...item,
-    read: item.read || readIds.has(item.id)
-  }))
-}
 
 export const useNotificationsStore = defineStore('notifications', () => {
+  const api = useCandorApi()
+
   const items = ref<NotificationItem[]>([])
-  const usingDemo = ref(false)
+  /** Authoritative badge count from GET /notifications/unread-count. */
+  const serverUnreadCount = ref(0)
   const loaded = ref(false)
+  const loading = ref(false)
+  const loadError = ref(false)
+  const markingIds = ref<Set<string>>(new Set())
 
-  const unreadCount = computed(() => items.value.filter(item => !item.read).length)
+  const unreadCount = computed(() => {
+    if (loaded.value) {
+      return items.value.filter(item => !item.read).length
+    }
+    return serverUnreadCount.value
+  })
 
-  const unreadBadgeLabel = computed(() => formatUnreadBadgeLabel(unreadCount.value))
+  const unreadBadgeLabel = computed(() => formatUnreadBadgeLabel(
+    loaded.value ? unreadCount.value : serverUnreadCount.value
+  ))
 
   function clear() {
     items.value = []
-    usingDemo.value = false
+    serverUnreadCount.value = 0
     loaded.value = false
+    loading.value = false
+    loadError.value = false
+    markingIds.value = new Set()
   }
 
-  /**
-   * Load inbox for a member. No core API yet — sample list unless `?demo=empty`.
-   * Structure reserved for a future `GET` inbox + mark-read endpoints.
-   */
-  function loadForMember(demoMode: NotificationsDemoMode = 'sample') {
-    if (demoMode === 'empty') {
-      items.value = []
-      usingDemo.value = false
-      loaded.value = true
-      return
-    }
-
-    const readIds = readStoredReadIds()
-    items.value = applyReadState(listDemoNotifications(), readIds)
-    usingDemo.value = true
-    loaded.value = true
-  }
-
-  function markRead(id: string) {
-    const target = items.value.find(item => item.id === id)
-    if (!target || target.read) {
-      return
-    }
-    target.read = true
-    const readIds = readStoredReadIds()
-    readIds.add(id)
-    writeStoredReadIds(readIds)
-  }
-
-  function markAllRead() {
-    const readIds = readStoredReadIds()
-    let changed = false
-    for (const item of items.value) {
-      if (!item.read) {
-        item.read = true
-        readIds.add(item.id)
-        changed = true
+  async function refreshUnreadCount() {
+    try {
+      const data = await api.getNotificationsUnreadCount()
+      const count = Number(data?.unread_count)
+      serverUnreadCount.value = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0
+    } catch (error) {
+      if (error instanceof CandorApiError && (error.statusCode === 403 || error.errorCode === 'member_required')) {
+        clear()
+        return
       }
+      // Keep last known badge on transient errors.
     }
-    if (changed) {
-      writeStoredReadIds(readIds)
+  }
+
+  async function loadInbox() {
+    loading.value = true
+    loadError.value = false
+    try {
+      const data = await api.listNotifications()
+      const rows = Array.isArray(data?.notifications) ? data.notifications : []
+      items.value = rows
+        .map(row => mapInboxNotification(row))
+        .filter((row): row is NotificationItem => row != null)
+      loaded.value = true
+      serverUnreadCount.value = items.value.filter(item => !item.read).length
+    } catch (error) {
+      if (error instanceof CandorApiError && (error.statusCode === 403 || error.errorCode === 'member_required')) {
+        clear()
+        return
+      }
+      loadError.value = true
+      items.value = []
+      loaded.value = false
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function markRead(id: string): Promise<boolean> {
+    const target = items.value.find(item => item.id === id)
+    if (target?.read) {
+      return true
+    }
+    if (markingIds.value.has(id)) {
+      return false
+    }
+
+    const next = new Set(markingIds.value)
+    next.add(id)
+    markingIds.value = next
+
+    // Optimistic UI for badge + list.
+    if (target) {
+      target.read = true
+    }
+    if (serverUnreadCount.value > 0) {
+      serverUnreadCount.value -= 1
+    }
+
+    try {
+      await api.markNotificationRead(id)
+      return true
+    } catch {
+      if (target) {
+        target.read = false
+      }
+      serverUnreadCount.value += 1
+      return false
+    } finally {
+      const done = new Set(markingIds.value)
+      done.delete(id)
+      markingIds.value = done
+    }
+  }
+
+  async function markAllRead() {
+    const unread = items.value.filter(item => !item.read)
+    for (const item of unread) {
+      await markRead(item.id)
     }
   }
 
   return {
     items,
-    usingDemo,
+    serverUnreadCount,
     loaded,
+    loading,
+    loadError,
     unreadCount,
     unreadBadgeLabel,
     clear,
-    loadForMember,
+    refreshUnreadCount,
+    loadInbox,
     markRead,
     markAllRead
   }

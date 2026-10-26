@@ -7,7 +7,7 @@
       accent === 'expert' ? 'notif-card-expert' : 'notif-card-welcome'
     ]"
     :data-testid="`notification-card-${item.id}`"
-    :data-kind="item.kind"
+    :data-kind="item.type"
     :data-read="item.read ? 'true' : 'false'"
     @click="emit('open')"
   >
@@ -34,7 +34,7 @@
             :class="item.read ? 'font-medium' : 'font-extrabold'"
             data-testid="notification-title"
           >
-            {{ title }}
+            {{ item.title }}
           </p>
           <time
             class="shrink-0 text-xs text-muted"
@@ -48,7 +48,7 @@
           class="mt-1 text-[13px] leading-relaxed text-muted"
           data-testid="notification-body"
         >
-          {{ body }}
+          {{ item.body }}
         </p>
         <span
           class="mt-2 inline-flex items-center gap-1 text-[13px] font-bold text-primary"
@@ -81,13 +81,17 @@ const emit = defineEmits<{
   open: []
 }>()
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 
-const accent = computed(() => notificationAccent(props.item.kind))
+const accent = computed(() => notificationAccent(props.item.type))
 
-const title = computed(() => t(`notifications.kinds.${props.item.kind}.title`))
-const body = computed(() => t(`notifications.kinds.${props.item.kind}.body`))
-const cta = computed(() => t(`notifications.kinds.${props.item.kind}.cta`))
+const cta = computed(() => {
+  const key = `notifications.kinds.${props.item.type}.cta`
+  if (te(key)) {
+    return t(key)
+  }
+  return t('notifications.openCta')
+})
 
 const timeLabel = computed(() => {
   const parts = notificationTimeParts(props.item.createdAt)

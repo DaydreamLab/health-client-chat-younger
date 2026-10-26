@@ -33,8 +33,6 @@
     "title": "通知",
     "subtitle": "帳號與方案相關的重要更新會出現在這裡。亦會以 email 發送給已註冊會員。",
     "guestSubtitle": "登入後可查看帳號與方案相關通知。",
-    "sampleData": "範例資料",
-    "demoHint": "會員通知 inbox API 尚未接線；以下為介面預覽範例。加上 ?demo=empty 可看空狀態。",
     "markAllRead": "全部標為已讀",
     "guestRequired": "登入查看通知",
     "guestRequiredHint": "通知中心屬於會員中心。註冊歡迎、專家定稿等更新會集中在這裡，並以 email 發送。",
@@ -49,17 +47,20 @@
       "lastWeek": "上週"
     },
     "kinds": {
-      "expert_report_finalized": {
+      "expert_review_completed": {
         "title": "專家已完成判讀定稿",
         "body": "營養專家已確認您的健康報告判讀。可在「我的健康」查看。",
         "cta": "查看報告／方案"
       },
-      "member_welcome": {
+      "member_registered": {
         "title": "歡迎加入 Candor",
         "body": "建議先完善顯示名稱與常用收件。",
         "cta": "完善個人資料"
       }
-    }
+    },
+    "loading": "載入通知中…",
+    "loadError": "通知暫時無法載入，請稍後再試。",
+    "openCta": "查看"
   },
   "wearables": {
     "pageTitle": "穿戴裝置",

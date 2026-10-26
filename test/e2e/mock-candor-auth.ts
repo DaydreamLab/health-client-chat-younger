@@ -1345,4 +1345,123 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       })
     })
   })
+
+  // Member inbox (candor-core #90). Guest → 403 member_required.
+  const inboxRows: Array<{
+    id: string
+    type: string
+    title: string
+    body: string
+    created_at: string
+    read_at: string | null
+    deep_link: string
+  }> = asMember
+    ? [
+        {
+          id: 'notif-expert-1',
+          type: 'expert_review_completed',
+          title: '專家已完成判讀定稿',
+          body: '營養專家已確認您的健康報告判讀。可在「我的健康」查看。',
+          created_at: '2026-10-25T14:20:00+08:00',
+          read_at: null,
+          deep_link: '/app'
+        },
+        {
+          id: 'notif-welcome-1',
+          type: 'member_registered',
+          title: '歡迎加入 Candor',
+          body: '建議先完善顯示名稱與常用收件。',
+          created_at: '2026-10-24T10:00:00+08:00',
+          read_at: null,
+          deep_link: '/app/me'
+        }
+      ]
+    : []
+
+  await page.route('**/api/v1/notifications/unread-count', async (route) => {
+    const identity = identityFromAuthHeader(route.request().headers().authorization ?? null)
+    const user = identity?.user ?? sessionUser
+    if (user.role !== 'member') {
+      await route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'failed',
+          error_message: 'Member required',
+          error_code: 'member_required',
+          error_data: null
+        })
+      })
+      return
+    }
+    const unread = inboxRows.filter(row => !row.read_at).length
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: { unread_count: unread }
+      })
+    })
+  })
+
+  await page.route('**/api/v1/notifications/*/read', async (route) => {
+    const identity = identityFromAuthHeader(route.request().headers().authorization ?? null)
+    const user = identity?.user ?? sessionUser
+    if (user.role !== 'member') {
+      await route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'failed',
+          error_message: 'Member required',
+          error_code: 'member_required',
+          error_data: null
+        })
+      })
+      return
+    }
+    const url = route.request().url()
+    const match = url.match(/\/notifications\/([^/]+)\/read/)
+    const id = match?.[1] ? decodeURIComponent(match[1]) : ''
+    const row = inboxRows.find(item => item.id === id)
+    const readAt = new Date().toISOString()
+    if (row && !row.read_at) {
+      row.read_at = readAt
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: { id, read_at: row?.read_at ?? readAt }
+      })
+    })
+  })
+
+  await page.route('**/api/v1/notifications', async (route) => {
+    const identity = identityFromAuthHeader(route.request().headers().authorization ?? null)
+    const user = identity?.user ?? sessionUser
+    if (user.role !== 'member') {
+      await route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'failed',
+          error_message: 'Member required',
+          error_code: 'member_required',
+          error_data: null
+        })
+      })
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: { notifications: inboxRows }
+      })
+    })
+  })
 }

@@ -39,18 +39,21 @@ test.describe('member notifications', () => {
     await mockCandorAuth(page, { asMember: true })
   })
 
-  test('member sees sample list, filters, and rail unread badge', async ({ page, goto }) => {
+  test('member sees API list, filters, and rail unread badge', async ({ page, goto }) => {
     await goto('/app/notifications', { waitUntil: 'hydration' })
     await expect(page.getByTestId('notifications-auth-gate')).toHaveCount(0)
-    await expect(page.getByTestId('notifications-sample-badge')).toBeVisible()
+    await expect(page.getByTestId('notifications-sample-badge')).toHaveCount(0)
     await expect(page.getByTestId('notifications-list')).toBeVisible()
-    await expect(page.getByTestId('notification-card-demo-notif-expert-finalized')).toBeVisible()
-    await expect(page.getByTestId('notification-card-demo-notif-member-welcome')).toBeVisible()
-    await expect(page.getByTestId('notification-card-demo-notif-expert-finalized')).toHaveAttribute(
+    await expect(page.getByTestId('notification-card-notif-expert-1')).toBeVisible()
+    await expect(page.getByTestId('notification-card-notif-welcome-1')).toBeVisible()
+    await expect(page.getByTestId('notification-card-notif-expert-1')).toHaveAttribute(
       'data-read',
       'false'
     )
-    await expect(page.getByText('已讀範例')).toHaveCount(0)
+    await expect(page.getByTestId('notification-card-notif-expert-1')).toHaveAttribute(
+      'data-kind',
+      'expert_review_completed'
+    )
 
     await expect(page.getByTestId('notifications-filter-all')).toContainText('2')
     await expect(page.getByTestId('notifications-filter-unread')).toContainText('2')
@@ -60,29 +63,44 @@ test.describe('member notifications', () => {
     await expect(railBadge).toHaveText('2')
   })
 
-  test('member can force empty with ?demo=empty and badge hides', async ({ page, goto }) => {
-    await goto('/app/notifications?demo=empty', { waitUntil: 'hydration' })
+  test('empty inbox shows empty state and hides badge', async ({ page, goto }) => {
+    await page.route('**/api/v1/notifications/unread-count', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'success', data: { unread_count: 0 } })
+      })
+    })
+    await page.route('**/api/v1/notifications', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'success', data: { notifications: [] } })
+      })
+    })
+
+    await goto('/app/notifications', { waitUntil: 'hydration' })
     await expect(page.getByTestId('notifications-empty')).toBeVisible()
     await expect(page.getByTestId('notifications-empty')).toContainText('目前沒有通知')
     await expect(page.getByTestId('notifications-list')).toHaveCount(0)
     await expect(page.locator('[data-testid="nav-notifications"] .app-nav-count-badge')).toHaveCount(0)
   })
 
-  test('row click marks read and deep-links; mark-all clears badge', async ({ page, goto }) => {
+  test('row click marks read then deep-links; mark-all clears badge', async ({ page, goto }) => {
     await goto('/app/notifications', { waitUntil: 'hydration' })
-    await page.getByTestId('notification-card-demo-notif-expert-finalized').click()
+    await page.getByTestId('notification-card-notif-expert-1').click()
     await expect(page).toHaveURL(/\/app\/?$/)
 
     await goto('/app/notifications', { waitUntil: 'hydration' })
-    await expect(page.getByTestId('notification-card-demo-notif-expert-finalized')).toHaveAttribute(
+    await expect(page.getByTestId('notification-card-notif-expert-1')).toHaveAttribute(
       'data-read',
       'true'
     )
     await expect(page.locator('[data-testid="nav-notifications"] .app-nav-count-badge')).toHaveText('1')
 
     await page.getByTestId('notifications-filter-unread').click()
-    await expect(page.getByTestId('notification-card-demo-notif-expert-finalized')).toHaveCount(0)
-    await expect(page.getByTestId('notification-card-demo-notif-member-welcome')).toBeVisible()
+    await expect(page.getByTestId('notification-card-notif-expert-1')).toHaveCount(0)
+    await expect(page.getByTestId('notification-card-notif-welcome-1')).toBeVisible()
 
     await page.getByTestId('notifications-filter-all').click()
     await page.getByTestId('notifications-mark-all-read').click()
@@ -92,8 +110,20 @@ test.describe('member notifications', () => {
 
   test('welcome row deep-links to profile', async ({ page, goto }) => {
     await goto('/app/notifications', { waitUntil: 'hydration' })
-    await page.getByTestId('notification-card-demo-notif-member-welcome').click()
+    await page.getByTestId('notification-card-notif-welcome-1').click()
     await expect(page).toHaveURL(/\/app\/me/)
+  })
+
+  test('rail badge caps at 99+', async ({ page, goto }) => {
+    await page.route('**/api/v1/notifications/unread-count', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ status: 'success', data: { unread_count: 120 } })
+      })
+    })
+    await goto('/app/orders', { waitUntil: 'hydration' })
+    await expect(page.locator('[data-testid="nav-notifications"] .app-nav-count-badge')).toHaveText('99+')
   })
 
   test('mobile drawer shows count badge and hamburger red dot', async ({ page, goto }) => {

@@ -63,6 +63,13 @@
 - Sandbox：跟隨 `payment.redirect_url` 整頁導轉；callback 只打 core。
 - **不得**實作或呼叫 `POST /payments/{provider}/callback`。
 
+## 通知 inbox（member）
+
+- `GET /notifications` → `listNotifications()`；`data.notifications[]`（`id`、`type`／`event`、`title`、`body`、`created_at`、`read_at`、`deep_link`）。
+- `GET /notifications/unread-count` → `getNotificationsUnreadCount()`；`data.unread_count`（FE badge 封頂 99+）。
+- `POST /notifications/{id}/read` → `markNotificationRead(id)`；點列才呼叫，進列表不自動已讀。
+- Guest／非 member：`403` `member_required`；頁面走 AuthGate，不把 inbox 當 guest API。
+
 ## OpenAPI 消費
 
 現階段手寫 composables 對齊 [openapi-public.yaml](https://github.com/DaydreamLab/candor-core/blob/main/docs/api/openapi-public.yaml)。變更 API 時：core 文件優先 → 再改本 client。Codegen 列 roadmap Backlog。

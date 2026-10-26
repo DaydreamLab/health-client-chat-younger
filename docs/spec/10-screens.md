@@ -20,7 +20,7 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 | `/app/recommendations` | `user` + `auth` | 建議與結帳 | `POST /recommendations`、`GET /package-plans`、`POST /orders`、`PATCH /users/me` |
 | `/app/orders` | `user` + `auth` | 訂單列表 | `GET /orders` |
 | `/app/orders/[id]` | `user` + `auth` | 訂單詳情、出貨時間線、對話 modal | `GET /order/{id}`；`GET /order/{id}/message`（已接） |
-| `/app/notifications` | `user` + `auth` | 通知中心列表（篩選全部／未讀、標已讀、整列 deep link）；guest 顯示 dashed AuthGate；`?demo=empty` 空狀態 | 無 inbox API（前端範例；結構預留） |
+| `/app/notifications` | `user` + `auth` | 通知中心列表（篩選全部／未讀、點列標已讀＋deep link）；guest 顯示 dashed AuthGate；空／錯誤態 | `GET /notifications`、`GET /notifications/unread-count`、`POST /notifications/{id}/read`（member；guest 403） |
 | `/app/me` | `user` + `auth` | 個人資料：顯示名稱、密碼、常用收件（email 唯讀）；guest 顯示登入門檻 | `GET`／`PATCH /users/me`（member） |
 | `/app/handoff` | `user` + `auth` | 舊 FigJam「交給顧問」殼 | 非 core 主路徑；勿新增假 API |
 
@@ -52,7 +52,7 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 | 建議／結帳 | `pages/app/recommendations.vue`、`composables/useFirstOrderApi.ts` |
 | 個人資料 | `pages/app/me.vue`、側欄／`AccountUser` |
 | 訂單 | `pages/app/orders/*`、`stores/orders.ts`、`components/ShipmentTimeline.vue`、`OrderChatModal.vue` |
-| 通知中心 | `pages/app/notifications.vue`、`stores/notifications.ts`、`components/notifications/*`、`utils/notifications*.ts`；rail 未讀 badge 經 `useMemberNavExtension` |
+| 通知中心 | `pages/app/notifications.vue`、`stores/notifications.ts`、`components/notifications/*`、`utils/notifications*.ts`、`useCandorApi` inbox 方法；rail 未讀 badge 經 `useMemberNavExtension`＋`unread-count` |
 | 報告表 | `components/ReportResultTable.vue`、`ReportDataDock.vue` |
 | 隱私權／Cookie 同意 | `pages/privacy.vue`、`components/CookieConsentBanner.vue`、`utils/privacy-consent.ts`；footer「隱私權政策」→ `/privacy` |
 
