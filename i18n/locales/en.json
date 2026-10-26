@@ -33,8 +33,6 @@
     "title": "Notifications",
     "subtitle": "Important account and plan updates appear here. Registered members also get them by email.",
     "guestSubtitle": "Sign in to view account and plan notifications.",
-    "sampleData": "Sample data",
-    "demoHint": "Member inbox API is not wired yet; sample rows preview the UI. Add ?demo=empty for the empty state.",
     "markAllRead": "Mark all as read",
     "guestRequired": "Sign in to view notifications",
     "guestRequiredHint": "The notification center is part of the member area. Welcome and expert-finalized updates collect here and are sent by email.",
@@ -49,17 +47,20 @@
       "lastWeek": "Last week"
     },
     "kinds": {
-      "expert_report_finalized": {
+      "expert_review_completed": {
         "title": "Expert review finalized",
         "body": "A nutrition expert confirmed your health report reading. View it in My health.",
         "cta": "View report / plan"
       },
-      "member_welcome": {
+      "member_registered": {
         "title": "Welcome to Candor",
         "body": "Consider completing your display name and shipping defaults.",
         "cta": "Complete profile"
       }
-    }
+    },
+    "loading": "Loading notifications…",
+    "loadError": "Notifications could not be loaded. Please try again.",
+    "openCta": "View"
   },
   "wearables": {
     "pageTitle": "Wearables",

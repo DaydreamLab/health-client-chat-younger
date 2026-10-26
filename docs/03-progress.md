@@ -89,7 +89,7 @@
 | 重新付款 | `/app/orders/[id]` | 可用 | 已接 | 完成 |
 | 取消訂單 | `/app/orders/[id]` | 可用 | 已接 | 完成 |
 | 續約列表／續約對話 | `/app/renewals` | 殼（即將上線） | 已接（頁面暫不呼叫） | M4 |
-| 通知中心 | `/app/notifications`；rail「通知」（續約→通知→個人資料）＋未讀 coral badge | 殼（範例資料；guest AuthGate） | Mock（無 core inbox） | Beta |
+| 通知中心 | `/app/notifications`；rail「通知」（續約→通知→個人資料）＋未讀 coral badge（99+） | 可用 | 已接（core #90 member inbox） | Beta |
 | 舊 handoff 殼 | `/app/handoff` | 殼（導向 `/chat`） | 不做 | 不做 |
 
 ## 接線切片（對齊 core 04）
@@ -169,6 +169,14 @@
 |------|------|------|
 | 待續約列表 | `GET /renewals/due` | 已接 |
 | 續約對話 | `POST /conversations`（`renewal_of_order_id`） | 已接 |
+
+### 通知（member inbox）
+
+| 能力 | 端點 | 狀態 |
+|------|------|------|
+| 列表（newest first；不自動已讀） | `GET /notifications` | 已接（對齊 candor-core #90） |
+| 未讀數（rail badge） | `GET /notifications/unread-count` | 已接 |
+| 單列標已讀（idempotent） | `POST /notifications/{id}/read` | 已接 |
 
 ### 命名改接
 

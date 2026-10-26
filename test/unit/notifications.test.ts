@@ -2,28 +2,24 @@ import { describe, expect, it } from 'vitest'
 import {
   formatUnreadBadgeLabel,
   notificationAccent,
-  notificationDeepLinkPath,
+  notificationDeepLinkFallback,
   notificationTimeParts,
-  parseNotificationsDemoMode
+  resolveNotificationDeepLink
 } from '../../app/utils/notifications'
-import {
-  DEMO_NOTIFICATIONS,
-  getDemoNotification,
-  listDemoNotifications
-} from '../../app/utils/notifications-mock'
+import { mapInboxNotification } from '../../app/utils/notifications-map'
 
 describe('notifications helpers', () => {
-  it('parses demo mode (default sample, empty when requested)', () => {
-    expect(parseNotificationsDemoMode(undefined)).toBe('sample')
-    expect(parseNotificationsDemoMode('sample')).toBe('sample')
-    expect(parseNotificationsDemoMode('empty')).toBe('empty')
+  it('maps wave-1 types to accent and deep-link fallbacks', () => {
+    expect(notificationAccent('expert_review_completed')).toBe('expert')
+    expect(notificationAccent('member_registered')).toBe('welcome')
+    expect(notificationDeepLinkFallback('expert_review_completed')).toBe('/app')
+    expect(notificationDeepLinkFallback('member_registered')).toBe('/app/me')
   })
 
-  it('maps wave-1 kinds to accent and deep links', () => {
-    expect(notificationAccent('expert_report_finalized')).toBe('expert')
-    expect(notificationAccent('member_welcome')).toBe('welcome')
-    expect(notificationDeepLinkPath('expert_report_finalized')).toBe('/app')
-    expect(notificationDeepLinkPath('member_welcome')).toBe('/app/me')
+  it('resolves deep links and rejects bare external hosts without path', () => {
+    expect(resolveNotificationDeepLink('/app/me', 'member_registered')).toBe('/app/me')
+    expect(resolveNotificationDeepLink(null, 'expert_review_completed')).toBe('/app')
+    expect(resolveNotificationDeepLink('https://example.com/app', 'member_registered')).toBe('/app')
   })
 
   it('formats unread badge with 99+ cap and hides zero', () => {
@@ -54,19 +50,39 @@ describe('notifications helpers', () => {
   })
 })
 
-describe('notifications mock', () => {
-  it('ships two unread sample rows and no read placeholder', () => {
-    const list = listDemoNotifications()
-    expect(list).toHaveLength(2)
-    expect(list.every(item => !item.read)).toBe(true)
-    expect(list.map(item => item.kind)).toEqual([
-      'expert_report_finalized',
-      'member_welcome'
-    ])
-    expect(list.some(item => item.id.includes('placeholder'))).toBe(false)
-    expect(DEMO_NOTIFICATIONS).toHaveLength(2)
-    expect(getDemoNotification('demo-notif-expert-finalized')?.kind).toBe(
-      'expert_report_finalized'
-    )
+describe('notifications map', () => {
+  it('maps core inbox DTO including event alias', () => {
+    const mapped = mapInboxNotification({
+      id: 'n1',
+      event: 'member_registered',
+      title: 'Welcome',
+      body: 'Hi',
+      created_at: '2026-10-24T10:00:00+08:00',
+      read_at: null,
+      path: '/app/me'
+    })
+    expect(mapped).toEqual({
+      id: 'n1',
+      type: 'member_registered',
+      title: 'Welcome',
+      body: 'Hi',
+      createdAt: '2026-10-24T10:00:00+08:00',
+      read: false,
+      deepLink: '/app/me'
+    })
+  })
+
+  it('treats read_at as read and falls back deep link by type', () => {
+    const mapped = mapInboxNotification({
+      id: 'n2',
+      type: 'expert_review_completed',
+      title: 'Done',
+      body: 'Body',
+      created_at: '2026-10-25T14:20:00+08:00',
+      read_at: '2026-10-25T15:00:00+08:00',
+      deep_link: ''
+    })
+    expect(mapped?.read).toBe(true)
+    expect(mapped?.deepLink).toBe('/app')
   })
 })

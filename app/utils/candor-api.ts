@@ -514,6 +514,34 @@ export interface RenewalsDueList {
   renewals: RenewalDueItem[]
 }
 
+/** Member inbox row (GET /notifications). Guest → 403 `member_required`. */
+export type InboxNotificationType = 'member_registered' | 'expert_review_completed'
+
+export interface InboxNotification {
+  id: string
+  /** Domain event key; some payloads may use `event` instead — client maps both. */
+  type: InboxNotificationType | string
+  title: string
+  body: string
+  created_at: string
+  read_at: string | null
+  /** App path such as `/app` or `/app/me`. */
+  deep_link: string
+}
+
+export interface InboxNotificationList {
+  notifications: InboxNotification[]
+}
+
+export interface InboxUnreadCount {
+  unread_count: number
+}
+
+export interface InboxNotificationReadAck {
+  id: string
+  read_at: string
+}
+
 export interface AnonymizeAccepted {
   status: string
   anonymized_at: string

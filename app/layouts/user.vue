@@ -322,19 +322,14 @@ function syncNotificationBadge() {
     notifications.clear()
     return
   }
-  // Keep rail badge warm for members (sample inbox until core API).
-  // Honor ?demo=empty only while on the notifications page.
-  const demoRaw = route.query.demo
-  const demoValue = Array.isArray(demoRaw) ? demoRaw[0] : demoRaw
-  const emptyDemo = route.path.includes('/notifications') && demoValue === 'empty'
-  notifications.loadForMember(emptyDemo ? 'empty' : 'sample')
+  void notifications.refreshUnreadCount()
 }
 
 onMounted(() => {
   syncNotificationBadge()
 })
 
-watch([() => auth.isMember, () => route.fullPath], () => {
+watch(() => auth.isMember, () => {
   syncNotificationBadge()
 })
 const logoutItems = computed<NavigationMenuItem[]>(() => [

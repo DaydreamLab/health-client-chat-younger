@@ -1,48 +1,68 @@
 /**
  * Member notification inbox (v1) — UI types and helpers.
- * No core inbox API yet; shape is ready for a future list/mark-read contract.
+ * Wired to candor-core member inbox APIs (list / unread-count / mark-read).
  */
 
-export const NOTIFICATIONS_DEMO_QUERY = 'demo'
-
-export type NotificationsDemoMode = 'sample' | 'empty'
-
-/** Wave-1 event kinds (domain actions → UI; not a frozen taxonomy). */
-export type NotificationKind = 'expert_report_finalized' | 'member_welcome'
+/** Wave-1 inbox event types from core enqueue. */
+export type NotificationType = 'member_registered' | 'expert_review_completed'
 
 export type NotificationAccent = 'expert' | 'welcome'
 
 export interface NotificationItem {
   id: string
-  kind: NotificationKind
+  type: NotificationType | string
+  title: string
+  body: string
   /** ISO-8601 timestamp */
   createdAt: string
   read: boolean
-  /** Demo / sample row (no deployed inbox API). */
-  isSample?: boolean
+  /** App-relative path from API (e.g. `/app/me`). */
+  deepLink: string
 }
 
-export function parseNotificationsDemoMode(
-  raw: string | null | undefined
-): NotificationsDemoMode {
-  if (raw === 'empty') {
-    return 'empty'
-  }
-  return 'sample'
+export function notificationAccent(type: string): NotificationAccent {
+  return type === 'expert_review_completed' ? 'expert' : 'welcome'
 }
 
-export function notificationAccent(kind: NotificationKind): NotificationAccent {
-  return kind === 'expert_report_finalized' ? 'expert' : 'welcome'
-}
-
-/** Deep link after mark-read (no detail page in v1). */
-export function notificationDeepLinkPath(kind: NotificationKind): string {
-  switch (kind) {
-    case 'expert_report_finalized':
+/** Fallback deep link when API omits `deep_link`. */
+export function notificationDeepLinkFallback(type: string): string {
+  switch (type) {
+    case 'expert_review_completed':
       return '/app'
-    case 'member_welcome':
+    case 'member_registered':
       return '/app/me'
+    default:
+      return '/app/notifications'
   }
+}
+
+/**
+ * Normalize API deep_link to an in-app path.
+ * Rejects absolute external URLs; empty → type fallback.
+ */
+export function resolveNotificationDeepLink(
+  deepLink: string | null | undefined,
+  type: string
+): string {
+  const raw = typeof deepLink === 'string' ? deepLink.trim() : ''
+  if (!raw) {
+    return notificationDeepLinkFallback(type)
+  }
+  if (/^https?:\/\//i.test(raw) || raw.startsWith('//')) {
+    try {
+      const url = new URL(raw, 'https://candor.invalid')
+      if (url.pathname.startsWith('/')) {
+        return `${url.pathname}${url.search}${url.hash}` || notificationDeepLinkFallback(type)
+      }
+    } catch {
+      return notificationDeepLinkFallback(type)
+    }
+    return notificationDeepLinkFallback(type)
+  }
+  if (raw.startsWith('/')) {
+    return raw
+  }
+  return `/${raw}`
 }
 
 export function formatUnreadBadgeLabel(count: number): string | undefined {

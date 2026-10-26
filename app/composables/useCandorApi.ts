@@ -14,6 +14,10 @@ import type {
   HealthReportPatchResultRequest,
   HealthReportRetryAck,
   HealthReportUploadAck,
+  InboxNotification,
+  InboxNotificationList,
+  InboxNotificationReadAck,
+  InboxUnreadCount,
   LabServicesList,
   ClientConfig,
   OrderCreateRequest,
@@ -511,6 +515,20 @@ export function useCandorApi() {
 
     listRenewalsDue: () =>
       request<RenewalsDueList>('/renewals/due', { method: 'GET' }),
+
+    /** Member inbox — newest first; does not auto-mark-read. Guest → 403. */
+    listNotifications: () =>
+      request<InboxNotificationList>('/notifications', { method: 'GET' }),
+
+    getNotificationsUnreadCount: () =>
+      request<InboxUnreadCount>('/notifications/unread-count', { method: 'GET' }),
+
+    /** Mark one inbox row read; idempotent. */
+    markNotificationRead: (id: string) =>
+      request<InboxNotificationReadAck | InboxNotification>(
+        `/notifications/${encodeURIComponent(id)}/read`,
+        { method: 'POST' }
+      ),
 
     anonymizeMe: () =>
       request<AnonymizeAccepted>('/users/me/data', { method: 'DELETE' })
