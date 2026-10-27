@@ -306,7 +306,7 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     expect(v.showViewRecommend).toBe(true)
   })
 
-  it('readonly / pending gates still disable recommend and vitals', () => {
+  it('readonly hides vitals; pending keeps vitals card for submitting state', () => {
     const msg = assistant('latest', {
       replyActions: ra({
         actions: [
@@ -324,7 +324,8 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       flow: 'standard'
     })
     expect(pending.showViewRecommend).toBe(false)
-    expect(pending.vitalsFields).toEqual([])
+    // Card stays mounted so AskVitalsCard can show「送出中」; keys disabled via pending prop.
+    expect(pending.vitalsFields).toEqual(['age'])
 
     const readonly = buildTurnActionsVisibility({
       message: msg,
