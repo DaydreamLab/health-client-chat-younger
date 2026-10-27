@@ -66,7 +66,7 @@ export type CandorMockOptions = {
    * over a local next_question bank bubble (and may skip covering stream when
    * history already has the gap CTA).
    */
-  replyActions?: 'offer_recommend' | 'ask_vitals' | 'degraded' | 'intake_hybrid'
+  replyActions?: 'offer_recommend' | 'ask_report' | 'ask_vitals' | 'degraded' | 'intake_hybrid' | 'none'
 }
 
 const legacyPackagePlans = [
@@ -982,6 +982,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     mode: NonNullable<CandorMockOptions['replyActions']>
   ): Record<string, unknown> | null {
     if (mode === 'offer_recommend') {
+      // 完成 CTA（三要件齊後之判讀結果）— 不含 ask_report，避免 report 必問擋 recommend。
       return {
         schema_version: '0.1',
         source: 'semantic_judgment',
@@ -989,9 +990,30 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         degraded: false,
         error: null,
         actions: [
-          { type: 'offer_recommend', payload: {} },
+          { type: 'offer_recommend', payload: {} }
+        ]
+      }
+    }
+    if (mode === 'ask_report') {
+      return {
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'fake',
+        degraded: false,
+        error: null,
+        actions: [
           { type: 'ask_report', payload: {} }
         ]
+      }
+    }
+    if (mode === 'none') {
+      return {
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'fake',
+        degraded: false,
+        error: null,
+        actions: [{ type: 'none' }]
       }
     }
     if (mode === 'ask_vitals') {
@@ -1112,8 +1134,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       turn: { type: 'message' },
       profile_question: null,
       profile_gaps: profileGaps,
-      upload_offer: options.replyActions === 'offer_recommend' || options.replyActions === 'degraded',
-      checkup_offer: options.replyActions === 'offer_recommend',
+      upload_offer: options.replyActions === 'ask_report' || options.replyActions === 'degraded',
+      checkup_offer: false,
       reply_actions: replyActions
     }
     await route.fulfill({
@@ -1209,15 +1231,20 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     if (options.replyActions) {
       const replyActions = buildReplyActionsPayload(options.replyActions)
       const paintLegacyConflict = options.replyActions === 'offer_recommend'
+        || options.replyActions === 'ask_report'
         || options.replyActions === 'ask_vitals'
       donePayload = {
         ...donePayload,
         options: paintLegacyConflict
           ? [{ code: 'legacy_chip', label: '舊選項' }]
-          : (options.replyActions === 'degraded' ? [] : donePayload.options),
-        upload_offer: options.replyActions === 'offer_recommend'
-          || options.replyActions === 'degraded',
-        checkup_offer: options.replyActions === 'offer_recommend',
+          : (options.replyActions === 'degraded' || options.replyActions === 'none'
+              ? []
+              : donePayload.options),
+        // Legacy offer flags kept only to assert FE does **not** paint from them.
+        upload_offer: options.replyActions === 'ask_report'
+          || options.replyActions === 'degraded'
+          || options.replyActions === 'none',
+        checkup_offer: false,
         reply_actions: replyActions
       }
     }

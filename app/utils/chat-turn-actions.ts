@@ -1,8 +1,12 @@
 import type { ChatMessage, ChatMessageOption } from './first-order'
 import { turnChoicesForMessage } from './chat-intake'
 import {
+  hasReplyActionsColumn,
   isUsableReplyActions,
+  NON_GAP_CHOOSE_OPTION_KINDS,
   projectReplyActionsToCtas,
+  type ChooseOptionPayload,
+  type ReplyActions,
   type ReplyActionsCtaProjection,
   type VitalsField
 } from './reply-actions'
@@ -10,15 +14,22 @@ import {
 /**
  * Chat bubble TurnActions visibility rules (single source of truth).
  *
- * | Journey / bubble | Goal chips + confirm | 查看推薦方案 | 我想檢查更多 | 上傳 | 健檢外連 |
- * |------------------|----------------------|--------------|--------------|------|----------|
- * | 開場選目標 (goalSelect, 無報告) | intake 最新助理 | 否 | 否 | 否 | 該則 checkupOffer |
- * | 問卷 profile 題 (quiz) | intake 上 options | 否（該則為 profile） | 否 | 最新 + upload_offer | 該則 checkupOffer |
- * | 判讀後補選目標 (goalSelect + hasAnalysis) | 最新助理 + goalOptions | 最新助理 | 最新助理 | 否 | 該則 checkupOffer |
- * | 自由對話 / 釐清後 | 否（除非再次 goalSelect） | 最新助理 | 最新且 recommend 或 wantMoreTestsOffer | 同上 | 該則 checkupOffer |
- * | standard（/chat-ai） | 同上 | 推薦槽一律「查看推薦方案」，不看專家狀態、不提交判讀 | 同上 | 同上 | 同上 |
- * | pending / readonly / escalated | 照舊但 CTA 多數禁用或隱藏 | 否 | 否 | 否 | 否（readonly/escalated） |
- * | 非最新助理 bubble | 否 | 否 | 否（不因舊 wantMoreTestsOffer） | 否 | 該則若有 checkupOffer |
+ * Intake 三要件（皆必問、report 不進 gap）：
+ * 1. 問卷 profile gaps  2. report（ask_report，類 goal）  3. goals
+ *
+ * 三要件齊後流程：基本回應 → CTA 判讀（systemone／catalog）→ **完成 CTA**；
+ * FE 依 usable `reply_actions` 決定畫哪些按鈕（upload／checkup／recommend…）。
+ * ❌ 非固定硬掛「提交專家判讀」；intentional `none`／degraded／無 RA＝不畫怪鈕。
+ *
+ * Legacy meta (`upload_offer` / journey-invented recommend) is **not** a fallback.
+ * Greeting goal chips may still use `goalSelectActive` + options when greeting
+ * has no RA column.
+ *
+ * | Journey / bubble | Goal／chips | 完成 CTA（依 RA） | 上傳／健檢 |
+ * |------------------|-------------|-------------------|------------|
+ * | 開場選目標 / report 必問 / open gap | 該則 | 否（要件未齊） | ask_report 時 |
+ * | usable RA after 三要件 | — | 依 actions 投影 | ask_report |
+ * | intentional none / degraded | 否 | 否 | 否 |
  */
 
 export interface ChatTurnUiContext {
@@ -26,17 +37,25 @@ export interface ChatTurnUiContext {
   escalated: boolean
   pending: boolean
   goalSelectActive: boolean
+  /**
+   * Required ask for report (mirrors goalSelectActive). Driven by usable
+   * `ask_report` — blocks recommend until analysis / cleared by later RA.
+   */
+  reportAskActive: boolean
   hasReportAnalysis: boolean
   reportRetry: boolean
   /** individual_tests_url resolved and non-empty */
   checkupLinkReady: boolean
   lastAssistantId?: string
   /**
-   * Assistant message that should host required-gap CTAs (ask_vitals /
-   * choose_option / ask_goal). May be behind lastAssistantId when the latest
-   * stream turn only carries offer_recommend / ask_report / offer_checkup.
+   * Assistant message that **owns** the open profile-gap CTA payload
+   * (ask_vitals / profile choose_option). May be behind lastAssistantId when
+   * the latest stream turn only carries offer_* / free chips / ask_report.
+   * UI paints those gap CTAs on the **latest** bubble (lift), not only on bank.
    */
   gapCtaHostId?: string
+  /** reply_actions from the gap host message (for lifting onto latest). */
+  gapCtaHostReplyActions?: ReplyActions | null
 }
 
 /** Mirrors core ConsultationGoal::defaultCatalog() for empty stream options. */
@@ -84,20 +103,32 @@ export function isLatestAssistantMessage(
 
 export type ExpertReviewUiStatus = 'none' | 'awaiting_review' | 'reviewed'
 
+/**
+ * Journey gates for recommend-slot buttons when usable RA includes
+ * `offer_recommend` (part of **完成 CTA** after CTA 判讀). Never invents
+ * buttons alone — callers must still require usable `offer_recommend`.
+ *
+ * Blocks while any of the three intake requirements is still active:
+ * goals / report ask / open profile gap (profileQuestionActive | pending gap).
+ */
 export function recommendCtaVisible(input: {
   readonlyMode: boolean
   escalated: boolean
   goalSelectActive: boolean
+  reportAskActive?: boolean
   profileQuestionActive: boolean
   isLatestAssistant: boolean
   reportRetry: boolean
   pending?: boolean
   hasReportAnalysis?: boolean
 }): boolean {
-  const goalsBlockRecommend = input.goalSelectActive && !input.hasReportAnalysis
+  // 三要件未齊：不進入完成 CTA 的 recommend 槽（繪製仍看 usable offer_recommend）。
+  const goalsBlockRecommend = input.goalSelectActive
+  const reportBlockRecommend = Boolean(input.reportAskActive)
   return !input.readonlyMode
     && !input.escalated
     && !goalsBlockRecommend
+    && !reportBlockRecommend
     && !input.profileQuestionActive
     && input.isLatestAssistant
     && !input.reportRetry
@@ -130,21 +161,16 @@ export function standardViewRecommendCtaVisible(
   return recommendCtaVisible(input)
 }
 
+/**
+ * Legacy `uploadOffer` no longer paints bubble upload.
+ * Upload CTA is reply_actions `ask_report` only.
+ * @deprecated Kept so call sites / tests compile; always false.
+ */
 export function uploadCtaVisible(
-  ctx: ChatTurnUiContext,
-  message: ChatMessage
+  _ctx: ChatTurnUiContext,
+  _message: ChatMessage
 ): boolean {
-  if (!isLatestAssistantMessage(message, ctx.lastAssistantId)) {
-    return false
-  }
-  if (ctx.readonlyMode || ctx.escalated || ctx.hasReportAnalysis) {
-    return false
-  }
-  if (ctx.goalSelectActive) {
-    return false
-  }
-  // Legacy degraded fallback only; usable reply_actions use ask_report projection.
-  return message.uploadOffer === true
+  return false
 }
 
 /**
@@ -197,7 +223,8 @@ export function reportDockBarVisibility(input: ReportDockBarInput): ReportDockBa
   const showExplainHighlights = ctx.hasReportAnalysis
     && !baseBlocked
     && !profileQuestionActive
-    && !(ctx.goalSelectActive && !ctx.hasReportAnalysis)
+    && !ctx.goalSelectActive
+    && !ctx.reportAskActive
     && !reportInterpretSent
   const showWantMoreTestsLink = ctx.hasReportAnalysis
     && !ctx.readonlyMode
@@ -234,7 +261,7 @@ export interface TurnActionsVisibility {
   vitalsGapCode: string | null
   /** offer_checkup payload.url when set; else use journey default. */
   checkupUrlOverride: string | null
-  /** True when CTAs come from usable reply_actions (legacy offers ignored). */
+  /** True when CTAs come from reply_actions column (usable or intentional empty). */
   fromReplyActions: boolean
   /** Exclusive chip codes when choose_option drives selection. */
   exclusiveCodes: string[]
@@ -255,6 +282,99 @@ function emptyReplyExtras(): Pick<
   }
 }
 
+function emptyTurnActions(fromReplyActions: boolean): TurnActionsVisibility {
+  return {
+    choices: [],
+    showConfirm: false,
+    showUpload: false,
+    showCheckup: false,
+    showWantMoreTests: false,
+    showRecommend: false,
+    showSubmitReview: false,
+    showViewRecommend: false,
+    showRetry: false,
+    ...emptyReplyExtras(),
+    fromReplyActions
+  }
+}
+
+function projectGates(input: {
+  replyActions: ReplyActions
+  canShowRecommendSlot: boolean
+  canShowUpload: boolean
+  canShowCheckup: boolean
+  canShowVitals: boolean
+  expertReviewStatus: ExpertReviewUiStatus
+  standardFlow: boolean
+  checkupLinkReady: boolean
+}): {
+  projection: ReplyActionsCtaProjection
+  showCheckup: boolean
+} {
+  const projection = projectReplyActionsToCtas({
+    replyActions: input.replyActions,
+    canShowRecommendSlot: input.canShowRecommendSlot,
+    canShowUpload: input.canShowUpload,
+    canShowCheckup: input.canShowCheckup,
+    canShowVitals: input.canShowVitals,
+    expertReviewStatus: input.expertReviewStatus,
+    flow: input.standardFlow ? 'standard' : undefined
+  })
+  const checkupFromPayload = Boolean(projection.checkupUrlOverride)
+  const showCheckup = projection.flags.showCheckup
+    && (input.checkupLinkReady || checkupFromPayload)
+  return { projection, showCheckup }
+}
+
+function isNonGapChoosePayload(choose: ChooseOptionPayload): boolean {
+  // lab_report chips (transition): required-ask surface, not profile-gap host.
+  if (choose.gap_code === 'lab_report') {
+    return true
+  }
+  return Boolean(choose.kind && NON_GAP_CHOOSE_OPTION_KINDS.has(choose.kind))
+}
+
+/** Split gap-bound choices from free / lab_followup / consultation_goals / lab_report. */
+function splitProjectionChoices(projection: ReplyActionsCtaProjection): {
+  gapChoices: ChatMessageOption[]
+  gapConfirm: boolean
+  nonGapChoices: ChatMessageOption[]
+  nonGapConfirm: boolean
+} {
+  const choose = projection.chooseOption
+  if (!choose) {
+    // ask_goal chips are required-ask (non-gap), like report.
+    if (projection.askGoal) {
+      return {
+        gapChoices: [],
+        gapConfirm: false,
+        nonGapChoices: projection.flags.choices,
+        nonGapConfirm: projection.flags.showConfirm
+      }
+    }
+    return {
+      gapChoices: [],
+      gapConfirm: false,
+      nonGapChoices: [],
+      nonGapConfirm: false
+    }
+  }
+  if (isNonGapChoosePayload(choose)) {
+    return {
+      gapChoices: [],
+      gapConfirm: false,
+      nonGapChoices: projection.flags.choices,
+      nonGapConfirm: projection.flags.showConfirm
+    }
+  }
+  return {
+    gapChoices: projection.flags.choices,
+    gapConfirm: projection.flags.showConfirm,
+    nonGapChoices: [],
+    nonGapConfirm: false
+  }
+}
+
 export function buildTurnActionsVisibility(input: {
   message: ChatMessage
   ctx: ChatTurnUiContext
@@ -269,22 +389,23 @@ export function buildTurnActionsVisibility(input: {
   const expertReviewStatus = input.expertReviewStatus ?? 'none'
   const standardFlow = input.flow === 'standard'
   const latest = isLatestAssistantMessage(message, ctx.lastAssistantId)
-  // Gap CTAs may render on an earlier bank turn when the latest stream turn
-  // lacks ask_vitals / choose_option / ask_goal (fallback host).
-  const gapHostId = ctx.gapCtaHostId ?? ctx.lastAssistantId
-  const isGapHost = gapHostId !== undefined
-    && message.id === gapHostId
+  const gapHostId = ctx.gapCtaHostId
+  const isGapHost = gapHostId !== undefined && message.id === gapHostId
   const pendingGapBehindLatest = Boolean(
-    ctx.gapCtaHostId
+    gapHostId
     && ctx.lastAssistantId
-    && ctx.gapCtaHostId !== ctx.lastAssistantId
+    && gapHostId !== ctx.lastAssistantId
   )
+  // Lift open gap CTAs onto the latest bubble so users are not stuck staring at
+  // a covering stream turn while chips/vitals sit on an older bank message.
+  const renderGapOnThis = pendingGapBehindLatest ? latest : isGapHost
   const profileQuestionActive = message.turnType === 'profile' && Boolean(message.profileQuestion)
   const slotInput = {
     readonlyMode: ctx.readonlyMode,
     escalated: ctx.escalated,
     goalSelectActive: ctx.goalSelectActive,
-    // Treat an open gap on an earlier host like an active profile question so
+    reportAskActive: ctx.reportAskActive,
+    // Treat an open gap behind latest like an active profile question so
     // offer_recommend on the covering stream turn does not steal the CTA slot.
     profileQuestionActive: profileQuestionActive || (pendingGapBehindLatest && latest),
     isLatestAssistant: latest,
@@ -294,8 +415,17 @@ export function buildTurnActionsVisibility(input: {
     expertReviewStatus
   }
 
-  // Prefer reply_actions column when usable; do not also paint legacy offers.
+  // Present RA column that is not usable (none / degraded / empty) → no CTAs.
+  if (hasReplyActionsColumn(message.replyActions) && !isUsableReplyActions(message.replyActions)) {
+    return emptyTurnActions(true)
+  }
+
   if (isUsableReplyActions(message.replyActions)) {
+    // Bank host behind latest: CTAs are lifted — leave the old bubble empty.
+    if (pendingGapBehindLatest && isGapHost && !latest) {
+      return emptyTurnActions(true)
+    }
+
     const canShowRecommendSlot = recommendSlotVisible(slotInput)
       && !pendingGapBehindLatest
     const canShowUpload = latest
@@ -304,45 +434,94 @@ export function buildTurnActionsVisibility(input: {
       && !ctx.escalated
       && !ctx.hasReportAnalysis
       && !(ctx.goalSelectActive && !ctx.hasReportAnalysis)
-    const canShowCheckup = !ctx.readonlyMode && !ctx.escalated
-    // Keep vitals card mounted while pending so AskVitalsCard can show「送出中」.
-    // Host may be behind lastAssistantId when stream only returned offer_*.
-    const canShowVitals = isGapHost && !ctx.readonlyMode && !ctx.escalated
-    const projection = projectReplyActionsToCtas({
+    const canShowCheckup = latest
+      && !pendingGapBehindLatest
+      && !ctx.readonlyMode
+      && !ctx.escalated
+    const canShowOwnVitals = renderGapOnThis && !ctx.readonlyMode && !ctx.escalated
+
+    const own = projectGates({
       replyActions: message.replyActions!,
       canShowRecommendSlot,
       canShowUpload,
       canShowCheckup,
-      canShowVitals,
+      canShowVitals: canShowOwnVitals && isGapHost,
       expertReviewStatus,
-      flow: standardFlow ? 'standard' : undefined
+      standardFlow,
+      checkupLinkReady: ctx.checkupLinkReady
     })
-    // Checkup needs a URL: payload override or journey default.
-    const checkupFromPayload = Boolean(projection.checkupUrlOverride)
-    const showCheckup = projection.flags.showCheckup
-      && (ctx.checkupLinkReady || checkupFromPayload)
 
-    // Gap chips / confirm / vitals only on the gap host; non-gap offers stay on latest.
-    const showGapChoices = isGapHost
+    let gapChoices: ChatMessageOption[] = []
+    let gapConfirm = false
+    let vitalsFields: VitalsField[] = []
+    let vitalsGapCode: string | null = null
+    let gapExclusive = own.projection.exclusiveCodes
+
+    if (renderGapOnThis) {
+      if (pendingGapBehindLatest && ctx.gapCtaHostReplyActions
+        && isUsableReplyActions(ctx.gapCtaHostReplyActions)) {
+        const lifted = projectGates({
+          replyActions: ctx.gapCtaHostReplyActions,
+          canShowRecommendSlot: false,
+          canShowUpload: false,
+          canShowCheckup: false,
+          canShowVitals: !ctx.readonlyMode && !ctx.escalated,
+          expertReviewStatus,
+          standardFlow,
+          checkupLinkReady: ctx.checkupLinkReady
+        })
+        const split = splitProjectionChoices(lifted.projection)
+        gapChoices = split.gapChoices
+        gapConfirm = split.gapConfirm
+        vitalsFields = lifted.projection.vitalsFields
+        vitalsGapCode = lifted.projection.vitalsGapCode
+        if (split.gapChoices.length) {
+          gapExclusive = lifted.projection.exclusiveCodes
+        }
+      } else if (isGapHost) {
+        const split = splitProjectionChoices(own.projection)
+        gapChoices = split.gapChoices
+        gapConfirm = split.gapConfirm
+        vitalsFields = own.projection.vitalsFields
+        vitalsGapCode = own.projection.vitalsGapCode
+      }
+    }
+
+    const ownSplit = splitProjectionChoices(own.projection)
+    // Free / lab_followup / ask_goal / lab_report chips stay on the message that
+    // carries them when it is the latest bubble (even if a bank gap is open).
+    const nonGapChoices = latest ? ownSplit.nonGapChoices : []
+    const nonGapConfirm = latest ? ownSplit.nonGapConfirm : false
+
+    // Latest may show lifted gap chips alongside free / required-ask chips.
+    const choices = [...gapChoices, ...nonGapChoices]
+    const showConfirm = (gapChoices.length > 0 && gapConfirm)
+      || (nonGapChoices.length > 0 && nonGapConfirm)
+    const exclusiveCodes = nonGapChoices.length
+      ? own.projection.exclusiveCodes
+      : gapExclusive
+
     return {
-      choices: showGapChoices ? projection.flags.choices : [],
-      showConfirm: showGapChoices ? projection.flags.showConfirm : false,
-      showUpload: projection.flags.showUpload,
-      showCheckup,
+      choices,
+      showConfirm,
+      showUpload: own.projection.flags.showUpload,
+      showCheckup: own.showCheckup,
       showWantMoreTests: false,
-      showRecommend: projection.flags.showSubmitReview || projection.flags.showViewRecommend,
-      showSubmitReview: projection.flags.showSubmitReview,
-      showViewRecommend: projection.flags.showViewRecommend,
+      showRecommend: own.projection.flags.showSubmitReview || own.projection.flags.showViewRecommend,
+      showSubmitReview: own.projection.flags.showSubmitReview,
+      showViewRecommend: own.projection.flags.showViewRecommend,
       showRetry: false,
-      vitalsFields: showGapChoices ? projection.vitalsFields : [],
-      vitalsGapCode: showGapChoices ? projection.vitalsGapCode : null,
-      checkupUrlOverride: projection.checkupUrlOverride,
+      vitalsFields,
+      vitalsGapCode,
+      checkupUrlOverride: own.projection.checkupUrlOverride,
       fromReplyActions: true,
-      exclusiveCodes: projection.exclusiveCodes,
-      replyProjection: projection
+      exclusiveCodes,
+      replyProjection: own.projection
     }
   }
 
+  // No reply_actions column: greeting / hydrate without RA may still show goal
+  // or profile chips. Never invent recommend / upload / checkup from legacy meta.
   const effectiveGoals = resolveEffectiveGoalOptions({
     goalSelectActive: ctx.goalSelectActive,
     goalOptions,
@@ -355,21 +534,17 @@ export function buildTurnActionsVisibility(input: {
     ctx.goalSelectActive,
     effectiveGoals
   )
-  const showSubmitReview = standardFlow ? false : submitExpertReviewCtaVisible(slotInput)
-  const showViewRecommend = standardFlow
-    ? standardViewRecommendCtaVisible(slotInput)
-    : viewRecommendCtaVisible(slotInput)
 
   return {
     choices,
     showConfirm: turnConfirmVisible(choices.length, needsMultiConfirm),
-    showUpload: uploadCtaVisible(ctx, message),
-    showCheckup: checkupCtaVisible(ctx, message),
-    showWantMoreTests: wantMoreTestsCtaVisible(ctx, message),
-    showRecommend: showSubmitReview || showViewRecommend,
-    showSubmitReview,
-    showViewRecommend,
-    showRetry: retryCtaVisible(),
+    showUpload: false,
+    showCheckup: false,
+    showWantMoreTests: false,
+    showRecommend: false,
+    showSubmitReview: false,
+    showViewRecommend: false,
+    showRetry: false,
     ...emptyReplyExtras()
   }
 }

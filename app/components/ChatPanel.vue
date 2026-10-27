@@ -386,6 +386,8 @@ import {
 } from '~/utils/chat-turn-actions'
 import {
   findGapCtaHostMessage,
+  hasAskReportAction,
+  hasReplyActionsColumn,
   isUsableReplyActions,
   normalizeChooseOptionMapsTo,
   shouldSkipFollowUpStream,
@@ -414,6 +416,7 @@ const journey = useJourneyStore()
 const {
   quizActive,
   goalSelectActive,
+  reportAskActive,
   activeQuestion,
   goalOptions,
   selectedCodes,
@@ -590,20 +593,24 @@ const confirmDisabled = computed(() =>
   || (goalSelectActive.value && selectedCodes.value.length < 1)
 )
 
-const gapCtaHostId = computed(() =>
-  findGapCtaHostMessage(messages.value, { openProfileGaps: profileGaps.value })?.id
+const gapCtaHostMessage = computed(() =>
+  findGapCtaHostMessage(messages.value, { openProfileGaps: profileGaps.value })
 )
+
+const gapCtaHostId = computed(() => gapCtaHostMessage.value?.id)
 
 const turnUiContext = computed((): ChatTurnUiContext => ({
   readonlyMode: readonly.value,
   escalated: escalated.value,
   pending: pending.value,
   goalSelectActive: goalSelectActive.value,
+  reportAskActive: reportAskActive.value,
   hasReportAnalysis: journey.hasAnalysis,
   reportRetry: Boolean(reportRetryId.value),
   checkupLinkReady: checkupLinkUrl.value !== '',
   lastAssistantId: lastAssistantId.value,
-  gapCtaHostId: gapCtaHostId.value
+  gapCtaHostId: gapCtaHostId.value,
+  gapCtaHostReplyActions: gapCtaHostMessage.value?.replyActions ?? null
 }))
 
 function turnActionsFor(message: ChatMessage) {
@@ -1021,12 +1028,9 @@ function guideAfterQuiz() {
     return
   }
   postQuizGuided.value = true
-  if (!journey.hasAnalysis && last?.checkupOffer) {
-    // Stale / none path: checkup suggestion already on this bubble — do not invite upload.
-    return
-  }
-  // Upload guide only when server already flagged this bubble (upload_offer).
-  if (!journey.hasAnalysis && !last?.uploadOffer) {
+  // Report 必問：只在 usable ask_report（或 reportAskActive）時補上傳引導文案；
+  // 不再靠 legacy upload_offer／checkupOffer。
+  if (!journey.hasAnalysis && !reportAskActive.value && !hasAskReportAction(last?.replyActions)) {
     return
   }
   const text = journey.hasAnalysis
@@ -1094,8 +1098,15 @@ function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyA
   })
   const projection = visibility.replyProjection
   if (!projection) {
+    // Intentional none / degraded: clear required-ask flags; no legacy CTAs.
+    if (hasReplyActionsColumn(replyActions) && !isUsableReplyActions(replyActions)) {
+      reportAskActive.value = false
+    }
     return
   }
+
+  // Report 必問（對齊 goal）：ask_report 掛上傳 CTA 並擋住 recommend。
+  reportAskActive.value = hasAskReportAction(replyActions)
 
   const choose = projection.chooseOption
   if (choose?.kind === 'consultation_goals' || projection.askGoal) {
@@ -1110,6 +1121,8 @@ function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyA
     return
   }
 
+  // Profile chips (incl. transitional lab_report enum → POST /profile/answers).
+  // lab_report is excluded from gap-host discovery (report 必問 ≠ profile gap).
   if (choose?.kind === 'profile' && choose.gap_code) {
     const answerType = (choose.answer_type || 'enum') as ProfileAnswerType
     message.turnType = 'profile'
@@ -1127,6 +1140,9 @@ function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyA
     }
     quizActive.value = true
     goalSelectActive.value = false
+    if (choose.gap_code === 'lab_report') {
+      reportAskActive.value = true
+    }
     return
   }
 
@@ -1138,6 +1154,7 @@ function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyA
     quizActive.value = false
     activeQuestion.value = null
     goalSelectActive.value = false
+    reportAskActive.value = true
     if (!checkupUrlLoaded.value) {
       void loadCheckupLinkUrl()
     }
@@ -1173,6 +1190,7 @@ function applyStreamMeta(assistantId: string, result: {
 }) {
   const message = journey.messages.find(item => item.id === assistantId)
   const usableRa = isUsableReplyActions(result.reply_actions)
+  const raColumn = hasReplyActionsColumn(result.reply_actions)
   if (message) {
     message.options = result.options ?? []
     message.turnType = result.turn.type as ChatMessage['turnType']
@@ -1181,29 +1199,26 @@ function applyStreamMeta(assistantId: string, result: {
     if (result.reply_actions) {
       message.replyActions = result.reply_actions
     }
-    // Usable RA: do not dual-write legacy offer flags (#18–19). Cache checkup URL only.
-    if (usableRa) {
-      const url = String(result.individual_tests_url || '').trim()
-      if (url) {
-        resolvedCheckupUrl.value = url
-        checkupUrlLoaded.value = true
-      }
-    } else {
-      if (result.upload_offer) {
-        message.uploadOffer = true
-      }
+    // Never dual-write legacy upload_offer / checkupOffer onto the bubble.
+    // Cache checkup URL from stream meta when present (dock / offer_checkup).
+    const url = String(result.individual_tests_url || '').trim()
+    if (url) {
+      resolvedCheckupUrl.value = url
+      checkupUrlLoaded.value = true
+    } else if (!raColumn) {
       applyCheckupOffer(message, result)
     }
   }
   profileGaps.value = result.profile_gaps
   selectedCodes.value = []
 
-  if (message && usableRa) {
+  if (message && raColumn) {
     applyReplyActionsInteraction(message, result.reply_actions!)
-    // Sync checkup URL from offer_checkup payload when provided.
-    const override = turnActionsFor(message).checkupUrlOverride
-    if (override) {
-      resolvedCheckupUrl.value = override
+    if (usableRa) {
+      const override = turnActionsFor(message).checkupUrlOverride
+      if (override) {
+        resolvedCheckupUrl.value = override
+      }
     }
     return
   }
@@ -1217,6 +1232,9 @@ function applyStreamMeta(assistantId: string, result: {
       options: result.options ?? []
     }
     quizActive.value = true
+    if (result.profile_question.gap_code === 'lab_report') {
+      reportAskActive.value = true
+    }
   } else {
     activeQuestion.value = null
     quizActive.value = false
@@ -2024,6 +2042,7 @@ async function bindAndInterpret(reportId: string) {
 
   journey.reportId = reportId
   journey.hasAnalysis = true
+  reportAskActive.value = false
   journey.reportInterpretSent = false
   reportRetryId.value = null
   reportPollStatus.value = null

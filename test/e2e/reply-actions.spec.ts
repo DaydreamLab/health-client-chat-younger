@@ -36,7 +36,7 @@ async function sendChatLine(page: Page, text: string) {
 }
 
 test.describe('reply_actions v0.1 CTAs', () => {
-  test('/chat: offer_recommend → 提交專家判讀; legacy chips/upload deduped', async ({ page, goto }) => {
+  test('/chat: offer_recommend → 完成 CTA 提交專家判讀; legacy chips 不畫', async ({ page, goto }) => {
     test.setTimeout(90_000)
     await mockCandorAuth(page, { asMember: true, replyActions: 'offer_recommend' })
     await seedNoExpertCase(page)
@@ -48,13 +48,49 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await sendChatLine(page, '請依報告給建議')
 
     const last = page.getByTestId('chat-last-reply')
+    // 完成 CTA：usable offer_recommend → FE 投影提交專家判讀（非 legacy 硬掛）
     await expect(last.getByTestId('chat-submit-expert-review')).toBeVisible({ timeout: 15_000 })
     await expect(last.getByTestId('chat-submit-expert-review')).toHaveText('提交專家判讀')
     await expect(last.getByTestId('chat-view-recommend')).toHaveCount(0)
-    // Usable reply_actions: ask_report → upload; legacy options chip must not appear.
-    await expect(last.getByTestId('chat-message-upload')).toBeVisible()
+    await expect(last.getByTestId('chat-message-upload')).toHaveCount(0)
     await expect(last.getByTestId('chat-quiz-option-legacy_chip')).toHaveCount(0)
     await expect(last.getByTestId('chat-message-checkup')).toHaveCount(0)
+  })
+
+  test('/chat: ask_report → 上傳必問; 不硬掛提交專家判讀', async ({ page, goto }) => {
+    test.setTimeout(90_000)
+    await mockCandorAuth(page, { asMember: true, replyActions: 'ask_report' })
+    await seedNoExpertCase(page)
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await goto('/chat', { waitUntil: 'hydration' })
+    await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
+
+    await finishGoalSelect(page)
+    await sendChatLine(page, '我想上傳報告')
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last.getByTestId('chat-message-upload')).toBeVisible({ timeout: 15_000 })
+    await expect(last.getByTestId('chat-submit-expert-review')).toHaveCount(0)
+    await expect(last.getByTestId('chat-quiz-option-legacy_chip')).toHaveCount(0)
+  })
+
+  test('/chat: intentional none → 不畫怪鈕（無 legacy 提交專家判讀）', async ({ page, goto }) => {
+    test.setTimeout(90_000)
+    await mockCandorAuth(page, { asMember: true, replyActions: 'none' })
+    await seedNoExpertCase(page)
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await goto('/chat', { waitUntil: 'hydration' })
+    await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
+
+    await finishGoalSelect(page)
+    await sendChatLine(page, '聊聊生活習慣')
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last).toBeVisible({ timeout: 15_000 })
+    await expect(last.getByTestId('chat-submit-expert-review')).toHaveCount(0)
+    await expect(last.getByTestId('chat-message-upload')).toHaveCount(0)
+    await expect(last.getByTestId('chat-message-checkup')).toHaveCount(0)
+    await expect(last.getByTestId('chat-quiz-option-legacy_chip')).toHaveCount(0)
   })
 
   test('/chat-ai: same offer_recommend → 查看推薦方案', async ({ page, goto }) => {
@@ -73,7 +109,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await expect(last.getByTestId('chat-submit-expert-review')).toHaveCount(0)
   })
 
-  test('history hydrate: reload maps reply_actions CTAs; degraded falls back to legacy', async ({ page, goto }) => {
+  test('history hydrate: reload maps reply_actions CTAs; degraded 不回退 legacy', async ({ page, goto }) => {
     test.setTimeout(90_000)
     await mockCandorAuth(page, { asMember: true, replyActions: 'offer_recommend' })
     await seedNoExpertCase(page)
@@ -105,6 +141,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
       selectedPackage: null,
       packageConfirmed: false,
       goalSelectActive: false,
+      reportAskActive: false,
       goalOptions: [],
       selectedCodes: [],
       quizActive: false,
@@ -124,11 +161,11 @@ test.describe('reply_actions v0.1 CTAs', () => {
     const last = page.getByTestId('chat-last-reply')
     await expect(last).toContainText('依報告來看', { timeout: 15_000 })
     await expect(last.getByTestId('chat-submit-expert-review')).toBeVisible({ timeout: 15_000 })
-    await expect(last.getByTestId('chat-message-upload')).toBeVisible()
+    await expect(last.getByTestId('chat-message-upload')).toHaveCount(0)
     await expect(last.getByTestId('chat-quiz-option-legacy_chip')).toHaveCount(0)
     await expect(page.getByText('本機沒有 reply_actions')).toHaveCount(0)
 
-    // Degraded history → legacy upload only.
+    // Degraded history → no CTAs (legacy upload_offer 不當 fallback).
     await mockCandorAuth(page, { asMember: true, replyActions: 'degraded' })
     await seedNoExpertCase(page)
     await page.addInitScript((journey) => {
@@ -142,12 +179,11 @@ test.describe('reply_actions v0.1 CTAs', () => {
       }]
     })
     await goto('/chat', { waitUntil: 'hydration' })
-    // Degraded reply_actions → not usable → legacy upload_offer paints upload.
-    await expect(page.getByTestId('chat-last-reply').getByTestId('chat-message-upload')).toBeVisible({
-      timeout: 15_000
-    })
+    const degradedLast = page.getByTestId('chat-last-reply')
+    await expect(degradedLast).toBeVisible({ timeout: 15_000 })
+    await expect(degradedLast.getByTestId('chat-message-upload')).toHaveCount(0)
+    await expect(degradedLast.getByTestId('chat-submit-expert-review')).toHaveCount(0)
     await expect(page.getByTestId('chat-vitals-card')).toHaveCount(0)
-    // Legacy recommend slot may still appear via journey gates (not from reply_actions).
   })
 
   test('ask_vitals age picker → int profile/answers; then height numpad sequential', async ({ page, goto }) => {
@@ -194,18 +230,20 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await expect(last.getByTestId('chat-vitals-weight')).toBeVisible({ timeout: 15_000 })
   })
 
-  test('ask_vitals degraded falls back to legacy upload', async ({ page, goto }) => {
+  test('degraded stream paints no legacy upload / recommend', async ({ page, goto }) => {
     test.setTimeout(90_000)
     await mockCandorAuth(page, { asMember: true, replyActions: 'degraded' })
+    await seedNoExpertCase(page)
     await page.setViewportSize({ width: 1280, height: 800 })
     await goto('/chat', { waitUntil: 'hydration' })
     await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
 
     await finishGoalSelect(page)
     await sendChatLine(page, '再試一次')
-    await expect(page.getByTestId('chat-last-reply').getByTestId('chat-message-upload')).toBeVisible({
-      timeout: 15_000
-    })
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last).toBeVisible({ timeout: 15_000 })
+    await expect(last.getByTestId('chat-message-upload')).toHaveCount(0)
+    await expect(last.getByTestId('chat-submit-expert-review')).toHaveCount(0)
     await expect(page.getByTestId('chat-vitals-card')).toHaveCount(0)
   })
 
