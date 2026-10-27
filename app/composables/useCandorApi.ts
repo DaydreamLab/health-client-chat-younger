@@ -6,6 +6,7 @@ import type {
   ConversationCreate,
   ConversationDetachAck,
   ConversationGoalsResult,
+  ConversationMessages,
   ConversationPackageConfirm,
   ExpertCaseReviewList,
   ExpertCaseReviewStatus,
@@ -445,6 +446,16 @@ export function useCandorApi() {
         { method: 'DELETE' }
       ),
     streamMessage,
+
+    /**
+     * Conversation transcript (history). Core attaches `reply_actions` per message
+     * when classified; FE maps via `historyMessageToChatMessage` (same CTA path as SSE).
+     */
+    getConversationMessages: (conversationId: string) =>
+      request<ConversationMessages>(
+        `/conversation/${encodeURIComponent(conversationId)}/messages`,
+        { method: 'GET' }
+      ),
 
     uploadHealthReport: (file: File) => {
       const form = new FormData()

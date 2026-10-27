@@ -389,6 +389,10 @@ import {
   type ReplyActions,
   type VitalsField
 } from '~/utils/reply-actions'
+import {
+  historyMessageToChatMessage,
+  parseConversationMessagesResult
+} from '~/utils/chat-history'
 import { storeToRefs } from 'pinia'
 
 const props = defineProps<{
@@ -1029,6 +1033,42 @@ function guideAfterQuiz() {
     return
   }
   appendMessage('assistant', text)
+}
+
+/**
+ * Prefer server history (with reply_actions) over local journey transcript after reload.
+ * On 405/404/network errors keep local messages (already normalized on journey.hydrate).
+ */
+async function hydrateConversationHistory(conversationId: string) {
+  if (!conversationId || readonly.value) {
+    return
+  }
+  try {
+    const payload = await candor.getConversationMessages(conversationId)
+    const parsed = parseConversationMessagesResult(payload)
+    if (parsed.messages.length === 0) {
+      return
+    }
+    const mapped = parsed.messages.map(historyMessageToChatMessage)
+    journey.messages.splice(0, journey.messages.length, ...mapped)
+
+    // Restore CTA interaction from the latest usable reply_actions bubble.
+    const lastAssistant = [...mapped].reverse().find(m => m.role === 'assistant')
+    if (lastAssistant && isUsableReplyActions(lastAssistant.replyActions)) {
+      applyReplyActionsInteraction(lastAssistant, lastAssistant.replyActions!)
+      const override = turnActionsFor(lastAssistant).checkupUrlOverride
+      if (override) {
+        resolvedCheckupUrl.value = override
+      }
+    } else if (lastAssistant?.checkupOffer) {
+      // Legacy checkup URL may arrive only via client-config; offer flag still paints CTA.
+    }
+    if (lastAssistant?.profileGaps?.length) {
+      profileGaps.value = [...lastAssistant.profileGaps]
+    }
+  } catch {
+    // History endpoint may not be deployed yet (405) — local journey is fallback.
+  }
 }
 
 function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyActions) {
@@ -2336,7 +2376,13 @@ onMounted(async () => {
   }
 
   try {
+    // Only pull server history when restoring an existing conversation (reload / re-enter).
+    // Fresh createConversation must keep the greeting + goal chips.
+    const restoringConversation = Boolean(journey.conversationId)
     await ensureConversation()
+    if (restoringConversation && journey.conversationId) {
+      await hydrateConversationHistory(journey.conversationId)
+    }
     await applyHomeGoal()
   } catch {
     if (journey.messages.length === 0) {

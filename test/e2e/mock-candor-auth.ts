@@ -970,6 +970,104 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     })
   })
 
+  function buildReplyActionsPayload(
+    mode: NonNullable<CandorMockOptions['replyActions']>
+  ): Record<string, unknown> | null {
+    if (mode === 'offer_recommend') {
+      return {
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'fake',
+        degraded: false,
+        error: null,
+        actions: [
+          { type: 'offer_recommend', payload: {} },
+          { type: 'ask_report', payload: {} }
+        ]
+      }
+    }
+    if (mode === 'ask_vitals') {
+      return {
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'fake',
+        degraded: false,
+        error: null,
+        actions: [
+          { type: 'ask_vitals', payload: { fields: ['age', 'height', 'weight'] } }
+        ]
+      }
+    }
+    if (mode === 'degraded') {
+      return {
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'fake',
+        degraded: true,
+        error: 'timeout',
+        actions: [{ type: 'none' }]
+      }
+    }
+    return null
+  }
+
+  /** GET history — only returns transcript when replyActions mock mode is set. */
+  await page.route(`**/api/v1/conversation/${conversationId}/messages`, async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback()
+      return
+    }
+    const url = route.request().url()
+    if (url.includes('/messages/stream')) {
+      await route.fallback()
+      return
+    }
+    if (!options.replyActions) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: { conversation_id: conversationId, messages: [] }
+        })
+      })
+      return
+    }
+    const replyActions = buildReplyActionsPayload(options.replyActions)
+    const assistant: Record<string, unknown> = {
+      id: 'msg-history-assistant',
+      role: 'assistant',
+      content: '依報告來看，基礎保養會是合適起點。',
+      options: options.replyActions !== 'degraded'
+        ? [{ code: 'legacy_chip', label: '舊選項' }]
+        : [],
+      turn: { type: 'message' },
+      profile_question: null,
+      profile_gaps: [],
+      upload_offer: options.replyActions === 'offer_recommend' || options.replyActions === 'degraded',
+      checkup_offer: options.replyActions === 'offer_recommend',
+      reply_actions: replyActions
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: {
+          conversation_id: conversationId,
+          messages: [
+            {
+              id: 'msg-history-user',
+              role: 'user',
+              content: '請依報告給建議'
+            },
+            assistant
+          ]
+        }
+      })
+    })
+  })
+
   await page.route(`**/api/v1/conversation/${conversationId}/messages/stream`, async (route) => {
     streamCount += 1
     let donePayload: Record<string, unknown> = {
@@ -1013,52 +1111,17 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       }
     }
 
-    if (options.replyActions === 'offer_recommend') {
+    if (options.replyActions) {
+      const replyActions = buildReplyActionsPayload(options.replyActions)
       donePayload = {
         ...donePayload,
-        // Conflicting legacy fields — FE must not double-paint when reply_actions is usable.
-        options: [{ code: 'legacy_chip', label: '舊選項' }],
-        upload_offer: true,
-        checkup_offer: true,
-        reply_actions: {
-          schema_version: '0.1',
-          source: 'semantic_judgment',
-          adaptor: 'fake',
-          degraded: false,
-          error: null,
-          actions: [
-            { type: 'offer_recommend', payload: {} },
-            { type: 'ask_report', payload: {} }
-          ]
-        }
-      }
-    } else if (options.replyActions === 'ask_vitals') {
-      donePayload = {
-        ...donePayload,
-        options: [{ code: 'legacy_chip', label: '舊選項' }],
-        reply_actions: {
-          schema_version: '0.1',
-          source: 'semantic_judgment',
-          adaptor: 'fake',
-          degraded: false,
-          error: null,
-          actions: [
-            { type: 'ask_vitals', payload: { fields: ['age', 'height', 'weight'] } }
-          ]
-        }
-      }
-    } else if (options.replyActions === 'degraded') {
-      donePayload = {
-        ...donePayload,
-        upload_offer: true,
-        reply_actions: {
-          schema_version: '0.1',
-          source: 'semantic_judgment',
-          adaptor: 'fake',
-          degraded: true,
-          error: 'timeout',
-          actions: [{ type: 'none' }]
-        }
+        options: options.replyActions !== 'degraded'
+          ? [{ code: 'legacy_chip', label: '舊選項' }]
+          : [],
+        upload_offer: options.replyActions === 'offer_recommend'
+          || options.replyActions === 'degraded',
+        checkup_offer: options.replyActions === 'offer_recommend',
+        reply_actions: replyActions
       }
     }
 

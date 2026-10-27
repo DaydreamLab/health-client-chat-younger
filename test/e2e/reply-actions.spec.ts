@@ -73,6 +73,83 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await expect(last.getByTestId('chat-submit-expert-review')).toHaveCount(0)
   })
 
+  test('history hydrate: reload maps reply_actions CTAs; degraded falls back to legacy', async ({ page, goto }) => {
+    test.setTimeout(90_000)
+    await mockCandorAuth(page, { asMember: true, replyActions: 'offer_recommend' })
+    await seedNoExpertCase(page)
+    await page.setViewportSize({ width: 1280, height: 800 })
+
+    const staleJourney = {
+      conversationId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      messages: [
+        {
+          id: 'stale-user',
+          role: 'user',
+          parts: [{ type: 'text', text: '舊本機訊息' }]
+        },
+        {
+          id: 'stale-assistant',
+          role: 'assistant',
+          parts: [{ type: 'text', text: '本機沒有 reply_actions' }],
+          uploadOffer: true,
+          checkupOffer: true,
+          options: [{ code: 'legacy_chip', label: '舊選項' }]
+        }
+      ],
+      hasAnalysis: false,
+      selectedPackageCode: null,
+      reportId: null,
+      reportDockOpen: false,
+      reportDockCollapsed: true,
+      reportInterpretSent: false,
+      selectedPackage: null,
+      packageConfirmed: false,
+      goalSelectActive: false,
+      goalOptions: [],
+      selectedCodes: [],
+      quizActive: false,
+      activeQuestion: null,
+      postQuizGuided: false,
+      profileGaps: [],
+      clarifyingGoals: [],
+      expertReviewStatus: 'none'
+    }
+
+    // Seed before first paint so Pinia hydrate reads the restored journey (not live persist).
+    await page.addInitScript((journey) => {
+      localStorage.setItem('candor.unpaid.journey', JSON.stringify(journey))
+    }, staleJourney)
+    await goto('/chat', { waitUntil: 'hydration' })
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last).toContainText('依報告來看', { timeout: 15_000 })
+    await expect(last.getByTestId('chat-submit-expert-review')).toBeVisible({ timeout: 15_000 })
+    await expect(last.getByTestId('chat-message-upload')).toBeVisible()
+    await expect(last.getByTestId('chat-quiz-option-legacy_chip')).toHaveCount(0)
+    await expect(page.getByText('本機沒有 reply_actions')).toHaveCount(0)
+
+    // Degraded history → legacy upload only.
+    await mockCandorAuth(page, { asMember: true, replyActions: 'degraded' })
+    await seedNoExpertCase(page)
+    await page.addInitScript((journey) => {
+      localStorage.setItem('candor.unpaid.journey', JSON.stringify(journey))
+    }, {
+      ...staleJourney,
+      messages: [{
+        id: 'stale',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'stale' }]
+      }]
+    })
+    await goto('/chat', { waitUntil: 'hydration' })
+    // Degraded reply_actions → not usable → legacy upload_offer paints upload.
+    await expect(page.getByTestId('chat-last-reply').getByTestId('chat-message-upload')).toBeVisible({
+      timeout: 15_000
+    })
+    await expect(page.getByTestId('chat-vitals-card')).toHaveCount(0)
+    // Legacy recommend slot may still appear via journey gates (not from reply_actions).
+  })
+
   test('ask_vitals renders numeric card; degraded falls back to legacy upload', async ({ page, goto }) => {
     test.setTimeout(90_000)
     await mockCandorAuth(page, { asMember: true, replyActions: 'ask_vitals' })

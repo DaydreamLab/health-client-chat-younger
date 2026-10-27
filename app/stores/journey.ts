@@ -1,5 +1,6 @@
 import type { ChatMessage } from '~/utils/first-order'
 import { snapshotChatMessage } from '~/utils/first-order'
+import { normalizeStoredChatMessages } from '~/utils/chat-history'
 import type { ConversationPackage, GreetingOption, ProfileNextQuestion } from '~/utils/candor-api'
 import type { ExpertReviewUiStatus } from '~/utils/chat-turn-actions'
 
@@ -75,7 +76,7 @@ function readStored(): JourneySnapshot {
     return {
       ...base,
       ...parsed,
-      messages: Array.isArray(parsed.messages) ? parsed.messages : [],
+      messages: normalizeStoredChatMessages(parsed.messages),
       selectedCodes: Array.isArray(parsed.selectedCodes) ? parsed.selectedCodes : [],
       goalOptions: Array.isArray(parsed.goalOptions) ? parsed.goalOptions : [],
       profileGaps: Array.isArray(parsed.profileGaps) ? parsed.profileGaps : [],
@@ -191,7 +192,7 @@ export const useJourneyStore = defineStore('journey', () => {
       return
     }
     const stored = readStored()
-    messages.value = stored.messages
+    messages.value = normalizeStoredChatMessages(stored.messages)
     hasAnalysis.value = stored.hasAnalysis
     selectedPackageCode.value = stored.selectedPackageCode ?? null
     conversationId.value = stored.conversationId
