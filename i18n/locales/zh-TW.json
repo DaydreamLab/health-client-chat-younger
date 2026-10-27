@@ -860,6 +860,24 @@
     "updatedAt": "更新日期：{date}",
     "version": "版本 {version}"
   },
+  "about": {
+    "metaTitle": "關於坦見",
+    "title": "關於坦見",
+    "loading": "載入關於坦見中…",
+    "loadError": "無法載入關於坦見，請稍後再試。",
+    "retry": "重新載入",
+    "leadStrong": "你的生理數據顧問。",
+    "leadRest": "看懂身體數據，再決定怎麼補。選方案後先進諮詢，需要時再轉專人客服。"
+  },
+  "terms": {
+    "metaTitle": "服務條款",
+    "title": "服務條款",
+    "loading": "載入服務條款中…",
+    "loadError": "無法載入服務條款，請稍後再試。",
+    "retry": "重新載入",
+    "updatedAt": "更新日期：{date}",
+    "version": "版本 {version}"
+  },
   "cookieConsent": {
     "ariaLabel": "Cookie 與隱私權同意",
     "message": "我們使用必要的 Cookie 與本機儲存，以維持登入狀態並改善服務體驗。繼續使用即表示你同意我們依隱私權政策處理相關資料。",

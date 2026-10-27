@@ -268,7 +268,19 @@ const config = useRuntimeConfig()
 const footerYear = new Date().getFullYear()
 const footerWordmarkSrc = `${config.app.baseURL}brand-wordmark-dark.png`
 
-const footerColumns = computed(() => [
+type FooterItem = {
+  label: string
+  to?: string
+  testId?: string
+}
+
+type FooterColumn = {
+  title: string
+  items: FooterItem[]
+  contact: boolean
+}
+
+const footerColumns = computed((): FooterColumn[] => [
   {
     title: t('footer.explore'),
     items: [
@@ -290,13 +302,21 @@ const footerColumns = computed(() => [
   {
     title: t('footer.about'),
     items: [
-      { label: t('footer.aboutUs') },
+      {
+        label: t('footer.aboutUs'),
+        to: localePath('/about'),
+        testId: 'footer-about'
+      },
       {
         label: t('footer.privacy'),
         to: localePath('/privacy'),
         testId: 'footer-privacy'
       },
-      { label: t('footer.terms') }
+      {
+        label: t('footer.terms'),
+        to: localePath('/terms'),
+        testId: 'footer-terms'
+      }
     ],
     contact: false
   }
