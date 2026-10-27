@@ -209,7 +209,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await expect(page.getByTestId('chat-vitals-card')).toHaveCount(0)
   })
 
-  test('intake hybrid: answers next_question int does not bank; stream ask_vitals CTA', async ({
+  test('intake hybrid: answers next_question int does not bank; gap CTA from reply_actions', async ({
     page,
     goto
   }) => {
@@ -221,7 +221,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
 
     await finishGoalSelect(page)
 
-    // Goals → chat stream choose_option(sex), not local next_question bank.
+    // Goals → bank/history choose_option(sex) (hydrate may skip covering stream).
     const sexTurn = page.getByTestId('chat-last-reply')
     await expect(sexTurn).toContainText('生理性別', { timeout: 15_000 })
     await expect(sexTurn.getByTestId('chat-quiz-option-F')).toBeVisible()
@@ -234,13 +234,120 @@ test.describe('reply_actions v0.1 CTAs', () => {
     const sexReq = await sexPost
     expect(sexReq.postDataJSON()).toMatchObject({ gap_code: 'sex', value: 'F' })
 
-    // Trap: answers returns next_question age int. FE must stream; AskVitalsCard
-    // comes from message.reply_actions — not a bank bubble with text-only input.
+    // Trap: answers returns next_question age int. FE must NOT invent a local bank
+    // bubble from that prompt; AskVitalsCard comes from message.reply_actions
+    // (history hydrate and/or stream).
     const vitalsTurn = page.getByTestId('chat-last-reply')
     await expect(vitalsTurn).toContainText('年紀、身高與體重', { timeout: 15_000 })
     await expect(vitalsTurn.getByTestId('chat-vitals-card')).toBeVisible({ timeout: 15_000 })
     await expect(vitalsTurn.getByTestId('chat-vitals-age-picker')).toBeVisible()
     // Bank prompt alone must not be the CTA surface (no int chips / no vitals).
     await expect(page.getByText('請問您的年紀？')).toHaveCount(0)
+  })
+
+  test('gap CTA fallback: hydrate keeps ask_vitals on bank when latest is offer_recommend-only', async ({
+    page,
+    goto
+  }) => {
+    test.setTimeout(90_000)
+    const conversationId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+    await mockCandorAuth(page, { asMember: true, replyActions: 'offer_recommend' })
+    await seedNoExpertCase(page)
+    await page.setViewportSize({ width: 1280, height: 800 })
+
+    // Override history: bank ask_vitals, then covering stream turn with only offer_recommend.
+    await page.route(`**/api/v1/conversation/${conversationId}/messages`, async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback()
+        return
+      }
+      if (route.request().url().includes('/messages/stream')) {
+        await route.fallback()
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            conversation_id: conversationId,
+            messages: [
+              { id: 'u1', role: 'user', content: '30' },
+              {
+                id: 'bank-height',
+                role: 'assistant',
+                content: '請問您的身高（公分）？',
+                reply_actions: {
+                  schema_version: '0.1',
+                  source: 'questionnaire',
+                  adaptor: 'fake',
+                  degraded: false,
+                  error: null,
+                  actions: [
+                    {
+                      type: 'ask_vitals',
+                      payload: { fields: ['height'], gap_code: 'height' }
+                    }
+                  ]
+                }
+              },
+              {
+                id: 'stream-cover',
+                role: 'assistant',
+                content: '請問您的身高是多少公分呢？',
+                reply_actions: {
+                  schema_version: '0.1',
+                  source: 'semantic_judgment',
+                  adaptor: 'fake',
+                  degraded: false,
+                  error: null,
+                  actions: [{ type: 'offer_recommend', payload: {} }]
+                }
+              }
+            ]
+          }
+        })
+      })
+    })
+
+    await page.addInitScript((journey) => {
+      localStorage.setItem('candor.unpaid.journey', JSON.stringify(journey))
+    }, {
+      conversationId,
+      messages: [{
+        id: 'stale',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'stale' }]
+      }],
+      hasAnalysis: false,
+      selectedPackageCode: null,
+      reportId: null,
+      reportDockOpen: false,
+      reportDockCollapsed: true,
+      reportInterpretSent: false,
+      selectedPackage: null,
+      packageConfirmed: false,
+      goalSelectActive: false,
+      goalOptions: [],
+      selectedCodes: [],
+      quizActive: false,
+      activeQuestion: null,
+      postQuizGuided: false,
+      profileGaps: ['height'],
+      clarifyingGoals: [],
+      expertReviewStatus: 'none'
+    })
+
+    await goto('/chat', { waitUntil: 'hydration' })
+
+    // Latest bubble is the covering stream text; numpad must still render via gap fallback.
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last).toContainText('身高是多少公分', { timeout: 15_000 })
+    await expect(page.getByTestId('chat-vitals-card')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('chat-vitals-numpad')).toBeVisible()
+    await expect(page.getByTestId('chat-vitals-height')).toBeVisible()
+    // Covering offer_recommend must not paint recommend while gap is open.
+    await expect(page.getByTestId('chat-submit-expert-review')).toHaveCount(0)
   })
 })

@@ -1,5 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import {
+  findGapCtaHostMessage,
+  hasUsableGapCta,
   isUsableReplyActions,
   offerRecommendLabelKey,
   parseReplyActions,
@@ -75,6 +77,45 @@ describe('parseReplyActions / isUsableReplyActions', () => {
     expect(isUsableReplyActions(ra({ degraded: true, actions: [{ type: 'ask_report' }] }))).toBe(false)
     expect(isUsableReplyActions(ra({ actions: [] }))).toBe(false)
     expect(isUsableReplyActions(ra({ actions: [{ type: 'none' }] }))).toBe(false)
+  })
+
+  it('hasUsableGapCta requires ask_vitals / choose_option / ask_goal (not offer_*)', () => {
+    expect(hasUsableGapCta(ra({ actions: [{ type: 'offer_recommend' }] }))).toBe(false)
+    expect(hasUsableGapCta(ra({ actions: [{ type: 'ask_report' }, { type: 'offer_checkup' }] }))).toBe(false)
+    expect(hasUsableGapCta(ra({
+      actions: [
+        { type: 'offer_recommend' },
+        { type: 'ask_vitals', payload: { fields: ['height'] } }
+      ]
+    }))).toBe(true)
+    expect(hasUsableGapCta(ra({
+      actions: [{
+        type: 'choose_option',
+        payload: { kind: 'profile', gap_code: 'sex', options: [{ code: 'F', label: '女' }] }
+      }]
+    }))).toBe(true)
+    expect(hasUsableGapCta(ra({ degraded: true, actions: [{ type: 'ask_vitals' }] }))).toBe(false)
+  })
+
+  it('findGapCtaHostMessage walks past offer_recommend-only latest to bank ask_vitals', () => {
+    const bank = assistant('bank', {
+      replyActions: ra({
+        actions: [{ type: 'ask_vitals', payload: { fields: ['height'], gap_code: 'height' } }]
+      })
+    })
+    const stream = assistant('stream', {
+      replyActions: ra({ actions: [{ type: 'offer_recommend' }] })
+    })
+    expect(findGapCtaHostMessage([bank, stream])?.id).toBe('bank')
+    expect(findGapCtaHostMessage([stream])?.id).toBeUndefined()
+    expect(findGapCtaHostMessage([
+      bank,
+      assistant('later', {
+        replyActions: ra({
+          actions: [{ type: 'ask_vitals', payload: { fields: ['weight'] } }]
+        })
+      })
+    ])?.id).toBe('later')
   })
 
   it('ignores unknown types for usability; keeps known siblings', () => {
@@ -317,7 +358,12 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     })
     const pending = buildTurnActionsVisibility({
       message: msg,
-      ctx: baseCtx({ pending: true, hasReportAnalysis: true, lastAssistantId: 'latest' }),
+      ctx: baseCtx({
+        pending: true,
+        hasReportAnalysis: true,
+        lastAssistantId: 'latest',
+        gapCtaHostId: 'latest'
+      }),
       goalOptions: [],
       needsMultiConfirm: false,
       expertReviewStatus: 'none',
@@ -329,7 +375,12 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
 
     const readonly = buildTurnActionsVisibility({
       message: msg,
-      ctx: baseCtx({ readonlyMode: true, hasReportAnalysis: true, lastAssistantId: 'latest' }),
+      ctx: baseCtx({
+        readonlyMode: true,
+        hasReportAnalysis: true,
+        lastAssistantId: 'latest',
+        gapCtaHostId: 'latest'
+      }),
       goalOptions: [],
       needsMultiConfirm: false,
       expertReviewStatus: 'none',
@@ -337,5 +388,84 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     })
     expect(readonly.showViewRecommend).toBe(false)
     expect(readonly.vitalsFields).toEqual([])
+  })
+
+  it('gap CTA fallback: ask_vitals on bank host when latest is offer_recommend-only', () => {
+    const bank = assistant('bank', {
+      replyActions: ra({
+        actions: [{ type: 'ask_vitals', payload: { fields: ['height'], gap_code: 'height' } }]
+      })
+    })
+    const stream = assistant('stream', {
+      replyActions: ra({ actions: [{ type: 'offer_recommend' }, { type: 'ask_report' }] })
+    })
+    const ctx = baseCtx({
+      lastAssistantId: 'stream',
+      gapCtaHostId: 'bank',
+      hasReportAnalysis: true
+    })
+    const onBank = buildTurnActionsVisibility({
+      message: bank,
+      ctx,
+      goalOptions: [],
+      needsMultiConfirm: false,
+      expertReviewStatus: 'none',
+      flow: 'standard'
+    })
+    expect(onBank.vitalsFields).toEqual(['height'])
+    expect(onBank.vitalsGapCode).toBe('height')
+    expect(onBank.showViewRecommend).toBe(false)
+
+    const onStream = buildTurnActionsVisibility({
+      message: stream,
+      ctx,
+      goalOptions: [],
+      needsMultiConfirm: false,
+      expertReviewStatus: 'none',
+      flow: 'standard'
+    })
+    expect(onStream.vitalsFields).toEqual([])
+    // Pending gap behind latest suppresses recommend/upload on the covering turn.
+    expect(onStream.showViewRecommend).toBe(false)
+    expect(onStream.showUpload).toBe(false)
+  })
+
+  it('choose_option sex chips stay on bank host when stream covers with offer_recommend', () => {
+    const bank = assistant('bank', {
+      replyActions: ra({
+        actions: [{
+          type: 'choose_option',
+          payload: {
+            kind: 'profile',
+            mode: 'single',
+            gap_code: 'sex',
+            answer_type: 'enum',
+            options: [
+              { code: 'M', label: '男' },
+              { code: 'F', label: '女' }
+            ]
+          }
+        }]
+      })
+    })
+    const stream = assistant('stream', {
+      replyActions: ra({ actions: [{ type: 'offer_recommend' }] })
+    })
+    const ctx = baseCtx({ lastAssistantId: 'stream', gapCtaHostId: 'bank' })
+    const onBank = buildTurnActionsVisibility({
+      message: bank,
+      ctx,
+      goalOptions: [],
+      needsMultiConfirm: false
+    })
+    expect(onBank.choices.map(c => c.code)).toEqual(['M', 'F'])
+    const onStream = buildTurnActionsVisibility({
+      message: stream,
+      ctx,
+      goalOptions: [],
+      needsMultiConfirm: false
+    })
+    expect(onStream.choices).toEqual([])
+    expect(onStream.showSubmitReview).toBe(false)
   })
 })

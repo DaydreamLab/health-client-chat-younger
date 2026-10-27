@@ -60,9 +60,11 @@ export type CandorMockOptions = {
    * Attach reply_actions v0.1 on SSE `done` (plus conflicting legacy fields)
    * so FE dedupe / CTA projection can be asserted in e2e.
    *
-   * `intake_hybrid`: after goals, stream choose_option(sex); answers returns a
-   * non-done next_question (age int) that would lock legacy bank UI; the next
-   * stream carries ask_vitals — FE must prefer reply_actions over bank.
+   * `intake_hybrid`: after goals, history/stream choose_option(sex); answers
+   * returns a non-done next_question (age int) that would lock legacy bank UI;
+   * the next history/stream carries ask_vitals — FE must prefer reply_actions
+   * over a local next_question bank bubble (and may skip covering stream when
+   * history already has the gap CTA).
    */
   replyActions?: 'offer_recommend' | 'ask_vitals' | 'degraded' | 'intake_hybrid'
 }
@@ -1077,16 +1079,39 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       return
     }
     const replyActions = buildReplyActionsPayload(options.replyActions)
+    // Hybrid: bank gap CTA content must match stream copy so answers→hydrate→skip-stream
+    // still satisfies e2e text assertions (sex / vitals).
+    let assistantContent = '依報告來看，基礎保養會是合適起點。'
+    let assistantOptions: Array<{ code: string, label: string }> = options.replyActions !== 'degraded'
+      ? [{ code: 'legacy_chip', label: '舊選項' }]
+      : []
+    let profileGaps: string[] = []
+    if (options.replyActions === 'intake_hybrid' && goalsSet) {
+      if (!hybridSexAnswered) {
+        assistantContent = '請問您的生理性別？'
+        assistantOptions = [
+          { code: 'M', label: '男' },
+          { code: 'F', label: '女' }
+        ]
+        profileGaps = ['sex', 'age', 'height', 'weight']
+      } else {
+        assistantContent = '接著請補充年紀、身高與體重。'
+        assistantOptions = []
+        profileGaps = ['age', 'height', 'weight']
+      }
+    } else if (options.replyActions === 'ask_vitals') {
+      assistantContent = '接著請補充年紀、身高與體重。'
+      assistantOptions = [{ code: 'legacy_chip', label: '舊選項' }]
+      profileGaps = ['age', 'height', 'weight']
+    }
     const assistant: Record<string, unknown> = {
       id: 'msg-history-assistant',
       role: 'assistant',
-      content: '依報告來看，基礎保養會是合適起點。',
-      options: options.replyActions !== 'degraded'
-        ? [{ code: 'legacy_chip', label: '舊選項' }]
-        : [],
+      content: assistantContent,
+      options: assistantOptions,
       turn: { type: 'message' },
       profile_question: null,
-      profile_gaps: [],
+      profile_gaps: profileGaps,
       upload_offer: options.replyActions === 'offer_recommend' || options.replyActions === 'degraded',
       checkup_offer: options.replyActions === 'offer_recommend',
       reply_actions: replyActions

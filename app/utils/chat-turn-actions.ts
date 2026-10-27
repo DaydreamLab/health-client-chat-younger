@@ -31,6 +31,12 @@ export interface ChatTurnUiContext {
   /** individual_tests_url resolved and non-empty */
   checkupLinkReady: boolean
   lastAssistantId?: string
+  /**
+   * Assistant message that should host required-gap CTAs (ask_vitals /
+   * choose_option / ask_goal). May be behind lastAssistantId when the latest
+   * stream turn only carries offer_recommend / ask_report / offer_checkup.
+   */
+  gapCtaHostId?: string
 }
 
 const LAB_GAP_CODES = new Set(['lab_report', 'checkup', 'blood_test'])
@@ -294,12 +300,24 @@ export function buildTurnActionsVisibility(input: {
   const expertReviewStatus = input.expertReviewStatus ?? 'none'
   const standardFlow = input.flow === 'standard'
   const latest = isLatestAssistantMessage(message, ctx.lastAssistantId)
+  // Gap CTAs may render on an earlier bank turn when the latest stream turn
+  // lacks ask_vitals / choose_option / ask_goal (fallback host).
+  const gapHostId = ctx.gapCtaHostId ?? ctx.lastAssistantId
+  const isGapHost = gapHostId !== undefined
+    && message.id === gapHostId
+  const pendingGapBehindLatest = Boolean(
+    ctx.gapCtaHostId
+    && ctx.lastAssistantId
+    && ctx.gapCtaHostId !== ctx.lastAssistantId
+  )
   const profileQuestionActive = message.turnType === 'profile' && Boolean(message.profileQuestion)
   const slotInput = {
     readonlyMode: ctx.readonlyMode,
     escalated: ctx.escalated,
     goalSelectActive: ctx.goalSelectActive,
-    profileQuestionActive,
+    // Treat an open gap on an earlier host like an active profile question so
+    // offer_recommend on the covering stream turn does not steal the CTA slot.
+    profileQuestionActive: profileQuestionActive || (pendingGapBehindLatest && latest),
     isLatestAssistant: latest,
     reportRetry: ctx.reportRetry,
     pending: ctx.pending,
@@ -310,14 +328,17 @@ export function buildTurnActionsVisibility(input: {
   // Prefer reply_actions column when usable; do not also paint legacy offers.
   if (isUsableReplyActions(message.replyActions)) {
     const canShowRecommendSlot = recommendSlotVisible(slotInput)
+      && !pendingGapBehindLatest
     const canShowUpload = latest
+      && !pendingGapBehindLatest
       && !ctx.readonlyMode
       && !ctx.escalated
       && !ctx.hasReportAnalysis
       && !(ctx.goalSelectActive && !ctx.hasReportAnalysis)
     const canShowCheckup = !ctx.readonlyMode && !ctx.escalated
     // Keep vitals card mounted while pending so AskVitalsCard can show「送出中」.
-    const canShowVitals = latest && !ctx.readonlyMode && !ctx.escalated
+    // Host may be behind lastAssistantId when stream only returned offer_*.
+    const canShowVitals = isGapHost && !ctx.readonlyMode && !ctx.escalated
     const projection = projectReplyActionsToCtas({
       replyActions: message.replyActions!,
       canShowRecommendSlot,
@@ -332,9 +353,11 @@ export function buildTurnActionsVisibility(input: {
     const showCheckup = projection.flags.showCheckup
       && (ctx.checkupLinkReady || checkupFromPayload)
 
+    // Gap chips / confirm / vitals only on the gap host; non-gap offers stay on latest.
+    const showGapChoices = isGapHost
     return {
-      choices: projection.flags.choices,
-      showConfirm: projection.flags.showConfirm,
+      choices: showGapChoices ? projection.flags.choices : [],
+      showConfirm: showGapChoices ? projection.flags.showConfirm : false,
       showUpload: projection.flags.showUpload,
       showCheckup,
       showWantMoreTests: false,
@@ -342,8 +365,8 @@ export function buildTurnActionsVisibility(input: {
       showSubmitReview: projection.flags.showSubmitReview,
       showViewRecommend: projection.flags.showViewRecommend,
       showRetry: false,
-      vitalsFields: projection.vitalsFields,
-      vitalsGapCode: projection.vitalsGapCode,
+      vitalsFields: showGapChoices ? projection.vitalsFields : [],
+      vitalsGapCode: showGapChoices ? projection.vitalsGapCode : null,
       checkupUrlOverride: projection.checkupUrlOverride,
       fromReplyActions: true,
       exclusiveCodes: projection.exclusiveCodes,
