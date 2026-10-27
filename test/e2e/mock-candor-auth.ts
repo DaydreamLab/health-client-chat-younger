@@ -1171,7 +1171,34 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       profile_gaps: []
     }
 
-    if (options.replyActions === 'intake_hybrid' && goalsSet) {
+    // Default completion CTA: when no replyActions mode, still attach usable
+    // offer_recommend (plan_offer / legacy upload_offer must not invent recommend).
+    if (!options.replyActions) {
+      donePayload = {
+        ...donePayload,
+        reply_actions: {
+          schema_version: '0.1',
+          source: 'semantic_judgment',
+          adaptor: 'fake',
+          degraded: false,
+          error: null,
+          actions: [{ type: 'offer_recommend', payload: {} }]
+        }
+      }
+    }
+
+    if (options.replyActions === 'ask_vitals') {
+      donePayload = {
+        message_id: `msg-e2e-${streamCount}`,
+        claim_guard: 'passed',
+        content: '接著請補充年紀、身高與體重。',
+        options: [],
+        turn: { type: 'message' },
+        profile_question: null,
+        external: null,
+        profile_gaps: ['age', 'height', 'weight']
+      }
+    } else if (options.replyActions === 'intake_hybrid' && goalsSet) {
       if (!hybridSexAnswered) {
         donePayload = {
           message_id: `msg-e2e-${streamCount}`,

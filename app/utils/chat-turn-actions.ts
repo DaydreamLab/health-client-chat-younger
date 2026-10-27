@@ -220,11 +220,12 @@ export function reportDockBarVisibility(input: ReportDockBarInput): ReportDockBa
     }
   }
   const baseBlocked = ctx.readonlyMode || ctx.escalated || ctx.pending || ctx.reportRetry
+  // Interpret dock is not「完成 CTA」; allow after analysis even if goals still open.
   const showExplainHighlights = ctx.hasReportAnalysis
     && !baseBlocked
     && !profileQuestionActive
-    && !ctx.goalSelectActive
-    && !ctx.reportAskActive
+    && !(ctx.goalSelectActive && !ctx.hasReportAnalysis)
+    && !(ctx.reportAskActive && !ctx.hasReportAnalysis)
     && !reportInterpretSent
   const showWantMoreTestsLink = ctx.hasReportAnalysis
     && !ctx.readonlyMode
@@ -327,8 +328,8 @@ function projectGates(input: {
 }
 
 function isNonGapChoosePayload(choose: ChooseOptionPayload): boolean {
-  // lab_report chips (transition): required-ask surface, not profile-gap host.
-  if (choose.gap_code === 'lab_report') {
+  // kind=lab_report（core #100）或過渡 gap_code=lab_report：必問，非 gap host。
+  if (choose.kind === 'lab_report' || choose.gap_code === 'lab_report') {
     return true
   }
   return Boolean(choose.kind && NON_GAP_CHOOSE_OPTION_KINDS.has(choose.kind))
@@ -389,12 +390,14 @@ export function buildTurnActionsVisibility(input: {
   const expertReviewStatus = input.expertReviewStatus ?? 'none'
   const standardFlow = input.flow === 'standard'
   const latest = isLatestAssistantMessage(message, ctx.lastAssistantId)
-  const gapHostId = ctx.gapCtaHostId
+  // When no open profile-gap host is found, the latest assistant still hosts its
+  // own ask_vitals / chips (openProfileGaps may be empty on a covering stream).
+  const gapHostId = ctx.gapCtaHostId ?? ctx.lastAssistantId
   const isGapHost = gapHostId !== undefined && message.id === gapHostId
   const pendingGapBehindLatest = Boolean(
-    gapHostId
+    ctx.gapCtaHostId
     && ctx.lastAssistantId
-    && gapHostId !== ctx.lastAssistantId
+    && ctx.gapCtaHostId !== ctx.lastAssistantId
   )
   // Lift open gap CTAs onto the latest bubble so users are not stuck staring at
   // a covering stream turn while chips/vitals sit on an older bank message.

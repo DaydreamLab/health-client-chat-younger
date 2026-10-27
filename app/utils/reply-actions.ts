@@ -18,7 +18,13 @@ export type ReplyActionType
     | 'offer_checkup'
     | 'none'
 
-export type ChooseOptionKind = 'consultation_goals' | 'profile' | 'free' | 'lab_followup'
+export type ChooseOptionKind
+  = 'consultation_goals'
+    | 'profile'
+    | 'free'
+    | 'lab_followup'
+    /** Required ask for report chips (mirrors consultation_goals / ask_goal; not a profile gap). */
+    | 'lab_report'
 
 /** choose_option option.maps_to → FE route (LabFollowup dual chips). */
 export type ChooseOptionMapsTo = 'ask_report' | 'offer_checkup'
@@ -235,6 +241,26 @@ export function hasAskReportAction(ra: ReplyActions | null | undefined): boolean
 }
 
 /**
+ * Report required-ask surface: `ask_report` or `choose_option.kind=lab_report`
+ * (core #100; same pattern as ask_goal / consultation_goals).
+ */
+export function hasReportRequiredAsk(ra: ReplyActions | null | undefined): boolean {
+  if (!isUsableReplyActions(ra)) {
+    return false
+  }
+  return ra!.actions.some((action) => {
+    if (action.type === 'ask_report') {
+      return true
+    }
+    if (action.type !== 'choose_option') {
+      return false
+    }
+    const payload = chooseOptionPayload(action)
+    return payload.kind === 'lab_report' || payload.gap_code === 'lab_report'
+  })
+}
+
+/**
  * Profile-gap interactive CTAs (hybrid intake).
  * Required asks `ask_goal` / `ask_report` are **not** profile gaps (goal／report
  * 必問, 對齊 goal 設計). Non-gap usable actions (offer_recommend / offer_checkup)
@@ -250,7 +276,9 @@ export const GAP_CTA_ACTION_TYPES = new Set<string>([
 export const NON_GAP_CHOOSE_OPTION_KINDS = new Set<string>([
   'free',
   'lab_followup',
-  'consultation_goals'
+  'consultation_goals',
+  // core #100: report 必問 chips（同 ask_goal 模式），不進 open profile gap host
+  'lab_report'
 ])
 
 /** True when reply_actions is usable and includes ≥1 required-gap CTA. */
@@ -318,8 +346,7 @@ export function isNonGapChooseOption(action: ReplyAction): boolean {
     return false
   }
   const payload = chooseOptionPayload(action)
-  if (payload.gap_code === 'lab_report') {
-    // lab_report chips (transition): treat as non-gap so latest can host them.
+  if (payload.kind === 'lab_report' || payload.gap_code === 'lab_report') {
     return true
   }
   return Boolean(payload.kind && NON_GAP_CHOOSE_OPTION_KINDS.has(payload.kind))

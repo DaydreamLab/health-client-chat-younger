@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import {
   findGapCtaHostMessage,
+  hasReportRequiredAsk,
   hasUsableGapCta,
   isUsableReplyActions,
   normalizeChooseOptionMapsTo,
@@ -117,6 +118,23 @@ describe('parseReplyActions / isUsableReplyActions', () => {
     expect(hasUsableGapCta(answeredLab)).toBe(false)
     expect(hasUsableGapCta(answeredLab, [])).toBe(false)
     expect(hasUsableGapCta(answeredLab, ['lab_report'])).toBe(false)
+
+    // core #100: kind=lab_report（同 ask_goal 模式）
+    const kindLab = ra({
+      actions: [{
+        type: 'choose_option',
+        payload: {
+          kind: 'lab_report',
+          mode: 'single',
+          gap_code: 'lab_report',
+          options: [{ code: 'none', label: '無' }]
+        }
+      }]
+    })
+    expect(hasUsableGapCta(kindLab, ['lab_report'])).toBe(false)
+    expect(hasReportRequiredAsk(kindLab)).toBe(true)
+    expect(hasReportRequiredAsk(ra({ actions: [{ type: 'ask_report' }] }))).toBe(true)
+    expect(hasReportRequiredAsk(ra({ actions: [{ type: 'offer_recommend' }] }))).toBe(false)
 
     const followup = ra({
       actions: [{

@@ -388,6 +388,7 @@ import {
   findGapCtaHostMessage,
   hasAskReportAction,
   hasReplyActionsColumn,
+  hasReportRequiredAsk,
   isUsableReplyActions,
   normalizeChooseOptionMapsTo,
   shouldSkipFollowUpStream,
@@ -1105,8 +1106,8 @@ function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyA
     return
   }
 
-  // Report 必問（對齊 goal）：ask_report 掛上傳 CTA 並擋住 recommend。
-  reportAskActive.value = hasAskReportAction(replyActions)
+  // Report 必問（對齊 goal／core #100）：ask_report 或 choose_option.kind=lab_report。
+  reportAskActive.value = hasReportRequiredAsk(replyActions)
 
   const choose = projection.chooseOption
   if (choose?.kind === 'consultation_goals' || projection.askGoal) {
@@ -1121,8 +1122,40 @@ function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyA
     return
   }
 
-  // Profile chips (incl. transitional lab_report enum → POST /profile/answers).
-  // lab_report is excluded from gap-host discovery (report 必問 ≠ profile gap).
+  // kind=lab_report（core #100，同 ask_goal 模式）：必問、不進 gap host。
+  // Enum chips 仍可帶 gap_code → POST /profile/answers（過渡／答案管道）。
+  if (choose?.kind === 'lab_report') {
+    goalSelectActive.value = false
+    reportAskActive.value = true
+    if (choose.gap_code && choose.options?.length) {
+      const answerType = (choose.answer_type || 'enum') as ProfileAnswerType
+      message.turnType = 'profile'
+      message.profileQuestion = {
+        gap_code: choose.gap_code,
+        answer_type: answerType
+      }
+      message.options = choose.options
+      activeQuestion.value = {
+        done: false,
+        gap_code: choose.gap_code,
+        prompt: '',
+        answer_type: answerType,
+        options: choose.options
+      }
+      quizActive.value = true
+      return
+    }
+    if (choose.options?.length) {
+      message.options = choose.options
+      message.turnType = 'message'
+      message.profileQuestion = null
+    }
+    quizActive.value = false
+    activeQuestion.value = null
+    return
+  }
+
+  // Profile chips (incl. transitional gap_code=lab_report → POST /profile/answers).
   if (choose?.kind === 'profile' && choose.gap_code) {
     const answerType = (choose.answer_type || 'enum') as ProfileAnswerType
     message.turnType = 'profile'
