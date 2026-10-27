@@ -166,6 +166,35 @@ describe('projectReplyActionsToCtas', () => {
     expect(projection.flags.showConfirm).toBe(true)
   })
 
+  it('lab_report profile enum (single, confirm=false) hides confirm — chip is direct submit', () => {
+    const projection = projectReplyActionsToCtas({
+      replyActions: ra({
+        actions: [{
+          type: 'choose_option',
+          payload: {
+            kind: 'profile',
+            mode: 'single',
+            confirm: false,
+            gap_code: 'lab_report',
+            answer_type: 'enum',
+            options: [
+              { code: 'none', label: '沒有' },
+              { code: 'within_6m', label: '有：半年內' }
+            ]
+          }
+        }]
+      }),
+      canShowRecommendSlot: false,
+      canShowUpload: false,
+      canShowCheckup: false,
+      canShowVitals: false,
+      expertReviewStatus: 'none'
+    })
+    expect(projection.flags.choices.map(c => c.code)).toEqual(['none', 'within_6m'])
+    expect(projection.flags.showConfirm).toBe(false)
+    expect(projection.chooseOption?.gap_code).toBe('lab_report')
+  })
+
   it('ask_goal yields goal chips unless choose_option consultation_goals present', () => {
     const alone = projectReplyActionsToCtas({
       replyActions: ra({
@@ -467,5 +496,42 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     })
     expect(onStream.choices).toEqual([])
     expect(onStream.showSubmitReview).toBe(false)
+  })
+
+  it('lab_report choose_option: reply_actions path ignores legacy needsMultiConfirm (no confirm btn)', () => {
+    // Regression: #24 projection hid confirm for enum, but ChatPanel still treated
+    // LAB_GAP_CODES as "select then confirm". Visibility must stay showConfirm=false
+    // even when legacy needsMultiConfirm is true.
+    const msg = assistant('latest', {
+      turnType: 'profile',
+      profileQuestion: { gap_code: 'lab_report', answer_type: 'enum' },
+      replyActions: ra({
+        source: 'questionnaire',
+        actions: [{
+          type: 'choose_option',
+          payload: {
+            kind: 'profile',
+            mode: 'single',
+            confirm: false,
+            gap_code: 'lab_report',
+            answer_type: 'enum',
+            options: [
+              { code: 'none', label: '沒有' },
+              { code: 'within_6m', label: '有：半年內' }
+            ]
+          }
+        }]
+      })
+    })
+    const v = buildTurnActionsVisibility({
+      message: msg,
+      ctx: baseCtx({ lastAssistantId: 'latest', gapCtaHostId: 'latest' }),
+      intake: msg,
+      goalOptions: [],
+      needsMultiConfirm: true
+    })
+    expect(v.fromReplyActions).toBe(true)
+    expect(v.choices.map(c => c.code)).toEqual(['none', 'within_6m'])
+    expect(v.showConfirm).toBe(false)
   })
 })
