@@ -606,11 +606,19 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await expect(last.getByTestId('chat-quiz-option-go_checkup')).toBeVisible()
 
     // Checkup maps_to → window.open外連; never POST answers.
-    const popupPromise = page.waitForEvent('popup')
+    // Spy open (fake labs.example would yield chrome-error:// on real popup.url()).
+    await page.evaluate(() => {
+      ;(window as unknown as { __openedUrls: string[] }).__openedUrls = []
+      window.open = (url?: string | URL) => {
+        ;(window as unknown as { __openedUrls: string[] }).__openedUrls.push(String(url ?? ''))
+        return null
+      }
+    })
     await last.getByTestId('chat-quiz-option-go_checkup').click()
-    const popup = await popupPromise
-    expect(popup.url()).toContain('labs.example/tests')
-    await popup.close()
+    const openedUrls = await page.evaluate(
+      () => (window as unknown as { __openedUrls: string[] }).__openedUrls
+    )
+    expect(openedUrls.some(url => url.includes('labs.example/tests'))).toBe(true)
     expect(answersPosts).toBe(0)
 
     // Options cleared after click — re-hydrate for upload maps_to → attach menu.
