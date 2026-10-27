@@ -38,7 +38,12 @@ async function sendChatLine(page: Page, text: string) {
 test.describe('reply_actions v0.1 CTAs', () => {
   test('/chat: offer_recommend → 完成 CTA 提交專家判讀; legacy chips 不畫', async ({ page, goto }) => {
     test.setTimeout(90_000)
-    await mockCandorAuth(page, { asMember: true, replyActions: 'offer_recommend' })
+    // Inject conflicting checkup_offer only here — mock default no longer dual-writes it.
+    await mockCandorAuth(page, {
+      asMember: true,
+      replyActions: 'offer_recommend',
+      legacyCheckupOfferConflict: true
+    })
     await seedNoExpertCase(page)
     await page.setViewportSize({ width: 1280, height: 800 })
     await goto('/chat', { waitUntil: 'hydration' })
@@ -111,7 +116,11 @@ test.describe('reply_actions v0.1 CTAs', () => {
 
   test('history hydrate: reload maps reply_actions CTAs; degraded 不回退 legacy', async ({ page, goto }) => {
     test.setTimeout(90_000)
-    await mockCandorAuth(page, { asMember: true, replyActions: 'offer_recommend' })
+    await mockCandorAuth(page, {
+      asMember: true,
+      replyActions: 'offer_recommend',
+      legacyCheckupOfferConflict: true
+    })
     await seedNoExpertCase(page)
     await page.setViewportSize({ width: 1280, height: 800 })
 
@@ -163,9 +172,11 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await expect(last.getByTestId('chat-submit-expert-review')).toBeVisible({ timeout: 15_000 })
     await expect(last.getByTestId('chat-message-upload')).toHaveCount(0)
     await expect(last.getByTestId('chat-quiz-option-legacy_chip')).toHaveCount(0)
+    await expect(last.getByTestId('chat-message-checkup')).toHaveCount(0)
     await expect(page.getByText('本機沒有 reply_actions')).toHaveCount(0)
 
-    // Degraded history → no CTAs (legacy upload_offer 不當 fallback).
+    // Degraded RA → not usable: no legacy upload／recommend／checkup／want-more.
+
     await mockCandorAuth(page, { asMember: true, replyActions: 'degraded' })
     await seedNoExpertCase(page)
     await page.addInitScript((journey) => {
@@ -183,6 +194,8 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await expect(degradedLast).toBeVisible({ timeout: 15_000 })
     await expect(degradedLast.getByTestId('chat-message-upload')).toHaveCount(0)
     await expect(degradedLast.getByTestId('chat-submit-expert-review')).toHaveCount(0)
+    await expect(degradedLast.getByTestId('chat-message-checkup')).toHaveCount(0)
+    await expect(degradedLast.getByTestId('chat-message-want-more-tests')).toHaveCount(0)
     await expect(page.getByTestId('chat-vitals-card')).toHaveCount(0)
   })
 
@@ -246,6 +259,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await expect(last.getByTestId('chat-submit-expert-review')).toHaveCount(0)
     await expect(page.getByTestId('chat-vitals-card')).toHaveCount(0)
   })
+
 
   test('lab_report choose_option: chip click POSTs answers (no confirm)', async ({ page, goto }) => {
     // Regression (#24 dual-path): reply_actions hides confirm for profile enum, but
@@ -368,6 +382,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await mockCandorAuth(page, { asMember: true, replyActions: 'offer_recommend' })
     await page.setViewportSize({ width: 1280, height: 800 })
 
+    // Align with core #99: lab present must not hard-attach offer_checkup on the same turn.
     const labBank = {
       id: 'bank-lab-none',
       role: 'assistant',
@@ -392,8 +407,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
                 { code: 'within_6m', label: '有：半年內' }
               ]
             }
-          },
-          { type: 'offer_checkup', payload: { url: 'https://www.younger.tw/collections/individual-tests' } }
+          }
         ]
       }
     }
@@ -471,7 +485,8 @@ test.describe('reply_actions v0.1 CTAs', () => {
 
     const last = page.getByTestId('chat-last-reply')
     await expect(last).toContainText('是否有血檢或健檢報告？', { timeout: 15_000 })
-    // Prompt-turn checkup from RA is a separate core issue; FE must still stream after none.
+    // Before answering「無」: no checkup bubble on the lab prompt turn (#99).
+    await expect(last.getByTestId('chat-message-checkup')).toHaveCount(0)
     const streamReq = page.waitForRequest(req =>
       req.url().includes('/messages/stream') && req.method() === 'POST'
     )
@@ -486,7 +501,12 @@ test.describe('reply_actions v0.1 CTAs', () => {
   }) => {
     test.setTimeout(90_000)
     const conversationId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
-    await mockCandorAuth(page, { asMember: true, replyActions: 'offer_recommend' })
+    const checkupUrl = 'https://labs.example/tests'
+    await mockCandorAuth(page, {
+      asMember: true,
+      replyActions: 'offer_recommend',
+      individualTestsUrl: checkupUrl
+    })
     await page.setViewportSize({ width: 1280, height: 800 })
 
     await page.route(`**/api/v1/conversation/${conversationId}/messages`, async (route) => {
@@ -585,7 +605,19 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await expect(last.getByTestId('chat-quiz-option-upload')).toBeVisible()
     await expect(last.getByTestId('chat-quiz-option-go_checkup')).toBeVisible()
 
-    await last.getByTestId('chat-quiz-option-upload').click()
+    // Checkup maps_to → window.open外連; never POST answers.
+    const popupPromise = page.waitForEvent('popup')
+    await last.getByTestId('chat-quiz-option-go_checkup').click()
+    const popup = await popupPromise
+    expect(popup.url()).toContain('labs.example/tests')
+    await popup.close()
+    expect(answersPosts).toBe(0)
+
+    // Options cleared after click — re-hydrate for upload maps_to → attach menu.
+    await goto('/chat', { waitUntil: 'hydration' })
+    const followup = page.getByTestId('chat-last-reply')
+    await expect(followup.getByTestId('chat-quiz-option-upload')).toBeVisible({ timeout: 15_000 })
+    await followup.getByTestId('chat-quiz-option-upload').click()
     await expect(page.getByTestId('chat-attach-menu')).toBeVisible({ timeout: 10_000 })
     expect(answersPosts).toBe(0)
   })

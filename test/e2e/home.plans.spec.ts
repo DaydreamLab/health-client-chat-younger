@@ -1,19 +1,9 @@
 import { expect, test } from '@nuxt/test-utils/playwright'
 import { mockCandorAuth } from './mock-candor-auth'
 
-test('legacy package-plans API keeps i18n features and last-plan highlight', async ({ page, goto }) => {
-  await mockCandorAuth(page, { packagePlans: 'legacy' })
-  await goto('/', { waitUntil: 'hydration' })
-
-  const plans = page.locator('#plans')
-  await expect(plans.getByText('NT$5,000')).toBeVisible()
-  await expect(plans.getByText('NT$9,000')).toBeVisible()
-  await expect(plans.getByText('NT$8,000')).toHaveCount(0)
-  await expect(plans.getByText('NT$12,000')).toHaveCount(0)
-  await expect(plans.getByText('享有 AI OCR 免費報告解析').first()).toBeVisible()
-  await expect(plans.getByText('Younger 顧問親自介入協作').first()).toBeVisible()
-  await expect(plans.getByText('推薦', { exact: true })).toBeVisible()
-})
+// Legacy pre-catalog package-plans shape tests removed: product path uses catalog
+// fields (original_price / features / badge). i18n description fallback stays covered
+// by description-en-null below.
 
 test('catalog package-plans API drives strikethrough, features, and badges', async ({ page, goto }) => {
   await mockCandorAuth(page, { packagePlans: 'catalog' })
@@ -49,17 +39,6 @@ test('EN subtitles fall back to i18n when description_en is null', async ({ page
   await expect(plans.getByText('Base supplements for out-of-range markers').first()).toBeVisible()
   await expect(plans.getByText('Basic Care plus strengthening add-ons')).toBeVisible()
   await expect(plans.getByText('對應異常指標的基礎補充')).toHaveCount(0)
-})
-
-test('EN subtitles fall back to i18n when legacy API omits description_en', async ({ page, goto }) => {
-  await mockCandorAuth(page, { packagePlans: 'legacy' })
-  await goto('/en/', { waitUntil: 'hydration' })
-
-  const plans = page.locator('#plans')
-  await expect(plans.getByText('對應異常指標的基礎補充')).toHaveCount(0)
-  await expect(plans.getByText('基礎保養＋加強項目')).toHaveCount(0)
-  await expect(plans.getByText('Base supplements for out-of-range markers').first()).toBeVisible()
-  await expect(plans.getByText('Basic Care plus strengthening add-ons')).toBeVisible()
 })
 
 test('catalog API skips strikethrough when original_price is null or equals price', async ({ page, goto }) => {

@@ -67,6 +67,12 @@ export type CandorMockOptions = {
    * history already has the gap CTA).
    */
   replyActions?: 'offer_recommend' | 'ask_report' | 'ask_vitals' | 'degraded' | 'intake_hybrid' | 'none'
+  /**
+   * When true with usable reply_actions, dual-write legacy `checkup_offer: true`
+   * so e2e can assert FE ignores it (RA-only checkup). Default false — do not
+   * seed checkup_offer on every offer_recommend turn (core #99 / younger #30).
+   */
+  legacyCheckupOfferConflict?: boolean
 }
 
 const legacyPackagePlans = [
@@ -1135,7 +1141,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       profile_question: null,
       profile_gaps: profileGaps,
       upload_offer: options.replyActions === 'ask_report' || options.replyActions === 'degraded',
-      checkup_offer: false,
+      // checkup_offer only when a dedicated conflict test opts in.
+      checkup_offer: Boolean(options.legacyCheckupOfferConflict),
       reply_actions: replyActions
     }
     await route.fulfill({
@@ -1271,7 +1278,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         upload_offer: options.replyActions === 'ask_report'
           || options.replyActions === 'degraded'
           || options.replyActions === 'none',
-        checkup_offer: false,
+        // checkup_offer only when a dedicated conflict test opts in.
+        checkup_offer: Boolean(options.legacyCheckupOfferConflict),
         reply_actions: replyActions
       }
     }

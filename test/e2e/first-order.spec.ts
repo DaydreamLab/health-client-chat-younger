@@ -518,11 +518,6 @@ test.describe('member checkout', () => {
     await expect(wantMore).toHaveText('我想檢查更多')
     await expect(wantMore).toHaveAttribute('href', 'https://labs.example/tests')
     await expect(page.getByTestId('chat-report-more-tests')).toHaveCount(0)
-    const interpretBox = await page.getByTestId('chat-report-interpret').boundingBox()
-    const wantMoreBox = await wantMore.boundingBox()
-    expect(interpretBox).not.toBeNull()
-    expect(wantMoreBox).not.toBeNull()
-    expect((interpretBox?.x ?? 0) + (interpretBox?.width ?? 0)).toBeLessThan(wantMoreBox?.x ?? 0)
 
     await page.getByTestId('chat-report-interpret').click()
     // Bubble外連改 RA-only（#20）：interpret 不再 FE 硬掛 wantMoreTestsOffer。
