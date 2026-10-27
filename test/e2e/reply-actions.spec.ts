@@ -1,10 +1,34 @@
+import type { Page } from '@playwright/test'
 import { expect, test } from '@nuxt/test-utils/playwright'
 import { mockCandorAuth } from './mock-candor-auth'
 
-async function sendChatLine(
-  page: import('@playwright/test').Page,
-  text: string
-) {
+/** Default candor mock seeds a reviewed expert case; clear so /chat can show submit CTA. */
+async function seedNoExpertCase(page: Page) {
+  await page.route('**/api/v1/expert-case-reviews**', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: { expert_case_reviews: [] }
+      })
+    })
+  })
+}
+
+async function finishGoalSelect(page: Page) {
+  await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
+  await page.getByTestId('chat-quiz-option-sleep').click()
+  await page.getByTestId('chat-quiz-confirm').click()
+  // Goals saved → stream (or next bank question). Wait for goal confirm to settle.
+  await expect(page.getByTestId('chat-quiz-confirm')).toHaveCount(0, { timeout: 15_000 })
+}
+
+async function sendChatLine(page: Page, text: string) {
   const input = page.getByTestId('chat-input')
   await expect(input).toBeVisible({ timeout: 15_000 })
   await input.fill(text)
@@ -15,10 +39,12 @@ test.describe('reply_actions v0.1 CTAs', () => {
   test('/chat: offer_recommend → 提交專家判讀; legacy chips/upload deduped', async ({ page, goto }) => {
     test.setTimeout(90_000)
     await mockCandorAuth(page, { asMember: true, replyActions: 'offer_recommend' })
+    await seedNoExpertCase(page)
     await page.setViewportSize({ width: 1280, height: 800 })
     await goto('/chat', { waitUntil: 'hydration' })
     await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
 
+    await finishGoalSelect(page)
     await sendChatLine(page, '請依報告給建議')
 
     const last = page.getByTestId('chat-last-reply')
@@ -38,6 +64,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await goto('/chat-ai', { waitUntil: 'hydration' })
     await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
 
+    await finishGoalSelect(page)
     await sendChatLine(page, '請依報告給建議')
 
     const last = page.getByTestId('chat-last-reply')
@@ -53,6 +80,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await goto('/chat', { waitUntil: 'hydration' })
     await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
 
+    await finishGoalSelect(page)
     await sendChatLine(page, '我想補充基本資料')
     const last = page.getByTestId('chat-last-reply')
     await expect(last.getByTestId('chat-vitals-card')).toBeVisible({ timeout: 15_000 })
@@ -62,7 +90,16 @@ test.describe('reply_actions v0.1 CTAs', () => {
     // Degraded path: remount with degraded mock and assert legacy upload.
     await mockCandorAuth(page, { asMember: true, replyActions: 'degraded' })
     await goto('/chat', { waitUntil: 'hydration' })
-    await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
+    await page.evaluate(() => {
+      localStorage.removeItem('candor.unpaid.journey')
+    })
+    // Hard reset in-app journey via「重新開始」if present.
+    const reset = page.getByTestId('chat-reset')
+    if (await reset.count()) {
+      page.once('dialog', dialog => dialog.accept())
+      await reset.click()
+    }
+    await finishGoalSelect(page)
     await sendChatLine(page, '再試一次')
     await expect(page.getByTestId('chat-last-reply').getByTestId('chat-message-upload')).toBeVisible({
       timeout: 15_000
