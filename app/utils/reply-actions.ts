@@ -18,7 +18,24 @@ export type ReplyActionType
     | 'offer_checkup'
     | 'none'
 
-export type ChooseOptionKind = 'consultation_goals' | 'profile' | 'free'
+export type ChooseOptionKind = 'consultation_goals' | 'profile' | 'free' | 'lab_followup'
+
+/** choose_option option.maps_to → FE route (LabFollowup dual chips). */
+export type ChooseOptionMapsTo = 'ask_report' | 'offer_checkup'
+
+export function normalizeChooseOptionMapsTo(raw: string | null | undefined): ChooseOptionMapsTo | null {
+  if (raw === 'ask_report' || raw === 'offer_checkup') {
+    return raw
+  }
+  // Tolerant aliases from catalog / copy variants.
+  if (raw === 'upload' || raw === 'ask_upload') {
+    return 'ask_report'
+  }
+  if (raw === 'go_checkup' || raw === 'checkup') {
+    return 'offer_checkup'
+  }
+  return null
+}
 
 export type ChooseOptionMode = 'single' | 'multi'
 
@@ -123,9 +140,11 @@ function asOptionList(raw: unknown): ChatMessageOption[] {
     }
     const code = typeof item.code === 'string' ? item.code : ''
     const label = typeof item.label === 'string' ? item.label : ''
-    if (code && label) {
-      out.push({ code, label })
+    if (!code || !label) {
+      continue
     }
+    const mapsTo = typeof item.maps_to === 'string' ? item.maps_to : null
+    out.push(mapsTo ? { code, label, maps_to: mapsTo } : { code, label })
   }
   return out
 }
@@ -210,11 +229,57 @@ export const GAP_CTA_ACTION_TYPES = new Set<string>([
 ])
 
 /** True when reply_actions is usable and includes ≥1 required-gap CTA. */
-export function hasUsableGapCta(ra: ReplyActions | null | undefined): boolean {
+export function hasUsableGapCta(
+  ra: ReplyActions | null | undefined,
+  openProfileGaps?: readonly string[]
+): boolean {
   if (!isUsableReplyActions(ra)) {
     return false
   }
-  return ra!.actions.some(action => GAP_CTA_ACTION_TYPES.has(action.type))
+  return ra!.actions.some(action => isOpenGapCtaAction(action, openProfileGaps))
+}
+
+/**
+ * Whether a gap-type action still needs an answer given current open profile gaps.
+ *
+ * When `openProfileGaps` is omitted, any ask_vitals / choose_option / ask_goal counts
+ * (legacy hydrate / host discovery). When provided (incl. empty):
+ * - profile `choose_option` / `ask_vitals` only if their gap_code (or vitals field) is open
+ * - `kind=lab_followup` never counts as a required profile gap (skip-stream must not lock)
+ * - free / consultation_goals choose_option and ask_goal do not count as open profile gaps
+ */
+export function isOpenGapCtaAction(
+  action: ReplyAction,
+  openProfileGaps?: readonly string[]
+): boolean {
+  if (!GAP_CTA_ACTION_TYPES.has(action.type)) {
+    return false
+  }
+  if (openProfileGaps === undefined) {
+    return true
+  }
+  if (action.type === 'ask_goal') {
+    return false
+  }
+  if (action.type === 'choose_option') {
+    const payload = chooseOptionPayload(action)
+    if (payload.kind === 'lab_followup') {
+      return false
+    }
+    if (payload.kind === 'profile' || payload.gap_code) {
+      return Boolean(payload.gap_code && openProfileGaps.includes(payload.gap_code))
+    }
+    return false
+  }
+  if (action.type === 'ask_vitals') {
+    const payload = askVitalsPayload(action)
+    if (payload.gap_code) {
+      return openProfileGaps.includes(payload.gap_code)
+    }
+    const fields = payload.fields ?? []
+    return fields.some(field => openProfileGaps.includes(field))
+  }
+  return false
 }
 
 type GapCtaHostCandidate = {
@@ -223,16 +288,42 @@ type GapCtaHostCandidate = {
   replyActions?: ReplyActions | null
 }
 
+export type FindGapCtaHostOptions = {
+  /** When set, ignore answered profile gaps / lab_followup still present on hydrate. */
+  openProfileGaps?: readonly string[]
+}
+
 /**
  * Walk newest→oldest assistant turns; return the first with a usable gap CTA.
  * When the latest stream turn only has offer_recommend (etc.), this recovers
  * the preceding bank message that still carries ask_vitals / choose_option.
  */
 export function findGapCtaHostMessage<T extends GapCtaHostCandidate>(
-  messages: T[]
+  messages: T[],
+  options?: FindGapCtaHostOptions
 ): T | undefined {
+  const openGaps = options?.openProfileGaps
   return [...messages].reverse().find(
-    message => message.role === 'assistant' && hasUsableGapCta(message.replyActions)
+    message => message.role === 'assistant' && hasUsableGapCta(message.replyActions, openGaps)
+  )
+}
+
+/**
+ * After POST /profile/answers (or goals): whether FE may skip the follow-up stream.
+ * Force stream when next_question.done, or when hydrate only still shows answered gaps.
+ */
+export function shouldSkipFollowUpStream(input: {
+  nextQuestionDone?: boolean
+  openProfileGaps: readonly string[]
+  messages: GapCtaHostCandidate[]
+}): boolean {
+  if (input.nextQuestionDone === true) {
+    return false
+  }
+  const openGaps = input.openProfileGaps
+  return hasUsableGapCta(
+    findGapCtaHostMessage(input.messages, { openProfileGaps: openGaps })?.replyActions,
+    openGaps
   )
 }
 

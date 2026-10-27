@@ -386,8 +386,9 @@ import {
 } from '~/utils/chat-turn-actions'
 import {
   findGapCtaHostMessage,
-  hasUsableGapCta,
   isUsableReplyActions,
+  normalizeChooseOptionMapsTo,
+  shouldSkipFollowUpStream,
   type ReplyActions,
   type VitalsField
 } from '~/utils/reply-actions'
@@ -589,7 +590,9 @@ const confirmDisabled = computed(() =>
   || (goalSelectActive.value && selectedCodes.value.length < 1)
 )
 
-const gapCtaHostId = computed(() => findGapCtaHostMessage(messages.value)?.id)
+const gapCtaHostId = computed(() =>
+  findGapCtaHostMessage(messages.value, { openProfileGaps: profileGaps.value })?.id
+)
 
 const turnUiContext = computed((): ChatTurnUiContext => ({
   readonlyMode: readonly.value,
@@ -680,12 +683,15 @@ type CheckupOfferFields = {
   individual_tests_url?: string | null
 }
 
+/**
+ * Legacy checkup_offer flag no longer drives bubble CTA (#18–19 RA-only).
+ * Still merges suggest copy into the bubble and caches checkup URL for dock / offer_checkup.
+ */
 function applyCheckupOffer(message: ChatMessage, fields: CheckupOfferFields) {
   if (!fields.checkup_offer) {
     return
   }
-  message.checkupOffer = true
-  // Spec: empty individual_tests_url hides the button, but suggest copy still shows.
+  // Do not set message.checkupOffer — bubble外連只認 reply_actions offer_checkup.
   const suggest = String(fields.checkup_suggest || '').trim()
   if (suggest) {
     const existing = messageText(message)
@@ -1051,9 +1057,9 @@ async function hydrateConversationHistory(conversationId: string) {
     const mapped = parsed.messages.map(historyMessageToChatMessage)
     journey.messages.splice(0, journey.messages.length, ...mapped)
 
-    // Prefer required-gap CTA host (may be behind a stream turn that only has
-    // offer_recommend); else fall back to the latest usable reply_actions bubble.
-    const gapHost = findGapCtaHostMessage(mapped)
+    // Prefer *open* required-gap CTA host (may be behind a stream turn that only
+    // has offer_recommend); ignore answered profile choose_option left on bank.
+    const gapHost = findGapCtaHostMessage(mapped, { openProfileGaps: profileGaps.value })
     const lastAssistant = [...mapped].reverse().find(m => m.role === 'assistant')
     const ctaHost = gapHost
       ?? (lastAssistant && isUsableReplyActions(lastAssistant.replyActions)
@@ -1124,6 +1130,20 @@ function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyA
     return
   }
 
+  // LabFollowup dual chips (maps_to) — not a profile gap; click routes in onChoice.
+  if (choose?.kind === 'lab_followup' && choose.options?.length) {
+    message.options = choose.options
+    message.turnType = 'message'
+    message.profileQuestion = null
+    quizActive.value = false
+    activeQuestion.value = null
+    goalSelectActive.value = false
+    if (!checkupUrlLoaded.value) {
+      void loadCheckupLinkUrl()
+    }
+    return
+  }
+
   if (choose?.kind === 'free' && choose.options?.length) {
     message.options = choose.options
     quizActive.value = false
@@ -1152,23 +1172,33 @@ function applyStreamMeta(assistantId: string, result: {
   reply_actions?: ReplyActions | null
 }) {
   const message = journey.messages.find(item => item.id === assistantId)
+  const usableRa = isUsableReplyActions(result.reply_actions)
   if (message) {
     message.options = result.options ?? []
     message.turnType = result.turn.type as ChatMessage['turnType']
     message.profileQuestion = result.profile_question ?? null
     message.profileGaps = result.profile_gaps
-    if (result.upload_offer) {
-      message.uploadOffer = true
-    }
-    applyCheckupOffer(message, result)
     if (result.reply_actions) {
       message.replyActions = result.reply_actions
+    }
+    // Usable RA: do not dual-write legacy offer flags (#18–19). Cache checkup URL only.
+    if (usableRa) {
+      const url = String(result.individual_tests_url || '').trim()
+      if (url) {
+        resolvedCheckupUrl.value = url
+        checkupUrlLoaded.value = true
+      }
+    } else {
+      if (result.upload_offer) {
+        message.uploadOffer = true
+      }
+      applyCheckupOffer(message, result)
     }
   }
   profileGaps.value = result.profile_gaps
   selectedCodes.value = []
 
-  if (message && isUsableReplyActions(result.reply_actions)) {
+  if (message && usableRa) {
     applyReplyActionsInteraction(message, result.reply_actions!)
     // Sync checkup URL from offer_checkup payload when provided.
     const override = turnActionsFor(message).checkupUrlOverride
@@ -1205,9 +1235,13 @@ function applyStreamMeta(assistantId: string, result: {
  * never attaches reply_actions, so usable choose_option / ask_vitals (AskVitalsCard)
  * never appear. Clicking those CTAs still POSTs /profile/answers.
  *
- * When core already banked a usable gap CTA on history, re-hydrate and skip
+ * When core already banked an *open* gap CTA on history, re-hydrate and skip
  * the follow-up stream — an unconditional stream often returns only
  * offer_recommend and would cover ask_vitals / choose_option on the prior turn.
+ *
+ * Do **not** skip when `next_question.done` or when hydrate still shows an
+ * already-answered choose_option (e.g. lab_report=none): core may leave the
+ * bank turn unchanged while profile_gaps is empty — skipping would lock chips.
  */
 async function continueAfterSavedAnswer(opts: {
   profileGaps: string[]
@@ -1227,11 +1261,15 @@ async function continueAfterSavedAnswer(opts: {
   const conversationId = journey.conversationId
   if (conversationId) {
     await hydrateConversationHistory(conversationId)
-    if (hasUsableGapCta(findGapCtaHostMessage(journey.messages)?.replyActions)) {
-      pending.value = false
-      focusChatInput()
-      return
-    }
+  }
+  if (shouldSkipFollowUpStream({
+    nextQuestionDone: next?.done === true,
+    openProfileGaps: profileGaps.value,
+    messages: journey.messages
+  })) {
+    pending.value = false
+    focusChatInput()
+    return
   }
 
   pendingUserContent.value = opts.pendingContent
@@ -1285,14 +1323,9 @@ async function streamPending() {
     }, intent)
 
     applyStreamMeta(assistantId, result)
-    if (intent === 'interpret') {
-      const interpretReply = journey.messages.find(item => item.id === assistantId)
-      if (interpretReply) {
-        interpretReply.wantMoreTestsOffer = true
-      }
-      if (!checkupUrlLoaded.value) {
-        void loadCheckupLinkUrl()
-      }
+    // Interpret 外連改吃 stream reply_actions offer_checkup（#20）；勿 FE 硬設 wantMoreTestsOffer.
+    if (intent === 'interpret' && !checkupUrlLoaded.value) {
+      void loadCheckupLinkUrl()
     }
     if (journey.hasAnalysis && reportResults.value.length > 0) {
       openReportDock({ expand: false })
@@ -1330,8 +1363,8 @@ async function onVitalsSubmit(values: Partial<Record<VitalsField, number>>) {
   if (pending.value || readonly.value || escalated.value) {
     return
   }
-  // Prefer gap CTA host (may be behind a stream-only offer_recommend turn).
-  const host = findGapCtaHostMessage(journey.messages)
+  // Prefer open gap CTA host (may be behind a stream-only offer_recommend turn).
+  const host = findGapCtaHostMessage(journey.messages, { openProfileGaps: profileGaps.value })
     ?? [...journey.messages].reverse().find(m => m.role === 'assistant')
   if (!host) {
     return
@@ -1486,6 +1519,24 @@ function clearLastAssistantOptions() {
 
 function onChoice(option: GreetingOption) {
   if (pending.value) {
+    return
+  }
+
+  // LabFollowup maps_to: upload UI or checkup外連 — never POST /profile/answers (#22).
+  const mapsTo = normalizeChooseOptionMapsTo(option.maps_to)
+  if (mapsTo === 'ask_report') {
+    clearLastAssistantOptions()
+    openAttachMenu()
+    return
+  }
+  if (mapsTo === 'offer_checkup') {
+    clearLastAssistantOptions()
+    const url = checkupLinkUrl.value
+    if (url && import.meta.client) {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } else if (!checkupUrlLoaded.value) {
+      void loadCheckupLinkUrl()
+    }
     return
   }
 

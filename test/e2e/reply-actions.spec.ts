@@ -318,6 +318,240 @@ test.describe('reply_actions v0.1 CTAs', () => {
     })
   })
 
+  test('lab_report=none: next_question.done + hydrate 舊 choose_option 仍必須 stream', async ({
+    page,
+    goto
+  }) => {
+    // P0 regression: continueAfterSavedAnswer used to skip stream because hydrate
+    // still carried answered choose_option(lab_report) → hasUsableGapCta true.
+    test.setTimeout(90_000)
+    // Must match mockCandorAuth conversationId so /messages/stream is mocked.
+    const conversationId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+    await mockCandorAuth(page, { asMember: true, replyActions: 'offer_recommend' })
+    await page.setViewportSize({ width: 1280, height: 800 })
+
+    const labBank = {
+      id: 'bank-lab-none',
+      role: 'assistant',
+      content: '是否有血檢或健檢報告？',
+      reply_actions: {
+        schema_version: '0.1',
+        source: 'questionnaire',
+        adaptor: 'fake',
+        degraded: false,
+        error: null,
+        actions: [
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'profile',
+              mode: 'single',
+              confirm: false,
+              gap_code: 'lab_report',
+              answer_type: 'enum',
+              options: [
+                { code: 'none', label: '無' },
+                { code: 'within_6m', label: '有：半年內' }
+              ]
+            }
+          },
+          { type: 'offer_checkup', payload: { url: 'https://www.younger.tw/collections/individual-tests' } }
+        ]
+      }
+    }
+
+    await page.route(`**/api/v1/conversation/${conversationId}/messages`, async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback()
+        return
+      }
+      if (route.request().url().includes('/messages/stream')) {
+        await route.fallback()
+        return
+      }
+      // Live shape: answering lab does not rewrite bank RA — still has choose_option.
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            conversation_id: conversationId,
+            messages: [
+              { id: 'u-lab-none', role: 'user', content: '開始' },
+              labBank
+            ]
+          }
+        })
+      })
+    })
+
+    await page.route('**/api/v1/profile/answers', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            saved: true,
+            profile_gaps: [],
+            next_question: { done: true, plan_offer: true }
+          }
+        })
+      })
+    })
+
+    await page.addInitScript((journey) => {
+      localStorage.setItem('candor.unpaid.journey', JSON.stringify(journey))
+    }, {
+      conversationId,
+      messages: [{
+        id: 'stale',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'stale' }]
+      }],
+      hasAnalysis: false,
+      selectedPackageCode: null,
+      reportId: null,
+      reportDockOpen: false,
+      reportDockCollapsed: true,
+      reportInterpretSent: false,
+      selectedPackage: null,
+      packageConfirmed: false,
+      goalSelectActive: false,
+      goalOptions: [],
+      selectedCodes: [],
+      quizActive: false,
+      activeQuestion: null,
+      postQuizGuided: false,
+      profileGaps: ['lab_report'],
+      clarifyingGoals: [],
+      expertReviewStatus: 'none'
+    })
+
+    await goto('/chat', { waitUntil: 'hydration' })
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last).toContainText('是否有血檢或健檢報告？', { timeout: 15_000 })
+    // Prompt-turn checkup from RA is a separate core issue; FE must still stream after none.
+    const streamReq = page.waitForRequest(req =>
+      req.url().includes('/messages/stream') && req.method() === 'POST'
+    )
+    await last.getByTestId('chat-quiz-option-none').click()
+    await streamReq
+    await expect(page.getByTestId('chat-last-reply')).toContainText('基礎保養', { timeout: 15_000 })
+  })
+
+  test('lab_followup maps_to: upload chip opens attach; checkup chip is外連 (no answers POST)', async ({
+    page,
+    goto
+  }) => {
+    test.setTimeout(90_000)
+    const conversationId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+    await mockCandorAuth(page, { asMember: true, replyActions: 'offer_recommend' })
+    await page.setViewportSize({ width: 1280, height: 800 })
+
+    await page.route(`**/api/v1/conversation/${conversationId}/messages`, async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback()
+        return
+      }
+      if (route.request().url().includes('/messages/stream')) {
+        await route.fallback()
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            conversation_id: conversationId,
+            messages: [
+              { id: 'u-fu', role: 'user', content: '無' },
+              {
+                id: 'bank-lab-followup',
+                role: 'assistant',
+                content: '去做檢查，看清各項指標',
+                reply_actions: {
+                  schema_version: '0.1',
+                  source: 'semantic_judgment',
+                  adaptor: 'fake',
+                  degraded: false,
+                  error: null,
+                  actions: [{
+                    type: 'choose_option',
+                    payload: {
+                      kind: 'lab_followup',
+                      mode: 'single',
+                      confirm: false,
+                      options: [
+                        { code: 'upload', label: '上傳報告', maps_to: 'ask_report' },
+                        { code: 'go_checkup', label: '我想檢查', maps_to: 'offer_checkup' }
+                      ]
+                    }
+                  }]
+                }
+              }
+            ]
+          }
+        })
+      })
+    })
+
+    await page.addInitScript((journey) => {
+      localStorage.setItem('candor.unpaid.journey', JSON.stringify(journey))
+    }, {
+      conversationId,
+      messages: [{
+        id: 'stale',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'stale' }]
+      }],
+      hasAnalysis: false,
+      selectedPackageCode: null,
+      reportId: null,
+      reportDockOpen: false,
+      reportDockCollapsed: true,
+      reportInterpretSent: false,
+      selectedPackage: null,
+      packageConfirmed: false,
+      goalSelectActive: false,
+      goalOptions: [],
+      selectedCodes: [],
+      quizActive: false,
+      activeQuestion: null,
+      postQuizGuided: false,
+      profileGaps: [],
+      clarifyingGoals: [],
+      expertReviewStatus: 'none'
+    })
+
+    let answersPosts = 0
+    await page.route('**/api/v1/profile/answers', async (route) => {
+      answersPosts += 1
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: { saved: true, profile_gaps: [], next_question: { done: true } }
+        })
+      })
+    })
+
+    await goto('/chat', { waitUntil: 'hydration' })
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last).toContainText('去做檢查', { timeout: 15_000 })
+    await expect(last.getByTestId('chat-quiz-option-upload')).toBeVisible()
+    await expect(last.getByTestId('chat-quiz-option-go_checkup')).toBeVisible()
+
+    await last.getByTestId('chat-quiz-option-upload').click()
+    await expect(page.getByTestId('chat-attach-menu')).toBeVisible({ timeout: 10_000 })
+    expect(answersPosts).toBe(0)
+  })
+
   test('intake hybrid: answers next_question int does not bank; gap CTA from reply_actions', async ({
     page,
     goto
