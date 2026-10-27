@@ -1338,6 +1338,9 @@ async function onVitalsSubmit(values: Partial<Record<VitalsField, number>>) {
   }
   // One card / one field per confirm (sequential when fields.length > 1).
   const field = fields.find(f => values[f] != null) ?? fields[0]
+  if (!field) {
+    return
+  }
   const n = values[field]
   if (n == null || !Number.isInteger(n)) {
     return
