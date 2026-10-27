@@ -385,6 +385,8 @@ import {
   resolveEffectiveGoalOptions
 } from '~/utils/chat-turn-actions'
 import {
+  findGapCtaHostMessage,
+  hasUsableGapCta,
   isUsableReplyActions,
   type ReplyActions,
   type VitalsField
@@ -594,6 +596,8 @@ const confirmDisabled = computed(() =>
   || (goalSelectActive.value && selectedCodes.value.length < 1)
 )
 
+const gapCtaHostId = computed(() => findGapCtaHostMessage(messages.value)?.id)
+
 const turnUiContext = computed((): ChatTurnUiContext => ({
   readonlyMode: readonly.value,
   escalated: escalated.value,
@@ -602,7 +606,8 @@ const turnUiContext = computed((): ChatTurnUiContext => ({
   hasReportAnalysis: journey.hasAnalysis,
   reportRetry: Boolean(reportRetryId.value),
   checkupLinkReady: checkupLinkUrl.value !== '',
-  lastAssistantId: lastAssistantId.value
+  lastAssistantId: lastAssistantId.value,
+  gapCtaHostId: gapCtaHostId.value
 }))
 
 function turnActionsFor(message: ChatMessage) {
@@ -1053,11 +1058,17 @@ async function hydrateConversationHistory(conversationId: string) {
     const mapped = parsed.messages.map(historyMessageToChatMessage)
     journey.messages.splice(0, journey.messages.length, ...mapped)
 
-    // Restore CTA interaction from the latest usable reply_actions bubble.
+    // Prefer required-gap CTA host (may be behind a stream turn that only has
+    // offer_recommend); else fall back to the latest usable reply_actions bubble.
+    const gapHost = findGapCtaHostMessage(mapped)
     const lastAssistant = [...mapped].reverse().find(m => m.role === 'assistant')
-    if (lastAssistant && isUsableReplyActions(lastAssistant.replyActions)) {
-      applyReplyActionsInteraction(lastAssistant, lastAssistant.replyActions!)
-      const override = turnActionsFor(lastAssistant).checkupUrlOverride
+    const ctaHost = gapHost
+      ?? (lastAssistant && isUsableReplyActions(lastAssistant.replyActions)
+        ? lastAssistant
+        : undefined)
+    if (ctaHost?.replyActions) {
+      applyReplyActionsInteraction(ctaHost, ctaHost.replyActions)
+      const override = turnActionsFor(ctaHost).checkupUrlOverride
       if (override) {
         resolvedCheckupUrl.value = override
       }
@@ -1200,6 +1211,10 @@ function applyStreamMeta(assistantId: string, result: {
  * Do **not** short-circuit with a local `next_question` bank bubble: that path
  * never attaches reply_actions, so usable choose_option / ask_vitals (AskVitalsCard)
  * never appear. Clicking those CTAs still POSTs /profile/answers.
+ *
+ * When core already banked a usable gap CTA on history, re-hydrate and skip
+ * the follow-up stream — an unconditional stream often returns only
+ * offer_recommend and would cover ask_vitals / choose_option on the prior turn.
  */
 async function continueAfterSavedAnswer(opts: {
   profileGaps: string[]
@@ -1215,6 +1230,16 @@ async function continueAfterSavedAnswer(opts: {
   selectedCodes.value = []
   quizActive.value = false
   activeQuestion.value = null
+
+  const conversationId = journey.conversationId
+  if (conversationId) {
+    await hydrateConversationHistory(conversationId)
+    if (hasUsableGapCta(findGapCtaHostMessage(journey.messages)?.replyActions)) {
+      pending.value = false
+      focusChatInput()
+      return
+    }
+  }
 
   pendingUserContent.value = opts.pendingContent
   await streamPending()
@@ -1312,7 +1337,9 @@ async function onVitalsSubmit(values: Partial<Record<VitalsField, number>>) {
   if (pending.value || readonly.value || escalated.value) {
     return
   }
-  const host = [...journey.messages].reverse().find(m => m.role === 'assistant')
+  // Prefer gap CTA host (may be behind a stream-only offer_recommend turn).
+  const host = findGapCtaHostMessage(journey.messages)
+    ?? [...journey.messages].reverse().find(m => m.role === 'assistant')
   if (!host) {
     return
   }

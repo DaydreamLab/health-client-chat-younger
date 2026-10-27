@@ -197,6 +197,45 @@ export function isUsableReplyActions(ra: ReplyActions | null | undefined): boole
   })
 }
 
+/**
+ * Required-gap interactive CTAs (hybrid intake).
+ * Non-gap usable actions (offer_recommend / ask_report / offer_checkup) alone
+ * must not keep the FE stuck on the latest bubble when an earlier bank turn
+ * still carries ask_vitals / choose_option / ask_goal.
+ */
+export const GAP_CTA_ACTION_TYPES = new Set<string>([
+  'ask_vitals',
+  'choose_option',
+  'ask_goal'
+])
+
+/** True when reply_actions is usable and includes ≥1 required-gap CTA. */
+export function hasUsableGapCta(ra: ReplyActions | null | undefined): boolean {
+  if (!isUsableReplyActions(ra)) {
+    return false
+  }
+  return ra!.actions.some(action => GAP_CTA_ACTION_TYPES.has(action.type))
+}
+
+type GapCtaHostCandidate = {
+  id: string
+  role: string
+  replyActions?: ReplyActions | null
+}
+
+/**
+ * Walk newest→oldest assistant turns; return the first with a usable gap CTA.
+ * When the latest stream turn only has offer_recommend (etc.), this recovers
+ * the preceding bank message that still carries ask_vitals / choose_option.
+ */
+export function findGapCtaHostMessage<T extends GapCtaHostCandidate>(
+  messages: T[]
+): T | undefined {
+  return [...messages].reverse().find(
+    message => message.role === 'assistant' && hasUsableGapCta(message.replyActions)
+  )
+}
+
 export function chooseOptionPayload(action: ReplyAction): ChooseOptionPayload {
   const p = isRecord(action.payload) ? action.payload : {}
   return {
