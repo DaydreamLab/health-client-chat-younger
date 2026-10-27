@@ -25,6 +25,8 @@ export interface ChatPart {
 export interface ChatMessageOption {
   code: string
   label: string
+  /** LabFollowup dual-chip routing (ask_report → upload UI; offer_checkup →外連). */
+  maps_to?: string | null
 }
 
 export interface ChatMessage {

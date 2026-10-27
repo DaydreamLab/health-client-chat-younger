@@ -39,8 +39,6 @@ export interface ChatTurnUiContext {
   gapCtaHostId?: string
 }
 
-const LAB_GAP_CODES = new Set(['lab_report', 'checkup', 'blood_test'])
-
 /** Mirrors core ConsultationGoal::defaultCatalog() for empty stream options. */
 export const DEFAULT_CONSULTATION_GOAL_OPTIONS: ChatMessageOption[] = [
   { code: 'sleep', label: '睡眠' },
@@ -145,61 +143,32 @@ export function uploadCtaVisible(
   if (ctx.goalSelectActive) {
     return false
   }
-  if (
-    message.turnType === 'profile'
-    && message.profileQuestion
-    && LAB_GAP_CODES.has(message.profileQuestion.gap_code)
-  ) {
-    return false
-  }
+  // Legacy degraded fallback only; usable reply_actions use ask_report projection.
   return message.uploadOffer === true
 }
 
-/** Persists on the assistant turn that carried checkup_offer from the stream. */
+/**
+ * Legacy `checkupOffer` no longer paints bubble checkup.
+ * External checkup CTA is reply_actions `offer_checkup` only (RA path above).
+ * @deprecated Kept so call sites / tests compile; always false.
+ */
 export function checkupCtaVisible(
-  ctx: ChatTurnUiContext,
-  message: ChatMessage
+  _ctx: ChatTurnUiContext,
+  _message: ChatMessage
 ): boolean {
-  if (message.role !== 'assistant' || !message.checkupOffer) {
-    return false
-  }
-  if (ctx.readonlyMode || ctx.escalated) {
-    return false
-  }
-  return ctx.checkupLinkReady
+  return false
 }
 
-/** External link only; does not gate「查看推薦方案」. */
+/**
+ * Legacy want-more (recommend-slot auto + wantMoreTestsOffer) removed.
+ * Bubble外連只走 reply_actions `offer_checkup`；dock 另見 reportDockBarVisibility（#23 未動）.
+ * @deprecated Always false.
+ */
 export function wantMoreTestsCtaVisible(
-  ctx: ChatTurnUiContext,
-  message: ChatMessage
+  _ctx: ChatTurnUiContext,
+  _message: ChatMessage
 ): boolean {
-  if (message.role !== 'assistant' || ctx.readonlyMode || ctx.escalated) {
-    return false
-  }
-  if (!ctx.checkupLinkReady) {
-    return false
-  }
-  const latest = isLatestAssistantMessage(message, ctx.lastAssistantId)
-  if (!latest) {
-    return false
-  }
-  const profileQuestionActive = message.turnType === 'profile' && Boolean(message.profileQuestion)
-  if (
-    recommendCtaVisible({
-      readonlyMode: ctx.readonlyMode,
-      escalated: ctx.escalated,
-      goalSelectActive: ctx.goalSelectActive,
-      profileQuestionActive,
-      isLatestAssistant: true,
-      reportRetry: ctx.reportRetry,
-      pending: ctx.pending,
-      hasReportAnalysis: ctx.hasReportAnalysis
-    })
-  ) {
-    return true
-  }
-  return Boolean(message.wantMoreTestsOffer)
+  return false
 }
 
 export interface ReportDockBarInput {

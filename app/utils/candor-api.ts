@@ -36,6 +36,8 @@ export interface GreetingOption {
   code: string
   label: string
   label_en?: string
+  /** When set (lab_followup), click routes to upload / checkup — not profile answers. */
+  maps_to?: string | null
 }
 
 export interface ConversationPackage {

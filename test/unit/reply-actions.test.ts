@@ -3,10 +3,12 @@ import {
   findGapCtaHostMessage,
   hasUsableGapCta,
   isUsableReplyActions,
+  normalizeChooseOptionMapsTo,
   offerRecommendLabelKey,
   parseReplyActions,
   projectReplyActionsToCtas,
   resetReplyActionsUnknownLog,
+  shouldSkipFollowUpStream,
   type ReplyActions
 } from '../../app/utils/reply-actions'
 import {
@@ -97,6 +99,91 @@ describe('parseReplyActions / isUsableReplyActions', () => {
     expect(hasUsableGapCta(ra({ degraded: true, actions: [{ type: 'ask_vitals' }] }))).toBe(false)
   })
 
+  it('hasUsableGapCta with openProfileGaps ignores answered lab_report / lab_followup', () => {
+    const answeredLab = ra({
+      actions: [{
+        type: 'choose_option',
+        payload: {
+          kind: 'profile',
+          gap_code: 'lab_report',
+          answer_type: 'enum',
+          options: [{ code: 'none', label: '無' }]
+        }
+      }]
+    })
+    expect(hasUsableGapCta(answeredLab)).toBe(true)
+    expect(hasUsableGapCta(answeredLab, [])).toBe(false)
+    expect(hasUsableGapCta(answeredLab, ['lab_report'])).toBe(true)
+
+    const followup = ra({
+      actions: [{
+        type: 'choose_option',
+        payload: {
+          kind: 'lab_followup',
+          mode: 'single',
+          options: [
+            { code: 'upload', label: '上傳報告', maps_to: 'ask_report' },
+            { code: 'checkup', label: '我想檢查', maps_to: 'offer_checkup' }
+          ]
+        }
+      }]
+    })
+    expect(hasUsableGapCta(followup, [])).toBe(false)
+    expect(hasUsableGapCta(followup, ['lab_report'])).toBe(false)
+  })
+
+  it('shouldSkipFollowUpStream forces stream when next_question.done or gap cleared', () => {
+    const bank = assistant('bank-lab', {
+      replyActions: ra({
+        actions: [{
+          type: 'choose_option',
+          payload: {
+            kind: 'profile',
+            gap_code: 'lab_report',
+            options: [{ code: 'none', label: '無' }]
+          }
+        }]
+      })
+    })
+    // Hydrate still has answered lab choose_option — must NOT skip (P0).
+    expect(shouldSkipFollowUpStream({
+      nextQuestionDone: true,
+      openProfileGaps: [],
+      messages: [bank]
+    })).toBe(false)
+    expect(shouldSkipFollowUpStream({
+      nextQuestionDone: false,
+      openProfileGaps: [],
+      messages: [bank]
+    })).toBe(false)
+    // Still-open sex gap on history → skip covering stream (hybrid).
+    const sexBank = assistant('bank-sex', {
+      replyActions: ra({
+        actions: [{
+          type: 'choose_option',
+          payload: {
+            kind: 'profile',
+            gap_code: 'sex',
+            options: [{ code: 'F', label: '女' }]
+          }
+        }]
+      })
+    })
+    expect(shouldSkipFollowUpStream({
+      nextQuestionDone: false,
+      openProfileGaps: ['sex', 'age'],
+      messages: [sexBank]
+    })).toBe(true)
+  })
+
+  it('normalizeChooseOptionMapsTo accepts catalog aliases', () => {
+    expect(normalizeChooseOptionMapsTo('ask_report')).toBe('ask_report')
+    expect(normalizeChooseOptionMapsTo('offer_checkup')).toBe('offer_checkup')
+    expect(normalizeChooseOptionMapsTo('upload')).toBe('ask_report')
+    expect(normalizeChooseOptionMapsTo('go_checkup')).toBe('offer_checkup')
+    expect(normalizeChooseOptionMapsTo('free_text')).toBeNull()
+  })
+
   it('findGapCtaHostMessage walks past offer_recommend-only latest to bank ask_vitals', () => {
     const bank = assistant('bank', {
       replyActions: ra({
@@ -116,6 +203,16 @@ describe('parseReplyActions / isUsableReplyActions', () => {
         })
       })
     ])?.id).toBe('later')
+    // Answered lab bank is ignored when open gaps empty.
+    const labBank = assistant('lab', {
+      replyActions: ra({
+        actions: [{
+          type: 'choose_option',
+          payload: { kind: 'profile', gap_code: 'lab_report', options: [{ code: 'none', label: '無' }] }
+        }]
+      })
+    })
+    expect(findGapCtaHostMessage([labBank], { openProfileGaps: [] })?.id).toBeUndefined()
   })
 
   it('ignores unknown types for usability; keeps known siblings', () => {
@@ -193,6 +290,36 @@ describe('projectReplyActionsToCtas', () => {
     expect(projection.flags.choices.map(c => c.code)).toEqual(['none', 'within_6m'])
     expect(projection.flags.showConfirm).toBe(false)
     expect(projection.chooseOption?.gap_code).toBe('lab_report')
+  })
+
+  it('lab_followup choose_option preserves maps_to on chips', () => {
+    const projection = projectReplyActionsToCtas({
+      replyActions: ra({
+        actions: [{
+          type: 'choose_option',
+          payload: {
+            kind: 'lab_followup',
+            mode: 'single',
+            confirm: false,
+            options: [
+              { code: 'upload', label: '上傳報告', maps_to: 'ask_report' },
+              { code: 'go_checkup', label: '我想檢查', maps_to: 'offer_checkup' }
+            ]
+          }
+        }]
+      }),
+      canShowRecommendSlot: false,
+      canShowUpload: false,
+      canShowCheckup: false,
+      canShowVitals: false,
+      expertReviewStatus: 'none'
+    })
+    expect(projection.chooseOption?.kind).toBe('lab_followup')
+    expect(projection.flags.choices).toEqual([
+      { code: 'upload', label: '上傳報告', maps_to: 'ask_report' },
+      { code: 'go_checkup', label: '我想檢查', maps_to: 'offer_checkup' }
+    ])
+    expect(projection.flags.showConfirm).toBe(false)
   })
 
   it('ask_goal yields goal chips unless choose_option consultation_goals present', () => {

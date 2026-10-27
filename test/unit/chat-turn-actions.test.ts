@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { ChatMessage } from '../../app/utils/first-order'
 import {
   buildTurnActionsVisibility,
+  checkupCtaVisible,
   type ChatTurnUiContext,
   DEFAULT_CONSULTATION_GOAL_OPTIONS,
   recommendCtaVisible,
@@ -115,7 +116,7 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
     expect(onGreeting.showWantMoreTests).toBe(false)
   })
 
-  it('post-interpret goal select: chips + submit review + want more on latest', () => {
+  it('post-interpret goal select: chips + submit review; legacy want-more off (RA-only外連)', () => {
     const greeting = assistant('greeting', { options: goals })
     const interpret = assistant('latest', {
       options: goals,
@@ -136,7 +137,8 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
     expect(onLatest.showSubmitReview).toBe(true)
     expect(onLatest.showViewRecommend).toBe(false)
     expect(onLatest.showRecommend).toBe(true)
-    expect(onLatest.showWantMoreTests).toBe(true)
+    // #20–21: bubble外連不再靠 wantMoreTestsOffer／recommend 槽自動開
+    expect(onLatest.showWantMoreTests).toBe(false)
     const onGreeting = visibility(greeting, ctx, {
       goalSelectActive: true,
       messages: [greeting, interpret]
@@ -189,16 +191,16 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
     expect(onLatest.showRecommend).toBe(false)
   })
 
-  it('stale interpret bubble: no want-more when no longer latest', () => {
+  it('legacy wantMoreTestsOffer never paints bubble want-more (RA-only)', () => {
     const interpret = assistant('old', { wantMoreTestsOffer: true })
-    const followUp = assistant('latest')
+    const followUp = assistant('latest', { wantMoreTestsOffer: true })
     const ctx = baseCtx({ hasReportAnalysis: true, lastAssistantId: 'latest' })
     const stale = visibility(interpret, ctx, { messages: [interpret, followUp] })
     expect(stale.showWantMoreTests).toBe(false)
     expect(stale.showRecommend).toBe(false)
-    expect(
-      wantMoreTestsCtaVisible(ctx, interpret)
-    ).toBe(false)
+    expect(wantMoreTestsCtaVisible(ctx, interpret)).toBe(false)
+    expect(wantMoreTestsCtaVisible(ctx, followUp)).toBe(false)
+    expect(visibility(followUp, ctx, { messages: [interpret, followUp] }).showWantMoreTests).toBe(false)
   })
 
   it('profile quiz on latest: options chips, no recommend', () => {
@@ -235,12 +237,31 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
     ).toBe(false)
   })
 
-  it('checkup persists on the bubble that received offer', () => {
+  it('legacy checkupOffer never paints bubble checkup (RA-only #18)', () => {
     const old = assistant('old', { checkupOffer: true })
-    const latest = assistant('latest')
+    const latest = assistant('latest', { checkupOffer: true })
     const ctx = baseCtx({ lastAssistantId: 'latest' })
-    expect(visibility(old, ctx, { messages: [old, latest] }).showCheckup).toBe(true)
+    expect(visibility(old, ctx, { messages: [old, latest] }).showCheckup).toBe(false)
     expect(visibility(latest, ctx, { messages: [old, latest] }).showCheckup).toBe(false)
+    expect(checkupCtaVisible(ctx, old)).toBe(false)
+  })
+
+  it('usable reply_actions offer_checkup still paints bubble checkup', () => {
+    const msg = assistant('latest', {
+      replyActions: {
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'llm',
+        degraded: false,
+        error: null,
+        actions: [{ type: 'offer_checkup', payload: { url: 'https://example.com/check' } }]
+      }
+    })
+    const ctx = baseCtx({ lastAssistantId: 'latest' })
+    const v = visibility(msg, ctx, { messages: [msg] })
+    expect(v.fromReplyActions).toBe(true)
+    expect(v.showCheckup).toBe(true)
+    expect(v.checkupUrlOverride).toBe('https://example.com/check')
   })
 
   it('pending hides recommend on latest', () => {
