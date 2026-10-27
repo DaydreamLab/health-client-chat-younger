@@ -18,6 +18,8 @@ interface JourneySnapshot {
   selectedPackage: ConversationPackage | null
   packageConfirmed: boolean
   goalSelectActive: boolean
+  /** Required ask for report (mirrors goalSelectActive; driven by ask_report). */
+  reportAskActive: boolean
   goalOptions: GreetingOption[]
   selectedCodes: string[]
   quizActive: boolean
@@ -40,6 +42,7 @@ const emptySnapshot = (): JourneySnapshot => ({
   selectedPackage: null,
   packageConfirmed: false,
   goalSelectActive: false,
+  reportAskActive: false,
   goalOptions: [],
   selectedCodes: [],
   quizActive: false,
@@ -114,6 +117,7 @@ export const useJourneyStore = defineStore('journey', () => {
   const selectedPackage = ref<ConversationPackage | null>(initial.selectedPackage)
   const packageConfirmed = ref(initial.packageConfirmed)
   const goalSelectActive = ref(initial.goalSelectActive)
+  const reportAskActive = ref(initial.reportAskActive === true)
   const goalOptions = ref<GreetingOption[]>(initial.goalOptions)
   const selectedCodes = ref<string[]>(initial.selectedCodes)
   const quizActive = ref(initial.quizActive)
@@ -144,6 +148,7 @@ export const useJourneyStore = defineStore('journey', () => {
       selectedPackage: selectedPackage.value,
       packageConfirmed: packageConfirmed.value,
       goalSelectActive: goalSelectActive.value,
+      reportAskActive: reportAskActive.value,
       goalOptions: goalOptions.value,
       selectedCodes: [...selectedCodes.value],
       quizActive: quizActive.value,
@@ -174,6 +179,7 @@ export const useJourneyStore = defineStore('journey', () => {
     selectedPackage.value = null
     packageConfirmed.value = false
     goalSelectActive.value = false
+    reportAskActive.value = false
     goalOptions.value = []
     selectedCodes.value = []
     quizActive.value = false
@@ -203,6 +209,7 @@ export const useJourneyStore = defineStore('journey', () => {
     selectedPackage.value = stored.selectedPackage
     packageConfirmed.value = stored.packageConfirmed
     goalSelectActive.value = stored.goalSelectActive
+    reportAskActive.value = stored.reportAskActive === true
     goalOptions.value = stored.goalOptions
     selectedCodes.value = stored.selectedCodes
     quizActive.value = stored.quizActive
@@ -227,6 +234,7 @@ export const useJourneyStore = defineStore('journey', () => {
         selectedPackage,
         packageConfirmed,
         goalSelectActive,
+        reportAskActive,
         goalOptions,
         selectedCodes,
         quizActive,
@@ -255,6 +263,7 @@ export const useJourneyStore = defineStore('journey', () => {
     selectedPackage,
     packageConfirmed,
     goalSelectActive,
+    reportAskActive,
     goalOptions,
     selectedCodes,
     quizActive,

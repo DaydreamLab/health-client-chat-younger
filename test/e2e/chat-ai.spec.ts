@@ -25,6 +25,14 @@ async function seedNoExpertCase(page: Page) {
   })
 }
 
+/** 三要件之一：goals 必須先完成，完成 CTA 才依 RA 投影（非 legacy）。 */
+async function finishGoalSelect(page: Page) {
+  await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
+  await page.getByTestId('chat-quiz-option-sleep').click()
+  await page.getByTestId('chat-quiz-confirm').click()
+  await expect(page.getByTestId('chat-quiz-confirm')).toHaveCount(0, { timeout: 15_000 })
+}
+
 test.describe('standard /chat-ai vs expert /chat', () => {
   test.beforeEach(async ({ page }) => {
     await mockCandorAuth(page, { asMember: true })
@@ -43,6 +51,7 @@ test.describe('standard /chat-ai vs expert /chat', () => {
 
     await goto('/chat', { waitUntil: 'hydration' })
     await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
+    await finishGoalSelect(page)
     await page.getByTestId('chat-upload-input').setInputFiles(labsFile)
     await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
     await page.getByTestId('chat-report-interpret').click()
@@ -73,6 +82,7 @@ test.describe('standard /chat-ai vs expert /chat', () => {
     await expect(page.getByTestId('nav-chat-ai')).toHaveCount(0)
     await expect(page.getByTestId('chat-flow-standard')).toHaveText('標準')
 
+    await finishGoalSelect(page)
     await page.getByTestId('chat-upload-input').setInputFiles(labsFile)
     await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
     await page.getByTestId('chat-report-interpret').click()

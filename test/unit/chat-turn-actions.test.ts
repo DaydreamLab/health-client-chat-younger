@@ -33,6 +33,7 @@ function baseCtx(overrides: Partial<ChatTurnUiContext> = {}): ChatTurnUiContext 
     escalated: false,
     pending: false,
     goalSelectActive: false,
+    reportAskActive: false,
     hasReportAnalysis: false,
     reportRetry: false,
     checkupLinkReady: true,
@@ -75,23 +76,22 @@ describe('recommendCtaVisible', () => {
     readonlyMode: false,
     escalated: false,
     goalSelectActive: false,
+    reportAskActive: false,
     profileQuestionActive: false,
     isLatestAssistant: true,
     reportRetry: false
   }
 
-  it('blocks during opening goal select without report', () => {
+  it('blocks while goals or report ask still active (三要件未齊)', () => {
     expect(recommendCtaVisible({ ...base, goalSelectActive: true })).toBe(false)
-  })
-
-  it('allows during post-interpret goal select when analysis ready', () => {
+    expect(recommendCtaVisible({ ...base, reportAskActive: true })).toBe(false)
     expect(
       recommendCtaVisible({
         ...base,
         goalSelectActive: true,
         hasReportAnalysis: true
       })
-    ).toBe(true)
+    ).toBe(false)
   })
 
   it('blocks on non-latest, pending, profile question, retry', () => {
@@ -116,7 +116,7 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
     expect(onGreeting.showWantMoreTests).toBe(false)
   })
 
-  it('post-interpret goal select: chips + submit review; legacy want-more off (RA-only外連)', () => {
+  it('post-interpret goal select: chips only; no invented recommend without usable RA', () => {
     const greeting = assistant('greeting', { options: goals })
     const interpret = assistant('latest', {
       options: goals,
@@ -134,10 +134,10 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
     })
     expect(onLatest.choices.length).toBe(2)
     expect(onLatest.showConfirm).toBe(true)
-    expect(onLatest.showSubmitReview).toBe(true)
+    // 完成 CTA 依 usable RA；無 RA 不硬掛提交專家判讀
+    expect(onLatest.showSubmitReview).toBe(false)
     expect(onLatest.showViewRecommend).toBe(false)
-    expect(onLatest.showRecommend).toBe(true)
-    // #20–21: bubble外連不再靠 wantMoreTestsOffer／recommend 槽自動開
+    expect(onLatest.showRecommend).toBe(false)
     expect(onLatest.showWantMoreTests).toBe(false)
     const onGreeting = visibility(greeting, ctx, {
       goalSelectActive: true,
@@ -147,25 +147,47 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
     expect(onGreeting.showRecommend).toBe(false)
   })
 
-  it('reviewed status shows view recommend, not submit', () => {
-    const interpret = assistant('latest', { options: goals })
+  it('usable offer_recommend after 三要件: submit vs view by expert status', () => {
+    const interpret = assistant('latest', {
+      replyActions: {
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'llm',
+        degraded: false,
+        error: null,
+        actions: [{ type: 'offer_recommend' }]
+      }
+    })
     const ctx = baseCtx({
-      goalSelectActive: true,
       hasReportAnalysis: true,
       lastAssistantId: 'latest'
     })
-    const onLatest = visibility(interpret, ctx, {
-      goalSelectActive: true,
+    const submit = visibility(interpret, ctx, {
+      messages: [interpret],
+      expertReviewStatus: 'none'
+    })
+    expect(submit.showSubmitReview).toBe(true)
+    expect(submit.showViewRecommend).toBe(false)
+
+    const viewed = visibility(interpret, ctx, {
       messages: [interpret],
       expertReviewStatus: 'reviewed'
     })
-    expect(onLatest.showSubmitReview).toBe(false)
-    expect(onLatest.showViewRecommend).toBe(true)
-    expect(onLatest.showRecommend).toBe(true)
+    expect(viewed.showSubmitReview).toBe(false)
+    expect(viewed.showViewRecommend).toBe(true)
   })
 
-  it('standard flow shows view recommend and never submit', () => {
-    const interpret = assistant('latest')
+  it('standard flow: usable offer_recommend → view recommend, never submit', () => {
+    const interpret = assistant('latest', {
+      replyActions: {
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'llm',
+        degraded: false,
+        error: null,
+        actions: [{ type: 'offer_recommend' }]
+      }
+    })
     const ctx = baseCtx({ hasReportAnalysis: true, lastAssistantId: 'latest' })
     for (const expertReviewStatus of ['none', 'awaiting_review', 'reviewed'] as const) {
       const onLatest = visibility(interpret, ctx, {
@@ -179,8 +201,17 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
     }
   })
 
-  it('awaiting_review hides both recommend CTAs', () => {
-    const interpret = assistant('latest')
+  it('awaiting_review hides both recommend CTAs even with usable offer_recommend', () => {
+    const interpret = assistant('latest', {
+      replyActions: {
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'llm',
+        degraded: false,
+        error: null,
+        actions: [{ type: 'offer_recommend' }]
+      }
+    })
     const ctx = baseCtx({ hasReportAnalysis: true, lastAssistantId: 'latest' })
     const onLatest = visibility(interpret, ctx, {
       messages: [interpret],
@@ -219,22 +250,21 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
     expect(v.showUpload).toBe(false)
   })
 
-  it('upload offer on latest message after quiz', () => {
+  it('legacy uploadOffer never paints bubble upload (ask_report only)', () => {
     const msg = assistant('latest', { uploadOffer: true })
     const ctx = baseCtx({ lastAssistantId: 'latest' })
-    expect(visibility(msg, ctx, { messages: [msg] }).showUpload).toBe(true)
-    expect(
-      visibility(msg, ctx, {
-        messages: [msg],
-        goalSelectActive: true
-      }).showUpload
-    ).toBe(false)
-    expect(
-      visibility(msg, baseCtx({
-        lastAssistantId: 'latest',
-        hasReportAnalysis: true
-      }), { messages: [msg] }).showUpload
-    ).toBe(false)
+    expect(visibility(msg, ctx, { messages: [msg] }).showUpload).toBe(false)
+    const withRa = assistant('latest', {
+      replyActions: {
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'llm',
+        degraded: false,
+        error: null,
+        actions: [{ type: 'ask_report' }]
+      }
+    })
+    expect(visibility(withRa, ctx, { messages: [withRa] }).showUpload).toBe(true)
   })
 
   it('legacy checkupOffer never paints bubble checkup (RA-only #18)', () => {
@@ -264,8 +294,17 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
     expect(v.checkupUrlOverride).toBe('https://example.com/check')
   })
 
-  it('pending hides recommend on latest', () => {
-    const msg = assistant('latest')
+  it('pending hides recommend on latest even with usable offer_recommend', () => {
+    const msg = assistant('latest', {
+      replyActions: {
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'llm',
+        degraded: false,
+        error: null,
+        actions: [{ type: 'offer_recommend' }]
+      }
+    })
     const ctx = baseCtx({ pending: true, lastAssistantId: 'latest' })
     expect(visibility(msg, ctx, { messages: [msg] }).showRecommend).toBe(false)
   })
@@ -292,7 +331,7 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
     expect(turnConfirmVisible(0, true)).toBe(false)
   })
 
-  it('recommend shows when checkup url missing; want-more link hidden', () => {
+  it('without usable RA, missing checkup url does not invent recommend', () => {
     const msg = assistant('latest')
     const ctx = baseCtx({
       checkupLinkReady: false,
@@ -300,7 +339,7 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
       lastAssistantId: 'latest'
     })
     const v = visibility(msg, ctx, { messages: [msg] })
-    expect(v.showRecommend).toBe(true)
+    expect(v.showRecommend).toBe(false)
     expect(v.showWantMoreTests).toBe(false)
     expect(v.showCheckup).toBe(false)
   })

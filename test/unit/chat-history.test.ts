@@ -30,6 +30,7 @@ function baseCtx(overrides: Partial<ChatTurnUiContext> = {}): ChatTurnUiContext 
     escalated: false,
     pending: false,
     goalSelectActive: false,
+    reportAskActive: false,
     hasReportAnalysis: false,
     reportRetry: false,
     checkupLinkReady: true,
@@ -78,7 +79,7 @@ describe('parseConversationMessagesResult / historyMessageToChatMessage', () => 
     expect(visibility.showWantMoreTests).toBe(false)
   })
 
-  it('degraded / missing reply_actions falls back to legacy offers', () => {
+  it('degraded / missing reply_actions do not fall back to legacy upload', () => {
     const degraded = historyMessageToChatMessage(parseHistoryMessage({
       id: 'a1',
       role: 'assistant',
@@ -91,14 +92,15 @@ describe('parseConversationMessagesResult / historyMessageToChatMessage', () => 
       }
     })!)
     expect(isUsableReplyActions(degraded.replyActions)).toBe(false)
-    expect(
-      buildTurnActionsVisibility({
-        message: degraded,
-        ctx: baseCtx(),
-        goalOptions: [],
-        needsMultiConfirm: false
-      }).showUpload
-    ).toBe(true)
+    const degradedVis = buildTurnActionsVisibility({
+      message: degraded,
+      ctx: baseCtx(),
+      goalOptions: [],
+      needsMultiConfirm: false
+    })
+    expect(degradedVis.fromReplyActions).toBe(true)
+    expect(degradedVis.showUpload).toBe(false)
+    expect(degradedVis.showSubmitReview).toBe(false)
 
     const absent = historyMessageToChatMessage(parseHistoryMessage({
       id: 'a2',
@@ -114,7 +116,7 @@ describe('parseConversationMessagesResult / historyMessageToChatMessage', () => 
         goalOptions: [],
         needsMultiConfirm: false
       }).showUpload
-    ).toBe(true)
+    ).toBe(false)
   })
 
   it('accepts bare messages array payload', () => {

@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test'
 import { expect, test } from '@nuxt/test-utils/playwright'
 import { mockCandorAuth } from './mock-candor-auth'
 
@@ -5,6 +6,14 @@ const labsFile = {
   name: 'labs.pdf',
   mimeType: 'application/pdf',
   buffer: Buffer.from('%PDF-1.4 demo')
+}
+
+/** 三要件之一：goals 必須先完成，完成 CTA 才依 RA 投影（非 legacy）。 */
+async function finishGoalSelect(page: Page) {
+  await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
+  await page.getByTestId('chat-quiz-option-sleep').click()
+  await page.getByTestId('chat-quiz-confirm').click()
+  await expect(page.getByTestId('chat-quiz-confirm')).toHaveCount(0, { timeout: 15_000 })
 }
 
 /** Minimal 1×1 JPEG for photo-tray e2e (decoded by createImageBitmap). */
@@ -420,10 +429,11 @@ test.describe('login then recommend', () => {
     await page.getByRole('button', { name: '登入' }).click()
     await expect(page).toHaveURL(/\/chat/)
 
+    await finishGoalSelect(page)
     await page.getByTestId('chat-upload-input').setInputFiles(labsFile)
     await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
     await page.getByTestId('chat-report-interpret').click()
-    // Mock list seeds reviewed; after interpret the real「查看推薦方案」appears.
+    // Mock list seeds reviewed; after interpret usable offer_recommend →「查看推薦方案」.
     await expect(page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend')).toBeVisible({
       timeout: 15_000
     })
@@ -490,6 +500,7 @@ test.describe('member checkout', () => {
     })
     await goto('/chat', { waitUntil: 'hydration' })
     await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
+    await finishGoalSelect(page)
     await page.getByTestId('chat-upload').click()
     await page.getByTestId('chat-attach-image').click()
     await expect(page.getByTestId('chat-photo-tray')).toBeVisible()
@@ -529,6 +540,7 @@ test.describe('member checkout', () => {
       localStorage.removeItem('candor-paid-orders')
       localStorage.removeItem('candor.unpaid.journey')
     })
+    await finishGoalSelect(page)
     await page.getByTestId('chat-upload-input').setInputFiles(labsFile)
     await expect(page.getByTestId('chat-report-loading')).toBeVisible()
     await expect(page.getByTestId('chat-report-loading')).toContainText('報告處理中')
@@ -563,6 +575,7 @@ test.describe('member checkout', () => {
 
     await goto('/chat', { waitUntil: 'hydration' })
     await page.evaluate(() => localStorage.removeItem('candor-paid-orders'))
+    await finishGoalSelect(page)
     await page.getByTestId('chat-upload-input').setInputFiles(labsFile)
     await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
     await page.getByTestId('chat-report-interpret').click()

@@ -18,7 +18,13 @@ export type ReplyActionType
     | 'offer_checkup'
     | 'none'
 
-export type ChooseOptionKind = 'consultation_goals' | 'profile' | 'free' | 'lab_followup'
+export type ChooseOptionKind
+  = 'consultation_goals'
+    | 'profile'
+    | 'free'
+    | 'lab_followup'
+    /** Required ask for report chips (mirrors consultation_goals / ask_goal; not a profile gap). */
+    | 'lab_report'
 
 /** choose_option option.maps_to → FE route (LabFollowup dual chips). */
 export type ChooseOptionMapsTo = 'ask_report' | 'offer_checkup'
@@ -197,7 +203,8 @@ export function parseReplyActions(raw: unknown): ReplyActions | null {
 
 /**
  * Usable = present, not degraded, and has ≥1 known non-`none` action.
- * Empty / none-only / degraded → not usable → FE falls back to legacy meta.
+ * Empty / none-only / degraded → not usable. FE must **not** invent legacy CTAs
+ * (upload_offer / journey recommend); intentional `none` = no bubble CTAs.
  */
 export function isUsableReplyActions(ra: ReplyActions | null | undefined): boolean {
   if (!ra || ra.degraded === true) {
@@ -217,15 +224,61 @@ export function isUsableReplyActions(ra: ReplyActions | null | undefined): boole
 }
 
 /**
- * Required-gap interactive CTAs (hybrid intake).
- * Non-gap usable actions (offer_recommend / ask_report / offer_checkup) alone
- * must not keep the FE stuck on the latest bubble when an earlier bank turn
- * still carries ask_vitals / choose_option / ask_goal.
+ * True when the reply_actions column is present on the message (incl. none /
+ * degraded / empty). Distinct from usable: present-but-empty must paint no CTAs
+ * and must not fall back to legacy meta.
+ */
+export function hasReplyActionsColumn(ra: ReplyActions | null | undefined): boolean {
+  return ra != null
+}
+
+/** True when usable RA includes ask_report (required ask, mirrors ask_goal). */
+export function hasAskReportAction(ra: ReplyActions | null | undefined): boolean {
+  if (!isUsableReplyActions(ra)) {
+    return false
+  }
+  return ra!.actions.some(action => action.type === 'ask_report')
+}
+
+/**
+ * Report required-ask surface: `ask_report` or `choose_option.kind=lab_report`
+ * (core #100; same pattern as ask_goal / consultation_goals).
+ */
+export function hasReportRequiredAsk(ra: ReplyActions | null | undefined): boolean {
+  if (!isUsableReplyActions(ra)) {
+    return false
+  }
+  return ra!.actions.some((action) => {
+    if (action.type === 'ask_report') {
+      return true
+    }
+    if (action.type !== 'choose_option') {
+      return false
+    }
+    const payload = chooseOptionPayload(action)
+    return payload.kind === 'lab_report' || payload.gap_code === 'lab_report'
+  })
+}
+
+/**
+ * Profile-gap interactive CTAs (hybrid intake).
+ * Required asks `ask_goal` / `ask_report` are **not** profile gaps (goal／report
+ * 必問, 對齊 goal 設計). Non-gap usable actions (offer_recommend / offer_checkup)
+ * alone must not keep the FE stuck on the latest bubble when an earlier bank turn
+ * still carries ask_vitals / profile choose_option.
  */
 export const GAP_CTA_ACTION_TYPES = new Set<string>([
   'ask_vitals',
-  'choose_option',
-  'ask_goal'
+  'choose_option'
+])
+
+/** choose_option kinds that are not profile-gap hosts (show on latest bubble). */
+export const NON_GAP_CHOOSE_OPTION_KINDS = new Set<string>([
+  'free',
+  'lab_followup',
+  'consultation_goals',
+  // core #100: report 必問 chips（同 ask_goal 模式），不進 open profile gap host
+  'lab_report'
 ])
 
 /** True when reply_actions is usable and includes ≥1 required-gap CTA. */
@@ -242,11 +295,12 @@ export function hasUsableGapCta(
 /**
  * Whether a gap-type action still needs an answer given current open profile gaps.
  *
- * When `openProfileGaps` is omitted, any ask_vitals / choose_option / ask_goal counts
- * (legacy hydrate / host discovery). When provided (incl. empty):
+ * When `openProfileGaps` is omitted, any ask_vitals / profile choose_option counts
+ * (hydrate / host discovery). When provided (incl. empty):
  * - profile `choose_option` / `ask_vitals` only if their gap_code (or vitals field) is open
- * - `kind=lab_followup` never counts as a required profile gap (skip-stream must not lock)
- * - free / consultation_goals choose_option and ask_goal do not count as open profile gaps
+ * - `kind=lab_followup` / `free` / `consultation_goals` never count as profile gaps
+ * - `gap_code=lab_report` never counts (report is required ask like goal, not a gap)
+ * - `ask_goal` / `ask_report` are not gap CTAs
  */
 export function isOpenGapCtaAction(
   action: ReplyAction,
@@ -255,16 +309,17 @@ export function isOpenGapCtaAction(
   if (!GAP_CTA_ACTION_TYPES.has(action.type)) {
     return false
   }
-  if (openProfileGaps === undefined) {
-    return true
-  }
-  if (action.type === 'ask_goal') {
-    return false
-  }
   if (action.type === 'choose_option') {
     const payload = chooseOptionPayload(action)
-    if (payload.kind === 'lab_followup') {
+    if (payload.kind && NON_GAP_CHOOSE_OPTION_KINDS.has(payload.kind)) {
       return false
+    }
+    // Report 必問（對齊 goal），不再當 profile gap chips host。
+    if (payload.gap_code === 'lab_report') {
+      return false
+    }
+    if (openProfileGaps === undefined) {
+      return Boolean(payload.kind === 'profile' || payload.gap_code)
     }
     if (payload.kind === 'profile' || payload.gap_code) {
       return Boolean(payload.gap_code && openProfileGaps.includes(payload.gap_code))
@@ -272,6 +327,9 @@ export function isOpenGapCtaAction(
     return false
   }
   if (action.type === 'ask_vitals') {
+    if (openProfileGaps === undefined) {
+      return true
+    }
     const payload = askVitalsPayload(action)
     if (payload.gap_code) {
       return openProfileGaps.includes(payload.gap_code)
@@ -280,6 +338,18 @@ export function isOpenGapCtaAction(
     return fields.some(field => openProfileGaps.includes(field))
   }
   return false
+}
+
+/** True when choose_option chips belong on the message that carries them (not gap-host-only). */
+export function isNonGapChooseOption(action: ReplyAction): boolean {
+  if (action.type !== 'choose_option') {
+    return false
+  }
+  const payload = chooseOptionPayload(action)
+  if (payload.kind === 'lab_report' || payload.gap_code === 'lab_report') {
+    return true
+  }
+  return Boolean(payload.kind && NON_GAP_CHOOSE_OPTION_KINDS.has(payload.kind))
 }
 
 type GapCtaHostCandidate = {
@@ -294,9 +364,11 @@ export type FindGapCtaHostOptions = {
 }
 
 /**
- * Walk newest→oldest assistant turns; return the first with a usable gap CTA.
+ * Walk newest→oldest assistant turns; return the first with a usable profile-gap
+ * CTA (ask_vitals / profile choose_option; not ask_goal / ask_report / lab_report).
  * When the latest stream turn only has offer_recommend (etc.), this recovers
- * the preceding bank message that still carries ask_vitals / choose_option.
+ * the preceding bank message that still carries the open gap — FE then lifts
+ * those CTAs onto the latest bubble.
  */
 export function findGapCtaHostMessage<T extends GapCtaHostCandidate>(
   messages: T[],

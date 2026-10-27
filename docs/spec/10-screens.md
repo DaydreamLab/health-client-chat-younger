@@ -47,10 +47,11 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 
 ## 諮詢對話（`/chat`）
 
-- 選項與確認在助理氣泡底部：確認鈕靠右。仍在選改善方向，或最新一則助理訊息仍是 profile 題時，不顯示「查看推薦方案」。離開 profile 題之後，按鈕掛在最新一則助理訊息；方向釐清未結束前仍不把方案名稱寫進氣泡。
+- Intake **三要件**（皆必問）：① 問卷 profile gaps ② **report**（`ask_report`，類 goal、**不進 gap**；gap 全滿後仍要問）③ goals。三要件未齊時不進入「完成 CTA」。
+- 三要件齊後：基本回應 → **CTA 判讀**（systemone／catalog）→ **完成 CTA**；FE 依 usable `reply_actions` 決定畫哪些按鈕（含 upload／checkup／`offer_recommend` 等）——**非**固定硬掛「提交專家判讀」。intentional `none`／degraded／無 RA＝不畫怪鈕。**Legacy** `upload_offer`／journey 自創 recommend **不當 fallback**。
+- 選項與確認在助理氣泡底部：確認鈕靠右。仍在選改善方向、report 必問、或最新一則仍是 profile／open gap 時，不畫完成 CTA 的 recommend 槽。gap／必問 CTA 掛在**最新**助理泡泡（含自舊 bank 抬升）；free chips 可與 open gap 並存於最新。
 - 開場只問改善方向。選方向時，輸入框不提示「有沒有報告」。
-- 選定兩個以上方向後，每個方向都問過並得到回答、且最新一則不再是問句之前，不視為問答完成，不貼「問答已完成」上傳引導。
-- 氣泡內上傳鈕只出現在最新一則助理訊息，且該則是在**邀請上傳**。`lab_report` 問卷題本身不掛上傳鈕；使用者選「一年內／半年內」並按確認、等 agent 回覆後，才在該則回覆掛上傳鈕。更早的訊息不補按鈕。輸入列的上傳入口仍在（guest 點了導向登入）。
+- 氣泡內上傳鈕只出現在最新一則且該則 usable `ask_report`（或 lab_followup→upload）。輸入列的上傳入口仍在（guest 點了導向登入）。
 | 建議／結帳 | `pages/app/recommendations.vue`、`composables/useFirstOrderApi.ts` |
 | 個人資料 | `pages/app/me.vue`、側欄／`AccountUser` |
 | 訂單 | `pages/app/orders/*`、`stores/orders.ts`、`components/ShipmentTimeline.vue`、`OrderChatModal.vue` |

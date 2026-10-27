@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import {
   findGapCtaHostMessage,
+  hasReportRequiredAsk,
   hasUsableGapCta,
   isUsableReplyActions,
   normalizeChooseOptionMapsTo,
@@ -43,6 +44,7 @@ function baseCtx(overrides: Partial<ChatTurnUiContext> = {}): ChatTurnUiContext 
     escalated: false,
     pending: false,
     goalSelectActive: false,
+    reportAskActive: false,
     hasReportAnalysis: false,
     reportRetry: false,
     checkupLinkReady: true,
@@ -81,9 +83,10 @@ describe('parseReplyActions / isUsableReplyActions', () => {
     expect(isUsableReplyActions(ra({ actions: [{ type: 'none' }] }))).toBe(false)
   })
 
-  it('hasUsableGapCta requires ask_vitals / choose_option / ask_goal (not offer_*)', () => {
+  it('hasUsableGapCta requires ask_vitals / profile choose_option (not offer_* / ask_report / ask_goal / lab_report)', () => {
     expect(hasUsableGapCta(ra({ actions: [{ type: 'offer_recommend' }] }))).toBe(false)
     expect(hasUsableGapCta(ra({ actions: [{ type: 'ask_report' }, { type: 'offer_checkup' }] }))).toBe(false)
+    expect(hasUsableGapCta(ra({ actions: [{ type: 'ask_goal', payload: { goal_codes: ['sleep'] } }] }))).toBe(false)
     expect(hasUsableGapCta(ra({
       actions: [
         { type: 'offer_recommend' },
@@ -99,7 +102,7 @@ describe('parseReplyActions / isUsableReplyActions', () => {
     expect(hasUsableGapCta(ra({ degraded: true, actions: [{ type: 'ask_vitals' }] }))).toBe(false)
   })
 
-  it('hasUsableGapCta with openProfileGaps ignores answered lab_report / lab_followup', () => {
+  it('hasUsableGapCta never treats lab_report / lab_followup as profile gap (report 必問)', () => {
     const answeredLab = ra({
       actions: [{
         type: 'choose_option',
@@ -111,9 +114,27 @@ describe('parseReplyActions / isUsableReplyActions', () => {
         }
       }]
     })
-    expect(hasUsableGapCta(answeredLab)).toBe(true)
+    // Report 不進 gap：即使 open gaps 仍含 lab_report 也不當 gap host。
+    expect(hasUsableGapCta(answeredLab)).toBe(false)
     expect(hasUsableGapCta(answeredLab, [])).toBe(false)
-    expect(hasUsableGapCta(answeredLab, ['lab_report'])).toBe(true)
+    expect(hasUsableGapCta(answeredLab, ['lab_report'])).toBe(false)
+
+    // core #100: kind=lab_report（同 ask_goal 模式）
+    const kindLab = ra({
+      actions: [{
+        type: 'choose_option',
+        payload: {
+          kind: 'lab_report',
+          mode: 'single',
+          gap_code: 'lab_report',
+          options: [{ code: 'none', label: '無' }]
+        }
+      }]
+    })
+    expect(hasUsableGapCta(kindLab, ['lab_report'])).toBe(false)
+    expect(hasReportRequiredAsk(kindLab)).toBe(true)
+    expect(hasReportRequiredAsk(ra({ actions: [{ type: 'ask_report' }] }))).toBe(true)
+    expect(hasReportRequiredAsk(ra({ actions: [{ type: 'offer_recommend' }] }))).toBe(false)
 
     const followup = ra({
       actions: [{
@@ -445,35 +466,38 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     expect(v.showViewRecommend).toBe(false)
   })
 
-  it('degraded / empty reply_actions falls back to legacy meta', () => {
+  it('intentional none / degraded reply_actions paint no CTAs (no legacy fallback)', () => {
     const degraded = assistant('latest', {
       uploadOffer: true,
       replyActions: ra({ degraded: true, actions: [{ type: 'ask_report' }] })
     })
-    const empty = assistant('latest', {
+    const noneOnly = assistant('latest', {
       uploadOffer: true,
       replyActions: ra({ actions: [{ type: 'none' }] })
     })
-    for (const msg of [degraded, empty]) {
+    for (const msg of [degraded, noneOnly]) {
       const v = buildTurnActionsVisibility({
         message: msg,
         ctx: baseCtx({ lastAssistantId: 'latest' }),
         goalOptions: [],
         needsMultiConfirm: false
       })
-      expect(v.fromReplyActions).toBe(false)
-      expect(v.showUpload).toBe(true)
+      expect(v.fromReplyActions).toBe(true)
+      expect(v.showUpload).toBe(false)
+      expect(v.showSubmitReview).toBe(false)
+      expect(v.showRecommend).toBe(false)
     }
   })
 
-  it('absent reply_actions keeps legacy recommend / chips behavior', () => {
+  it('absent reply_actions: profile chips ok; never invent recommend / upload', () => {
     const msg = assistant('latest', {
       options: [
         { code: 'sleep', label: '睡眠' },
         { code: 'weight', label: '減重' }
       ],
       turnType: 'profile',
-      profileQuestion: { gap_code: 'diet', answer_type: 'enum' }
+      profileQuestion: { gap_code: 'diet', answer_type: 'enum' },
+      uploadOffer: true
     })
     const v = buildTurnActionsVisibility({
       message: msg,
@@ -485,6 +509,49 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     expect(v.fromReplyActions).toBe(false)
     expect(v.choices.map(c => c.code)).toEqual(['sleep', 'weight'])
     expect(v.showRecommend).toBe(false)
+    expect(v.showUpload).toBe(false)
+  })
+
+  it('none-only + latest → showSubmitReview=false (root-cause regression)', () => {
+    const msg = assistant('latest', {
+      replyActions: ra({ actions: [{ type: 'none' }] })
+    })
+    const v = buildTurnActionsVisibility({
+      message: msg,
+      ctx: baseCtx({ lastAssistantId: 'latest' }),
+      goalOptions: [],
+      needsMultiConfirm: false,
+      expertReviewStatus: 'none'
+    })
+    expect(v.showSubmitReview).toBe(false)
+    expect(v.showViewRecommend).toBe(false)
+    expect(v.showUpload).toBe(false)
+  })
+
+  it('reportAskActive blocks offer_recommend until report ask clears', () => {
+    const msg = assistant('latest', {
+      replyActions: ra({
+        actions: [{ type: 'offer_recommend' }, { type: 'ask_report' }]
+      })
+    })
+    const blocked = buildTurnActionsVisibility({
+      message: msg,
+      ctx: baseCtx({ lastAssistantId: 'latest', reportAskActive: true }),
+      goalOptions: [],
+      needsMultiConfirm: false,
+      expertReviewStatus: 'none'
+    })
+    expect(blocked.showUpload).toBe(true)
+    expect(blocked.showSubmitReview).toBe(false)
+
+    const open = buildTurnActionsVisibility({
+      message: msg,
+      ctx: baseCtx({ lastAssistantId: 'latest', reportAskActive: false }),
+      goalOptions: [],
+      needsMultiConfirm: false,
+      expertReviewStatus: 'none'
+    })
+    expect(open.showSubmitReview).toBe(true)
   })
 
   it('/chat-ai standard flow shows view-recommend for offer_recommend', () => {
@@ -546,7 +613,7 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     expect(readonly.vitalsFields).toEqual([])
   })
 
-  it('gap CTA fallback: ask_vitals on bank host when latest is offer_recommend-only', () => {
+  it('gap CTA lift: ask_vitals moves to latest when stream is offer_recommend-only', () => {
     const bank = assistant('bank', {
       replyActions: ra({
         actions: [{ type: 'ask_vitals', payload: { fields: ['height'], gap_code: 'height' } }]
@@ -558,6 +625,7 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     const ctx = baseCtx({
       lastAssistantId: 'stream',
       gapCtaHostId: 'bank',
+      gapCtaHostReplyActions: bank.replyActions,
       hasReportAnalysis: true
     })
     const onBank = buildTurnActionsVisibility({
@@ -568,8 +636,8 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       expertReviewStatus: 'none',
       flow: 'standard'
     })
-    expect(onBank.vitalsFields).toEqual(['height'])
-    expect(onBank.vitalsGapCode).toBe('height')
+    // Bank host behind latest: CTAs lifted away.
+    expect(onBank.vitalsFields).toEqual([])
     expect(onBank.showViewRecommend).toBe(false)
 
     const onStream = buildTurnActionsVisibility({
@@ -580,13 +648,14 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       expertReviewStatus: 'none',
       flow: 'standard'
     })
-    expect(onStream.vitalsFields).toEqual([])
+    expect(onStream.vitalsFields).toEqual(['height'])
+    expect(onStream.vitalsGapCode).toBe('height')
     // Pending gap behind latest suppresses recommend/upload on the covering turn.
     expect(onStream.showViewRecommend).toBe(false)
     expect(onStream.showUpload).toBe(false)
   })
 
-  it('choose_option sex chips stay on bank host when stream covers with offer_recommend', () => {
+  it('choose_option sex chips lift to latest when stream covers with offer_recommend', () => {
     const bank = assistant('bank', {
       replyActions: ra({
         actions: [{
@@ -607,22 +676,76 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     const stream = assistant('stream', {
       replyActions: ra({ actions: [{ type: 'offer_recommend' }] })
     })
-    const ctx = baseCtx({ lastAssistantId: 'stream', gapCtaHostId: 'bank' })
+    const ctx = baseCtx({
+      lastAssistantId: 'stream',
+      gapCtaHostId: 'bank',
+      gapCtaHostReplyActions: bank.replyActions
+    })
     const onBank = buildTurnActionsVisibility({
       message: bank,
       ctx,
       goalOptions: [],
       needsMultiConfirm: false
     })
-    expect(onBank.choices.map(c => c.code)).toEqual(['M', 'F'])
+    expect(onBank.choices).toEqual([])
     const onStream = buildTurnActionsVisibility({
       message: stream,
       ctx,
       goalOptions: [],
       needsMultiConfirm: false
     })
-    expect(onStream.choices).toEqual([])
+    expect(onStream.choices.map(c => c.code)).toEqual(['M', 'F'])
     expect(onStream.showSubmitReview).toBe(false)
+  })
+
+  it('free chips on latest stay visible while bank gap is lifted', () => {
+    const bank = assistant('bank', {
+      replyActions: ra({
+        actions: [{
+          type: 'choose_option',
+          payload: {
+            kind: 'profile',
+            gap_code: 'diet',
+            options: [
+              { code: 'omnivore', label: '葷' },
+              { code: 'veg', label: '素' }
+            ]
+          }
+        }]
+      })
+    })
+    const stream = assistant('stream', {
+      replyActions: ra({
+        actions: [{
+          type: 'choose_option',
+          payload: {
+            kind: 'free',
+            mode: 'single',
+            options: [
+              { code: 'sleep_ok', label: '睡眠還好' },
+              { code: 'sleep_bad', label: '睡不好' }
+            ]
+          }
+        }]
+      })
+    })
+    const ctx = baseCtx({
+      lastAssistantId: 'stream',
+      gapCtaHostId: 'bank',
+      gapCtaHostReplyActions: bank.replyActions
+    })
+    const onStream = buildTurnActionsVisibility({
+      message: stream,
+      ctx,
+      goalOptions: [],
+      needsMultiConfirm: false
+    })
+    expect(onStream.choices.map(c => c.code)).toEqual([
+      'omnivore',
+      'veg',
+      'sleep_ok',
+      'sleep_bad'
+    ])
   })
 
   it('lab_report choose_option: reply_actions path ignores legacy needsMultiConfirm (no confirm btn)', () => {
