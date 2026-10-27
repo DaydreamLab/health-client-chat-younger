@@ -563,11 +563,21 @@
     "viewOnlyBody": "This chat was saved when payment created the order. It is view-only — no editing or uploads.",
     "vitalsAge": "Age",
     "vitalsAgeUnit": "y",
+    "vitalsAgeHint": "Scroll or tap, then confirm",
+    "vitalsAgeError": "Enter an age between {min} and {max}",
     "vitalsHeight": "Height",
     "vitalsHeightUnit": "cm",
+    "vitalsHeightHint": "Enter height in centimeters",
+    "vitalsHeightError": "Enter a height between {min} and {max}",
     "vitalsWeight": "Weight",
     "vitalsWeightUnit": "kg",
-    "vitalsConfirm": "Submit"
+    "vitalsWeightHint": "Enter weight in kilograms",
+    "vitalsWeightError": "Enter a weight between {min} and {max}",
+    "vitalsConfirm": "Confirm",
+    "vitalsConfirmPending": "Confirm…",
+    "vitalsSubmitting": "Sending",
+    "vitalsSubmitted": "Saved: {value} {unit}",
+    "vitalsBackspace": "Backspace"
   },
   "labChart": {
     "title": "Lab values",

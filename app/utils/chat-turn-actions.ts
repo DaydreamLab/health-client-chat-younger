@@ -316,7 +316,8 @@ export function buildTurnActionsVisibility(input: {
       && !ctx.hasReportAnalysis
       && !(ctx.goalSelectActive && !ctx.hasReportAnalysis)
     const canShowCheckup = !ctx.readonlyMode && !ctx.escalated
-    const canShowVitals = latest && !ctx.readonlyMode && !ctx.escalated && !ctx.pending
+    // Keep vitals card mounted while pending so AskVitalsCard can show「送出中」.
+    const canShowVitals = latest && !ctx.readonlyMode && !ctx.escalated
     const projection = projectReplyActionsToCtas({
       replyActions: message.replyActions!,
       canShowRecommendSlot,

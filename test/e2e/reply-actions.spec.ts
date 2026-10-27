@@ -150,7 +150,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
     // Legacy recommend slot may still appear via journey gates (not from reply_actions).
   })
 
-  test('ask_vitals renders numeric card; degraded falls back to legacy upload', async ({ page, goto }) => {
+  test('ask_vitals age picker → int profile/answers; then height numpad sequential', async ({ page, goto }) => {
     test.setTimeout(90_000)
     await mockCandorAuth(page, { asMember: true, replyActions: 'ask_vitals' })
     await page.setViewportSize({ width: 1280, height: 800 })
@@ -161,21 +161,46 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await sendChatLine(page, '我想補充基本資料')
     const last = page.getByTestId('chat-last-reply')
     await expect(last.getByTestId('chat-vitals-card')).toBeVisible({ timeout: 15_000 })
+    await expect(last.getByTestId('chat-vitals-age-picker')).toBeVisible()
     await expect(last.getByTestId('chat-vitals-age')).toBeVisible()
     await expect(last.getByTestId('chat-quiz-option-legacy_chip')).toHaveCount(0)
+    // First wave: only one field card — height numpad not yet.
+    await expect(last.getByTestId('chat-vitals-numpad')).toHaveCount(0)
 
-    // Degraded path: remount with degraded mock and assert legacy upload.
+    await last.getByTestId('chat-vitals-age-option-35').click()
+    const agePost = page.waitForRequest(req =>
+      req.url().includes('/api/v1/profile/answers') && req.method() === 'POST'
+    )
+    await last.getByTestId('chat-vitals-confirm').click()
+    const ageReq = await agePost
+    expect(ageReq.postDataJSON()).toMatchObject({ gap_code: 'age', value: 35 })
+
+    // Sequential: height numpad after age saved.
+    await expect(last.getByTestId('chat-vitals-numpad')).toBeVisible({ timeout: 15_000 })
+    await expect(last.getByTestId('chat-vitals-key-dot')).toBeDisabled()
+    await last.getByTestId('chat-vitals-key-1').click()
+    await last.getByTestId('chat-vitals-key-7').click()
+    await last.getByTestId('chat-vitals-key-5').click()
+    await expect(last.getByTestId('chat-vitals-height')).toHaveText('175')
+
+    const heightPost = page.waitForRequest(req =>
+      req.url().includes('/api/v1/profile/answers') && req.method() === 'POST'
+    )
+    await last.getByTestId('chat-vitals-confirm').click()
+    const heightReq = await heightPost
+    expect(heightReq.postDataJSON()).toMatchObject({ gap_code: 'height', value: 175 })
+
+    // Weight card next.
+    await expect(last.getByTestId('chat-vitals-weight')).toBeVisible({ timeout: 15_000 })
+  })
+
+  test('ask_vitals degraded falls back to legacy upload', async ({ page, goto }) => {
+    test.setTimeout(90_000)
     await mockCandorAuth(page, { asMember: true, replyActions: 'degraded' })
+    await page.setViewportSize({ width: 1280, height: 800 })
     await goto('/chat', { waitUntil: 'hydration' })
-    await page.evaluate(() => {
-      localStorage.removeItem('candor.unpaid.journey')
-    })
-    // Hard reset in-app journey via「重新開始」if present.
-    const reset = page.getByTestId('chat-reset')
-    if (await reset.count()) {
-      page.once('dialog', dialog => dialog.accept())
-      await reset.click()
-    }
+    await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
+
     await finishGoalSelect(page)
     await sendChatLine(page, '再試一次')
     await expect(page.getByTestId('chat-last-reply').getByTestId('chat-message-upload')).toBeVisible({

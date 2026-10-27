@@ -19,7 +19,7 @@ const props = defineProps<{
   pending: boolean
   /** `standard` never submits expert review; the recommend button stays「查看推薦方案」. */
   flow?: 'standard'
-  /** ask_vitals fields from reply_actions. */
+  /** ask_vitals fields from reply_actions (shown one-at-a-time in order). */
   vitalsFields?: VitalsField[]
   vitalsDisabled?: boolean
 }>()
@@ -31,59 +31,23 @@ const emit = defineEmits<{
   submitReview: []
   recommend: []
   retry: []
+  /** One field per confirm (multi-field = sequential cards). */
   vitalsSubmit: [values: Partial<Record<VitalsField, number>>]
 }>()
 
-const vitalsValues = reactive<Record<VitalsField, string>>({
-  age: '',
-  height: '',
-  weight: ''
-})
-
-const vitalsFieldMeta: Record<VitalsField, {
-  labelKey: string
-  unitKey: string
-  inputMode: 'numeric' | 'decimal'
-}> = {
-  age: { labelKey: 'chat.vitalsAge', unitKey: 'chat.vitalsAgeUnit', inputMode: 'numeric' },
-  height: { labelKey: 'chat.vitalsHeight', unitKey: 'chat.vitalsHeightUnit', inputMode: 'decimal' },
-  weight: { labelKey: 'chat.vitalsWeight', unitKey: 'chat.vitalsWeightUnit', inputMode: 'decimal' }
-}
-
 const activeVitalsFields = computed(() => props.vitalsFields ?? [])
 
-const vitalsConfirmDisabled = computed(() => {
-  if (props.vitalsDisabled || props.pending) {
-    return true
-  }
-  return activeVitalsFields.value.some((field) => {
-    const raw = vitalsValues[field].trim()
-    if (!raw) {
-      return true
-    }
-    const n = Number(raw)
-    return !Number.isFinite(n) || n <= 0
-  })
-})
-
-watch(
-  () => activeVitalsFields.value.join(','),
-  () => {
-    vitalsValues.age = ''
-    vitalsValues.height = ''
-    vitalsValues.weight = ''
-  }
+/** One card at a time: always the head of the remaining fields queue. */
+const activeVitalsField = computed<VitalsField | null>(() =>
+  activeVitalsFields.value[0] ?? null
 )
 
-function submitVitals() {
-  if (vitalsConfirmDisabled.value) {
+function onVitalsFieldSubmit(value: number) {
+  const field = activeVitalsField.value
+  if (!field || props.vitalsDisabled || props.pending) {
     return
   }
-  const values: Partial<Record<VitalsField, number>> = {}
-  for (const field of activeVitalsFields.value) {
-    values[field] = Number(vitalsValues[field].trim())
-  }
-  emit('vitalsSubmit', values)
+  emit('vitalsSubmit', { [field]: value })
 }
 
 const hasActions = computed(() =>
@@ -136,47 +100,14 @@ const hasActions = computed(() =>
         {{ $t('chat.confirmSelection') }}
       </AppButton>
     </div>
-    <div
-      v-if="activeVitalsFields.length"
-      class="turn-actions-vitals"
-      data-testid="chat-vitals-card"
-    >
-      <div
-        v-for="field in activeVitalsFields"
-        :key="field"
-        class="turn-actions-vitals-field"
-      >
-        <label
-          class="turn-actions-vitals-label"
-          :for="`chat-vitals-${field}`"
-        >
-          {{ $t(vitalsFieldMeta[field].labelKey) }}
-        </label>
-        <div class="turn-actions-vitals-input-wrap">
-          <input
-            :id="`chat-vitals-${field}`"
-            v-model="vitalsValues[field]"
-            class="turn-actions-vitals-input"
-            type="number"
-            :inputmode="vitalsFieldMeta[field].inputMode"
-            min="1"
-            step="any"
-            :disabled="pending || vitalsDisabled"
-            :data-testid="`chat-vitals-${field}`"
-            @keydown.enter.prevent="submitVitals"
-          >
-          <span class="turn-actions-vitals-unit">{{ $t(vitalsFieldMeta[field].unitKey) }}</span>
-        </div>
-      </div>
-      <AppButton
-        type="button"
-        data-testid="chat-vitals-confirm"
-        :disabled="vitalsConfirmDisabled"
-        @click="submitVitals"
-      >
-        {{ $t('chat.vitalsConfirm') }}
-      </AppButton>
-    </div>
+    <AskVitalsCard
+      v-if="activeVitalsField"
+      :key="activeVitalsField"
+      :field="activeVitalsField"
+      :disabled="vitalsDisabled"
+      :pending="pending"
+      @submit="onVitalsFieldSubmit"
+    />
     <div
       v-if="showSubmitReview || showViewRecommend || showUpload || (showCheckup && checkupUrl) || (showWantMoreTests && wantMoreTestsUrl) || showRetry"
       class="turn-actions-row"
@@ -261,61 +192,15 @@ const hasActions = computed(() =>
   justify-content: flex-end;
 }
 
-.turn-actions-vitals {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.75rem;
-  border: 1px solid var(--ui-border);
-  border-radius: 0.75rem;
-  background: var(--ui-bg-elevated);
-}
-
-.turn-actions-vitals-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.turn-actions-vitals-label {
-  font-size: 0.75rem;
-  color: var(--ui-text-muted);
-}
-
-.turn-actions-vitals-input-wrap {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.turn-actions-vitals-input {
-  flex: 1;
-  min-width: 0;
-  height: 2rem;
-  padding-inline: 0.75rem;
-  border: 1px solid var(--ui-border);
-  border-radius: 0.5rem;
-  background: var(--ui-bg);
-  color: var(--ui-text-highlighted);
-  font-size: 0.875rem;
-}
-
-.turn-actions-vitals-input:focus {
-  outline: none;
-  border-color: color-mix(in oklab, var(--ui-primary) 40%, var(--ui-border));
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ui-primary) 20%, transparent);
-}
-
-.turn-actions-vitals-unit {
-  flex-shrink: 0;
-  font-size: 0.75rem;
-  color: var(--ui-text-muted);
-}
-
 .turn-actions :deep(.app-btn) {
   height: 2rem;
   min-height: 2rem;
   padding-inline: 0.75rem;
   font-size: 0.8125rem;
+}
+
+.turn-actions :deep(.ask-vitals-confirm.app-btn) {
+  height: 2.25rem;
+  min-height: 2.25rem;
 }
 </style>

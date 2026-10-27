@@ -389,6 +389,7 @@ import {
   type ReplyActions,
   type VitalsField
 } from '~/utils/reply-actions'
+import { vitalsGapCodeForField } from '~/utils/vitals-input'
 import {
   historyMessageToChatMessage,
   parseConversationMessagesResult
@@ -1335,62 +1336,83 @@ async function onVitalsSubmit(values: Partial<Record<VitalsField, number>>) {
   if (!fields.length) {
     return
   }
-  const labels: Record<VitalsField, string> = {
-    age: t('chat.vitalsAge'),
-    height: t('chat.vitalsHeight'),
-    weight: t('chat.vitalsWeight')
-  }
-  const units: Record<VitalsField, string> = {
-    age: t('chat.vitalsAgeUnit'),
-    height: t('chat.vitalsHeightUnit'),
-    weight: t('chat.vitalsWeightUnit')
-  }
-  const parts = fields.map((field) => {
-    const n = values[field]
-    return `${labels[field]} ${n}${units[field]}`
-  })
-  const display = parts.join('，')
-  const gapCode = actions.vitalsGapCode
-
-  // Clear vitals CTA on this bubble after submit so it does not linger.
-  if (host.replyActions) {
-    host.replyActions = {
-      ...host.replyActions,
-      actions: host.replyActions.actions.filter(a => a.type !== 'ask_vitals')
-    }
-  }
-
-  if (gapCode) {
-    appendMessage('user', display)
-    pending.value = true
-    try {
-      const conversationId = await ensureConversation()
-      // Multi-field vitals: send composed text; core QuestionnaireService parses.
-      const result = await candor.submitProfileAnswer({
-        gap_code: gapCode,
-        raw_text: display,
-        conversation_id: conversationId
-      })
-      if (result.saved) {
-        await continueAfterSavedAnswer({
-          profileGaps: result.profile_gaps,
-          nextQuestion: result.next_question,
-          pendingContent: display
-        })
-        return
-      }
-      appendMessage('assistant', result.prompt)
-      pending.value = false
-      focusChatInput()
-    } catch {
-      appendMessage('assistant', t('chat.streamError'))
-      pending.value = false
-      focusChatInput()
-    }
+  // One card / one field per confirm (sequential when fields.length > 1).
+  const field = fields.find(f => values[f] != null) ?? fields[0]
+  if (!field) {
     return
   }
+  const n = values[field]
+  if (n == null || !Number.isInteger(n)) {
+    return
+  }
+  // User bubble: bare integer (unit stays on the card, not in payload).
+  const display = String(n)
+  const remaining = fields.filter(f => f !== field)
+  const gapCode = vitalsGapCodeForField(field, fields, actions.vitalsGapCode)
 
-  await sendText(display)
+  appendMessage('user', display)
+  pending.value = true
+  try {
+    const conversationId = await ensureConversation()
+    const result = await candor.submitProfileAnswer({
+      gap_code: gapCode,
+      value: n,
+      conversation_id: conversationId
+    })
+
+    // Advance local multi-field queue, or clear ask_vitals when done.
+    if (host.replyActions) {
+      if (remaining.length > 0) {
+        host.replyActions = {
+          ...host.replyActions,
+          actions: host.replyActions.actions.map((action) => {
+            if (action.type !== 'ask_vitals') {
+              return action
+            }
+            const payload = (action.payload && typeof action.payload === 'object')
+              ? { ...action.payload as Record<string, unknown> }
+              : {}
+            return {
+              ...action,
+              payload: {
+                ...payload,
+                fields: remaining,
+                // After first field, subsequent posts use field id as gap_code.
+                gap_code: null
+              }
+            }
+          })
+        }
+      } else {
+        host.replyActions = {
+          ...host.replyActions,
+          actions: host.replyActions.actions.filter(a => a.type !== 'ask_vitals')
+        }
+      }
+    }
+
+    if (result.saved) {
+      if (remaining.length > 0) {
+        // Stay on this turn for the next vitals field; do not jump to stream yet.
+        pending.value = false
+        focusChatInput()
+        return
+      }
+      await continueAfterSavedAnswer({
+        profileGaps: result.profile_gaps,
+        nextQuestion: result.next_question,
+        pendingContent: display
+      })
+      return
+    }
+    appendMessage('assistant', result.prompt)
+    pending.value = false
+    focusChatInput()
+  } catch {
+    appendMessage('assistant', t('chat.streamError'))
+    pending.value = false
+    focusChatInput()
+  }
 }
 
 async function sendText(text: string) {

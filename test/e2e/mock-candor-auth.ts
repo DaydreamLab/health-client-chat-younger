@@ -994,7 +994,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         degraded: false,
         error: null,
         actions: [
-          { type: 'ask_vitals', payload: { fields: ['age', 'height', 'weight'] } }
+          { type: 'ask_vitals', payload: { fields: ['age', 'height', 'weight'], gap_code: 'age' } }
         ]
       }
     }
