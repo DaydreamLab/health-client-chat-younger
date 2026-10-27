@@ -641,25 +641,6 @@ function isConsultationGoalOptions(
   return optionsKind === 'consultation_goals' && Array.isArray(options) && options.length >= 2
 }
 
-/** Free-text / number answers (or open chat) should keep the composer focused. */
-const needsTextInput = computed(() => {
-  if (readonly.value || escalated.value) {
-    return false
-  }
-  if (goalSelectActive.value) {
-    return true
-  }
-  const profile = lastAssistantProfile.value
-  if (profile) {
-    const type = profile.answer_type
-    if (type === 'int' || type === 'text') {
-      return true
-    }
-    return choiceOptions.value.length === 0
-  }
-  return true
-})
-
 function showUploadCta(message: ChatMessage) {
   return turnActionsFor(message).showUpload
 }
@@ -913,15 +894,6 @@ watch(
     scrollToLatestSoon(behavior)
   },
   { flush: 'post' }
-)
-
-watch(
-  () => [needsTextInput.value, pending.value, inputLocked.value] as const,
-  ([needs, isPending, locked]) => {
-    if (needs && !isPending && !locked) {
-      focusChatInput()
-    }
-  }
 )
 
 async function resetConversation() {
@@ -1319,7 +1291,6 @@ async function continueAfterSavedAnswer(opts: {
     messages: journey.messages
   })) {
     pending.value = false
-    focusChatInput()
     return
   }
 
@@ -1398,7 +1369,6 @@ async function streamPending() {
   } finally {
     pending.value = false
     liveAssistantId.value = null
-    focusChatInput()
   }
 }
 
@@ -1484,7 +1454,6 @@ async function onVitalsSubmit(values: Partial<Record<VitalsField, number>>) {
       if (remaining.length > 0) {
         // Stay on this turn for the next vitals field; do not jump to stream yet.
         pending.value = false
-        focusChatInput()
         return
       }
       await continueAfterSavedAnswer({
@@ -1496,11 +1465,9 @@ async function onVitalsSubmit(values: Partial<Record<VitalsField, number>>) {
     }
     appendMessage('assistant', result.prompt)
     pending.value = false
-    focusChatInput()
   } catch {
     appendMessage('assistant', t('chat.streamError'))
     pending.value = false
-    focusChatInput()
   }
 }
 
@@ -1544,11 +1511,9 @@ async function sendText(text: string) {
         applyCheckupOffer(last, result)
       }
       pending.value = false
-      focusChatInput()
     } catch {
       appendMessage('assistant', t('chat.streamError'))
       pending.value = false
-      focusChatInput()
     }
     return
   }

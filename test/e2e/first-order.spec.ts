@@ -649,4 +649,32 @@ test.describe('profile quiz gate', () => {
     await expect(page.getByTestId('chat-chip-upload')).toHaveCount(0)
     await expect(page.getByTestId('chat-upload')).toBeVisible()
   })
+
+  test('chip answer does not autofocus chat input', async ({ page, goto }) => {
+    // Irice 2026-10-28: chip／選項答題後不 focus；僅鍵盤 onSubmit 保留。
+    await goto('/chat', { waitUntil: 'hydration' })
+    await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
+    await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible()
+    await page.getByTestId('chat-quiz-option-sleep').click()
+    await page.getByTestId('chat-quiz-confirm').click()
+    await expect(page.getByTestId('chat-quiz-option-F')).toBeVisible({ timeout: 15_000 })
+
+    await page.getByTestId('chat-quiz-option-F').click()
+    await expect(page.getByTestId('chat-transcript')).toContainText('女')
+    // Wait past pending／stream settle so any leftover autofocus would have fired.
+    await expect(page.getByTestId('chat-quiz-option-opt_1')).toBeVisible({ timeout: 15_000 })
+    await expect.poll(async () => {
+      return page.evaluate(() => {
+        const el = document.activeElement
+        if (!el) {
+          return null
+        }
+        const tag = el.tagName.toLowerCase()
+        if (tag === 'textarea' || tag === 'input') {
+          return el.getAttribute('data-testid') || tag
+        }
+        return null
+      })
+    }).toBeNull()
+  })
 })
