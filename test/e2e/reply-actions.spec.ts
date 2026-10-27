@@ -209,6 +209,115 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await expect(page.getByTestId('chat-vitals-card')).toHaveCount(0)
   })
 
+  test('lab_report choose_option: chip click POSTs answers (no confirm)', async ({ page, goto }) => {
+    // Regression (#24 dual-path): reply_actions hides confirm for profile enum, but
+    // ChatPanel used to only highlight LAB_GAP_CODES until confirm — stuck UX.
+    test.setTimeout(90_000)
+    const conversationId = 'cccccccc-cccc-cccc-cccc-cccccccccccc'
+    await mockCandorAuth(page, { asMember: true, replyActions: 'offer_recommend' })
+    await page.setViewportSize({ width: 1280, height: 800 })
+
+    await page.route(`**/api/v1/conversation/${conversationId}/messages`, async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback()
+        return
+      }
+      if (route.request().url().includes('/messages/stream')) {
+        await route.fallback()
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            conversation_id: conversationId,
+            messages: [
+              { id: 'u-lab', role: 'user', content: '我想上傳報告' },
+              {
+                id: 'bank-lab',
+                role: 'assistant',
+                content: '是否有血檢或健檢報告？',
+                reply_actions: {
+                  schema_version: '0.1',
+                  source: 'questionnaire',
+                  adaptor: 'fake',
+                  degraded: false,
+                  error: null,
+                  actions: [
+                    {
+                      type: 'choose_option',
+                      payload: {
+                        kind: 'profile',
+                        mode: 'single',
+                        confirm: false,
+                        gap_code: 'lab_report',
+                        answer_type: 'enum',
+                        options: [
+                          { code: 'none', label: '沒有' },
+                          { code: 'over_3y', label: '有：超過三年' },
+                          { code: '1_to_3y', label: '有：一到三年' },
+                          { code: 'within_1y', label: '有：一年內' },
+                          { code: 'within_6m', label: '有：半年內' }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        })
+      })
+    })
+
+    await page.addInitScript((journey) => {
+      localStorage.setItem('candor.unpaid.journey', JSON.stringify(journey))
+    }, {
+      conversationId,
+      messages: [{
+        id: 'stale',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'stale' }]
+      }],
+      hasAnalysis: false,
+      selectedPackageCode: null,
+      reportId: null,
+      reportDockOpen: false,
+      reportDockCollapsed: true,
+      reportInterpretSent: false,
+      selectedPackage: null,
+      packageConfirmed: false,
+      goalSelectActive: false,
+      goalOptions: [],
+      selectedCodes: [],
+      quizActive: false,
+      activeQuestion: null,
+      postQuizGuided: false,
+      profileGaps: ['lab_report'],
+      clarifyingGoals: [],
+      expertReviewStatus: 'none'
+    })
+
+    await goto('/chat', { waitUntil: 'hydration' })
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last).toContainText('是否有血檢或健檢報告？', { timeout: 15_000 })
+    await expect(last.getByTestId('chat-quiz-option-within_6m')).toBeVisible()
+    await expect(page.getByTestId('chat-quiz-confirm')).toHaveCount(0)
+
+    const labPost = page.waitForRequest(req =>
+      req.url().includes('/api/v1/profile/answers') && req.method() === 'POST'
+    )
+    await last.getByTestId('chat-quiz-option-within_6m').click()
+    const labReq = await labPost
+    expect(labReq.postDataJSON()).toMatchObject({
+      gap_code: 'lab_report',
+      value: 'within_6m'
+    })
+  })
+
   test('intake hybrid: answers next_question int does not bank; gap CTA from reply_actions', async ({
     page,
     goto

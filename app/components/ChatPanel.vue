@@ -403,7 +403,6 @@ const props = defineProps<{
 }>()
 
 const POLL_INTERVAL_MS = 2000
-const LAB_GAP_CODES = new Set(['lab_report', 'checkup', 'blood_test'])
 
 const { t } = useI18n()
 const localePath = useLocalePath()
@@ -575,18 +574,12 @@ const lastAssistantProfile = computed(() => {
   return message.profileQuestion
 })
 
-const isLabRecencyQuestion = computed(() => {
-  const gap = lastAssistantProfile.value?.gap_code
-  return gap !== undefined && LAB_GAP_CODES.has(gap)
-})
-
 const needsMultiConfirm = computed(() => {
   if (goalSelectActive.value) {
     return true
   }
-  if (isLabRecencyQuestion.value) {
-    return true
-  }
+  // profile enum (incl. lab_report / checkup / blood_test) = single-tap submit;
+  // only multi_enum needs confirm (reply_actions v0.1).
   return lastAssistantProfile.value?.answer_type === 'multi_enum'
 })
 
@@ -1510,11 +1503,6 @@ function onChoice(option: GreetingOption) {
     return
   }
 
-  if (isLabRecencyQuestion.value) {
-    selectedCodes.value = [option.code]
-    return
-  }
-
   if (lastAssistantProfile.value) {
     return submitProfileChoice({ value: option.code, display: option.label })
   }
@@ -1580,15 +1568,6 @@ async function confirmMultiSelection() {
   }
 
   if (lastAssistantProfile.value) {
-    if (isLabRecencyQuestion.value) {
-      const code = selectedCodes.value[0]
-      if (!code) {
-        return
-      }
-      const label = choiceOptions.value.find(o => o.code === code)?.label ?? code
-      return submitProfileChoice({ value: code, display: label })
-    }
-
     const labels = choiceOptions.value
       .filter(o => selectedCodes.value.includes(o.code))
       .map(o => o.label)
