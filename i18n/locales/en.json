@@ -860,6 +860,24 @@
     "updatedAt": "Updated {date}",
     "version": "Version {version}"
   },
+  "about": {
+    "metaTitle": "About Candor",
+    "title": "About Candor",
+    "loading": "Loading About Candor…",
+    "loadError": "Could not load About Candor. Please try again later.",
+    "retry": "Retry",
+    "leadStrong": "Your physiological data advisor.",
+    "leadRest": "Understand your body data before you decide what to add. After you pick a plan, start with a consult; escalate to specialists when needed."
+  },
+  "terms": {
+    "metaTitle": "Terms of service",
+    "title": "Terms of service",
+    "loading": "Loading terms of service…",
+    "loadError": "Could not load the terms of service. Please try again later.",
+    "retry": "Retry",
+    "updatedAt": "Updated {date}",
+    "version": "Version {version}"
+  },
   "cookieConsent": {
     "ariaLabel": "Cookie and privacy consent",
     "message": "We use essential cookies and local storage to keep you signed in and improve the experience. By continuing, you agree that we process related data under our privacy policy.",

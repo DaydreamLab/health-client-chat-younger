@@ -71,6 +71,7 @@
 |------|------------|------|------|--------|
 | 逛站首頁 | `/` | 可用 | 不需 | 完成 |
 | 隱私權政策／Cookie 同意 | `/privacy`；footer；首訪橫幅 | 可用 | 已接 | Beta |
+| 關於坦見／服務條款 | `/about`、`/terms`；footer 關於欄三項可點 | 可用（靜態 placeholder） | 不做 API（第一波） | Beta |
 | 登入／註冊／身份／常用收件 | `/login`、結帳收件、`/app/me` | 可用 | 已接 | 完成 |
 | 個人資料（顯示名稱／密碼／常用收件） | `/app/me` | 可用 | 已接 | 完成 |
 | 去識別化 | `/app` 隱私區 | 可用 | 已接 | 完成 |
@@ -164,6 +165,8 @@
 | 能力 | 端點 | 狀態 |
 |------|------|------|
 | 隱私權政策 | `GET /legal/privacy-policy` | 已接（對齊 candor-core draft PR #87；core `04` 待該 PR 合併後雙寫） |
+| 關於坦見 | —（靜態 `/about`） | 不做（第一波 placeholder；不接 `legal_documents`） |
+| 服務條款 | —（靜態 `/terms`） | 不做（第一波 placeholder；不接 `legal_documents`） |
 
 ### 續約
 
