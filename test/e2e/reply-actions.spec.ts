@@ -208,4 +208,39 @@ test.describe('reply_actions v0.1 CTAs', () => {
     })
     await expect(page.getByTestId('chat-vitals-card')).toHaveCount(0)
   })
+
+  test('intake hybrid: answers next_question int does not bank; stream ask_vitals CTA', async ({
+    page,
+    goto
+  }) => {
+    test.setTimeout(90_000)
+    await mockCandorAuth(page, { asMember: true, replyActions: 'intake_hybrid' })
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await goto('/chat', { waitUntil: 'hydration' })
+    await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
+
+    await finishGoalSelect(page)
+
+    // Goals → chat stream choose_option(sex), not local next_question bank.
+    const sexTurn = page.getByTestId('chat-last-reply')
+    await expect(sexTurn).toContainText('生理性別', { timeout: 15_000 })
+    await expect(sexTurn.getByTestId('chat-quiz-option-F')).toBeVisible()
+    await expect(sexTurn.getByTestId('chat-quiz-option-legacy_chip')).toHaveCount(0)
+
+    const sexPost = page.waitForRequest(req =>
+      req.url().includes('/api/v1/profile/answers') && req.method() === 'POST'
+    )
+    await sexTurn.getByTestId('chat-quiz-option-F').click()
+    const sexReq = await sexPost
+    expect(sexReq.postDataJSON()).toMatchObject({ gap_code: 'sex', value: 'F' })
+
+    // Trap: answers returns next_question age int. FE must stream; AskVitalsCard
+    // comes from message.reply_actions — not a bank bubble with text-only input.
+    const vitalsTurn = page.getByTestId('chat-last-reply')
+    await expect(vitalsTurn).toContainText('年紀、身高與體重', { timeout: 15_000 })
+    await expect(vitalsTurn.getByTestId('chat-vitals-card')).toBeVisible({ timeout: 15_000 })
+    await expect(vitalsTurn.getByTestId('chat-vitals-age-picker')).toBeVisible()
+    // Bank prompt alone must not be the CTA surface (no int chips / no vitals).
+    await expect(page.getByText('請問您的年紀？')).toHaveCount(0)
+  })
 })

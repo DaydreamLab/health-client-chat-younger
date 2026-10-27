@@ -1124,6 +1124,14 @@ function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyA
     message.options = choose.options
     quizActive.value = false
     activeQuestion.value = null
+    return
+  }
+
+  // ask_vitals / offer_* only: clear legacy quiz / goal selection state.
+  if (visibility.vitalsFields.length > 0 || visibility.fromReplyActions) {
+    quizActive.value = false
+    activeQuestion.value = null
+    goalSelectActive.value = false
   }
 }
 
@@ -1185,51 +1193,28 @@ function applyStreamMeta(assistantId: string, result: {
   }
 }
 
-/** Show bank prompt locally without calling chat. Returns true when a profile question was shown. */
-function presentBankQuestion(next: ProfileNext): boolean {
-  if (next.done) {
-    activeQuestion.value = null
-    quizActive.value = false
-    return false
-  }
-
-  const options = next.options ?? []
-  const message = appendMessage('assistant', next.prompt)
-  message.options = options
-  message.turnType = 'profile'
-  message.profileQuestion = {
-    gap_code: next.gap_code,
-    answer_type: next.answer_type
-  }
-  applyCheckupOffer(message, next)
-  activeQuestion.value = {
-    done: false,
-    gap_code: next.gap_code,
-    prompt: next.prompt,
-    answer_type: next.answer_type,
-    options
-  }
-  quizActive.value = true
-  goalSelectActive.value = false
-  selectedCodes.value = []
-  return true
-}
-
+/**
+ * After POST /profile/answers (or goals), advance via chat stream so the next
+ * required-gap CTA comes from message.reply_actions (hybrid §6).
+ *
+ * Do **not** short-circuit with a local `next_question` bank bubble: that path
+ * never attaches reply_actions, so usable choose_option / ask_vitals (AskVitalsCard)
+ * never appear. Clicking those CTAs still POSTs /profile/answers.
+ */
 async function continueAfterSavedAnswer(opts: {
   profileGaps: string[]
   nextQuestion?: ProfileNext | null
   pendingContent: string
 }) {
   profileGaps.value = opts.profileGaps
+  const next = opts.nextQuestion
+  if (next && !next.done && next.gap_code && !profileGaps.value.includes(next.gap_code)) {
+    profileGaps.value = [...profileGaps.value, next.gap_code]
+  }
   clearLastAssistantOptions()
   selectedCodes.value = []
-
-  const next = opts.nextQuestion
-  if (next && presentBankQuestion(next)) {
-    pending.value = false
-    focusChatInput()
-    return
-  }
+  quizActive.value = false
+  activeQuestion.value = null
 
   pendingUserContent.value = opts.pendingContent
   await streamPending()
@@ -1552,17 +1537,12 @@ async function confirmMultiSelection() {
       // Clear after pending is already true so recommend CTA does not flash.
       goalSelectActive.value = false
       const nextAfterGoals = result.next_question
-      if (nextAfterGoals && !nextAfterGoals.done && presentBankQuestion(nextAfterGoals)) {
-        if (profileGaps.value.length === 0) {
-          profileGaps.value = [nextAfterGoals.gap_code]
-        }
-        pending.value = false
-        focusChatInput()
-        return
-      }
+      const gapsAfterGoals = nextAfterGoals && !nextAfterGoals.done && nextAfterGoals.gap_code
+        ? [nextAfterGoals.gap_code]
+        : []
       await continueAfterSavedAnswer({
-        profileGaps: [],
-        nextQuestion: { done: true },
+        profileGaps: gapsAfterGoals,
+        nextQuestion: nextAfterGoals ?? { done: true },
         pendingContent: labels.join('、')
       })
     } catch {
@@ -2141,16 +2121,14 @@ async function onSubmit() {
         // Clear after pending is already true so recommend CTA does not flash.
         goalSelectActive.value = false
         const nextAfterGoals = result.next_question
-        if (nextAfterGoals && !nextAfterGoals.done && presentBankQuestion(nextAfterGoals)) {
-          if (profileGaps.value.length === 0) {
-            profileGaps.value = [nextAfterGoals.gap_code]
-          }
-          pending.value = false
-          focusChatInput()
-          return
-        }
-        pendingUserContent.value = content
-        await streamPending()
+        const gapsAfterGoals = nextAfterGoals && !nextAfterGoals.done && nextAfterGoals.gap_code
+          ? [nextAfterGoals.gap_code]
+          : []
+        await continueAfterSavedAnswer({
+          profileGaps: gapsAfterGoals,
+          nextQuestion: nextAfterGoals ?? { done: true },
+          pendingContent: content
+        })
         return
       }
       appendMessage('assistant', result.prompt || t('chat.streamError'))

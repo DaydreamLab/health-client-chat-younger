@@ -59,8 +59,12 @@ export type CandorMockOptions = {
   /**
    * Attach reply_actions v0.1 on SSE `done` (plus conflicting legacy fields)
    * so FE dedupe / CTA projection can be asserted in e2e.
+   *
+   * `intake_hybrid`: after goals, stream choose_option(sex); answers returns a
+   * non-done next_question (age int) that would lock legacy bank UI; the next
+   * stream carries ask_vitals — FE must prefer reply_actions over bank.
    */
-  replyActions?: 'offer_recommend' | 'ask_vitals' | 'degraded'
+  replyActions?: 'offer_recommend' | 'ask_vitals' | 'degraded' | 'intake_hybrid'
 }
 
 const legacyPackagePlans = [
@@ -173,6 +177,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
   let goalsSet = false
   let streamCount = 0
   let reportPollCount = 0
+  /** Hybrid intake: sex answered → next answers/stream should offer ask_vitals. */
+  let hybridSexAnswered = false
   const asMember = Boolean(options.asMember)
   let sessionUser = asMember ? memberUser : guestUser
 
@@ -998,6 +1004,43 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         ]
       }
     }
+    if (mode === 'intake_hybrid') {
+      if (!hybridSexAnswered) {
+        return {
+          schema_version: '0.1',
+          source: 'questionnaire',
+          adaptor: 'fake',
+          degraded: false,
+          error: null,
+          actions: [
+            {
+              type: 'choose_option',
+              payload: {
+                kind: 'profile',
+                mode: 'single',
+                confirm: false,
+                gap_code: 'sex',
+                answer_type: 'enum',
+                options: [
+                  { code: 'M', label: '男' },
+                  { code: 'F', label: '女' }
+                ]
+              }
+            }
+          ]
+        }
+      }
+      return {
+        schema_version: '0.1',
+        source: 'questionnaire',
+        adaptor: 'fake',
+        degraded: false,
+        error: null,
+        actions: [
+          { type: 'ask_vitals', payload: { fields: ['age', 'height', 'weight'], gap_code: 'age' } }
+        ]
+      }
+    }
     if (mode === 'degraded') {
       return {
         schema_version: '0.1',
@@ -1081,7 +1124,34 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       profile_gaps: []
     }
 
-    if (options.profileQuiz && goalsSet && !quizAnswered) {
+    if (options.replyActions === 'intake_hybrid' && goalsSet) {
+      if (!hybridSexAnswered) {
+        donePayload = {
+          message_id: `msg-e2e-${streamCount}`,
+          claim_guard: 'passed',
+          content: '請問您的生理性別？',
+          options: [
+            { code: 'M', label: '男' },
+            { code: 'F', label: '女' }
+          ],
+          turn: { type: 'profile' },
+          profile_question: { gap_code: 'sex', answer_type: 'enum' },
+          external: null,
+          profile_gaps: ['sex', 'age', 'height', 'weight']
+        }
+      } else {
+        donePayload = {
+          message_id: `msg-e2e-${streamCount}`,
+          claim_guard: 'passed',
+          content: '接著請補充年紀、身高與體重。',
+          options: [],
+          turn: { type: 'message' },
+          profile_question: null,
+          external: null,
+          profile_gaps: ['age', 'height', 'weight']
+        }
+      }
+    } else if (options.profileQuiz && goalsSet && !quizAnswered) {
       donePayload = {
         message_id: `msg-e2e-${streamCount}`,
         claim_guard: 'passed',
@@ -1113,11 +1183,13 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
 
     if (options.replyActions) {
       const replyActions = buildReplyActionsPayload(options.replyActions)
+      const paintLegacyConflict = options.replyActions === 'offer_recommend'
+        || options.replyActions === 'ask_vitals'
       donePayload = {
         ...donePayload,
-        options: options.replyActions !== 'degraded'
+        options: paintLegacyConflict
           ? [{ code: 'legacy_chip', label: '舊選項' }]
-          : [],
+          : (options.replyActions === 'degraded' ? [] : donePayload.options),
         upload_offer: options.replyActions === 'offer_recommend'
           || options.replyActions === 'degraded',
         checkup_offer: options.replyActions === 'offer_recommend',
@@ -1320,6 +1392,32 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
 
   await page.route('**/api/v1/profile/answers', async (route) => {
     quizAnswered = true
+    const body = route.request().postDataJSON() as { gap_code?: string } | null
+    // Hybrid trap: answers still returns a non-done next_question (age int) like
+    // live beta. FE must stream anyway and take ask_vitals from reply_actions —
+    // not present a local bank bubble without CTA.
+    if (options.replyActions === 'intake_hybrid' && body?.gap_code === 'sex') {
+      hybridSexAnswered = true
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            saved: true,
+            profile_gaps: ['age', 'height', 'weight'],
+            next_question: {
+              done: false,
+              gap_code: 'age',
+              prompt: '請問您的年紀？',
+              answer_type: 'int',
+              options: []
+            }
+          }
+        })
+      })
+      return
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
