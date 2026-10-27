@@ -6,6 +6,7 @@ import type {
   ConversationCreate,
   ConversationDetachAck,
   ConversationGoalsResult,
+  ConversationMessages,
   ConversationPackageConfirm,
   ExpertCaseReviewList,
   ExpertCaseReviewStatus,
@@ -38,6 +39,7 @@ import type {
   UserSession
 } from '~/utils/candor-api'
 import { CandorApiError, TOKEN_STORAGE_KEY } from '~/utils/candor-api'
+import { parseReplyActions } from '~/utils/reply-actions'
 
 function apiBase(): string {
   const config = useRuntimeConfig()
@@ -212,6 +214,7 @@ export function useCandorApi() {
     let checkupSuggest: string | null = null
     let checkupOfferLabel: string | null = null
     let individualTestsUrl: string | null = null
+    let replyActions: StreamMessageResult['reply_actions'] = null
 
     while (true) {
       const { done, value } = await reader.read()
@@ -258,6 +261,7 @@ export function useCandorApi() {
           external = null
           options = []
           optionsKind = null
+          replyActions = null
           handlers.onReplace?.(full)
         } else if (eventName === 'done') {
           full = String(data.content || full)
@@ -291,6 +295,7 @@ export function useCandorApi() {
           individualTestsUrl = typeof data.individual_tests_url === 'string'
             ? data.individual_tests_url
             : null
+          replyActions = parseReplyActions(data.reply_actions)
           handlers.onReplace?.(full)
         } else if (eventName === 'error') {
           const err = data.error as { code?: string, message?: string } | undefined
@@ -317,7 +322,8 @@ export function useCandorApi() {
       checkup_offer: checkupOffer,
       checkup_suggest: checkupSuggest,
       checkup_offer_label: checkupOfferLabel,
-      individual_tests_url: individualTestsUrl
+      individual_tests_url: individualTestsUrl,
+      reply_actions: replyActions
     }
   }
 
@@ -440,6 +446,16 @@ export function useCandorApi() {
         { method: 'DELETE' }
       ),
     streamMessage,
+
+    /**
+     * Conversation transcript (history). Core attaches `reply_actions` per message
+     * when classified; FE maps via `historyMessageToChatMessage` (same CTA path as SSE).
+     */
+    getConversationMessages: (conversationId: string) =>
+      request<ConversationMessages>(
+        `/conversation/${encodeURIComponent(conversationId)}/messages`,
+        { method: 'GET' }
+      ),
 
     uploadHealthReport: (file: File) => {
       const form = new FormData()

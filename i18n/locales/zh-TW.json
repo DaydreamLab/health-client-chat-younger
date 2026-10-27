@@ -560,7 +560,14 @@
     "submitExpertReview": "提交專家判讀",
     "viewRecommend": "查看推薦方案",
     "viewOnlyTitle": "訂單對話紀錄",
-    "viewOnlyBody": "這筆對話在付款成立後保存，只能查看，不能編輯或上傳。"
+    "viewOnlyBody": "這筆對話在付款成立後保存，只能查看，不能編輯或上傳。",
+    "vitalsAge": "年齡",
+    "vitalsAgeUnit": "歲",
+    "vitalsHeight": "身高",
+    "vitalsHeightUnit": "cm",
+    "vitalsWeight": "體重",
+    "vitalsWeightUnit": "kg",
+    "vitalsConfirm": "確認送出"
   },
   "labChart": {
     "title": "血檢數值",

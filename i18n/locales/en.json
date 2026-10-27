@@ -560,7 +560,14 @@
     "submitExpertReview": "Submit for expert review",
     "viewRecommend": "See recommended plan",
     "viewOnlyTitle": "Order conversation",
-    "viewOnlyBody": "This chat was saved when payment created the order. It is view-only — no editing or uploads."
+    "viewOnlyBody": "This chat was saved when payment created the order. It is view-only — no editing or uploads.",
+    "vitalsAge": "Age",
+    "vitalsAgeUnit": "y",
+    "vitalsHeight": "Height",
+    "vitalsHeightUnit": "cm",
+    "vitalsWeight": "Weight",
+    "vitalsWeightUnit": "kg",
+    "vitalsConfirm": "Submit"
   },
   "labChart": {
     "title": "Lab values",

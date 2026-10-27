@@ -1,3 +1,5 @@
+import type { ReplyActions } from './reply-actions'
+
 export type UserRole = 'guest' | 'member'
 
 export interface UserBrief {
@@ -416,11 +418,41 @@ export interface OrderMessage {
   id: string
   role: string
   content: string
+  /** Optional when order transcript carries semantic CTAs (same schema as chat history). */
+  reply_actions?: ReplyActions | null
 }
 
 export interface OrderMessages {
   conversation_id: string
   messages: OrderMessage[]
+}
+
+/**
+ * GET /conversation/{id}/messages — history rows (core reply_actions v0.1).
+ * Field set mirrors SSE `done` meta so FE can reuse CTA projection.
+ */
+export interface ConversationHistoryMessageDto {
+  id?: string
+  message_id?: string
+  role: string
+  content?: string
+  text?: string
+  options?: GreetingOption[]
+  options_kind?: 'consultation_goals' | null
+  turn?: ChatTurnMeta | null
+  profile_question?: ChatProfileQuestion | null
+  profile_gaps?: string[]
+  upload_offer?: boolean
+  checkup_offer?: boolean
+  checkup_suggest?: string | null
+  checkup_offer_label?: string | null
+  individual_tests_url?: string | null
+  reply_actions?: ReplyActions | null
+}
+
+export interface ConversationMessages {
+  conversation_id?: string
+  messages: ConversationHistoryMessageDto[]
 }
 
 export interface HealthReportUploadAck {
@@ -610,6 +642,11 @@ export interface StreamMessageResult {
   checkup_suggest?: string | null
   checkup_offer_label?: string | null
   individual_tests_url?: string | null
+  /**
+   * Semantic-judgment CTA column (schema v0.1). Prefer over legacy offer fields
+   * when usable; see `app/utils/reply-actions.ts`.
+   */
+  reply_actions?: ReplyActions | null
 }
 
 export interface ApiSuccess<T> {

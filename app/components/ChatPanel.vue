@@ -197,7 +197,7 @@
                 :show-upload="showUploadCta(message)"
                 :upload-disabled="!canOfferUpload"
                 :show-checkup="showCheckupCta(message)"
-                :checkup-url="checkupLinkUrl"
+                :checkup-url="checkupUrlFor(message)"
                 :show-want-more-tests="showWantMoreTestsCta(message)"
                 :want-more-tests-url="checkupLinkUrl"
                 :show-submit-review="showSubmitReviewCta(message)"
@@ -205,12 +205,15 @@
                 :show-retry="showRetryCta(message)"
                 :pending="pending"
                 :flow="isStandardFlow ? 'standard' : undefined"
+                :vitals-fields="vitalsFieldsFor(message)"
+                :vitals-disabled="pending || readonly || escalated"
                 @choice="onChoice"
                 @confirm="confirmMultiSelection"
                 @upload="openAttachMenu"
                 @submit-review="submitExpertReview"
                 @recommend="goViewRecommend"
                 @retry="retryReport"
+                @vitals-submit="onVitalsSubmit"
               />
             </div>
           </article>
@@ -381,6 +384,15 @@ import {
   reportDockBarVisibility,
   resolveEffectiveGoalOptions
 } from '~/utils/chat-turn-actions'
+import {
+  isUsableReplyActions,
+  type ReplyActions,
+  type VitalsField
+} from '~/utils/reply-actions'
+import {
+  historyMessageToChatMessage,
+  parseConversationMessagesResult
+} from '~/utils/chat-history'
 import { storeToRefs } from 'pinia'
 
 const props = defineProps<{
@@ -648,6 +660,19 @@ function showCheckupCta(message: ChatMessage) {
 
 function showWantMoreTestsCta(message: ChatMessage) {
   return turnActionsFor(message).showWantMoreTests
+}
+
+function checkupUrlFor(message: ChatMessage) {
+  const override = turnActionsFor(message).checkupUrlOverride
+  return override || checkupLinkUrl.value
+}
+
+function vitalsFieldsFor(message: ChatMessage): VitalsField[] {
+  return turnActionsFor(message).vitalsFields
+}
+
+function exclusiveCodesFor(message: ChatMessage): string[] {
+  return turnActionsFor(message).exclusiveCodes
 }
 
 type CheckupOfferFields = {
@@ -1010,6 +1035,97 @@ function guideAfterQuiz() {
   appendMessage('assistant', text)
 }
 
+/**
+ * Prefer server history (with reply_actions) over local journey transcript after reload.
+ * On 405/404/network errors keep local messages (already normalized on journey.hydrate).
+ */
+async function hydrateConversationHistory(conversationId: string) {
+  if (!conversationId || readonly.value) {
+    return
+  }
+  try {
+    const payload = await candor.getConversationMessages(conversationId)
+    const parsed = parseConversationMessagesResult(payload)
+    if (parsed.messages.length === 0) {
+      return
+    }
+    const mapped = parsed.messages.map(historyMessageToChatMessage)
+    journey.messages.splice(0, journey.messages.length, ...mapped)
+
+    // Restore CTA interaction from the latest usable reply_actions bubble.
+    const lastAssistant = [...mapped].reverse().find(m => m.role === 'assistant')
+    if (lastAssistant && isUsableReplyActions(lastAssistant.replyActions)) {
+      applyReplyActionsInteraction(lastAssistant, lastAssistant.replyActions!)
+      const override = turnActionsFor(lastAssistant).checkupUrlOverride
+      if (override) {
+        resolvedCheckupUrl.value = override
+      }
+    } else if (lastAssistant?.checkupOffer) {
+      // Legacy checkup URL may arrive only via client-config; offer flag still paints CTA.
+    }
+    if (lastAssistant?.profileGaps?.length) {
+      profileGaps.value = [...lastAssistant.profileGaps]
+    }
+  } catch {
+    // History endpoint may not be deployed yet (405) — local journey is fallback.
+  }
+}
+
+function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyActions) {
+  const visibility = buildTurnActionsVisibility({
+    message: { ...message, replyActions },
+    ctx: turnUiContext.value,
+    intake: message,
+    goalOptions: goalOptions.value,
+    needsMultiConfirm: true,
+    expertReviewStatus: journey.expertReviewStatus,
+    flow: isStandardFlow.value ? 'standard' : undefined
+  })
+  const projection = visibility.replyProjection
+  if (!projection) {
+    return
+  }
+
+  const choose = projection.chooseOption
+  if (choose?.kind === 'consultation_goals' || projection.askGoal) {
+    goalSelectActive.value = true
+    const opts = visibility.choices.length ? visibility.choices : (choose?.options ?? [])
+    if (opts.length) {
+      goalOptions.value = opts
+      message.options = opts
+    }
+    quizActive.value = false
+    activeQuestion.value = null
+    return
+  }
+
+  if (choose?.kind === 'profile' && choose.gap_code) {
+    const answerType = (choose.answer_type || 'enum') as ProfileAnswerType
+    message.turnType = 'profile'
+    message.profileQuestion = {
+      gap_code: choose.gap_code,
+      answer_type: answerType
+    }
+    message.options = choose.options ?? []
+    activeQuestion.value = {
+      done: false,
+      gap_code: choose.gap_code,
+      prompt: '',
+      answer_type: answerType,
+      options: choose.options ?? []
+    }
+    quizActive.value = true
+    goalSelectActive.value = false
+    return
+  }
+
+  if (choose?.kind === 'free' && choose.options?.length) {
+    message.options = choose.options
+    quizActive.value = false
+    activeQuestion.value = null
+  }
+}
+
 function applyStreamMeta(assistantId: string, result: {
   options?: ChatMessage['options']
   options_kind?: string | null
@@ -1020,6 +1136,7 @@ function applyStreamMeta(assistantId: string, result: {
   checkup_offer?: boolean
   checkup_suggest?: string | null
   individual_tests_url?: string | null
+  reply_actions?: ReplyActions | null
 }) {
   const message = journey.messages.find(item => item.id === assistantId)
   if (message) {
@@ -1031,9 +1148,23 @@ function applyStreamMeta(assistantId: string, result: {
       message.uploadOffer = true
     }
     applyCheckupOffer(message, result)
+    if (result.reply_actions) {
+      message.replyActions = result.reply_actions
+    }
   }
   profileGaps.value = result.profile_gaps
   selectedCodes.value = []
+
+  if (message && isUsableReplyActions(result.reply_actions)) {
+    applyReplyActionsInteraction(message, result.reply_actions!)
+    // Sync checkup URL from offer_checkup payload when provided.
+    const override = turnActionsFor(message).checkupUrlOverride
+    if (override) {
+      resolvedCheckupUrl.value = override
+    }
+    return
+  }
+
   if (result.turn.type === 'profile' && result.profile_question) {
     activeQuestion.value = {
       done: false,
@@ -1191,6 +1322,77 @@ async function runProfileThenStream() {
   await streamPending()
 }
 
+async function onVitalsSubmit(values: Partial<Record<VitalsField, number>>) {
+  if (pending.value || readonly.value || escalated.value) {
+    return
+  }
+  const host = [...journey.messages].reverse().find(m => m.role === 'assistant')
+  if (!host) {
+    return
+  }
+  const actions = turnActionsFor(host)
+  const fields = actions.vitalsFields
+  if (!fields.length) {
+    return
+  }
+  const labels: Record<VitalsField, string> = {
+    age: t('chat.vitalsAge'),
+    height: t('chat.vitalsHeight'),
+    weight: t('chat.vitalsWeight')
+  }
+  const units: Record<VitalsField, string> = {
+    age: t('chat.vitalsAgeUnit'),
+    height: t('chat.vitalsHeightUnit'),
+    weight: t('chat.vitalsWeightUnit')
+  }
+  const parts = fields.map((field) => {
+    const n = values[field]
+    return `${labels[field]} ${n}${units[field]}`
+  })
+  const display = parts.join('，')
+  const gapCode = actions.vitalsGapCode
+
+  // Clear vitals CTA on this bubble after submit so it does not linger.
+  if (host.replyActions) {
+    host.replyActions = {
+      ...host.replyActions,
+      actions: host.replyActions.actions.filter(a => a.type !== 'ask_vitals')
+    }
+  }
+
+  if (gapCode) {
+    appendMessage('user', display)
+    pending.value = true
+    try {
+      const conversationId = await ensureConversation()
+      // Multi-field vitals: send composed text; core QuestionnaireService parses.
+      const result = await candor.submitProfileAnswer({
+        gap_code: gapCode,
+        raw_text: display,
+        conversation_id: conversationId
+      })
+      if (result.saved) {
+        await continueAfterSavedAnswer({
+          profileGaps: result.profile_gaps,
+          nextQuestion: result.next_question,
+          pendingContent: display
+        })
+        return
+      }
+      appendMessage('assistant', result.prompt)
+      pending.value = false
+      focusChatInput()
+    } catch {
+      appendMessage('assistant', t('chat.streamError'))
+      pending.value = false
+      focusChatInput()
+    }
+    return
+  }
+
+  await sendText(display)
+}
+
 async function sendText(text: string) {
   const content = text.trim()
   if (!content || pending.value || readonly.value || escalated.value) {
@@ -1261,7 +1463,8 @@ function onChoice(option: GreetingOption) {
   }
 
   if (goalSelectActive.value || lastAssistantProfile.value?.answer_type === 'multi_enum') {
-    const noneCodes = ['none', 'none_of_above']
+    const host = intakeMessage.value
+    const noneCodes = host ? exclusiveCodesFor(host) : ['none', 'none_of_above']
     if (noneCodes.includes(option.code)) {
       selectedCodes.value = [option.code]
       return
@@ -2173,7 +2376,13 @@ onMounted(async () => {
   }
 
   try {
+    // Only pull server history when restoring an existing conversation (reload / re-enter).
+    // Fresh createConversation must keep the greeting + goal chips.
+    const restoringConversation = Boolean(journey.conversationId)
     await ensureConversation()
+    if (restoringConversation && journey.conversationId) {
+      await hydrateConversationHistory(journey.conversationId)
+    }
     await applyHomeGoal()
   } catch {
     if (journey.messages.length === 0) {

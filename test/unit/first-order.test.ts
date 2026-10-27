@@ -163,6 +163,25 @@ describe('first-order demo', () => {
     expect(withoutOffer.checkupOffer).toBeUndefined()
   })
 
+  it('persists replyActions in journey message snapshots', () => {
+    const original = {
+      schema_version: '0.1',
+      source: 'semantic_judgment',
+      adaptor: 'llm' as const,
+      degraded: false,
+      actions: [{ type: 'ask_report', payload: { x: 1 } }]
+    }
+    const cloned = snapshotChatMessage({
+      id: 'a1',
+      role: 'assistant',
+      parts: [{ type: 'text', text: '可上傳報告' }],
+      replyActions: original
+    })
+    expect(cloned.replyActions?.actions[0]?.type).toBe('ask_report')
+    expect(cloned.replyActions).not.toBe(original)
+    expect(cloned.replyActions?.actions[0]).not.toBe(original.actions[0])
+  })
+
   it('keeps two selected goals open until each is asked and the last question is answered', () => {
     const labels = ['體態管理', '皮膚氣色']
     const askedOne = [
