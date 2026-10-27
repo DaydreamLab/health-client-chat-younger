@@ -1,3 +1,5 @@
+import type { ReplyActions } from './reply-actions'
+
 export type UserRole = 'guest' | 'member'
 
 export interface UserBrief {
@@ -610,6 +612,11 @@ export interface StreamMessageResult {
   checkup_suggest?: string | null
   checkup_offer_label?: string | null
   individual_tests_url?: string | null
+  /**
+   * Semantic-judgment CTA column (schema v0.1). Prefer over legacy offer fields
+   * when usable; see `app/utils/reply-actions.ts`.
+   */
+  reply_actions?: ReplyActions | null
 }
 
 export interface ApiSuccess<T> {

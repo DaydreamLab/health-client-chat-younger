@@ -1,4 +1,5 @@
 import type { OrderCreated, OrderDetail, OrderSummary } from './candor-api'
+import type { ReplyActions } from './reply-actions'
 
 /** Demo catalog codes (not live API identifiers). */
 export type DemoPackagePlanId = 'basic' | 'advance'
@@ -40,6 +41,11 @@ export interface ChatMessage {
   checkupOffer?: boolean
   /** After report interpret reply; show in-bubble「我想檢查更多」link. */
   wantMoreTestsOffer?: boolean
+  /**
+   * Semantic-judgment CTAs (schema v0.1). When usable, FE renders only this column
+   * and ignores legacy options / upload_offer / checkup_offer on the same turn.
+   */
+  replyActions?: ReplyActions | null
   /** Status note (report progress / ready). Does not replace the active question. */
   notice?: boolean
 }
@@ -151,6 +157,15 @@ export function snapshotChatMessage(message: ChatMessage): ChatMessage {
     ...(message.uploadOffer ? { uploadOffer: true } : {}),
     ...(message.checkupOffer ? { checkupOffer: true } : {}),
     ...(message.wantMoreTestsOffer ? { wantMoreTestsOffer: true } : {}),
+    ...(message.replyActions
+      ? { replyActions: {
+          ...message.replyActions,
+          actions: message.replyActions.actions.map(action => ({
+            type: action.type,
+            payload: action.payload ? { ...action.payload } : action.payload
+          }))
+        } }
+      : {}),
     ...(message.notice ? { notice: true } : {})
   }
 }

@@ -1,5 +1,11 @@
 import type { ChatMessage, ChatMessageOption } from './first-order'
 import { turnChoicesForMessage } from './chat-intake'
+import {
+  isUsableReplyActions,
+  projectReplyActionsToCtas,
+  type ReplyActionsCtaProjection,
+  type VitalsField
+} from './reply-actions'
 
 /**
  * Chat bubble TurnActions visibility rules (single source of truth).
@@ -248,6 +254,30 @@ export interface TurnActionsVisibility {
   showSubmitReview: boolean
   showViewRecommend: boolean
   showRetry: boolean
+  /** ask_vitals numeric fields (reply_actions path only). */
+  vitalsFields: VitalsField[]
+  vitalsGapCode: string | null
+  /** offer_checkup payload.url when set; else use journey default. */
+  checkupUrlOverride: string | null
+  /** True when CTAs come from usable reply_actions (legacy offers ignored). */
+  fromReplyActions: boolean
+  /** Exclusive chip codes when choose_option drives selection. */
+  exclusiveCodes: string[]
+  replyProjection: ReplyActionsCtaProjection | null
+}
+
+function emptyReplyExtras(): Pick<
+  TurnActionsVisibility,
+  'vitalsFields' | 'vitalsGapCode' | 'checkupUrlOverride' | 'fromReplyActions' | 'exclusiveCodes' | 'replyProjection'
+> {
+  return {
+    vitalsFields: [],
+    vitalsGapCode: null,
+    checkupUrlOverride: null,
+    fromReplyActions: false,
+    exclusiveCodes: ['none', 'none_of_above'],
+    replyProjection: null
+  }
 }
 
 export function buildTurnActionsVisibility(input: {
@@ -263,18 +293,6 @@ export function buildTurnActionsVisibility(input: {
   const { message, ctx, intake, goalOptions, needsMultiConfirm } = input
   const expertReviewStatus = input.expertReviewStatus ?? 'none'
   const standardFlow = input.flow === 'standard'
-  const effectiveGoals = resolveEffectiveGoalOptions({
-    goalSelectActive: ctx.goalSelectActive,
-    goalOptions,
-    intake,
-    message
-  })
-  const choices = turnChoicesForMessage(
-    message,
-    intake,
-    ctx.goalSelectActive,
-    effectiveGoals
-  )
   const latest = isLatestAssistantMessage(message, ctx.lastAssistantId)
   const profileQuestionActive = message.turnType === 'profile' && Boolean(message.profileQuestion)
   const slotInput = {
@@ -288,6 +306,62 @@ export function buildTurnActionsVisibility(input: {
     hasReportAnalysis: ctx.hasReportAnalysis,
     expertReviewStatus
   }
+
+  // Prefer reply_actions column when usable; do not also paint legacy offers.
+  if (isUsableReplyActions(message.replyActions)) {
+    const canShowRecommendSlot = recommendSlotVisible(slotInput)
+    const canShowUpload = latest
+      && !ctx.readonlyMode
+      && !ctx.escalated
+      && !ctx.hasReportAnalysis
+      && !(ctx.goalSelectActive && !ctx.hasReportAnalysis)
+    const canShowCheckup = !ctx.readonlyMode && !ctx.escalated
+    const canShowVitals = latest && !ctx.readonlyMode && !ctx.escalated && !ctx.pending
+    const projection = projectReplyActionsToCtas({
+      replyActions: message.replyActions!,
+      canShowRecommendSlot,
+      canShowUpload,
+      canShowCheckup,
+      canShowVitals,
+      expertReviewStatus,
+      flow: standardFlow ? 'standard' : undefined
+    })
+    // Checkup needs a URL: payload override or journey default.
+    const checkupFromPayload = Boolean(projection.checkupUrlOverride)
+    const showCheckup = projection.flags.showCheckup
+      && (ctx.checkupLinkReady || checkupFromPayload)
+
+    return {
+      choices: projection.flags.choices,
+      showConfirm: projection.flags.showConfirm,
+      showUpload: projection.flags.showUpload,
+      showCheckup,
+      showWantMoreTests: false,
+      showRecommend: projection.flags.showSubmitReview || projection.flags.showViewRecommend,
+      showSubmitReview: projection.flags.showSubmitReview,
+      showViewRecommend: projection.flags.showViewRecommend,
+      showRetry: false,
+      vitalsFields: projection.vitalsFields,
+      vitalsGapCode: projection.vitalsGapCode,
+      checkupUrlOverride: projection.checkupUrlOverride,
+      fromReplyActions: true,
+      exclusiveCodes: projection.exclusiveCodes,
+      replyProjection: projection
+    }
+  }
+
+  const effectiveGoals = resolveEffectiveGoalOptions({
+    goalSelectActive: ctx.goalSelectActive,
+    goalOptions,
+    intake,
+    message
+  })
+  const choices = turnChoicesForMessage(
+    message,
+    intake,
+    ctx.goalSelectActive,
+    effectiveGoals
+  )
   const showSubmitReview = standardFlow ? false : submitExpertReviewCtaVisible(slotInput)
   const showViewRecommend = standardFlow
     ? standardViewRecommendCtaVisible(slotInput)
@@ -302,6 +376,7 @@ export function buildTurnActionsVisibility(input: {
     showRecommend: showSubmitReview || showViewRecommend,
     showSubmitReview,
     showViewRecommend,
-    showRetry: retryCtaVisible()
+    showRetry: retryCtaVisible(),
+    ...emptyReplyExtras()
   }
 }

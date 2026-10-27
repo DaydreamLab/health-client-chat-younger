@@ -135,6 +135,7 @@
 | 確認價格帶 | `POST /conversation/{id}/package-plan/confirm` | 已接 |
 | 同步訊息 | `POST /conversation/{id}/messages` | Mock |
 | SSE 串流 | `POST /conversation/{id}/messages/stream` | 已接 |
+| `reply_actions` v0.1 CTA（SSE `done`／訊息欄） | 契約定稿；FE 已接（缺欄回退 legacy meta）；core 並行落地 | 接線中 |
 
 ### 建議與價格帶
 

@@ -56,6 +56,11 @@ export type CandorMockOptions = {
    * (first-visit banner tests), or an older string to force re-prompt.
    */
   privacyConsentVersion?: string | false
+  /**
+   * Attach reply_actions v0.1 on SSE `done` (plus conflicting legacy fields)
+   * so FE dedupe / CTA projection can be asserted in e2e.
+   */
+  replyActions?: 'offer_recommend' | 'ask_vitals' | 'degraded'
 }
 
 const legacyPackagePlans = [
@@ -1005,6 +1010,55 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         profile_question: null,
         external: null,
         profile_gaps: []
+      }
+    }
+
+    if (options.replyActions === 'offer_recommend') {
+      donePayload = {
+        ...donePayload,
+        // Conflicting legacy fields — FE must not double-paint when reply_actions is usable.
+        options: [{ code: 'legacy_chip', label: '舊選項' }],
+        upload_offer: true,
+        checkup_offer: true,
+        reply_actions: {
+          schema_version: '0.1',
+          source: 'semantic_judgment',
+          adaptor: 'fake',
+          degraded: false,
+          error: null,
+          actions: [
+            { type: 'offer_recommend', payload: {} },
+            { type: 'ask_report', payload: {} }
+          ]
+        }
+      }
+    } else if (options.replyActions === 'ask_vitals') {
+      donePayload = {
+        ...donePayload,
+        options: [{ code: 'legacy_chip', label: '舊選項' }],
+        reply_actions: {
+          schema_version: '0.1',
+          source: 'semantic_judgment',
+          adaptor: 'fake',
+          degraded: false,
+          error: null,
+          actions: [
+            { type: 'ask_vitals', payload: { fields: ['age', 'height', 'weight'] } }
+          ]
+        }
+      }
+    } else if (options.replyActions === 'degraded') {
+      donePayload = {
+        ...donePayload,
+        upload_offer: true,
+        reply_actions: {
+          schema_version: '0.1',
+          source: 'semantic_judgment',
+          adaptor: 'fake',
+          degraded: true,
+          error: 'timeout',
+          actions: [{ type: 'none' }]
+        }
       }
     }
 
