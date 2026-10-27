@@ -514,10 +514,13 @@ test.describe('member checkout', () => {
     expect((interpretBox?.x ?? 0) + (interpretBox?.width ?? 0)).toBeLessThan(wantMoreBox?.x ?? 0)
 
     await page.getByTestId('chat-report-interpret').click()
-    const bubbleWantMore = page.getByTestId('chat-last-reply').getByTestId('chat-message-want-more-tests')
-    await expect(bubbleWantMore).toBeVisible({ timeout: 15_000 })
-    await expect(bubbleWantMore).toHaveText('我想檢查更多')
-    await expect(bubbleWantMore).toHaveAttribute('href', 'https://labs.example/tests')
+    // Bubble外連改 RA-only（#20）：interpret 不再 FE 硬掛 wantMoreTestsOffer。
+    // Dock「我想檢查更多」仍固定可點（#23 Irice 拍板）。
+    await expect(page.getByTestId('chat-last-reply')).toBeVisible({ timeout: 15_000 })
+    await expect(
+      page.getByTestId('chat-last-reply').getByTestId('chat-message-want-more-tests')
+    ).toHaveCount(0)
+    await expect(page.getByTestId('chat-report-want-more-tests')).toBeVisible()
   })
 
   test('unpaid chat survives refresh via journey storage', async ({ page, goto }) => {
@@ -533,13 +536,9 @@ test.describe('member checkout', () => {
     await page.getByTestId('chat-report-interpret').click()
     await expect(page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('chat-recommendation-packages')).toHaveCount(0)
-    const replyWantMore = page.getByTestId('chat-last-reply').getByTestId('chat-message-want-more-tests')
-    await expect(replyWantMore).toHaveText('我想檢查更多')
-    const recommendBox = await page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend').boundingBox()
-    const replyWantMoreBox = await replyWantMore.boundingBox()
-    expect(recommendBox).not.toBeNull()
-    expect(replyWantMoreBox).not.toBeNull()
-    expect((recommendBox?.x ?? 0) + (recommendBox?.width ?? 0)).toBeLessThan(replyWantMoreBox?.x ?? 0)
+    await expect(
+      page.getByTestId('chat-last-reply').getByTestId('chat-message-want-more-tests')
+    ).toHaveCount(0)
     await expect(page.getByTestId('chat-report-loading')).toHaveCount(0)
     await expect(page.getByTestId('chat-report-dock')).toBeVisible()
     await expect(page.getByTestId('chat-report-dock')).toContainText('維生素 D3')
@@ -551,7 +550,7 @@ test.describe('member checkout', () => {
     await page.reload({ waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('heading', { name: '諮詢' })).toBeVisible()
     await expect(page.getByTestId('chat-view-recommend')).toBeVisible()
-    await expect(page.getByTestId('chat-message-want-more-tests')).toBeVisible()
+    await expect(page.getByTestId('chat-message-want-more-tests')).toHaveCount(0)
     await expect(page.getByTestId('chat-input')).toBeVisible()
     await expect(page.getByTestId('chat-chip-plans')).toHaveCount(0)
     await expect(page.getByTestId('chat-escalate')).toBeVisible()

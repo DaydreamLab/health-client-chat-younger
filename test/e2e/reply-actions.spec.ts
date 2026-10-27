@@ -325,7 +325,8 @@ test.describe('reply_actions v0.1 CTAs', () => {
     // P0 regression: continueAfterSavedAnswer used to skip stream because hydrate
     // still carried answered choose_option(lab_report) → hasUsableGapCta true.
     test.setTimeout(90_000)
-    const conversationId = 'dddddddd-dddd-dddd-dddd-dddddddddddd'
+    // Must match mockCandorAuth conversationId so /messages/stream is mocked.
+    const conversationId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
     await mockCandorAuth(page, { asMember: true, replyActions: 'offer_recommend' })
     await page.setViewportSize({ width: 1280, height: 800 })
 
@@ -446,7 +447,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
     goto
   }) => {
     test.setTimeout(90_000)
-    const conversationId = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
+    const conversationId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
     await mockCandorAuth(page, { asMember: true, replyActions: 'offer_recommend' })
     await page.setViewportSize({ width: 1280, height: 800 })
 
