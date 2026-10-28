@@ -260,7 +260,6 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await expect(page.getByTestId('chat-vitals-card')).toHaveCount(0)
   })
 
-
   test('lab_report choose_option: chip click POSTs answers (no confirm)', async ({ page, goto }) => {
     // Regression (#24 dual-path): reply_actions hides confirm for profile enum, but
     // ChatPanel used to only highlight LAB_GAP_CODES until confirm — stuck UX.
