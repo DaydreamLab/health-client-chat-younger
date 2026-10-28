@@ -210,7 +210,8 @@ test.describe('member order detail', () => {
         ...(outOfRange
           ? {
               description: `指標 ${index} 是常見檢驗項目。`,
-              possible_causes: `偏高可能與生活型態有關（${index}）。`
+              possible_causes: `偏高可能與生活型態有關（${index}）。`,
+              possible_risks: `偏高時可能需要留意相關健康狀態（${index}）。`
             }
           : {})
       }
@@ -266,7 +267,9 @@ test.describe('member order detail', () => {
     await expect(card.getByTestId('health-report-detail')).toBeVisible()
     await expect(card.getByTestId('report-result-row-result-e2e-0')).toBeVisible()
     await expect(card.getByTestId('report-result-row-result-e2e-0')).toContainText('指標 0')
-    await expect(card.getByTestId('report-result-row-result-e2e-1')).toContainText('這個指標是什麼')
+    await expect(card.getByTestId('report-result-row-result-e2e-1')).toContainText('這是什麼')
+    await expect(card.getByTestId('report-result-row-result-e2e-1')).toContainText('可能風險')
+    await expect(card.getByTestId('report-result-raw-name-result-e2e-1')).toContainText('Marker 1')
     await expect(card.getByTestId('report-result-row-result-e2e-1')).toContainText('可能原因')
 
     const shell = await page.evaluate(() => {

@@ -1502,7 +1502,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
               needs_review: false,
               range_status: 'low',
               description: '維生素 D 與骨骼與免疫狀態相關的常見指標。',
-              possible_causes: '偏低可能與日照不足或攝取不足有關。'
+              possible_causes: '偏低可能與日照不足或攝取不足有關。',
+              possible_risks: '偏低時部分人可能需要留意相關健康狀態。'
             },
             {
               id: 'result-e2e-2',
@@ -1517,7 +1518,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
               needs_review: false,
               range_status: 'high',
               description: '維生素 B12 是常見營養相關檢驗指標。',
-              possible_causes: '偏高可能與補充劑使用或檢測條件有關。'
+              possible_causes: '偏高可能與補充劑使用或檢測條件有關。',
+              possible_risks: '偏高時部分人可能需要留意相關健康狀態。'
             }
           ]
         }

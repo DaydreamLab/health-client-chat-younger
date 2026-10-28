@@ -512,6 +512,7 @@ export interface HealthReportResult {
   /** Out-of-range copy only; omit when empty. */
   description?: string | null
   possible_causes?: string | null
+  possible_risks?: string | null
 }
 
 export interface HealthReport {

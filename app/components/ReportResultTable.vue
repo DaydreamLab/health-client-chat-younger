@@ -2,6 +2,7 @@
 import type { HealthReportResult } from '~/utils/candor-api'
 import {
   displayResultName,
+  displayResultOriginalName,
   displayResultValue,
   formatResultRef,
   hasResultInterpretation,
@@ -95,6 +96,13 @@ defineEmits<{
               <p class="font-semibold">
                 {{ displayResultName(row) }}
               </p>
+              <p
+                v-if="displayResultOriginalName(row)"
+                class="mt-0.5 text-xs font-normal text-muted"
+                :data-testid="`report-result-raw-name-${row.id}`"
+              >
+                {{ displayResultOriginalName(row) }}
+              </p>
               <div
                 v-if="hasResultInterpretation(row)"
                 class="mt-1.5 space-y-1 text-xs font-normal text-muted"
@@ -105,6 +113,9 @@ defineEmits<{
                 </p>
                 <p v-if="row.possible_causes">
                   <span class="font-medium text-highlighted">{{ $t('labChart.possibleCauses') }}：</span>{{ row.possible_causes }}
+                </p>
+                <p v-if="row.possible_risks">
+                  <span class="font-medium text-highlighted">{{ $t('labChart.possibleRisks') }}：</span>{{ row.possible_risks }}
                 </p>
               </div>
             </td>
@@ -192,12 +203,14 @@ defineEmits<{
   color: var(--ui-text-muted);
 }
 
+/* GAUGE_PAD_RATIO=1.5 → ref (green) is 37.5%–62.5%; flanks show wider caution/alert context. */
 .yr-gauge {
   background: linear-gradient(
     90deg,
     color-mix(in oklab, var(--ui-error) 85%, transparent) 0%,
     color-mix(in oklab, var(--ui-warning) 85%, transparent) 28%,
-    color-mix(in oklab, var(--ui-success) 85%, transparent) 50%,
+    color-mix(in oklab, var(--ui-success) 85%, transparent) 37.5%,
+    color-mix(in oklab, var(--ui-success) 85%, transparent) 62.5%,
     color-mix(in oklab, var(--ui-warning) 85%, transparent) 72%,
     color-mix(in oklab, var(--ui-error) 85%, transparent) 100%
   );

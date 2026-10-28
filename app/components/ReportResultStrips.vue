@@ -2,6 +2,7 @@
 import type { HealthReportResult } from '~/utils/candor-api'
 import {
   displayResultName,
+  displayResultOriginalName,
   displayResultValue,
   formatResultRef,
   hasResultInterpretation,
@@ -67,9 +68,18 @@ function statusText(status: StripStatus) {
           :class="`yr-bar-${stripStatus(row)}`"
         />
         <div class="min-w-0 flex-1">
-          <p class="truncate font-semibold text-highlighted">
-            {{ displayResultName(row) }}
-          </p>
+          <div class="min-w-0">
+            <p class="truncate font-semibold text-highlighted">
+              {{ displayResultName(row) }}
+            </p>
+            <p
+              v-if="displayResultOriginalName(row)"
+              class="truncate text-xs text-muted"
+              :data-testid="`report-result-raw-name-${row.id}`"
+            >
+              {{ displayResultOriginalName(row) }}
+            </p>
+          </div>
           <p class="mt-0.5 text-xs text-muted">
             {{ formatResultRef(row) }}
           </p>
@@ -89,6 +99,12 @@ function statusText(status: StripStatus) {
               class="line-clamp-2"
             >
               <span class="font-medium text-highlighted">{{ $t('labChart.possibleCauses') }}：</span>{{ row.possible_causes }}
+            </p>
+            <p
+              v-if="row.possible_risks"
+              class="line-clamp-2"
+            >
+              <span class="font-medium text-highlighted">{{ $t('labChart.possibleRisks') }}：</span>{{ row.possible_risks }}
             </p>
           </div>
         </div>
@@ -175,12 +191,14 @@ function statusText(status: StripStatus) {
   background: color-mix(in oklab, var(--ui-error) 16%, transparent);
 }
 
+/* GAUGE_PAD_RATIO=1.5 → ref (green) is 37.5%–62.5%; flanks show wider caution/alert context. */
 .yr-gauge {
   background: linear-gradient(
     90deg,
     color-mix(in oklab, var(--ui-error) 85%, transparent) 0%,
     color-mix(in oklab, var(--ui-warning) 85%, transparent) 28%,
-    color-mix(in oklab, var(--ui-success) 85%, transparent) 50%,
+    color-mix(in oklab, var(--ui-success) 85%, transparent) 37.5%,
+    color-mix(in oklab, var(--ui-success) 85%, transparent) 62.5%,
     color-mix(in oklab, var(--ui-warning) 85%, transparent) 72%,
     color-mix(in oklab, var(--ui-error) 85%, transparent) 100%
   );

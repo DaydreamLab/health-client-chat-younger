@@ -2,6 +2,7 @@
 import type { HealthReportResult } from '~/utils/candor-api'
 import {
   displayResultName,
+  displayResultOriginalName,
   displayResultValue,
   formatResultRef,
   hasResultInterpretation,
@@ -100,9 +101,18 @@ const cards = computed(() => props.results.map(row => ({
           </div>
         </div>
         <div class="flex min-w-0 flex-1 flex-col">
-          <p class="truncate text-sm font-semibold text-highlighted">
-            {{ displayResultName(card.row) }}
-          </p>
+          <div class="min-w-0">
+            <p class="truncate text-sm font-semibold text-highlighted">
+              {{ displayResultName(card.row) }}
+            </p>
+            <p
+              v-if="displayResultOriginalName(card.row)"
+              class="truncate text-xs text-muted"
+              :data-testid="`report-result-raw-name-${card.row.id}`"
+            >
+              {{ displayResultOriginalName(card.row) }}
+            </p>
+          </div>
           <div class="mt-1 flex items-center gap-2">
             <p
               class="text-xl font-bold leading-none"
@@ -137,6 +147,12 @@ const cards = computed(() => props.results.map(row => ({
               class="line-clamp-3"
             >
               <span class="font-medium text-highlighted">{{ $t('labChart.possibleCauses') }}：</span>{{ card.row.possible_causes }}
+            </p>
+            <p
+              v-if="card.row.possible_risks"
+              class="line-clamp-3"
+            >
+              <span class="font-medium text-highlighted">{{ $t('labChart.possibleRisks') }}：</span>{{ card.row.possible_risks }}
             </p>
           </div>
           <div class="mt-auto flex items-baseline justify-between gap-2 pt-2">
@@ -205,12 +221,14 @@ const cards = computed(() => props.results.map(row => ({
   transform: translate(-50%, 50%);
 }
 
+/* GAUGE_PAD_RATIO=1.5 → ref (green) is 37.5%–62.5%; flanks show wider caution/alert context. */
 .yr-gauge {
   background: linear-gradient(
     90deg,
     color-mix(in oklab, var(--ui-error) 85%, transparent) 0%,
     color-mix(in oklab, var(--ui-warning) 85%, transparent) 28%,
-    color-mix(in oklab, var(--ui-success) 85%, transparent) 50%,
+    color-mix(in oklab, var(--ui-success) 85%, transparent) 37.5%,
+    color-mix(in oklab, var(--ui-success) 85%, transparent) 62.5%,
     color-mix(in oklab, var(--ui-warning) 85%, transparent) 72%,
     color-mix(in oklab, var(--ui-error) 85%, transparent) 100%
   );

@@ -12,6 +12,11 @@ export function resultNumeric(r: HealthReportResult): number | null {
   return null
 }
 
+/**
+ * Align with core SignalEvaluator: borderline_* only refine severity outside ref.
+ * Do not treat `v < borderline_low` alone as warn — ALT seeds use BL≈ref_high, which
+ * would false-flag in-range values and skip interpretation copy (only OOR gets copy).
+ */
 export function resultStatusClass(r: HealthReportResult): ResultStatusClass {
   const v = resultNumeric(r)
   if (v == null) {
@@ -22,12 +27,6 @@ export function resultStatusClass(r: HealthReportResult): ResultStatusClass {
   }
   if (r.critical_high != null && v > Number(r.critical_high)) {
     return 'alert'
-  }
-  if (r.borderline_low != null && v < Number(r.borderline_low)) {
-    return 'warn'
-  }
-  if (r.borderline_high != null && v > Number(r.borderline_high)) {
-    return 'warn'
   }
   if (r.ref_low != null && v < Number(r.ref_low)) {
     return 'warn'
@@ -69,6 +68,13 @@ export function formatResultRef(r: HealthReportResult) {
   return `≤ ${high}`
 }
 
+/**
+ * How far the gauge extends beyond ref on each side, as a multiple of (ref_high − ref_low).
+ * Larger → wider context (more yellow/red), smaller green band.
+ * Ref occupies [R/(2R+1), (R+1)/(2R+1)] of the bar (R=1.5 → 37.5%–62.5%).
+ */
+export const GAUGE_PAD_RATIO = 1.5
+
 export function resultGaugePct(r: HealthReportResult): number | null {
   const v = resultNumeric(r)
   const low = r.ref_low != null ? Number(r.ref_low) : null
@@ -76,7 +82,7 @@ export function resultGaugePct(r: HealthReportResult): number | null {
   if (v == null || low == null || high == null || high <= low) {
     return null
   }
-  const pad = (high - low) * 0.5
+  const pad = (high - low) * GAUGE_PAD_RATIO
   const min = low - pad
   const max = high + pad
   return Math.max(0, Math.min(100, ((v - min) / (max - min)) * 100))
@@ -98,7 +104,6 @@ export interface ResultScale {
   bands: ResultScaleBand[]
 }
 
-const SCALE_PAD_RATIO = 0.5
 const SCALE_EXTEND_RATIO = 0.15
 
 function bound(value: number | null | undefined): number | null {
@@ -117,8 +122,8 @@ export function resultScale(r: HealthReportResult): ResultScale | null {
   }
 
   const span = refHigh - refLow
-  let min = refLow - span * SCALE_PAD_RATIO
-  let max = refHigh + span * SCALE_PAD_RATIO
+  let min = refLow - span * GAUGE_PAD_RATIO
+  let max = refHigh + span * GAUGE_PAD_RATIO
   const extras = [
     bound(r.borderline_low),
     bound(r.borderline_high),
@@ -206,8 +211,22 @@ export function displayResultName(r: HealthReportResult) {
   return id !== '' ? id : '—'
 }
 
+/** Report raw_name when it differs from the displayed Chinese/preferred name. */
+export function displayResultOriginalName(r: HealthReportResult): string | null {
+  const raw = r.raw_name != null ? String(r.raw_name).trim() : ''
+  if (raw === '') {
+    return null
+  }
+  const display = displayResultName(r)
+  if (raw === display) {
+    return null
+  }
+  return raw
+}
+
 export function hasResultInterpretation(r: HealthReportResult) {
   const description = r.description != null ? String(r.description).trim() : ''
   const causes = r.possible_causes != null ? String(r.possible_causes).trim() : ''
-  return description !== '' || causes !== ''
+  const risks = r.possible_risks != null ? String(r.possible_risks).trim() : ''
+  return description !== '' || causes !== '' || risks !== ''
 }
