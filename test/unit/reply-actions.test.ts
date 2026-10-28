@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import {
   findGapCtaHostMessage,
+  hasLabReportBankOrFollowup,
   hasReportRequiredAsk,
   hasUsableGapCta,
   isUsableReplyActions,
@@ -153,8 +154,8 @@ describe('parseReplyActions / isUsableReplyActions', () => {
     expect(hasUsableGapCta(followup, ['lab_report'])).toBe(false)
   })
 
-  it('shouldSkipFollowUpStream forces stream when next_question.done or gap cleared', () => {
-    const bank = assistant('bank-lab', {
+  it('shouldSkipFollowUpStream skips lab_report bank／lab_followup; streams over stale profile lab', () => {
+    const staleAnsweredLab = assistant('bank-lab-stale', {
       replyActions: ra({
         actions: [{
           type: 'choose_option',
@@ -166,17 +167,61 @@ describe('parseReplyActions / isUsableReplyActions', () => {
         }]
       })
     })
-    // Hydrate still has answered lab choose_option — must NOT skip (P0).
+    // Stale answered shape — must NOT skip (P0: still need stream when bank was not rewritten).
+    expect(hasLabReportBankOrFollowup(staleAnsweredLab.replyActions)).toBe(false)
     expect(shouldSkipFollowUpStream({
       nextQuestionDone: true,
       openProfileGaps: [],
-      messages: [bank]
+      messages: [staleAnsweredLab]
     })).toBe(false)
     expect(shouldSkipFollowUpStream({
       nextQuestionDone: false,
       openProfileGaps: [],
-      messages: [bank]
+      messages: [staleAnsweredLab]
     })).toBe(false)
+
+    const labBank = assistant('bank-lab', {
+      replyActions: ra({
+        actions: [
+          { type: 'ask_report', payload: { option_codes: ['none', 'within_1y'] } },
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'lab_report',
+              gap_code: 'lab_report',
+              options: [{ code: 'none', label: '無' }]
+            }
+          }
+        ]
+      })
+    })
+    expect(hasLabReportBankOrFollowup(labBank.replyActions)).toBe(true)
+    expect(shouldSkipFollowUpStream({
+      nextQuestionDone: false,
+      openProfileGaps: ['diet'],
+      messages: [labBank]
+    })).toBe(true)
+
+    const followup = assistant('bank-followup', {
+      replyActions: ra({
+        actions: [{
+          type: 'choose_option',
+          payload: {
+            kind: 'lab_followup',
+            options: [
+              { code: 'upload', label: '上傳報告', maps_to: 'ask_report' },
+              { code: 'checkup', label: '我想檢查', maps_to: 'offer_checkup' }
+            ]
+          }
+        }]
+      })
+    })
+    expect(shouldSkipFollowUpStream({
+      nextQuestionDone: true,
+      openProfileGaps: [],
+      messages: [followup]
+    })).toBe(true)
+
     // Still-open sex gap on history → skip covering stream (hybrid).
     const sexBank = assistant('bank-sex', {
       replyActions: ra({
@@ -653,6 +698,35 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     // Pending gap behind latest suppresses recommend/upload on the covering turn.
     expect(onStream.showViewRecommend).toBe(false)
     expect(onStream.showUpload).toBe(false)
+  })
+
+  it('latest ask_vitals wins over a lifted older gap (age correction)', () => {
+    const bank = assistant('bank', {
+      replyActions: ra({
+        actions: [{ type: 'ask_vitals', payload: { fields: ['height'], gap_code: 'height' } }]
+      })
+    })
+    const stream = assistant('stream', {
+      replyActions: ra({
+        actions: [{ type: 'ask_vitals', payload: { fields: ['age'], gap_code: 'age' } }]
+      })
+    })
+    const ctx = baseCtx({
+      lastAssistantId: 'stream',
+      gapCtaHostId: 'bank',
+      gapCtaHostReplyActions: bank.replyActions,
+      openProfileGaps: ['height'],
+      hasReportAnalysis: true
+    })
+    const onStream = buildTurnActionsVisibility({
+      message: stream,
+      ctx,
+      goalOptions: [],
+      needsMultiConfirm: false,
+      expertReviewStatus: 'none'
+    })
+    expect(onStream.vitalsFields).toEqual(['age'])
+    expect(onStream.vitalsGapCode).toBe('age')
   })
 
   it('choose_option sex chips lift to latest when stream covers with offer_recommend', () => {

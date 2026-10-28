@@ -617,13 +617,18 @@ export function buildTurnActionsVisibility(input: {
       && !ctx.escalated
       && !ctx.pathEntryPending
     const canShowOwnVitals = renderGapOnThis && !ctx.readonlyMode && !ctx.escalated
+    // Latest turn asking age／height／weight keeps its own card even when an older gap is still open.
+    const ownHasAskVitals = isUsableReplyActions(message.replyActions)
+      && message.replyActions.actions.some(action => action.type === 'ask_vitals')
 
     const own = projectGates({
       replyActions: message.replyActions!,
       canShowRecommendSlot,
       canShowUpload,
       canShowCheckup,
-      canShowVitals: canShowOwnVitals && isGapHost,
+      canShowVitals: !ctx.readonlyMode && !ctx.escalated && (
+        (canShowOwnVitals && isGapHost) || (latest && ownHasAskVitals)
+      ),
       expertReviewStatus,
       standardFlow,
       checkupLinkReady: ctx.checkupLinkReady
@@ -636,7 +641,10 @@ export function buildTurnActionsVisibility(input: {
     let gapExclusive = own.projection.exclusiveCodes
 
     if (renderGapOnThis) {
-      if (pendingGapBehindLatest && ctx.gapCtaHostReplyActions
+      if (latest && own.projection.vitalsFields.length > 0) {
+        vitalsFields = own.projection.vitalsFields
+        vitalsGapCode = own.projection.vitalsGapCode
+      } else if (pendingGapBehindLatest && ctx.gapCtaHostReplyActions
         && isUsableReplyActions(ctx.gapCtaHostReplyActions)) {
         const lifted = projectGates({
           replyActions: ctx.gapCtaHostReplyActions,

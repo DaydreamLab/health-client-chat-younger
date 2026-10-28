@@ -136,14 +136,25 @@ onMounted(() => {
   }
 })
 
+function pickerItemHeight(el: HTMLElement): number {
+  const sample = el.querySelector<HTMLElement>('.ask-vitals-picker-item')
+  const h = sample?.offsetHeight ?? 0
+  return h > 0 ? h : ITEM_H
+}
+
 function scrollAgeIntoView(value: number, smooth: boolean) {
   const el = pickerEl.value
   if (!el) {
     return
   }
-  const idx = value - VITALS_FIELD_RANGE.age.min
-  const top = idx * ITEM_H
-  el.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' })
+  const item = el.querySelector<HTMLElement>(`#ask-vitals-age-${value}`)
+  const top = item
+    ? item.offsetTop - (el.clientHeight - item.offsetHeight) / 2
+    : (value - VITALS_FIELD_RANGE.age.min) * pickerItemHeight(el)
+  el.scrollTo({
+    top: Math.max(0, Math.round(top)),
+    behavior: smooth ? 'smooth' : 'auto'
+  })
 }
 
 function onPickerScroll() {
@@ -151,7 +162,7 @@ function onPickerScroll() {
   if (!el) {
     return
   }
-  const idx = Math.round(el.scrollTop / ITEM_H)
+  const idx = Math.round(el.scrollTop / pickerItemHeight(el))
   const clamped = Math.min(
     Math.max(idx, 0),
     VITALS_FIELD_RANGE.age.max - VITALS_FIELD_RANGE.age.min
@@ -514,7 +525,7 @@ function onConfirm() {
   left: 0;
   right: 0;
   height: 3rem;
-  z-index: 2;
+  z-index: 3;
   pointer-events: none;
 }
 
@@ -537,7 +548,7 @@ function onConfirm() {
   height: 2.75rem;
   border-radius: 0.625rem;
   border: 1.5px solid var(--ui-primary);
-  background: color-mix(in oklab, var(--ui-primary) 8%, #fff);
+  background: color-mix(in oklab, var(--ui-primary) 12%, var(--ui-bg-elevated));
   z-index: 1;
   pointer-events: none;
 }
@@ -545,9 +556,11 @@ function onConfirm() {
 .ask-vitals-picker-list {
   position: absolute;
   inset: 0;
+  z-index: 2;
   overflow-y: auto;
   scroll-snap-type: y mandatory;
-  padding: 2.875rem 0;
+  padding-block: calc((11.25rem - 2.75rem) / 2);
+  background: transparent;
   text-align: center;
   -webkit-overflow-scrolling: touch;
 }

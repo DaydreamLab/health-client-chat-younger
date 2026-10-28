@@ -35,6 +35,53 @@ async function sendChatLine(page: Page, text: string) {
   await page.getByTestId('chat-send').click()
 }
 
+/** Selected age must sit in the highlight and paint above it (light and dark). */
+async function expectAgePickerCenterVisible(page: Page, mode: 'light' | 'dark') {
+  await expect.poll(async () => page.evaluate((theme) => {
+    const picker = document.querySelector('[data-testid="chat-vitals-age-picker"]')
+    const selected = picker?.querySelector('[aria-selected="true"]') as HTMLElement | null
+    const band = picker?.querySelector('.ask-vitals-picker-sel') as HTMLElement | null
+    const list = picker?.querySelector('.ask-vitals-picker-list') as HTMLElement | null
+    const fade = picker?.querySelector('.ask-vitals-picker-fade') as HTMLElement | null
+    if (!picker || !selected || !band || !list || !fade) {
+      return 'missing'
+    }
+    const item = selected.getBoundingClientRect()
+    const highlight = band.getBoundingClientRect()
+    const aligned = Math.abs((item.top + item.height / 2) - (highlight.top + highlight.height / 2)) < 3
+    const listZ = Number(getComputedStyle(list).zIndex)
+    const bandZ = Number(getComputedStyle(band).zIndex)
+    const fadeZ = Number(getComputedStyle(fade).zIndex)
+    const stacked = listZ > bandZ && fadeZ > listZ
+    const parsed = (value: string) => {
+      const rgb = value.match(/rgba?\(([^)]+)\)/)
+      if (rgb?.[1]) {
+        const nums = rgb[1].split(/[\s,/]+/).map(Number).filter(n => !Number.isNaN(n))
+        return { kind: 'rgb' as const, values: nums.slice(0, 3) }
+      }
+      const lab = value.match(/oklab\(([^)]+)\)/)
+      if (lab?.[1]) {
+        const nums = lab[1].trim().split(/[\s,/]+/).map(Number).filter(n => !Number.isNaN(n))
+        return { kind: 'oklab' as const, values: nums.slice(0, 3) }
+      }
+      return null
+    }
+    const text = parsed(getComputedStyle(selected).color)
+    const fill = parsed(getComputedStyle(band).backgroundColor)
+    const textOk = theme === 'dark'
+      ? text?.kind === 'rgb' && Math.min(...text.values) > 200
+      : text?.kind === 'rgb' && Math.max(...text.values) < 180
+    const fillOk = theme === 'dark'
+      ? (fill?.kind === 'rgb' && Math.max(...fill.values) < 140)
+      || (fill?.kind === 'oklab' && (fill.values[0] ?? 1) < 0.5)
+      : (fill?.kind === 'rgb' && Math.min(...fill.values) > 200)
+        || (fill?.kind === 'oklab' && (fill.values[0] ?? 0) > 0.85)
+    return aligned && stacked && textOk && fillOk && (selected.textContent?.trim() ?? '')
+      ? 'ok'
+      : `aligned=${aligned} stacked=${stacked} text=${getComputedStyle(selected).color} fill=${getComputedStyle(band).backgroundColor}`
+  }, mode), { timeout: 5_000 }).toBe('ok')
+}
+
 test.describe('reply_actions v0.1 CTAs', () => {
   test('/chat: offer_recommend → 完成 CTA 取得專屬保健品方案; legacy chips 不畫', async ({ page, goto }) => {
     test.setTimeout(90_000)
@@ -221,6 +268,10 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await expect(last.getByTestId('chat-quiz-option-legacy_chip')).toHaveCount(0)
     // First wave: only one field card — height numpad not yet.
     await expect(last.getByTestId('chat-vitals-numpad')).toHaveCount(0)
+    await expectAgePickerCenterVisible(page, 'light')
+    await page.evaluate(() => document.documentElement.classList.add('dark'))
+    await expectAgePickerCenterVisible(page, 'dark')
+    await page.evaluate(() => document.documentElement.classList.remove('dark'))
 
     await last.getByTestId('chat-vitals-age-option-35').click()
     const agePost = page.waitForRequest(req =>

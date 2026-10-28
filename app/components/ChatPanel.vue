@@ -164,8 +164,10 @@
           <article
             v-for="message in messages"
             :key="message.id"
-            class="flex items-end gap-3 pb-8"
-            :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
+            class="flex gap-3 pb-8"
+            :class="[
+              message.role === 'user' ? 'justify-end items-end' : 'justify-start items-start'
+            ]"
           >
             <ChatAssistantMark
               v-if="message.role === 'assistant'"
@@ -1753,6 +1755,8 @@ async function continueAfterSavedAnswer(opts: {
   if (conversationId) {
     await hydrateConversationHistory(conversationId)
   }
+  // answers bank may omit the user turn when next was already done; restore optimistic bubble.
+  restorePendingUserIfMissing(opts.pendingContent)
   if (shouldSkipFollowUpStream({
     nextQuestionDone: next?.done === true,
     openProfileGaps: profileGaps.value,
@@ -1764,6 +1768,19 @@ async function continueAfterSavedAnswer(opts: {
 
   pendingUserContent.value = opts.pendingContent
   await streamPending()
+}
+
+/** Re-attach the just-sent user text if hydrate replaced the transcript without it. */
+function restorePendingUserIfMissing(pendingContent: string) {
+  const text = pendingContent.trim()
+  if (!text) {
+    return
+  }
+  const lastUser = [...journey.messages].reverse().find(message => message.role === 'user')
+  if (lastUser && messageText(lastUser).trim() === text) {
+    return
+  }
+  appendMessage('user', text)
 }
 
 async function streamPending() {
@@ -1860,9 +1877,19 @@ async function onVitalsSubmit(values: Partial<Record<VitalsField, number>>) {
   if (pending.value || readonly.value || escalated.value) {
     return
   }
-  // Prefer open gap CTA host (may be behind a stream-only offer_recommend turn).
-  const host = findGapCtaHostMessage(journey.messages, { openProfileGaps: profileGaps.value })
-    ?? [...journey.messages].reverse().find(m => m.role === 'assistant')
+  // Prefer the latest bubble when it is the one showing the vitals card
+  // (age correction while an older gap is still open).
+  const latestAssistant = [...journey.messages].reverse().find(m => m.role === 'assistant')
+  const submittedField = (Object.keys(values) as VitalsField[]).find(field => values[field] != null)
+  const latestShowsField = Boolean(
+    latestAssistant
+    && submittedField
+    && turnActionsFor(latestAssistant).vitalsFields.includes(submittedField)
+  )
+  const host = latestShowsField
+    ? latestAssistant
+    : findGapCtaHostMessage(journey.messages, { openProfileGaps: profileGaps.value })
+      ?? latestAssistant
   if (!host) {
     return
   }

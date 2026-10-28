@@ -381,22 +381,50 @@ export function findGapCtaHostMessage<T extends GapCtaHostCandidate>(
 }
 
 /**
+ * Latest assistant already holds unanswered lab_report bank or lab_followup chips.
+ * (kind=profile + gap_code=lab_report is stale／answered shape — does not count.)
+ */
+export function hasLabReportBankOrFollowup(ra: ReplyActions | null | undefined): boolean {
+  if (!isUsableReplyActions(ra)) {
+    return false
+  }
+  return ra!.actions.some((action) => {
+    if (action.type === 'ask_report') {
+      return true
+    }
+    if (action.type !== 'choose_option') {
+      return false
+    }
+    const payload = chooseOptionPayload(action)
+    return payload.kind === 'lab_report' || payload.kind === 'lab_followup'
+  })
+}
+
+/**
  * After POST /profile/answers (or goals): whether FE may skip the follow-up stream.
- * Force stream when next_question.done, or when hydrate only still shows answered gaps.
+ * Skip when history already has an open profile-gap CTA, unanswered lab_report bank,
+ * or lab_followup. Do not force-stream solely because next_question.done — that covered
+ * the lab bank turn with a free-chat summary.
  */
 export function shouldSkipFollowUpStream(input: {
   nextQuestionDone?: boolean
   openProfileGaps: readonly string[]
   messages: GapCtaHostCandidate[]
 }): boolean {
-  if (input.nextQuestionDone === true) {
-    return false
+  const latestAssistant = [...input.messages].reverse().find(message => message.role === 'assistant')
+  if (latestAssistant && hasLabReportBankOrFollowup(latestAssistant.replyActions)) {
+    return true
   }
   const openGaps = input.openProfileGaps
-  return hasUsableGapCta(
+  if (hasUsableGapCta(
     findGapCtaHostMessage(input.messages, { openProfileGaps: openGaps })?.replyActions,
     openGaps
-  )
+  )) {
+    return true
+  }
+  // next_question.done with no bank CTA → allow stream (status summary / open chat).
+  void input.nextQuestionDone
+  return false
 }
 
 export function chooseOptionPayload(action: ReplyAction): ChooseOptionPayload {
