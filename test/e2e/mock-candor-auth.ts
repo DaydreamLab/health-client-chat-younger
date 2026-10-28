@@ -919,9 +919,9 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       ? bodyPath
       : (resolvedConversationPath ?? 'b')
     const greetingContent = path === 'a'
-      ? '你好，想聊什麼都可以。（placeholder）'
+      ? '你好，想聊什麼都可以。'
       : path === 'c'
-        ? '請先上傳血檢或健檢報告，我再幫你看。（placeholder）'
+        ? '請先上傳血檢或健檢報告；若不傳可改為諮詢健康方案。'
         : '您好，我是健康報告解讀助理。請先選擇改善方向。'
     await route.fulfill({
       status: 201,
