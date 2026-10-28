@@ -449,3 +449,111 @@ describe('reportDockBarVisibility', () => {
     ).toBe(true)
   })
 })
+
+describe('path contract — completion CTA gates (no FE 硬保)', () => {
+  const offerRecommend = {
+    schema_version: '0.1',
+    source: 'semantic_judgment',
+    adaptor: 'llm',
+    degraded: false,
+    error: null,
+    actions: [{ type: 'offer_recommend' as const }]
+  }
+
+  const noneRa = {
+    schema_version: '0.1',
+    source: 'semantic_judgment',
+    adaptor: 'llm',
+    degraded: false,
+    error: null,
+    actions: [{ type: 'none' as const }]
+  }
+
+  it('path A never shows completion CTA even with usable offer_recommend', () => {
+    const msg = assistant('latest', { replyActions: offerRecommend })
+    const v = visibility(msg, baseCtx({
+      lastAssistantId: 'latest',
+      conversationPath: 'A',
+      openProfileGaps: []
+    }), { messages: [msg], expertReviewStatus: 'none' })
+    expect(v.showSubmitReview).toBe(false)
+    expect(v.showViewRecommend).toBe(false)
+  })
+
+  it('path B + basic complete + usable offer_recommend → submit', () => {
+    const msg = assistant('latest', { replyActions: offerRecommend })
+    const v = visibility(msg, baseCtx({
+      lastAssistantId: 'latest',
+      conversationPath: 'B',
+      openProfileGaps: [],
+      goalSelectActive: true
+    }), { messages: [msg], expertReviewStatus: 'none', goalSelectActive: true })
+    // goals 不挡
+    expect(v.showSubmitReview).toBe(true)
+  })
+
+  it('path B + basic incomplete hides offer_recommend', () => {
+    const msg = assistant('latest', { replyActions: offerRecommend })
+    const v = visibility(msg, baseCtx({
+      lastAssistantId: 'latest',
+      conversationPath: 'B',
+      openProfileGaps: ['sex', 'age']
+    }), { messages: [msg], expertReviewStatus: 'none' })
+    expect(v.showSubmitReview).toBe(false)
+  })
+
+  it('path B + basic complete + RA none → still no completion CTA (不硬保)', () => {
+    const msg = assistant('latest', { replyActions: noneRa })
+    const v = visibility(msg, baseCtx({
+      lastAssistantId: 'latest',
+      conversationPath: 'B',
+      openProfileGaps: []
+    }), { messages: [msg], expertReviewStatus: 'none' })
+    expect(v.showSubmitReview).toBe(false)
+    expect(v.showViewRecommend).toBe(false)
+    expect(v.showUpload).toBe(false)
+  })
+
+  it('path B + optional diet gap open still allows offer_recommend', () => {
+    const msg = assistant('latest', { replyActions: offerRecommend })
+    const v = visibility(msg, baseCtx({
+      lastAssistantId: 'latest',
+      conversationPath: 'B',
+      openProfileGaps: ['diet']
+    }), { messages: [msg], expertReviewStatus: 'none' })
+    expect(v.showSubmitReview).toBe(true)
+  })
+
+  it('lab_report quiz active suppresses bubble upload／checkup', () => {
+    const msg = assistant('latest', {
+      replyActions: {
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'llm',
+        degraded: false,
+        error: null,
+        actions: [
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'lab_report',
+              gap_code: 'lab_report',
+              options: [{ code: 'within_1y', label: '一年內' }]
+            }
+          },
+          { type: 'ask_report' },
+          { type: 'offer_checkup', payload: { url: 'https://labs.example' } }
+        ]
+      }
+    })
+    const v = visibility(msg, baseCtx({
+      lastAssistantId: 'latest',
+      conversationPath: 'C',
+      openProfileGaps: [],
+      labReportQuizActive: true,
+      reportAskActive: true
+    }), { messages: [msg] })
+    expect(v.showUpload).toBe(false)
+    expect(v.showCheckup).toBe(false)
+  })
+})

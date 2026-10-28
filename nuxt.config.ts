@@ -29,7 +29,13 @@ export default defineNuxtConfig({
       apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8080/api/v1',
       feSha: process.env.NUXT_PUBLIC_FE_SHA || '',
       individualTestsUrl: process.env.NUXT_PUBLIC_INDIVIDUAL_TESTS_URL
-        || 'https://www.younger.tw/collections/individual-tests'
+        || 'https://www.younger.tw/collections/individual-tests',
+      /**
+       * Conversation path contract (A／B／C). When true: entry three-choice,
+       * completion CTA gates, upload→C, A turn guides. Set
+       * NUXT_PUBLIC_PATH_CONTRACT=0 to disable without rebuild of defaults.
+       */
+      pathContract: process.env.NUXT_PUBLIC_PATH_CONTRACT !== '0'
     }
   },
 

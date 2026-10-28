@@ -3,6 +3,10 @@ import { snapshotChatMessage } from '~/utils/first-order'
 import { normalizeStoredChatMessages } from '~/utils/chat-history'
 import type { ConversationPackage, GreetingOption, ProfileNextQuestion } from '~/utils/candor-api'
 import type { ExpertReviewUiStatus } from '~/utils/chat-turn-actions'
+import {
+  normalizeConversationPath,
+  type ConversationPath
+} from '~/utils/path-contract'
 
 export const JOURNEY_STORAGE_KEY = 'candor.unpaid.journey'
 
@@ -28,6 +32,20 @@ interface JourneySnapshot {
   profileGaps: string[]
   clarifyingGoals: string[]
   expertReviewStatus: ExpertReviewUiStatus
+  /**
+   * Path contract A／B／C. null = entry not chosen yet (or legacy session).
+   * Synced to core when path API is available (see useCandorApi.setConversationPath).
+   */
+  conversationPath: ConversationPath | null
+  /**
+   * Path C: waiting for first upload; cancel／skip without report → demote to B.
+   */
+  pathCAwaitingUpload: boolean
+  /**
+   * User↔assistant turn pairs counted while on path A (for ≥15／≥25 guides).
+   * Recalculated from messages when possible; persisted as a floor.
+   */
+  pathATurnCount: number
 }
 
 const emptySnapshot = (): JourneySnapshot => ({
@@ -50,7 +68,10 @@ const emptySnapshot = (): JourneySnapshot => ({
   postQuizGuided: false,
   profileGaps: [],
   clarifyingGoals: [],
-  expertReviewStatus: 'none'
+  expertReviewStatus: 'none',
+  conversationPath: null,
+  pathCAwaitingUpload: false,
+  pathATurnCount: 0
 })
 
 function normalizeExpertReviewStatus(value: unknown): ExpertReviewUiStatus {
@@ -96,7 +117,12 @@ function readStored(): JourneySnapshot {
       reportInterpretSent: typeof parsed.reportInterpretSent === 'boolean'
         ? parsed.reportInterpretSent
         : hasAnalysis,
-      expertReviewStatus: normalizeExpertReviewStatus(parsed.expertReviewStatus)
+      expertReviewStatus: normalizeExpertReviewStatus(parsed.expertReviewStatus),
+      conversationPath: normalizeConversationPath(parsed.conversationPath),
+      pathCAwaitingUpload: parsed.pathCAwaitingUpload === true,
+      pathATurnCount: typeof parsed.pathATurnCount === 'number' && parsed.pathATurnCount > 0
+        ? Math.floor(parsed.pathATurnCount)
+        : 0
     }
   } catch {
     return emptySnapshot()
@@ -126,6 +152,9 @@ export const useJourneyStore = defineStore('journey', () => {
   const profileGaps = ref<string[]>(initial.profileGaps)
   const clarifyingGoals = ref<string[]>(initial.clarifyingGoals)
   const expertReviewStatus = ref<ExpertReviewUiStatus>(initial.expertReviewStatus)
+  const conversationPath = ref<ConversationPath | null>(initial.conversationPath)
+  const pathCAwaitingUpload = ref(initial.pathCAwaitingUpload)
+  const pathATurnCount = ref(initial.pathATurnCount)
 
   function snapshotMessages(): ChatMessage[] {
     return messages.value.map(message => snapshotChatMessage(message))
@@ -156,7 +185,10 @@ export const useJourneyStore = defineStore('journey', () => {
       postQuizGuided: postQuizGuided.value,
       profileGaps: [...profileGaps.value],
       clarifyingGoals: [...clarifyingGoals.value],
-      expertReviewStatus: expertReviewStatus.value
+      expertReviewStatus: expertReviewStatus.value,
+      conversationPath: conversationPath.value,
+      pathCAwaitingUpload: pathCAwaitingUpload.value,
+      pathATurnCount: pathATurnCount.value
     }
 
     if (!payload.conversationId && payload.messages.length === 0) {
@@ -188,6 +220,9 @@ export const useJourneyStore = defineStore('journey', () => {
     profileGaps.value = []
     clarifyingGoals.value = []
     expertReviewStatus.value = 'none'
+    conversationPath.value = null
+    pathCAwaitingUpload.value = false
+    pathATurnCount.value = 0
     if (import.meta.client) {
       localStorage.removeItem(JOURNEY_STORAGE_KEY)
     }
@@ -218,6 +253,9 @@ export const useJourneyStore = defineStore('journey', () => {
     profileGaps.value = stored.profileGaps
     clarifyingGoals.value = stored.clarifyingGoals
     expertReviewStatus.value = stored.expertReviewStatus
+    conversationPath.value = stored.conversationPath
+    pathCAwaitingUpload.value = stored.pathCAwaitingUpload
+    pathATurnCount.value = stored.pathATurnCount
   }
 
   if (import.meta.client) {
@@ -242,7 +280,10 @@ export const useJourneyStore = defineStore('journey', () => {
         postQuizGuided,
         profileGaps,
         clarifyingGoals,
-        expertReviewStatus
+        expertReviewStatus,
+        conversationPath,
+        pathCAwaitingUpload,
+        pathATurnCount
       ],
       () => {
         persist()
@@ -272,6 +313,9 @@ export const useJourneyStore = defineStore('journey', () => {
     profileGaps,
     clarifyingGoals,
     expertReviewStatus,
+    conversationPath,
+    pathCAwaitingUpload,
+    pathATurnCount,
     snapshotMessages,
     clearSession,
     persist,

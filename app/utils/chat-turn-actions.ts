@@ -1,6 +1,13 @@
 import type { ChatMessage, ChatMessageOption } from './first-order'
 import { turnChoicesForMessage } from './chat-intake'
 import {
+  completionCtaVisible,
+  isBasicProfileComplete,
+  isRequiredBasicGapCode,
+  shouldSuppressGuidanceCtas,
+  type ConversationPath
+} from './path-contract'
+import {
   hasReplyActionsColumn,
   isUsableReplyActions,
   NON_GAP_CHOOSE_OPTION_KINDS,
@@ -14,22 +21,20 @@ import {
 /**
  * Chat bubble TurnActions visibility rules (single source of truth).
  *
- * Intake 三要件（皆必問、report 不進 gap）：
- * 1. 問卷 profile gaps  2. report（ask_report，類 goal）  3. goals
- *
- * 三要件齊後流程：基本回應 → CTA 判讀（systemone／catalog）→ **完成 CTA**；
- * FE 依 usable `reply_actions` 決定畫哪些按鈕（upload／checkup／recommend…）。
- * ❌ 非固定硬掛「提交專家判讀」；intentional `none`／degraded／無 RA＝不畫怪鈕。
+ * Path contract (Irice)：
+ * - 完成 CTA 僅 path B／C + 基本四欄（sex／age／height／weight）齊；A 永不顯示。
+ * - goals／報告／optional profile 不挡完成 CTA（舊 triad 全清 profile 拿掉）。
+ * - 完成 CTA 仍依 usable `offer_recommend` 投影；❌ 不在 none／degraded／缺 RA 時 FE 強掛。
+ * - upload／checkup 只走 usable RA；lab_report 問卷進行中不預掛。
  *
  * Legacy meta (`upload_offer` / journey-invented recommend) is **not** a fallback.
- * Greeting goal chips may still use `goalSelectActive` + options when greeting
- * has no RA column.
+ * Path-null（legacy／未選進站）keeps prior RA-only recommend rules.
  *
- * | Journey / bubble | Goal／chips | 完成 CTA（依 RA） | 上傳／健檢 |
- * |------------------|-------------|-------------------|------------|
- * | 開場選目標 / report 必問 / open gap | 該則 | 否（要件未齊） | ask_report 時 |
- * | usable RA after 三要件 | — | 依 actions 投影 | ask_report |
- * | intentional none / degraded | 否 | 否 | 否 |
+ * | Journey / bubble | Goal／chips | 完成 CTA | 上傳／健檢 |
+ * |------------------|-------------|---------|------------|
+ * | path A | 可 | 永不 | RA only |
+ * | path B／C + 基本齊 + usable offer_recommend | 可（不挡） | 是 | RA；lab_report 進行中否 |
+ * | intentional none／degraded | — | 否（不強掛） | 否 |
  */
 
 export interface ChatTurnUiContext {
@@ -39,7 +44,7 @@ export interface ChatTurnUiContext {
   goalSelectActive: boolean
   /**
    * Required ask for report (mirrors goalSelectActive). Driven by usable
-   * `ask_report` — blocks recommend until analysis / cleared by later RA.
+   * `ask_report`. Under path contract, does **not** block completion CTA.
    */
   reportAskActive: boolean
   hasReportAnalysis: boolean
@@ -56,6 +61,23 @@ export interface ChatTurnUiContext {
   gapCtaHostId?: string
   /** reply_actions from the gap host message (for lifting onto latest). */
   gapCtaHostReplyActions?: ReplyActions | null
+  /**
+   * Path contract context. When `path` is null, completion CTA falls back to
+   * legacy usable-`offer_recommend` rules.
+   */
+  conversationPath?: ConversationPath | null
+  /** Open profile gaps; used with path to decide basic-complete gate. */
+  openProfileGaps?: readonly string[]
+  /**
+   * lab_report choose_option／required ask in progress — suppress bubble
+   * upload／checkup until answered (Irice).
+   */
+  labReportQuizActive?: boolean
+  /**
+   * When true, show entry path chips (A／B／C) instead of goals on this bubble.
+   * Caller supplies choices separately; this flag only blocks recommend／guidance.
+   */
+  pathEntryPending?: boolean
 }
 
 /** Mirrors core ConsultationGoal::defaultCatalog() for empty stream options. */
@@ -105,11 +127,14 @@ export type ExpertReviewUiStatus = 'none' | 'awaiting_review' | 'reviewed'
 
 /**
  * Journey gates for recommend-slot buttons when usable RA includes
- * `offer_recommend` (part of **完成 CTA** after CTA 判讀). Never invents
- * buttons alone — callers must still require usable `offer_recommend`.
+ * `offer_recommend` (part of **完成 CTA**).
  *
- * Blocks while any of the three intake requirements is still active:
- * goals / report ask / open profile gap (profileQuestionActive | pending gap).
+ * Path-aware (when `conversationPath` is B／C):
+ * - goals／reportAsk 不挡；僅基本四欄未齊或 required profile question 挡。
+ * - Path A：永遠 false（即使 RA 有 offer_recommend）。
+ *
+ * Path-null（legacy）：保留舊三要件（goals／report／profile question 挡），
+ * 且仍須由呼叫端搭配 usable `offer_recommend`（本函式不發明按鈕）。
  */
 export function recommendCtaVisible(input: {
   readonlyMode: boolean
@@ -121,8 +146,33 @@ export function recommendCtaVisible(input: {
   reportRetry: boolean
   pending?: boolean
   hasReportAnalysis?: boolean
+  conversationPath?: ConversationPath | null
+  basicProfileComplete?: boolean
+  /** Active question is one of sex／age／height／weight. */
+  requiredProfileQuestionActive?: boolean
+  pathEntryPending?: boolean
 }): boolean {
-  // 三要件未齊：不進入完成 CTA 的 recommend 槽（繪製仍看 usable offer_recommend）。
+  if (input.pathEntryPending) {
+    return false
+  }
+  const path = input.conversationPath ?? null
+  if (path === 'A') {
+    return false
+  }
+  if (path === 'B' || path === 'C') {
+    return completionCtaVisible({
+      path,
+      basicProfileComplete: input.basicProfileComplete === true,
+      readonlyMode: input.readonlyMode,
+      escalated: input.escalated,
+      isLatestAssistant: input.isLatestAssistant,
+      reportRetry: input.reportRetry,
+      pending: input.pending,
+      requiredProfileQuestionActive: input.requiredProfileQuestionActive
+        ?? input.profileQuestionActive
+    })
+  }
+  // Legacy path-null: goals／report／profile question still block.
   const goalsBlockRecommend = input.goalSelectActive
   const reportBlockRecommend = Boolean(input.reportAskActive)
   return !input.readonlyMode
@@ -389,6 +439,83 @@ function splitProjectionChoices(projection: ReplyActionsCtaProjection): {
   }
 }
 
+/**
+ * Path overlay on RA-projected flags:
+ * - A: always strip completion CTA
+ * - B／C: keep completion CTA only when threshold + journey allow
+ * - never invent offer_recommend when RA did not project it (no none／degraded 硬保)
+ */
+function applyPathCompletionOverlay(
+  base: TurnActionsVisibility,
+  input: {
+    ctx: ChatTurnUiContext
+    latest: boolean
+    pendingGapBehindLatest: boolean
+    profileQuestionActive: boolean
+    requiredProfileQuestionActive: boolean
+    basicProfileComplete: boolean
+  }
+): TurnActionsVisibility {
+  const { ctx } = input
+  const path = ctx.conversationPath ?? null
+  if (path === 'A') {
+    return {
+      ...base,
+      showRecommend: false,
+      showSubmitReview: false,
+      showViewRecommend: false
+    }
+  }
+
+  if (path !== 'B' && path !== 'C') {
+    return base
+  }
+
+  // Path B／C: only required-basic gaps behind latest block; optional gaps do not.
+  const pendingGapBlocksRecommend = input.pendingGapBehindLatest
+    && !input.basicProfileComplete
+  const slotOk = recommendCtaVisible({
+    readonlyMode: ctx.readonlyMode,
+    escalated: ctx.escalated,
+    goalSelectActive: ctx.goalSelectActive,
+    reportAskActive: ctx.reportAskActive,
+    profileQuestionActive: input.profileQuestionActive,
+    isLatestAssistant: input.latest,
+    reportRetry: ctx.reportRetry,
+    pending: ctx.pending,
+    hasReportAnalysis: ctx.hasReportAnalysis,
+    conversationPath: path,
+    basicProfileComplete: input.basicProfileComplete,
+    requiredProfileQuestionActive: input.requiredProfileQuestionActive,
+    pathEntryPending: ctx.pathEntryPending
+  }) && !pendingGapBlocksRecommend
+
+  if (!slotOk) {
+    return {
+      ...base,
+      showRecommend: false,
+      showSubmitReview: false,
+      showViewRecommend: false
+    }
+  }
+  // slotOk: keep RA projection as-is（含「沒有 offer_recommend → 不顯示」）.
+  return base
+}
+
+function suppressGuidanceIfNeeded(
+  visibility: TurnActionsVisibility,
+  ctx: ChatTurnUiContext
+): TurnActionsVisibility {
+  if (!shouldSuppressGuidanceCtas({ labReportQuizActive: Boolean(ctx.labReportQuizActive) })) {
+    return visibility
+  }
+  return {
+    ...visibility,
+    showUpload: false,
+    showCheckup: false
+  }
+}
+
 export function buildTurnActionsVisibility(input: {
   message: ChatMessage
   ctx: ChatTurnUiContext
@@ -403,6 +530,7 @@ export function buildTurnActionsVisibility(input: {
   const expertReviewStatus = input.expertReviewStatus ?? 'none'
   const standardFlow = input.flow === 'standard'
   const latest = isLatestAssistantMessage(message, ctx.lastAssistantId)
+  const basicProfileComplete = isBasicProfileComplete(ctx.openProfileGaps)
   // When no open profile-gap host is found, the latest assistant still hosts its
   // own ask_vitals / chips (openProfileGaps may be empty on a covering stream).
   const gapHostId = ctx.gapCtaHostId ?? ctx.lastAssistantId
@@ -416,22 +544,44 @@ export function buildTurnActionsVisibility(input: {
   // a covering stream turn while chips/vitals sit on an older bank message.
   const renderGapOnThis = pendingGapBehindLatest ? latest : isGapHost
   const profileQuestionActive = message.turnType === 'profile' && Boolean(message.profileQuestion)
+  const activeGapCode = message.profileQuestion?.gap_code
+  // Only required basics block completion CTA; optional (e.g. diet) do not.
+  const requiredProfileQuestionActive = (
+    profileQuestionActive && isRequiredBasicGapCode(activeGapCode)
+  ) || (pendingGapBehindLatest && latest && !basicProfileComplete)
   const slotInput = {
     readonlyMode: ctx.readonlyMode,
     escalated: ctx.escalated,
     goalSelectActive: ctx.goalSelectActive,
     reportAskActive: ctx.reportAskActive,
-    // Treat an open gap behind latest like an active profile question so
-    // offer_recommend on the covering stream turn does not steal the CTA slot.
+    // Legacy path-null still treats any profile／pending gap as blocking.
+    // Path B／C uses requiredProfileQuestionActive instead (optional 不挡).
     profileQuestionActive: profileQuestionActive || (pendingGapBehindLatest && latest),
     isLatestAssistant: latest,
     reportRetry: ctx.reportRetry,
     pending: ctx.pending,
     hasReportAnalysis: ctx.hasReportAnalysis,
-    expertReviewStatus
+    expertReviewStatus,
+    conversationPath: ctx.conversationPath ?? null,
+    basicProfileComplete,
+    requiredProfileQuestionActive,
+    pathEntryPending: Boolean(ctx.pathEntryPending)
   }
 
+  const overlay = (base: TurnActionsVisibility) => suppressGuidanceIfNeeded(
+    applyPathCompletionOverlay(base, {
+      ctx,
+      latest,
+      pendingGapBehindLatest,
+      profileQuestionActive: slotInput.profileQuestionActive,
+      requiredProfileQuestionActive: slotInput.requiredProfileQuestionActive,
+      basicProfileComplete
+    }),
+    ctx
+  )
+
   // Present RA column that is not usable (none / degraded / empty) → no CTAs.
+  // ❌ Do not FE-synthesize completion CTA (Irice 更正).
   if (hasReplyActionsColumn(message.replyActions) && !isUsableReplyActions(message.replyActions)) {
     return emptyTurnActions(true)
   }
@@ -442,18 +592,30 @@ export function buildTurnActionsVisibility(input: {
       return emptyTurnActions(true)
     }
 
+    const path = ctx.conversationPath ?? null
+    // Path B／C: optional gap behind latest must not steal completion CTA slot.
+    const pendingGapBlocksRecommend = path === 'B' || path === 'C'
+      ? (pendingGapBehindLatest && !basicProfileComplete)
+      : pendingGapBehindLatest
     const canShowRecommendSlot = recommendSlotVisible(slotInput)
-      && !pendingGapBehindLatest
+      && !pendingGapBlocksRecommend
+    const guidanceSuppressed = shouldSuppressGuidanceCtas({
+      labReportQuizActive: Boolean(ctx.labReportQuizActive)
+    })
     const canShowUpload = latest
       && !pendingGapBehindLatest
+      && !guidanceSuppressed
       && !ctx.readonlyMode
       && !ctx.escalated
       && !ctx.hasReportAnalysis
       && !(ctx.goalSelectActive && !ctx.hasReportAnalysis)
+      && !ctx.pathEntryPending
     const canShowCheckup = latest
       && !pendingGapBehindLatest
+      && !guidanceSuppressed
       && !ctx.readonlyMode
       && !ctx.escalated
+      && !ctx.pathEntryPending
     const canShowOwnVitals = renderGapOnThis && !ctx.readonlyMode && !ctx.escalated
 
     const own = projectGates({
@@ -517,7 +679,7 @@ export function buildTurnActionsVisibility(input: {
       ? own.projection.exclusiveCodes
       : gapExclusive
 
-    return {
+    return overlay({
       choices,
       showConfirm,
       showUpload: own.projection.flags.showUpload,
@@ -533,25 +695,27 @@ export function buildTurnActionsVisibility(input: {
       fromReplyActions: true,
       exclusiveCodes,
       replyProjection: own.projection
-    }
+    })
   }
 
   // No reply_actions column: greeting / hydrate without RA may still show goal
-  // or profile chips. Never invent recommend / upload / checkup from legacy meta.
+  // or profile chips. Never invent recommend／upload／checkup from legacy meta.
   const effectiveGoals = resolveEffectiveGoalOptions({
-    goalSelectActive: ctx.goalSelectActive,
+    goalSelectActive: ctx.goalSelectActive && !ctx.pathEntryPending,
     goalOptions,
     intake,
     message
   })
-  const choices = turnChoicesForMessage(
-    message,
-    intake,
-    ctx.goalSelectActive,
-    effectiveGoals
-  )
+  const choices = ctx.pathEntryPending
+    ? []
+    : turnChoicesForMessage(
+        message,
+        intake,
+        ctx.goalSelectActive,
+        effectiveGoals
+      )
 
-  return {
+  return overlay({
     choices,
     showConfirm: turnConfirmVisible(choices.length, needsMultiConfirm),
     showUpload: false,
@@ -562,5 +726,5 @@ export function buildTurnActionsVisibility(input: {
     showViewRecommend: false,
     showRetry: false,
     ...emptyReplyExtras()
-  }
+  })
 }
