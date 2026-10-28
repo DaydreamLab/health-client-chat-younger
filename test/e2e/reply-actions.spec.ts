@@ -56,6 +56,10 @@ test.describe('reply_actions v0.1 CTAs', () => {
     // 完成 CTA：usable offer_recommend → FE 投影取得專屬保健品方案（非 legacy 硬掛）
     await expect(last.getByTestId('chat-submit-expert-review')).toBeVisible({ timeout: 15_000 })
     await expect(last.getByTestId('chat-submit-expert-review')).toHaveText('取得專屬保健品方案')
+    await expect(last.getByTestId('chat-submit-expert-review-hint')).toBeVisible()
+    await expect(last.getByTestId('chat-submit-expert-review-hint')).toHaveText(
+      '以上為 AI 對話資訊，專人將於 24 小時內為您處理'
+    )
     await expect(last.getByTestId('chat-view-recommend')).toHaveCount(0)
     await expect(last.getByTestId('chat-message-upload')).toHaveCount(0)
     await expect(last.getByTestId('chat-quiz-option-legacy_chip')).toHaveCount(0)
@@ -170,6 +174,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
     const last = page.getByTestId('chat-last-reply')
     await expect(last).toContainText('依報告來看', { timeout: 15_000 })
     await expect(last.getByTestId('chat-submit-expert-review')).toBeVisible({ timeout: 15_000 })
+    await expect(last.getByTestId('chat-submit-expert-review-hint')).toBeVisible()
     await expect(last.getByTestId('chat-message-upload')).toHaveCount(0)
     await expect(last.getByTestId('chat-quiz-option-legacy_chip')).toHaveCount(0)
     await expect(last.getByTestId('chat-message-checkup')).toHaveCount(0)
@@ -194,6 +199,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await expect(degradedLast).toBeVisible({ timeout: 15_000 })
     await expect(degradedLast.getByTestId('chat-message-upload')).toHaveCount(0)
     await expect(degradedLast.getByTestId('chat-submit-expert-review')).toHaveCount(0)
+    await expect(degradedLast.getByTestId('chat-submit-expert-review-hint')).toHaveCount(0)
     await expect(degradedLast.getByTestId('chat-message-checkup')).toHaveCount(0)
     await expect(degradedLast.getByTestId('chat-message-want-more-tests')).toHaveCount(0)
     await expect(page.getByTestId('chat-vitals-card')).toHaveCount(0)
