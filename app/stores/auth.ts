@@ -1,5 +1,6 @@
 import type { UserBrief, UserMe, UserSession } from '~/utils/candor-api'
 import { CandorApiError } from '~/utils/candor-api'
+import { shouldSlideSession } from '~/utils/session-slide'
 
 function nameFromEmail(email: string) {
   const local = email.split('@')[0]?.replace(/[._+-]+/g, ' ').trim() ?? ''
@@ -34,6 +35,7 @@ export const useAuthStore = defineStore('auth', () => {
   const api = useCandorApi()
   const user = ref<UserBrief | null>(null)
   const expiresAt = ref<number | null>(null)
+  const issuedAt = ref<number | null>(null)
   const ready = ref(false)
   const bootstrapping = ref(false)
   let refreshInFlight: Promise<void> | null = null
@@ -63,7 +65,9 @@ export const useAuthStore = defineStore('auth', () => {
   function applySession(session: UserSession) {
     api.writeToken(session.token)
     user.value = toBrief(session.user)
-    expiresAt.value = Date.now() + session.expires_in * 1000
+    const now = Date.now()
+    issuedAt.value = now
+    expiresAt.value = now + session.expires_in * 1000
   }
 
   function applyMe(me: UserMe) {
@@ -74,6 +78,7 @@ export const useAuthStore = defineStore('auth', () => {
     api.writeToken(null)
     user.value = null
     expiresAt.value = null
+    issuedAt.value = null
   }
 
   /** Drop session only when storage still holds the token that failed. */
@@ -89,8 +94,12 @@ export const useAuthStore = defineStore('auth', () => {
       return
     }
 
-    const skewMs = 60_000
-    if (!force && expiresAt.value && expiresAt.value - Date.now() > skewMs) {
+    if (!shouldSlideSession({
+      now: Date.now(),
+      issuedAt: issuedAt.value,
+      expiresAt: expiresAt.value,
+      force
+    })) {
       return
     }
 
@@ -265,6 +274,17 @@ export const useAuthStore = defineStore('auth', () => {
     clearSession()
   }
 
+  async function slideIfActive() {
+    if (!api.readToken()) {
+      return
+    }
+    try {
+      await refreshIfNeeded()
+    } catch {
+      // 401 already drops the session; transient errors keep the current token.
+    }
+  }
+
   return {
     user,
     expiresAt,
@@ -276,6 +296,7 @@ export const useAuthStore = defineStore('auth', () => {
     initials,
     ensureSession,
     refreshIfNeeded,
+    slideIfActive,
     login,
     register,
     logout,

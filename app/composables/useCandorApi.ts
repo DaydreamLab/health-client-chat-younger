@@ -42,6 +42,20 @@ import type {
 } from '~/utils/candor-api'
 import { CandorApiError, TOKEN_STORAGE_KEY } from '~/utils/candor-api'
 import { parseReplyActions } from '~/utils/reply-actions'
+import { noteSessionActivity } from '~/utils/session-activity'
+
+const SESSION_SLIDE_SKIP = new Set([
+  '/auth/refresh',
+  '/auth/guest',
+  '/auth/login',
+  '/auth/register'
+])
+
+function noteUse(path: string) {
+  if (!SESSION_SLIDE_SKIP.has(path)) {
+    noteSessionActivity()
+  }
+}
 
 function apiBase(): string {
   const config = useRuntimeConfig()
@@ -117,6 +131,7 @@ export function useCandorApi() {
       query?: Record<string, string | undefined>
     } = {}
   ): Promise<T> {
+    noteUse(path)
     const headers: Record<string, string> = {
       Accept: 'application/json'
     }
@@ -174,6 +189,7 @@ export function useCandorApi() {
     } = {},
     intent?: string | null
   ): Promise<StreamMessageResult> {
+    noteSessionActivity()
     const token = readToken()
     if (!token) {
       throw new CandorApiError('Missing token', 401, 'unauthorized')
