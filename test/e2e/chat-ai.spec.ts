@@ -56,9 +56,14 @@ test.describe('standard /chat-ai vs expert /chat', () => {
     await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
     await page.getByTestId('chat-report-interpret').click()
 
-    const submit = page.getByTestId('chat-last-reply').getByTestId('chat-submit-expert-review')
+    const last = page.getByTestId('chat-last-reply')
+    const submit = last.getByTestId('chat-submit-expert-review')
     await expect(submit).toBeVisible({ timeout: 15_000 })
-    await expect(submit).toHaveText('提交專家判讀')
+    await expect(submit).toHaveText('取得專屬保健品方案')
+    await expect(last.getByTestId('chat-submit-expert-review-hint')).toBeVisible()
+    await expect(last.getByTestId('chat-submit-expert-review-hint')).toHaveText(
+      '以上為 AI 對話資訊，專人將於 24 小時內為您處理'
+    )
     await expect(page.getByTestId('chat-view-recommend')).toHaveCount(0)
     await page.getByTestId('chat-report-dock-toggle').click()
 
@@ -92,6 +97,7 @@ test.describe('standard /chat-ai vs expert /chat', () => {
     await expect(view).toHaveText('查看推薦方案')
     await expect(view).toHaveAttribute('data-flow', 'standard')
     await expect(page.getByTestId('chat-submit-expert-review')).toHaveCount(0)
+    await expect(page.getByTestId('chat-submit-expert-review-hint')).toHaveCount(0)
     await page.getByTestId('chat-report-dock-toggle').click()
 
     await view.click()

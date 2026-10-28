@@ -110,60 +110,69 @@ const hasActions = computed(() =>
     />
     <div
       v-if="showSubmitReview || showViewRecommend || showUpload || (showCheckup && checkupUrl) || (showWantMoreTests && wantMoreTestsUrl) || showRetry"
-      class="turn-actions-row"
+      class="turn-actions-cta"
     >
-      <AppButton
+      <div class="turn-actions-row">
+        <AppButton
+          v-if="showSubmitReview && flow !== 'standard'"
+          data-testid="chat-submit-expert-review"
+          @click="emit('submitReview')"
+        >
+          {{ $t('chat.submitExpertReview') }}
+        </AppButton>
+        <AppButton
+          v-if="showViewRecommend"
+          data-testid="chat-view-recommend"
+          :data-flow="flow === 'standard' ? 'standard' : undefined"
+          @click="emit('recommend')"
+        >
+          {{ $t('chat.viewRecommend') }}
+        </AppButton>
+        <AppButton
+          v-if="showWantMoreTests && wantMoreTestsUrl"
+          :href="wantMoreTestsUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          variant="outline"
+          data-testid="chat-message-want-more-tests"
+        >
+          {{ $t('labChart.wantMoreTests') }}
+        </AppButton>
+        <AppButton
+          v-if="showUpload"
+          variant="outline"
+          data-testid="chat-message-upload"
+          :disabled="uploadDisabled"
+          @click="emit('upload')"
+        >
+          {{ $t('chat.upload') }}
+        </AppButton>
+        <AppButton
+          v-if="showCheckup && checkupUrl"
+          :href="checkupUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          variant="outline"
+          data-testid="chat-message-checkup"
+        >
+          {{ $t('chat.checkupLink') }}
+        </AppButton>
+        <AppButton
+          v-if="showRetry"
+          variant="outline"
+          data-testid="chat-report-retry"
+          @click="emit('retry')"
+        >
+          {{ $t('chat.reportRetry') }}
+        </AppButton>
+      </div>
+      <p
         v-if="showSubmitReview && flow !== 'standard'"
-        data-testid="chat-submit-expert-review"
-        @click="emit('submitReview')"
+        class="turn-actions-hint"
+        data-testid="chat-submit-expert-review-hint"
       >
-        {{ $t('chat.submitExpertReview') }}
-      </AppButton>
-      <AppButton
-        v-if="showViewRecommend"
-        data-testid="chat-view-recommend"
-        :data-flow="flow === 'standard' ? 'standard' : undefined"
-        @click="emit('recommend')"
-      >
-        {{ $t('chat.viewRecommend') }}
-      </AppButton>
-      <AppButton
-        v-if="showWantMoreTests && wantMoreTestsUrl"
-        :href="wantMoreTestsUrl"
-        target="_blank"
-        rel="noopener noreferrer"
-        variant="outline"
-        data-testid="chat-message-want-more-tests"
-      >
-        {{ $t('labChart.wantMoreTests') }}
-      </AppButton>
-      <AppButton
-        v-if="showUpload"
-        variant="outline"
-        data-testid="chat-message-upload"
-        :disabled="uploadDisabled"
-        @click="emit('upload')"
-      >
-        {{ $t('chat.upload') }}
-      </AppButton>
-      <AppButton
-        v-if="showCheckup && checkupUrl"
-        :href="checkupUrl"
-        target="_blank"
-        rel="noopener noreferrer"
-        variant="outline"
-        data-testid="chat-message-checkup"
-      >
-        {{ $t('chat.checkupLink') }}
-      </AppButton>
-      <AppButton
-        v-if="showRetry"
-        variant="outline"
-        data-testid="chat-report-retry"
-        @click="emit('retry')"
-      >
-        {{ $t('chat.reportRetry') }}
-      </AppButton>
+        {{ $t('chat.submitExpertReviewHint') }}
+      </p>
     </div>
   </div>
 </template>
@@ -186,6 +195,20 @@ const hasActions = computed(() =>
   align-items: center;
   justify-content: flex-start;
   gap: 0.5rem;
+}
+
+.turn-actions-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.375rem;
+}
+
+.turn-actions-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--ui-text-muted);
 }
 
 .turn-actions-confirm {
