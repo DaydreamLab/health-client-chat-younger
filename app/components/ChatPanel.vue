@@ -386,6 +386,21 @@ import {
   resolveEffectiveGoalOptions
 } from '~/utils/chat-turn-actions'
 import {
+  countPathATurnPairs,
+  isBasicProfileComplete,
+  isConversationPath,
+  isRequiredBasicGapCode,
+  PATH_ENTRY_OPTIONS,
+  pathAHardRedirectDue,
+  pathASoftGuideDue,
+  pathAfterCancelUploadWithoutReport,
+  pathAfterReportUpload,
+  pathRequiresBasicProfile,
+  REQUIRED_BASIC_PROFILE_GAPS,
+  type ConversationPath
+} from '~/utils/path-contract'
+import {
+  chooseOptionPayload,
   findGapCtaHostMessage,
   hasAskReportAction,
   hasReplyActionsColumn,
@@ -402,6 +417,11 @@ import {
   parseConversationMessagesResult
 } from '~/utils/chat-history'
 import { storeToRefs } from 'pinia'
+
+/** TurnActions choice codes reserved for path contract UI (not profile／goals). */
+const PATH_GUIDE_CHECKUP_CODE = 'path_guide_checkup'
+const PATH_GUIDE_TO_B_CODE = 'path_guide_to_b'
+const PATH_C_SKIP_CODE = 'path_c_skip'
 
 const props = defineProps<{
   flow?: 'standard'
@@ -425,7 +445,10 @@ const {
   selectedPackage,
   packageConfirmed,
   postQuizGuided,
-  profileGaps
+  profileGaps,
+  conversationPath,
+  pathCAwaitingUpload,
+  pathATurnCount
 } = storeToRefs(journey)
 const ordersApi = useFirstOrderApi()
 const candor = useCandorApi()
@@ -433,6 +456,9 @@ const candor = useCandorApi()
 const isStandardFlow = computed(() =>
   props.flow === 'standard' || route.meta.flow === 'standard'
 )
+
+/** Path contract feature flag (`nuxt.config` public.pathContract). */
+const pathContractEnabled = computed(() => config.public.pathContract !== false)
 
 const input = ref('')
 const composing = ref(false)
@@ -559,6 +585,53 @@ const selectedPackageCodeFromQuery = computed(() => queryPackageCode(route.query
 
 const messages = computed(() => readonly.value ? viewMessages.value : journey.messages)
 
+/**
+ * Waiting for 進站三選 on a fresh greeting only.
+ * Legacy／hydrate sessions with user turns keep path=null → RA rules (no entry overlay).
+ */
+const pathEntryPending = computed(() =>
+  pathContractEnabled.value
+  && !readonly.value
+  && !isStandardFlow.value
+  && conversationPath.value == null
+  && Boolean(journey.conversationId)
+  && messages.value.some(m => m.role === 'assistant')
+  && !messages.value.some(m => m.role === 'user')
+)
+
+const labReportQuizActive = computed(() => {
+  if (!pathContractEnabled.value || !reportAskActive.value) {
+    return false
+  }
+  // Only suppress bubble upload／checkup while lab_report choose_option is active.
+  const last = [...messages.value].reverse().find(m => m.role === 'assistant')
+  const ra = last?.replyActions
+  if (!isUsableReplyActions(ra)) {
+    return false
+  }
+  return ra!.actions.some((action) => {
+    if (action.type !== 'choose_option') {
+      return false
+    }
+    const payload = chooseOptionPayload(action)
+    return payload.kind === 'lab_report' || payload.gap_code === 'lab_report'
+  })
+})
+
+const pathAGuideMode = computed((): 'none' | 'soft' | 'hard' => {
+  if (!pathContractEnabled.value || conversationPath.value !== 'A') {
+    return 'none'
+  }
+  const pairs = Math.max(pathATurnCount.value, countPathATurnPairs(messages.value))
+  if (pathAHardRedirectDue(pairs)) {
+    return 'hard'
+  }
+  if (pathASoftGuideDue(pairs)) {
+    return 'soft'
+  }
+  return 'none'
+})
+
 const choiceOptions = computed((): GreetingOption[] => {
   if (goalSelectActive.value) {
     const last = messages.value.find(message => message.id === lastAssistantId.value)
@@ -612,7 +685,11 @@ const turnUiContext = computed((): ChatTurnUiContext => ({
   checkupLinkReady: checkupLinkUrl.value !== '',
   lastAssistantId: lastAssistantId.value,
   gapCtaHostId: gapCtaHostId.value,
-  gapCtaHostReplyActions: gapCtaHostMessage.value?.replyActions ?? null
+  gapCtaHostReplyActions: gapCtaHostMessage.value?.replyActions ?? null,
+  conversationPath: pathContractEnabled.value ? conversationPath.value : null,
+  openProfileGaps: profileGaps.value,
+  labReportQuizActive: labReportQuizActive.value,
+  pathEntryPending: pathEntryPending.value
 }))
 
 function turnActionsFor(message: ChatMessage) {
@@ -627,11 +704,77 @@ function turnActionsFor(message: ChatMessage) {
   })
 }
 
+function pathEntryChoices(): GreetingOption[] {
+  return PATH_ENTRY_OPTIONS.map(option => ({
+    code: option.code,
+    label: t(option.labelKey)
+  }))
+}
+
+function pathAGuideChoices(): GreetingOption[] {
+  const mode = pathAGuideMode.value
+  if (mode === 'none') {
+    return []
+  }
+  const switchToB: GreetingOption = {
+    code: PATH_GUIDE_TO_B_CODE,
+    label: t('chat.pathGuideSwitchToB')
+  }
+  if (mode === 'hard') {
+    return [switchToB]
+  }
+  return [
+    { code: PATH_GUIDE_CHECKUP_CODE, label: t('chat.pathGuideCheckup') },
+    switchToB
+  ]
+}
+
+function pathCSkipChoices(message: ChatMessage): GreetingOption[] {
+  if (!pathContractEnabled.value
+    || !pathCAwaitingUpload.value
+    || conversationPath.value !== 'C'
+    || message.id !== lastAssistantId.value) {
+    return []
+  }
+  return [{ code: PATH_C_SKIP_CODE, label: t('chat.pathCCancelToB') }]
+}
+
 function choicesFor(message: ChatMessage): GreetingOption[] {
-  return turnActionsFor(message).choices
+  if (pathEntryPending.value && message.id === lastAssistantId.value) {
+    return pathEntryChoices()
+  }
+  const base = turnActionsFor(message).choices
+  if (message.id !== lastAssistantId.value) {
+    return base
+  }
+  const guides = pathAGuideChoices()
+  const skip = pathCSkipChoices(message)
+  if (!guides.length && !skip.length) {
+    return base
+  }
+  // Dedupe by code when merging guide／skip chips onto RA choices.
+  const seen = new Set(base.map(o => o.code))
+  const extra = [...guides, ...skip].filter((o) => {
+    if (seen.has(o.code)) {
+      return false
+    }
+    seen.add(o.code)
+    return true
+  })
+  return [...base, ...extra]
 }
 
 function showConfirmFor(message: ChatMessage) {
+  // Path entry／path A guides／C skip are single-tap chips — no multi confirm.
+  if (pathEntryPending.value && message.id === lastAssistantId.value) {
+    return false
+  }
+  if (message.id === lastAssistantId.value
+    && (pathAGuideMode.value !== 'none' || pathCAwaitingUpload.value)) {
+    const base = turnActionsFor(message).showConfirm
+    // Keep RA confirm when present; guide／skip chips themselves need no confirm.
+    return base
+  }
   return turnActionsFor(message).showConfirm
 }
 
@@ -932,6 +1075,314 @@ async function resetConversation() {
   }
 }
 
+async function syncConversationPath(
+  path: ConversationPath,
+  reason: string
+) {
+  const conversationId = journey.conversationId
+  if (!conversationId) {
+    return
+  }
+  // Soft-fail until candor-core path-contract API is live.
+  try {
+    await candor.setConversationPath(conversationId, { path, reason })
+  } catch {
+    // Local journey path remains source of truth for UI gates.
+  }
+}
+
+/**
+ * Path B／C: ensure sex／age／height／weight are open／asked.
+ * Optional gaps may remain but do not gate completion CTA.
+ */
+async function ensureRequiredBasicsCollection() {
+  if (!pathContractEnabled.value || !pathRequiresBasicProfile(conversationPath.value)) {
+    return
+  }
+  if (pending.value || readonly.value || escalated.value) {
+    return
+  }
+
+  let missing: string[] = [...REQUIRED_BASIC_PROFILE_GAPS]
+  try {
+    const profile = await candor.getProfile()
+    missing = []
+    if (!profile.sex) {
+      missing.push('sex')
+    }
+    if (profile.age_years == null) {
+      missing.push('age')
+    }
+    if (profile.height_cm == null) {
+      missing.push('height')
+    }
+    if (profile.weight_kg == null) {
+      missing.push('weight')
+    }
+  } catch {
+    // Keep full required set if profile read fails — still try next question.
+  }
+
+  const optionalOpen = profileGaps.value.filter(g => !isRequiredBasicGapCode(g))
+  profileGaps.value = [...missing, ...optionalOpen]
+
+  if (missing.length === 0) {
+    return
+  }
+
+  // Prefer existing required ask already on the latest bubble.
+  const last = [...journey.messages].reverse().find(m => m.role === 'assistant')
+  if (last?.profileQuestion && isRequiredBasicGapCode(last.profileQuestion.gap_code)) {
+    quizActive.value = true
+    return
+  }
+  if (last?.replyActions && isUsableReplyActions(last.replyActions)) {
+    const hasRequiredAsk = last.replyActions.actions.some((action) => {
+      if (action.type === 'ask_vitals') {
+        return true
+      }
+      if (action.type !== 'choose_option') {
+        return false
+      }
+      return isRequiredBasicGapCode(chooseOptionPayload(action).gap_code)
+    })
+    if (hasRequiredAsk) {
+      return
+    }
+  }
+
+  try {
+    const next = await candor.nextProfileQuestion(journey.reportId)
+    if (next && !next.done && isRequiredBasicGapCode(next.gap_code)) {
+      paintLocalProfileQuestion(next)
+      return
+    }
+    if (next && !next.done && !isRequiredBasicGapCode(next.gap_code)) {
+      // Optional next while required still open — record but do not block on it.
+      if (!profileGaps.value.includes(next.gap_code)) {
+        profileGaps.value = [...profileGaps.value, next.gap_code]
+      }
+    }
+  } catch {
+    // Core may not expose next yet — fall through to client placeholder.
+  }
+
+  // Client placeholder so B／C always surfaces required basics even if core
+  // next_question is optional-only or unavailable (path-contract draft).
+  paintClientRequiredBasicPlaceholder(missing[0]!)
+}
+
+function paintClientRequiredBasicPlaceholder(gap: string) {
+  const host = [...journey.messages].reverse().find(m => m.role === 'assistant')
+  if (!host) {
+    return
+  }
+  if (gap === 'sex') {
+    paintLocalProfileQuestion({
+      done: false,
+      gap_code: 'sex',
+      prompt: t('chat.pathAskSex'),
+      answer_type: 'enum',
+      options: [
+        { code: 'F', label: t('chat.pathSexFemale') },
+        { code: 'M', label: t('chat.pathSexMale') }
+      ]
+    })
+    return
+  }
+  // age／height／weight → ask_vitals on the latest bubble (same CTA path as RA).
+  const field = gap === 'age' || gap === 'height' || gap === 'weight' ? gap : null
+  if (!field) {
+    return
+  }
+  const promptKey = field === 'age'
+    ? 'chat.pathAskAge'
+    : field === 'height'
+      ? 'chat.pathAskHeight'
+      : 'chat.pathAskWeight'
+  const existing = messageText(host)
+  const prompt = t(promptKey)
+  if (!existing.includes(prompt)) {
+    setMessageText(host.id, existing ? `${existing}\n\n${prompt}` : prompt)
+  }
+  host.replyActions = {
+    schema_version: '0.1',
+    source: 'path_contract_client',
+    adaptor: 'fake',
+    degraded: false,
+    error: null,
+    actions: [
+      {
+        type: 'ask_vitals',
+        payload: { fields: [field], gap_code: field }
+      }
+    ]
+  }
+  quizActive.value = false
+  activeQuestion.value = null
+  goalSelectActive.value = false
+}
+
+function paintLocalProfileQuestion(next: Extract<ProfileNext, { done: false }>) {
+  const host = [...journey.messages].reverse().find(m => m.role === 'assistant')
+  if (!host) {
+    return
+  }
+  const answerType = next.answer_type
+  host.turnType = 'profile'
+  host.profileQuestion = {
+    gap_code: next.gap_code,
+    answer_type: answerType
+  }
+  host.options = next.options ?? []
+  // Prefer reply_actions choose_option so chips render even when history／stream
+  // left a covering offer_recommend／none column on the same bubble.
+  if (next.options?.length) {
+    host.replyActions = {
+      schema_version: '0.1',
+      source: 'path_contract_client',
+      adaptor: 'fake',
+      degraded: false,
+      error: null,
+      actions: [
+        {
+          type: 'choose_option',
+          payload: {
+            kind: 'profile',
+            gap_code: next.gap_code,
+            answer_type: answerType,
+            mode: answerType === 'multi_enum' ? 'multi' : 'single',
+            options: next.options,
+            confirm: answerType === 'multi_enum'
+          }
+        }
+      ]
+    }
+  } else {
+    host.replyActions = undefined
+  }
+  activeQuestion.value = {
+    done: false,
+    gap_code: next.gap_code,
+    prompt: next.prompt || '',
+    answer_type: answerType,
+    options: next.options ?? []
+  }
+  quizActive.value = true
+  goalSelectActive.value = false
+  if (next.gap_code && !profileGaps.value.includes(next.gap_code)) {
+    profileGaps.value = [...profileGaps.value, next.gap_code]
+  }
+  if (next.prompt) {
+    const existing = messageText(host)
+    if (!existing.includes(next.prompt)) {
+      setMessageText(host.id, existing ? `${existing}\n\n${next.prompt}` : next.prompt)
+    }
+  }
+}
+
+async function selectConversationPath(path: ConversationPath, reason = 'entry') {
+  if (!pathContractEnabled.value || pending.value || readonly.value) {
+    return
+  }
+  conversationPath.value = path
+  pathCAwaitingUpload.value = path === 'C' && !journey.reportId
+  if (path !== 'A') {
+    pathATurnCount.value = 0
+  }
+  await syncConversationPath(path, reason)
+
+  const labelKey = path === 'A'
+    ? 'chat.pathSelectedA'
+    : path === 'B'
+      ? 'chat.pathSelectedB'
+      : 'chat.pathSelectedC'
+  appendMessage('assistant', t(labelKey))
+
+  if (path === 'C' && !journey.reportId) {
+    goalSelectActive.value = false
+    quizActive.value = false
+    activeQuestion.value = null
+    return
+  }
+
+  if (path === 'A') {
+    goalSelectActive.value = false
+    quizActive.value = false
+    activeQuestion.value = null
+    return
+  }
+
+  // Path B (or C with existing report): collect required basics first.
+  goalSelectActive.value = false
+  await ensureRequiredBasicsCollection()
+}
+
+async function promotePathToCOnUpload() {
+  if (!pathContractEnabled.value) {
+    return
+  }
+  const next = pathAfterReportUpload(conversationPath.value)
+  const changed = conversationPath.value !== next
+  conversationPath.value = next
+  pathCAwaitingUpload.value = false
+  if (changed) {
+    await syncConversationPath(next, 'upload_promote')
+    appendMessage('assistant', t('chat.pathPromotedToC'))
+  }
+  await ensureRequiredBasicsCollection()
+}
+
+async function demotePathCToB(reason: 'cancel_demote' | 'guide_switch' = 'cancel_demote') {
+  if (!pathContractEnabled.value) {
+    return
+  }
+  const next = pathAfterCancelUploadWithoutReport(
+    conversationPath.value,
+    Boolean(journey.reportId)
+  )
+  if (next == null || next === conversationPath.value) {
+    pathCAwaitingUpload.value = false
+    return
+  }
+  conversationPath.value = next
+  pathCAwaitingUpload.value = false
+  await syncConversationPath(next, reason)
+  if (reason === 'cancel_demote') {
+    appendMessage('assistant', t('chat.pathCCancelToB'))
+  }
+  await ensureRequiredBasicsCollection()
+}
+
+function refreshPathATurnCount() {
+  if (!pathContractEnabled.value || conversationPath.value !== 'A') {
+    return
+  }
+  const pairs = countPathATurnPairs(journey.messages)
+  if (pairs > pathATurnCount.value) {
+    pathATurnCount.value = pairs
+  }
+  if (pathAHardRedirectDue(pathATurnCount.value)) {
+    const last = [...journey.messages].reverse().find(m => m.role === 'assistant')
+    if (last && !messageText(last).includes(t('chat.pathAHardGuide'))) {
+      const existing = messageText(last)
+      setMessageText(
+        last.id,
+        existing ? `${existing}\n\n${t('chat.pathAHardGuide')}` : t('chat.pathAHardGuide')
+      )
+    }
+  } else if (pathASoftGuideDue(pathATurnCount.value)) {
+    const last = [...journey.messages].reverse().find(m => m.role === 'assistant')
+    if (last && !messageText(last).includes(t('chat.pathASoftGuide'))) {
+      const existing = messageText(last)
+      setMessageText(
+        last.id,
+        existing ? `${existing}\n\n${t('chat.pathASoftGuide')}` : t('chat.pathASoftGuide')
+      )
+    }
+  }
+}
+
 async function ensureConversation() {
   if (journey.conversationId) {
     return journey.conversationId
@@ -950,24 +1401,40 @@ async function ensureConversation() {
     selectedPackage.value = created.package_plan
     packageConfirmed.value = created.package_plan.confirmed
   }
+  // Hydrate path from core when present (path-contract API).
+  if (pathContractEnabled.value && isConversationPath(created.path)) {
+    conversationPath.value = created.path
+    pathCAwaitingUpload.value = created.path === 'C' && !created.report_id
+  }
   postQuizGuided.value = false
   profileGaps.value = []
   reportResults.value = []
   journey.reportDockOpen = false
   journey.reportDockCollapsed = false
   if (journey.messages.length === 0) {
+    const greetingText = pathContractEnabled.value && !isStandardFlow.value
+      && conversationPath.value == null
+      ? `${created.greeting.content}\n\n${t('chat.pathEntryPrompt')}`
+      : created.greeting.content
     const greeting = makeMessage(
       'assistant',
-      created.greeting.content,
+      greetingText,
       created.greeting.message_id || 'greet'
     )
     journey.messages.push(greeting)
   }
   goalOptions.value = created.greeting.options ?? []
   selectedCodes.value = [...(created.greeting.selected ?? [])]
-  goalSelectActive.value = true
+  // Path contract: wait for 進站三選 before goal chips／quiz.
+  goalSelectActive.value = !(pathContractEnabled.value && !isStandardFlow.value
+    && conversationPath.value == null)
   quizActive.value = false
   activeQuestion.value = null
+
+  // Path C awaiting first upload: do not collect basics until upload or skip→B.
+  if (pathRequiresBasicProfile(conversationPath.value) && !pathCAwaitingUpload.value) {
+    void ensureRequiredBasicsCollection()
+  }
 
   return created.id
 }
@@ -1353,7 +1820,15 @@ async function streamPending() {
     if (journey.hasAnalysis && reportResults.value.length > 0) {
       openReportDock({ expand: false })
     }
+    refreshPathATurnCount()
     guideAfterQuiz()
+    // Path B／C: if stream did not surface required basics, try one follow-up collect.
+    // Avoid re-entrancy while another ensure is already painting／streaming.
+    if (pathRequiresBasicProfile(conversationPath.value)
+      && !isBasicProfileComplete(profileGaps.value)
+      && !quizActive.value) {
+      void ensureRequiredBasicsCollection()
+    }
   } catch {
     if (intent === 'interpret') {
       journey.reportInterpretSent = false
@@ -1477,6 +1952,15 @@ async function sendText(text: string) {
   if (!content || pending.value || readonly.value || escalated.value) {
     return
   }
+  if (pathEntryPending.value) {
+    return
+  }
+  // Path A ≥25: fixed reply — only switch-to-B CTA, no free chat.
+  if (pathAGuideMode.value === 'hard') {
+    appendMessage('user', content)
+    appendMessage('assistant', t('chat.pathAHardGuide'))
+    return
+  }
 
   const profile = lastAssistantProfile.value
   if (profile) {
@@ -1536,6 +2020,35 @@ function clearLastAssistantOptions() {
 
 function onChoice(option: GreetingOption) {
   if (pending.value) {
+    return
+  }
+
+  // Path contract: 進站三選
+  if (pathEntryPending.value && isConversationPath(option.code)) {
+    appendMessage('user', option.label)
+    void selectConversationPath(option.code, 'entry')
+    return
+  }
+
+  // Path A soft／hard guides
+  if (option.code === PATH_GUIDE_CHECKUP_CODE) {
+    appendMessage('user', option.label)
+    const url = checkupLinkUrl.value
+    if (url && import.meta.client) {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } else if (!checkupUrlLoaded.value) {
+      void loadCheckupLinkUrl()
+    }
+    return
+  }
+  if (option.code === PATH_GUIDE_TO_B_CODE) {
+    appendMessage('user', option.label)
+    void selectConversationPath('B', 'guide_switch')
+    return
+  }
+  if (option.code === PATH_C_SKIP_CODE) {
+    appendMessage('user', option.label)
+    void demotePathCToB('cancel_demote')
     return
   }
 
@@ -1920,6 +2433,7 @@ async function confirmPhotoTray() {
     const uploaded = await candor.uploadHealthReportFiles(compressed)
     journey.reportId = uploaded.id
     reportPollStatus.value = uploaded.status || 'uploaded'
+    await promotePathToCOnUpload()
 
     const report = await pollReport(uploaded.id)
     if (!report) {
@@ -2105,6 +2619,7 @@ async function onFile(event: Event) {
     const uploaded = await candor.uploadHealthReport(file)
     journey.reportId = uploaded.id
     reportPollStatus.value = uploaded.status || 'uploaded'
+    await promotePathToCOnUpload()
 
     const report = await pollReport(uploaded.id)
     if (!report) {
@@ -2189,6 +2704,14 @@ async function onSubmit() {
   input.value = ''
   focusChatInput()
   if (!content || pending.value) {
+    return
+  }
+  if (pathEntryPending.value) {
+    return
+  }
+  if (pathAGuideMode.value === 'hard') {
+    appendMessage('user', content)
+    appendMessage('assistant', t('chat.pathAHardGuide'))
     return
   }
 
@@ -2465,6 +2988,11 @@ onMounted(async () => {
     await ensureConversation()
     if (restoringConversation && journey.conversationId) {
       await hydrateConversationHistory(journey.conversationId)
+    }
+    // After hydrate／create: B／C must still surface required basics (trust GET /profile,
+    // not history profile_gaps which may be empty while fields are still missing).
+    if (pathRequiresBasicProfile(conversationPath.value) && !pathCAwaitingUpload.value) {
+      await ensureRequiredBasicsCollection()
     }
     await applyHomeGoal()
   } catch {

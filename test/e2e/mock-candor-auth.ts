@@ -73,6 +73,18 @@ export type CandorMockOptions = {
    * seed checkup_offer on every offer_recommend turn (core #99 / younger #30).
    */
   legacyCheckupOfferConflict?: boolean
+  /**
+   * Path contract A／B／C on POST /conversations.
+   * Default `B` so existing e2e skip 進站三選 and keep goal chips.
+   * Pass `null` to force entry three-choice UI (path-contract specs).
+   */
+  conversationPath?: 'A' | 'B' | 'C' | null
+  /**
+   * GET /profile returns filled sex／age／height／weight when true.
+   * Default true so completion CTA / goal e2e are not blocked by required asks.
+   * Pass false in path-contract specs that assert sex／age／height／weight 必問.
+   */
+  basicProfileComplete?: boolean
 }
 
 const legacyPackagePlans = [
@@ -883,6 +895,11 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     })
   })
 
+  const resolvedConversationPath = options.conversationPath === undefined
+    ? 'B' as const
+    : options.conversationPath
+  const resolvedBasicProfileComplete = options.basicProfileComplete ?? true
+
   await page.route('**/api/v1/conversations', async (route) => {
     if (route.request().method() !== 'POST') {
       await route.fallback()
@@ -898,6 +915,9 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         data: {
           id: conversationId,
           report_id: null,
+          ...(resolvedConversationPath
+            ? { path: resolvedConversationPath }
+            : {}),
           ...(includePackage
             ? {
                 package_plan: {
@@ -915,6 +935,28 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
             options: goalOptions,
             selected: []
           }
+        }
+      })
+    })
+  })
+
+  // TODO(candor-core path-contract): soft-fail target for FE setConversationPath.
+  await page.route(`**/api/v1/conversation/${conversationId}/path`, async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback()
+      return
+    }
+    const body = route.request().postDataJSON() as { path?: string } | null
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: {
+          id: conversationId,
+          path: body?.path === 'A' || body?.path === 'B' || body?.path === 'C'
+            ? body.path
+            : 'B'
         }
       })
     })
@@ -1352,14 +1394,23 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data: {
-          sex: null,
-          age_years: null,
-          height_cm: null,
-          weight_kg: null,
-          diet: null,
-          goals: asMember ? ['sleep', 'immune_boost'] : []
-        }
+        data: resolvedBasicProfileComplete
+          ? {
+              sex: 'F',
+              age_years: 35,
+              height_cm: 165,
+              weight_kg: 55,
+              diet: null,
+              goals: asMember ? ['sleep', 'immune_boost'] : []
+            }
+          : {
+              sex: null,
+              age_years: null,
+              height_cm: null,
+              weight_kg: null,
+              diet: null,
+              goals: asMember ? ['sleep', 'immune_boost'] : []
+            }
       })
     })
   })

@@ -8,6 +8,8 @@ import type {
   ConversationGoalsResult,
   ConversationMessages,
   ConversationPackageConfirm,
+  ConversationPathAck,
+  ConversationPathUpdate,
   ExpertCaseReviewList,
   ExpertCaseReviewStatus,
   HealthReport,
@@ -414,8 +416,24 @@ export function useCandorApi() {
       report_id?: string
       renewal_of_order_id?: string
       package_plan_code?: string
+      /** Path contract entry; core may ignore until path-contract API ships. */
+      path?: 'A' | 'B' | 'C'
     } = {}) =>
       request<ConversationCreate>('/conversations', { method: 'POST', body }),
+    /**
+     * Sync conversation path A／B／C to core.
+     * TODO(candor-core path-contract): endpoint may be PATCH conversation or
+     * dedicated POST /path — adjust path string when core draft lands.
+     * Callers must soft-fail (catch) so local journey path still drives UI.
+     */
+    setConversationPath: (
+      conversationId: string,
+      body: ConversationPathUpdate
+    ) =>
+      request<ConversationPathAck>(
+        `/conversation/${encodeURIComponent(conversationId)}/path`,
+        { method: 'POST', body: body as unknown as Record<string, unknown> }
+      ),
     setConversationGoals: (
       conversationId: string,
       body: { goals?: string[], raw_text?: string | null }
