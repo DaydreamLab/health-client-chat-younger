@@ -522,7 +522,9 @@ test.describe('member checkout', () => {
     await page.getByTestId('chat-report-interpret').click()
     // Bubble外連改 RA-only（#20）：interpret 不再 FE 硬掛 wantMoreTestsOffer。
     // Dock「我想檢查更多」仍固定可點（#23 Irice 拍板）。
+    // Irice 2026-10-28：有報告時「請助理說明重點」常駐（點過後不消失）。
     await expect(page.getByTestId('chat-last-reply')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('chat-report-interpret')).toBeVisible()
     await expect(
       page.getByTestId('chat-last-reply').getByTestId('chat-message-want-more-tests')
     ).toHaveCount(0)

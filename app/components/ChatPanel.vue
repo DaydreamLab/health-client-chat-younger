@@ -147,6 +147,7 @@
         :results="reportResults"
         :report-id="journey.reportId"
         :show-interpret="reportDockBar.showExplainHighlights"
+        :interpret-disabled="reportDockBar.explainHighlightsDisabled"
         :show-want-more-tests="reportDockBar.showWantMoreTestsLink"
         @update:collapsed="onReportDockCollapsed"
         @updated="onReportResultsUpdated"
@@ -2054,7 +2055,15 @@ async function bindAndInterpret(reportId: string) {
 }
 
 async function askInterpret() {
-  if (pending.value || readonly.value || escalated.value || !journey.hasAnalysis) {
+  // Mirrors reportDockBarVisibility.explainHighlightsDisabled (+ hasAnalysis).
+  if (
+    !journey.hasAnalysis
+    || pending.value
+    || readonly.value
+    || escalated.value
+    || Boolean(reportRetryId.value)
+    || Boolean(lastAssistantProfile.value)
+  ) {
     return
   }
   const interpret = t('chat.askInterpret')

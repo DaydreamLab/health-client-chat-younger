@@ -201,32 +201,44 @@ export interface ReportDockBarInput {
   ctx: ChatTurnUiContext
   /** Active profile question on latest intake (same as bubble recommend guard). */
   profileQuestionActive: boolean
+  /**
+   * Kept for callers / persistence; Irice 2026-10-28：有報告時 interpret 常駐，
+   * 不再依 reportInterpretSent 隱藏。
+   */
   reportInterpretSent: boolean
   promptMode: boolean
 }
 
 export interface ReportDockBarVisibility {
+  /** Result dock only — never on empty prompt bar. */
   showExplainHighlights: boolean
+  /** Visible but not clickable when journey blocks (readonly／escalated／…). */
+  explainHighlightsDisabled: boolean
   showWantMoreTestsLink: boolean
 }
 
-/** Top report dock bar — same gates as bubble TurnActions where applicable. */
+/**
+ * Top report dock bar.
+ * Irice 2026-10-28：有報告結果列時「請助理說明重點」常駐可見；
+ * readonly／escalated／pending／reportRetry／profile 問卷中改 disabled，不整顆消失。
+ * 空 dock（promptMode）仍只顯示上傳／我想檢查。
+ */
 export function reportDockBarVisibility(input: ReportDockBarInput): ReportDockBarVisibility {
-  const { ctx, profileQuestionActive, reportInterpretSent, promptMode } = input
+  const { ctx, profileQuestionActive, promptMode } = input
   if (promptMode) {
     return {
       showExplainHighlights: false,
+      explainHighlightsDisabled: false,
       showWantMoreTestsLink: false
     }
   }
-  const baseBlocked = ctx.readonlyMode || ctx.escalated || ctx.pending || ctx.reportRetry
-  // Interpret dock is not「完成 CTA」; allow after analysis even if goals still open.
   const showExplainHighlights = ctx.hasReportAnalysis
-    && !baseBlocked
-    && !profileQuestionActive
-    && !(ctx.goalSelectActive && !ctx.hasReportAnalysis)
-    && !(ctx.reportAskActive && !ctx.hasReportAnalysis)
-    && !reportInterpretSent
+  const explainHighlightsDisabled = showExplainHighlights
+    && (ctx.readonlyMode
+      || ctx.escalated
+      || ctx.pending
+      || ctx.reportRetry
+      || profileQuestionActive)
   const showWantMoreTestsLink = ctx.hasReportAnalysis
     && !ctx.readonlyMode
     && !ctx.escalated
@@ -234,6 +246,7 @@ export function reportDockBarVisibility(input: ReportDockBarInput): ReportDockBa
     && ctx.checkupLinkReady
   return {
     showExplainHighlights,
+    explainHighlightsDisabled,
     showWantMoreTestsLink
   }
 }
