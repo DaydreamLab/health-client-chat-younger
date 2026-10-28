@@ -391,6 +391,10 @@ import {
   inferClarifyingGoalLabels,
   stripFinishedQuizGuide
 } from '~/utils/first-order'
+import {
+  basicQuestionFollowsUserTurn,
+  peelAppendedPrompt
+} from '~/utils/basic-question-host'
 import { findIntakeAssistantMessage } from '~/utils/chat-intake'
 import {
   buildTurnActionsVisibility,
@@ -1202,13 +1206,16 @@ async function ensureRequiredBasicsCollection() {
     return
   }
 
-  // Prefer existing required ask already on the latest bubble.
+  // Prefer an in-place required ask. A user turn after it (direct upload)
+  // must not count — that splice leaves the height question above the upload.
+  const lastMessage = journey.messages[journey.messages.length - 1]
+  const userFollowsAsk = basicQuestionFollowsUserTurn(lastMessage?.role)
   const last = [...journey.messages].reverse().find(m => m.role === 'assistant')
-  if (last?.profileQuestion && isRequiredBasicGapCode(last.profileQuestion.gap_code)) {
+  if (!userFollowsAsk && last?.profileQuestion && isRequiredBasicGapCode(last.profileQuestion.gap_code)) {
     quizActive.value = true
     return
   }
-  if (last?.replyActions && isUsableReplyActions(last.replyActions)) {
+  if (!userFollowsAsk && last?.replyActions && isUsableReplyActions(last.replyActions)) {
     const hasRequiredAsk = last.replyActions.actions.some((action) => {
       if (action.type === 'ask_vitals') {
         return true
@@ -1247,11 +1254,92 @@ async function ensureRequiredBasicsCollection() {
   paintClientRequiredBasicPlaceholder(missing[0]!)
 }
 
-function paintClientRequiredBasicPlaceholder(gap: string) {
-  const host = [...journey.messages].reverse().find(m => m.role === 'assistant')
-  if (!host) {
-    return
+function vitalGapField(gap: string): VitalsField | null {
+  if (gap === 'age' || gap === 'age_years') {
+    return 'age'
   }
+  if (gap === 'height' || gap === 'height_cm') {
+    return 'height'
+  }
+  if (gap === 'weight' || gap === 'weight_kg') {
+    return 'weight'
+  }
+  return null
+}
+
+function askVitalsReplyActions(field: VitalsField): ReplyActions {
+  return {
+    schema_version: '0.1',
+    source: 'path_contract_client',
+    adaptor: 'fake',
+    degraded: false,
+    error: null,
+    actions: [
+      {
+        type: 'ask_vitals',
+        payload: { fields: [field], gap_code: field }
+      }
+    ]
+  }
+}
+
+function messageHasRequiredBasicAsk(message: ChatMessage | undefined): boolean {
+  if (!message) {
+    return false
+  }
+  if (message.profileQuestion && isRequiredBasicGapCode(message.profileQuestion.gap_code)) {
+    return true
+  }
+  const actions = message.replyActions
+  if (!isUsableReplyActions(actions)) {
+    return false
+  }
+  return actions.actions.some((action) => {
+    if (action.type === 'ask_vitals') {
+      return true
+    }
+    if (action.type !== 'choose_option') {
+      return false
+    }
+    return isRequiredBasicGapCode(chooseOptionPayload(action).gap_code)
+  })
+}
+
+/**
+ * Host for the next basic question.
+ * After a direct upload the latest turn is the user file bubble; appending
+ * the prompt onto the previous assistant message cuts the question off.
+ */
+function placeBasicQuestionBubble(prompt: string): ChatMessage | null {
+  const lastAssistant = [...journey.messages].reverse().find(m => m.role === 'assistant')
+  if (!lastAssistant) {
+    return null
+  }
+  const last = journey.messages[journey.messages.length - 1]
+  if (!basicQuestionFollowsUserTurn(last?.role)) {
+    return lastAssistant
+  }
+  const existing = messageText(lastAssistant)
+  const peeled = peelAppendedPrompt(existing, prompt)
+  if (peeled) {
+    setMessageText(lastAssistant.id, peeled)
+    if (lastAssistant.profileQuestion && isRequiredBasicGapCode(lastAssistant.profileQuestion.gap_code)) {
+      lastAssistant.profileQuestion = null
+      lastAssistant.turnType = 'message'
+      lastAssistant.options = []
+    }
+    return appendMessage('assistant', prompt)
+  }
+  if (prompt && existing.trim() === prompt.trim()) {
+    return lastAssistant
+  }
+  if (prompt && existing.includes(prompt) && messageHasRequiredBasicAsk(lastAssistant)) {
+    return lastAssistant
+  }
+  return appendMessage('assistant', prompt)
+}
+
+function paintClientRequiredBasicPlaceholder(gap: string) {
   if (gap === 'sex') {
     paintLocalProfileQuestion({
       done: false,
@@ -1275,76 +1363,83 @@ function paintClientRequiredBasicPlaceholder(gap: string) {
     : field === 'height'
       ? 'chat.pathAskHeight'
       : 'chat.pathAskWeight'
-  const existing = messageText(host)
   const prompt = t(promptKey)
+  const host = placeBasicQuestionBubble(prompt)
+  if (!host) {
+    return
+  }
+  const existing = messageText(host)
   if (!existing.includes(prompt)) {
     setMessageText(host.id, existing ? `${existing}\n\n${prompt}` : prompt)
   }
-  host.replyActions = {
-    schema_version: '0.1',
-    source: 'path_contract_client',
-    adaptor: 'fake',
-    degraded: false,
-    error: null,
-    actions: [
-      {
-        type: 'ask_vitals',
-        payload: { fields: [field], gap_code: field }
-      }
-    ]
-  }
+  host.replyActions = askVitalsReplyActions(field)
+  host.turnType = 'message'
+  host.profileQuestion = null
   quizActive.value = false
   activeQuestion.value = null
   goalSelectActive.value = false
 }
 
 function paintLocalProfileQuestion(next: Extract<ProfileNext, { done: false }>) {
-  const host = [...journey.messages].reverse().find(m => m.role === 'assistant')
+  const host = placeBasicQuestionBubble(next.prompt || '')
   if (!host) {
     return
   }
   const answerType = next.answer_type
-  host.turnType = 'profile'
-  host.profileQuestion = {
-    gap_code: next.gap_code,
-    answer_type: answerType
-  }
-  host.options = next.options ?? []
-  // Prefer reply_actions choose_option so chips render even when history／stream
-  // left a covering offer_recommend／none column on the same bubble.
-  if (next.options?.length) {
-    host.replyActions = {
-      schema_version: '0.1',
-      source: 'path_contract_client',
-      adaptor: 'fake',
-      degraded: false,
-      error: null,
-      actions: [
-        {
-          type: 'choose_option',
-          payload: {
-            kind: 'profile',
-            gap_code: next.gap_code,
-            answer_type: answerType,
-            mode: answerType === 'multi_enum' ? 'multi' : 'single',
-            options: next.options,
-            confirm: answerType === 'multi_enum'
-          }
-        }
-      ]
-    }
+  const vitalField = vitalGapField(next.gap_code)
+  // Int vitals keep ask_vitals. Clearing reply_actions here dropped the height card
+  // after a direct upload (question text spliced onto the upload invite, no input).
+  if (!next.options?.length && vitalField) {
+    host.turnType = 'message'
+    host.profileQuestion = null
+    host.options = []
+    host.replyActions = askVitalsReplyActions(vitalField)
+    quizActive.value = false
+    activeQuestion.value = null
+    goalSelectActive.value = false
   } else {
-    host.replyActions = undefined
+    host.turnType = 'profile'
+    host.profileQuestion = {
+      gap_code: next.gap_code,
+      answer_type: answerType
+    }
+    host.options = next.options ?? []
+    // Prefer reply_actions choose_option so chips render even when history／stream
+    // left a covering offer_recommend／none column on the same bubble.
+    if (next.options?.length) {
+      host.replyActions = {
+        schema_version: '0.1',
+        source: 'path_contract_client',
+        adaptor: 'fake',
+        degraded: false,
+        error: null,
+        actions: [
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'profile',
+              gap_code: next.gap_code,
+              answer_type: answerType,
+              mode: answerType === 'multi_enum' ? 'multi' : 'single',
+              options: next.options,
+              confirm: answerType === 'multi_enum'
+            }
+          }
+        ]
+      }
+    } else {
+      host.replyActions = undefined
+    }
+    activeQuestion.value = {
+      done: false,
+      gap_code: next.gap_code,
+      prompt: next.prompt || '',
+      answer_type: answerType,
+      options: next.options ?? []
+    }
+    quizActive.value = true
+    goalSelectActive.value = false
   }
-  activeQuestion.value = {
-    done: false,
-    gap_code: next.gap_code,
-    prompt: next.prompt || '',
-    answer_type: answerType,
-    options: next.options ?? []
-  }
-  quizActive.value = true
-  goalSelectActive.value = false
   if (next.gap_code && !profileGaps.value.includes(next.gap_code)) {
     profileGaps.value = [...profileGaps.value, next.gap_code]
   }
@@ -2741,6 +2836,9 @@ async function bindAndInterpret(reportId: string) {
 
   const keepGoals = goalSelectActive.value
   const keepProfile = lastAssistantProfile.value !== null
+  const lastAssistant = [...journey.messages].reverse().find(m => m.role === 'assistant')
+  // Direct upload must not start a follow-up stream that covers an open height ask.
+  const keepRequiredAsk = messageHasRequiredBasicAsk(lastAssistant)
   const gapsRemain = profileGaps.value.length > 0
 
   journey.reportId = reportId
@@ -2751,7 +2849,7 @@ async function bindAndInterpret(reportId: string) {
   reportPollStatus.value = null
   openReportDock()
 
-  if (!keepGoals && !keepProfile && gapsRemain && !readonly.value && !escalated.value) {
+  if (!keepGoals && !keepProfile && !keepRequiredAsk && gapsRemain && !readonly.value && !escalated.value) {
     pendingUserContent.value = t('chat.continueIntake')
     pendingIntent.value = null
     await streamPending()
