@@ -23,8 +23,22 @@ async function openFreshChat(page: Page, goto: (path: string, opts?: { waitUntil
   await page.setViewportSize({ width: 1280, height: 800 })
   await goto('/chat', { waitUntil: 'hydration' })
   await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
-  await page.reload({ waitUntil: 'domcontentloaded' })
+  await goto('/chat', { waitUntil: 'hydration' })
   await expect(page.getByTestId('chat-transcript')).toBeVisible({ timeout: 20_000 })
+}
+
+async function finishGoalSelect(page: Page) {
+  await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
+  await page.getByTestId('chat-quiz-option-sleep').click()
+  await page.getByTestId('chat-quiz-confirm').click()
+  await expect(page.getByTestId('chat-quiz-confirm')).toHaveCount(0, { timeout: 15_000 })
+}
+
+async function sendChatLine(page: Page, text: string) {
+  const input = page.getByTestId('chat-input')
+  await expect(input).toBeVisible({ timeout: 15_000 })
+  await input.fill(text)
+  await page.getByTestId('chat-send').click()
 }
 
 test.describe('path contract (A／B／C)', () => {
@@ -98,14 +112,12 @@ test.describe('path contract (A／B／C)', () => {
       replyActions: 'offer_recommend'
     })
     await seedNoExpertCase(page)
-    await openFreshChat(page, goto)
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await goto('/chat', { waitUntil: 'hydration' })
+    await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
 
-    const sleep = page.getByTestId('chat-quiz-option-sleep')
-    await expect(sleep).toBeVisible({ timeout: 15_000 })
-    await sleep.click()
-    await page.getByTestId('chat-quiz-confirm').click()
-    await page.getByTestId('chat-input').fill('請給方案')
-    await page.getByTestId('chat-send').click()
+    await finishGoalSelect(page)
+    await sendChatLine(page, '請給方案')
 
     const last = page.getByTestId('chat-last-reply')
     await expect(last.getByTestId('chat-submit-expert-review')).toBeVisible({ timeout: 15_000 })
@@ -124,15 +136,12 @@ test.describe('path contract (A／B／C)', () => {
       replyActions: 'none'
     })
     await seedNoExpertCase(page)
-    await openFreshChat(page, goto)
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await goto('/chat', { waitUntil: 'hydration' })
+    await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
 
-    const sleep = page.getByTestId('chat-quiz-option-sleep')
-    if (await sleep.isVisible().catch(() => false)) {
-      await sleep.click()
-      await page.getByTestId('chat-quiz-confirm').click()
-    }
-    await page.getByTestId('chat-input').fill('還有嗎')
-    await page.getByTestId('chat-send').click()
+    await finishGoalSelect(page)
+    await sendChatLine(page, '還有嗎')
 
     const last = page.getByTestId('chat-last-reply')
     await expect(last).toBeVisible({ timeout: 15_000 })

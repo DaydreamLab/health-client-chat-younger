@@ -585,7 +585,10 @@ const selectedPackageCodeFromQuery = computed(() => queryPackageCode(route.query
 
 const messages = computed(() => readonly.value ? viewMessages.value : journey.messages)
 
-/** Waiting for 進站三選 on the greeting bubble. */
+/**
+ * Waiting for 進站三選 on a fresh greeting only.
+ * Legacy／hydrate sessions with user turns keep path=null → RA rules (no entry overlay).
+ */
 const pathEntryPending = computed(() =>
   pathContractEnabled.value
   && !readonly.value
@@ -593,6 +596,7 @@ const pathEntryPending = computed(() =>
   && conversationPath.value == null
   && Boolean(journey.conversationId)
   && messages.value.some(m => m.role === 'assistant')
+  && !messages.value.some(m => m.role === 'user')
 )
 
 const labReportQuizActive = computed(() => {
@@ -1231,6 +1235,32 @@ function paintLocalProfileQuestion(next: Extract<ProfileNext, { done: false }>) 
     answer_type: answerType
   }
   host.options = next.options ?? []
+  // Prefer reply_actions choose_option so chips render even when history／stream
+  // left a covering offer_recommend／none column on the same bubble.
+  if (next.options?.length) {
+    host.replyActions = {
+      schema_version: '0.1',
+      source: 'path_contract_client',
+      adaptor: 'fake',
+      degraded: false,
+      error: null,
+      actions: [
+        {
+          type: 'choose_option',
+          payload: {
+            kind: 'profile',
+            gap_code: next.gap_code,
+            answer_type: answerType,
+            mode: answerType === 'multi_enum' ? 'multi' : 'single',
+            options: next.options,
+            confirm: answerType === 'multi_enum'
+          }
+        }
+      ]
+    }
+  } else {
+    host.replyActions = undefined
+  }
   activeQuestion.value = {
     done: false,
     gap_code: next.gap_code,
@@ -2958,6 +2988,11 @@ onMounted(async () => {
     await ensureConversation()
     if (restoringConversation && journey.conversationId) {
       await hydrateConversationHistory(journey.conversationId)
+    }
+    // After hydrate／create: B／C must still surface required basics (trust GET /profile,
+    // not history profile_gaps which may be empty while fields are still missing).
+    if (pathRequiresBasicProfile(conversationPath.value) && !pathCAwaitingUpload.value) {
+      await ensureRequiredBasicsCollection()
     }
     await applyHomeGoal()
   } catch {
