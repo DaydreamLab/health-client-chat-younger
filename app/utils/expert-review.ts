@@ -1,8 +1,16 @@
 import type {
+  ExpertCaseReviewListItem,
   ExpertCaseReviewStatus,
   RecommendationPackage,
   RecommendationResponse
 } from '~/utils/candor-api'
+
+/** Keep polling only while at least one case is still awaiting_review. */
+export function expertReviewPollShouldContinue(
+  rows: Array<Pick<ExpertCaseReviewListItem, 'status'>>
+): boolean {
+  return rows.some(row => row.status === 'awaiting_review')
+}
 
 /** Active (non-removed) items for display and checkout. */
 export function activePackageItems<T extends { removed?: boolean }>(items: T[]): T[] {

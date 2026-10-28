@@ -1,5 +1,6 @@
 import type { ExpertCaseReviewListItem } from '~/utils/candor-api'
 import type { ExpertReviewUiStatus } from '~/utils/chat-turn-actions'
+import { expertReviewPollShouldContinue } from '~/utils/expert-review'
 
 export const EXPERT_REVIEW_AUTO_NAV_KEY = 'candor.expertReview.autoNavChat'
 const POLL_MS = 8000
@@ -49,8 +50,9 @@ function statusFromList(
 }
 
 /**
- * Poll member expert-case-reviews; sync journey status; auto-navigate to /chat
- * once per session when a case flips awaiting_review → reviewed.
+ * Poll member expert-case-reviews only while a case is awaiting_review;
+ * sync journey status; auto-navigate to /chat once per session when a case
+ * flips awaiting_review → reviewed.
  */
 export function useExpertReviewWatch() {
   const auth = useAuthStore()
@@ -70,6 +72,15 @@ export function useExpertReviewWatch() {
       clearInterval(pollTimer)
       pollTimer = null
     }
+  }
+
+  function startPoll() {
+    if (!import.meta.client || pollTimer || !auth.isMember) {
+      return
+    }
+    pollTimer = setInterval(() => {
+      void refresh({ silent: true })
+    }, POLL_MS)
   }
 
   function shouldSkipAutoNav(): boolean {
@@ -134,29 +145,34 @@ export function useExpertReviewWatch() {
       const list = await candor.listExpertCaseReviews({ limit: 50 })
       const rows = list.expert_case_reviews ?? []
       reviews.value = rows
-      journey.expertReviewStatus = statusFromList(rows, journey.conversationId)
+      // Auto-nav / start-stop poll before writing status so the awaiting_review
+      // watch does not kick a second refresh while the timer is still null.
       maybeAutoNavToChat(rows)
+      if (expertReviewPollShouldContinue(rows)) {
+        startPoll()
+      } else {
+        stopPoll()
+      }
+      journey.expertReviewStatus = statusFromList(rows, journey.conversationId)
     } catch {
       error.value = 'load_failed'
+      // Do not stop an in-flight wait on transient errors; only (re)start when
+      // local state already expects a pending review.
+      if (journey.expertReviewStatus === 'awaiting_review') {
+        startPoll()
+      } else {
+        stopPoll()
+      }
     } finally {
       loading.value = false
     }
-  }
-
-  function startPoll() {
-    if (!import.meta.client || pollTimer || !auth.isMember) {
-      return
-    }
-    pollTimer = setInterval(() => {
-      void refresh({ silent: true })
-    }, POLL_MS)
   }
 
   onMounted(() => {
     if (!import.meta.client) {
       return
     }
-    void refresh().then(() => startPoll())
+    void refresh()
   })
 
   onUnmounted(() => {
@@ -165,12 +181,20 @@ export function useExpertReviewWatch() {
 
   watch(() => auth.isMember, (member) => {
     if (member) {
-      void refresh().then(() => startPoll())
+      void refresh()
     } else {
       stopPoll()
       reviews.value = []
       journey.expertReviewStatus = 'none'
     }
+  })
+
+  // Re-enter poll after the member submits a new case (ChatPanel sets awaiting_review).
+  watch(() => journey.expertReviewStatus, (status) => {
+    if (status !== 'awaiting_review' || !auth.isMember || pollTimer) {
+      return
+    }
+    void refresh()
   })
 
   return {

@@ -1,12 +1,27 @@
 import { describe, expect, it } from 'vitest'
 import {
   activePackageItems,
+  expertReviewPollShouldContinue,
   packagesForCheckout,
   recommendationFromExpertReview
 } from '../../app/utils/expert-review'
 import type { ExpertCaseReviewStatus, RecommendationPackage } from '../../app/utils/candor-api'
 
 describe('expert-review helpers', () => {
+  it('continues poll only while a case is awaiting_review', () => {
+    expect(expertReviewPollShouldContinue([])).toBe(false)
+    expect(expertReviewPollShouldContinue([
+      { status: 'reviewed' }
+    ])).toBe(false)
+    expect(expertReviewPollShouldContinue([
+      { status: 'awaiting_review' }
+    ])).toBe(true)
+    expect(expertReviewPollShouldContinue([
+      { status: 'reviewed' },
+      { status: 'awaiting_review' }
+    ])).toBe(true)
+  })
+
   it('filters removed items for checkout', () => {
     expect(activePackageItems([
       { code: 'a', removed: false },
