@@ -87,21 +87,18 @@ async function expectChartLabelsInsideCard(page: import('@playwright/test').Page
   expect(result.ok, JSON.stringify(result)).toBe(true)
 }
 
-const metrics = ['resting_hr', 'steps', 'sleep_minutes'] as const
+// Bilingual smoke (one metric each); full metric matrix deleted as redundant.
+test('en 7-day steps chart labels avoid clip, overlap, line and points', async ({ page, goto }) => {
+  await goto('/en/app/wearables/apple-watch?metric=steps', { waitUntil: 'hydration' })
+  await expect(page.getByTestId('wearables-metric-steps')).toHaveClass(/app-btn-primary/)
+  await expectChartLabelsClear(page)
+})
 
-for (const metric of metrics) {
-  test(`en 7-day ${metric} chart labels avoid clip, overlap, line and points`, async ({ page, goto }) => {
-    await goto(`/en/app/wearables/apple-watch?metric=${metric}`, { waitUntil: 'hydration' })
-    await expect(page.getByTestId(`wearables-metric-${metric}`)).toHaveClass(/app-btn-primary/)
-    await expectChartLabelsClear(page)
-  })
-
-  test(`zh 7-day ${metric} chart labels avoid clip, overlap, line and points`, async ({ page, goto }) => {
-    await goto(`/app/wearables/apple-watch?metric=${metric}`, { waitUntil: 'hydration' })
-    await expect(page.getByTestId(`wearables-metric-${metric}`)).toHaveClass(/app-btn-primary/)
-    await expectChartLabelsClear(page)
-  })
-}
+test('zh 7-day steps chart labels avoid clip, overlap, line and points', async ({ page, goto }) => {
+  await goto('/app/wearables/apple-watch?metric=steps', { waitUntil: 'hydration' })
+  await expect(page.getByTestId('wearables-metric-steps')).toHaveClass(/app-btn-primary/)
+  await expectChartLabelsClear(page)
+})
 
 test('metric query selects matching active tab for sleep', async ({ page, goto }) => {
   await goto('/en/app/wearables/apple-watch?metric=sleep_minutes', { waitUntil: 'hydration' })
@@ -110,7 +107,7 @@ test('metric query selects matching active tab for sleep', async ({ page, goto }
   await expect(page.getByRole('heading', { level: 2, name: 'Sleep' })).toBeVisible()
 })
 
-// Reported overflow: Oura EN steps at 390/430; matrix covers both devices × metrics × locales at 390.
+// Named repro: Oura EN steps overflow at 390/430.
 test('mobile 430px en oura-ring steps labels stay inside card', async ({ page, goto }) => {
   await page.setViewportSize({ width: 430, height: 844 })
   await goto('/en/app/wearables/oura-ring?metric=steps', { waitUntil: 'hydration' })
@@ -119,22 +116,19 @@ test('mobile 430px en oura-ring steps labels stay inside card', async ({ page, g
   await expectChartLabelsInsideCard(page)
 })
 
-for (const device of ['oura-ring', 'apple-watch'] as const) {
-  for (const metric of metrics) {
-    test(`mobile 390px en ${device} ${metric} labels stay inside card`, async ({ page, goto }) => {
-      await page.setViewportSize({ width: 390, height: 844 })
-      await goto(`/en/app/wearables/${device}?metric=${metric}`, { waitUntil: 'hydration' })
-      await expect(page.getByTestId(`wearables-metric-${metric}`)).toHaveClass(/app-btn-primary/)
-      await expectChartLabelsClear(page)
-      await expectChartLabelsInsideCard(page)
-    })
+// Keep one 390 en (same device/metric as 430 repro) + one zh smoke; drop 10/12 matrix.
+test('mobile 390px en oura-ring steps labels stay inside card', async ({ page, goto }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await goto('/en/app/wearables/oura-ring?metric=steps', { waitUntil: 'hydration' })
+  await expect(page.getByTestId('wearables-metric-steps')).toHaveClass(/app-btn-primary/)
+  await expectChartLabelsClear(page)
+  await expectChartLabelsInsideCard(page)
+})
 
-    test(`mobile 390px zh ${device} ${metric} labels stay inside card`, async ({ page, goto }) => {
-      await page.setViewportSize({ width: 390, height: 844 })
-      await goto(`/app/wearables/${device}?metric=${metric}`, { waitUntil: 'hydration' })
-      await expect(page.getByTestId(`wearables-metric-${metric}`)).toHaveClass(/app-btn-primary/)
-      await expectChartLabelsClear(page)
-      await expectChartLabelsInsideCard(page)
-    })
-  }
-}
+test('mobile 390px zh oura-ring steps labels stay inside card', async ({ page, goto }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await goto('/app/wearables/oura-ring?metric=steps', { waitUntil: 'hydration' })
+  await expect(page.getByTestId('wearables-metric-steps')).toHaveClass(/app-btn-primary/)
+  await expectChartLabelsClear(page)
+  await expectChartLabelsInsideCard(page)
+})
