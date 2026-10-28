@@ -58,7 +58,7 @@ test.describe('standard /chat-ai vs expert /chat', () => {
 
     const submit = page.getByTestId('chat-last-reply').getByTestId('chat-submit-expert-review')
     await expect(submit).toBeVisible({ timeout: 15_000 })
-    await expect(submit).toHaveText('提交專家判讀')
+    await expect(submit).toHaveText('取得專屬保健品方案')
     await expect(page.getByTestId('chat-view-recommend')).toHaveCount(0)
     await page.getByTestId('chat-report-dock-toggle').click()
 

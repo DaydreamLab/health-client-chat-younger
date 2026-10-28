@@ -557,7 +557,7 @@
     "askInterpret": "Please summarize this report in light of the goals I selected for this consult",
     "conversationError": "Could not start the chat. Please refresh the page.",
     "streamError": "Could not get a reply. Please try again.",
-    "submitExpertReview": "Submit for expert review",
+    "submitExpertReview": "Get your personalized supplement plan",
     "viewRecommend": "See recommended plan",
     "viewOnlyTitle": "Order conversation",
     "viewOnlyBody": "This chat was saved when payment created the order. It is view-only — no editing or uploads.",

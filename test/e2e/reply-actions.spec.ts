@@ -36,7 +36,7 @@ async function sendChatLine(page: Page, text: string) {
 }
 
 test.describe('reply_actions v0.1 CTAs', () => {
-  test('/chat: offer_recommend → 完成 CTA 提交專家判讀; legacy chips 不畫', async ({ page, goto }) => {
+  test('/chat: offer_recommend → 完成 CTA 取得專屬保健品方案; legacy chips 不畫', async ({ page, goto }) => {
     test.setTimeout(90_000)
     // Inject conflicting checkup_offer only here — mock default no longer dual-writes it.
     await mockCandorAuth(page, {
@@ -53,16 +53,16 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await sendChatLine(page, '請依報告給建議')
 
     const last = page.getByTestId('chat-last-reply')
-    // 完成 CTA：usable offer_recommend → FE 投影提交專家判讀（非 legacy 硬掛）
+    // 完成 CTA：usable offer_recommend → FE 投影取得專屬保健品方案（非 legacy 硬掛）
     await expect(last.getByTestId('chat-submit-expert-review')).toBeVisible({ timeout: 15_000 })
-    await expect(last.getByTestId('chat-submit-expert-review')).toHaveText('提交專家判讀')
+    await expect(last.getByTestId('chat-submit-expert-review')).toHaveText('取得專屬保健品方案')
     await expect(last.getByTestId('chat-view-recommend')).toHaveCount(0)
     await expect(last.getByTestId('chat-message-upload')).toHaveCount(0)
     await expect(last.getByTestId('chat-quiz-option-legacy_chip')).toHaveCount(0)
     await expect(last.getByTestId('chat-message-checkup')).toHaveCount(0)
   })
 
-  test('/chat: ask_report → 上傳必問; 不硬掛提交專家判讀', async ({ page, goto }) => {
+  test('/chat: ask_report → 上傳必問; 不硬掛取得專屬保健品方案', async ({ page, goto }) => {
     test.setTimeout(90_000)
     await mockCandorAuth(page, { asMember: true, replyActions: 'ask_report' })
     await seedNoExpertCase(page)
@@ -79,7 +79,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await expect(last.getByTestId('chat-quiz-option-legacy_chip')).toHaveCount(0)
   })
 
-  test('/chat: intentional none → 不畫怪鈕（無 legacy 提交專家判讀）', async ({ page, goto }) => {
+  test('/chat: intentional none → 不畫怪鈕（無 legacy 取得專屬保健品方案）', async ({ page, goto }) => {
     test.setTimeout(90_000)
     await mockCandorAuth(page, { asMember: true, replyActions: 'none' })
     await seedNoExpertCase(page)
