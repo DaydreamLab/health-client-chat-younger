@@ -180,7 +180,15 @@
                 : 'min-w-0 flex-1 text-default'"
               :data-testid="message.id === lastAssistantId ? 'chat-last-reply' : undefined"
             >
-              <ChatMarkdown :text="displayMessageText(message)" />
+              <ChatMarkdown
+                v-if="!isLiveEmptyAssistant(message)"
+                :text="displayMessageText(message)"
+                :streaming="isLiveStreamingAssistant(message)"
+              />
+              <ChatTypingEllipsis
+                v-else
+                class="text-muted"
+              />
               <p
                 v-if="fileName(message)"
                 class="mt-2 inline-flex items-center gap-1 rounded-lg bg-elevated px-2 py-1 text-xs text-muted"
@@ -226,7 +234,10 @@
             data-testid="chat-thinking"
           >
             <AssistantMark state="thinking" />
-            <span>{{ $t('chat.thinking') }}</span>
+            <span class="inline-flex items-center gap-2">
+              <span>{{ $t('chat.thinking') }}</span>
+              <ChatTypingEllipsis class="text-muted" />
+            </span>
           </p>
         </div>
       </div>
@@ -947,6 +958,18 @@ function assistantMarkState(message: ChatMessage): 'idle' | 'thinking' | 'speaki
     return 'idle'
   }
   return messageText(message).trim() === '' ? 'thinking' : 'speaking'
+}
+
+function isLiveEmptyAssistant(message: ChatMessage) {
+  return message.role === 'assistant'
+    && message.id === liveAssistantId.value
+    && displayMessageText(message).trim() === ''
+}
+
+function isLiveStreamingAssistant(message: ChatMessage) {
+  return message.role === 'assistant'
+    && message.id === liveAssistantId.value
+    && displayMessageText(message).trim() !== ''
 }
 
 const clarifyingGoalLabels = computed(() => {
@@ -1808,14 +1831,24 @@ async function streamPending() {
 
   const assistantId = crypto.randomUUID()
   let streamed = ''
+  let liveCreated = false
+
+  /** Keep the thinking row (… animation) until the first token arrives. */
+  const ensureLiveAssistant = () => {
+    if (liveCreated) {
+      return
+    }
+    liveCreated = true
+    journey.messages.push(makeMessage('assistant', '', assistantId))
+    liveAssistantId.value = assistantId
+  }
 
   try {
     const conversationId = await ensureConversation()
-    journey.messages.push(makeMessage('assistant', '', assistantId))
-    liveAssistantId.value = assistantId
 
     const result = await candor.streamMessage(conversationId, content, {
       onDelta: (chunk) => {
+        ensureLiveAssistant()
         streamed += chunk
         setMessageText(assistantId, streamed)
       },
@@ -1824,11 +1857,14 @@ async function streamPending() {
         if (text === streamed) {
           return
         }
+        ensureLiveAssistant()
         streamed = text
         setMessageText(assistantId, streamed)
       }
     }, intent)
 
+    // Empty / meta-only replies still need a host bubble for CTAs.
+    ensureLiveAssistant()
     applyStreamMeta(assistantId, result)
     // Interpret 外連改吃 stream reply_actions offer_checkup（#20）；勿 FE 硬設 wantMoreTestsOffer.
     if (intent === 'interpret' && !checkupUrlLoaded.value) {

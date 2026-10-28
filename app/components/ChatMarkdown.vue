@@ -6,8 +6,11 @@ const props = withDefaults(defineProps<{
   text: string
   /** Use on primary-filled bubbles so emphasis stays white. */
   tone?: 'default' | 'on-primary'
+  /** While streaming, show … on the last line after the body. */
+  streaming?: boolean
 }>(), {
-  tone: 'default'
+  tone: 'default',
+  streaming: false
 })
 
 const html = computed(() => renderChatMarkdown(props.text))
@@ -15,22 +18,51 @@ const html = computed(() => renderChatMarkdown(props.text))
 
 <template>
   <!-- HTML from renderChatMarkdown (marked; raw HTML stripped). -->
-  <!-- eslint-disable vue/no-v-html -->
   <div
     class="chat-md break-words text-sm leading-relaxed"
-    :class="tone === 'on-primary' ? 'chat-md--on-primary' : ''"
-    v-html="html"
-  />
-  <!-- eslint-enable vue/no-v-html -->
+    :class="[
+      tone === 'on-primary' ? 'chat-md--on-primary' : '',
+      streaming ? 'chat-md--streaming' : ''
+    ]"
+  >
+    <!-- eslint-disable vue/no-v-html -->
+    <div
+      class="chat-md__body"
+      v-html="html"
+    />
+    <!-- eslint-enable vue/no-v-html -->
+    <ChatTypingEllipsis
+      v-if="streaming"
+      size="sm"
+      class="chat-md__stream-ellipsis text-muted"
+    />
+  </div>
 </template>
 
 <style scoped>
-.chat-md :deep(> :first-child) {
+.chat-md :deep(.chat-md__body > :first-child) {
   margin-top: 0;
 }
 
-.chat-md :deep(> :last-child) {
+.chat-md :deep(.chat-md__body > :last-child) {
   margin-bottom: 0;
+}
+
+/*
+ * Flatten the body so the trailing … can sit on the same line as the last
+ * paragraph (instead of dropping below the whole markdown block).
+ */
+.chat-md--streaming .chat-md__body {
+  display: contents;
+}
+
+.chat-md--streaming :deep(.chat-md__body > p:last-child) {
+  display: inline;
+}
+
+.chat-md__stream-ellipsis {
+  display: inline-flex;
+  vertical-align: baseline;
 }
 
 .chat-md :deep(p) {
