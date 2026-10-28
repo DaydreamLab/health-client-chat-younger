@@ -1291,7 +1291,7 @@ function messageHasRequiredBasicAsk(message: ChatMessage | undefined): boolean {
     return true
   }
   const actions = message.replyActions
-  if (!isUsableReplyActions(actions)) {
+  if (!actions || !isUsableReplyActions(actions)) {
     return false
   }
   return actions.actions.some((action) => {
