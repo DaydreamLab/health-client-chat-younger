@@ -25,6 +25,8 @@ export type ChooseOptionKind
     | 'lab_followup'
     /** Required ask for report chips (mirrors consultation_goals / ask_goal; not a profile gap). */
     | 'lab_report'
+    /** Switch conversation entry path (A→B guide, C cancel→B). */
+    | 'path_switch'
 
 /** choose_option option.maps_to → FE route (LabFollowup dual chips). */
 export type ChooseOptionMapsTo = 'ask_report' | 'offer_checkup'
@@ -145,10 +147,13 @@ function asOptionList(raw: unknown): ChatMessageOption[] {
       continue
     }
     const code = typeof item.code === 'string' ? item.code : ''
-    const label = typeof item.label === 'string' ? item.label : ''
-    if (!code || !label) {
+    if (!code) {
       continue
     }
+    // Empty label allowed (path_switch: BE omits copy; FE i18n fills display).
+    const label = typeof item.label === 'string' && item.label !== ''
+      ? item.label
+      : code
     const mapsTo = typeof item.maps_to === 'string' ? item.maps_to : null
     out.push(mapsTo ? { code, label, maps_to: mapsTo } : { code, label })
   }
@@ -278,8 +283,69 @@ export const NON_GAP_CHOOSE_OPTION_KINDS = new Set<string>([
   'lab_followup',
   'consultation_goals',
   // core #100: report 必問 chips（同 ask_goal 模式），不進 open profile gap host
-  'lab_report'
+  'lab_report',
+  'path_switch'
 ])
+
+/**
+ * Path-rule short-circuit signatures (empty content; FE fills i18n).
+ * - path_a_cap: offer_checkup + path_switch (also ≥10 guide CTA shape; only fill when content empty)
+ * - path_c_await_upload: ask_report + offer_checkup + path_switch
+ */
+export type PathRuleCopyKind = 'path_a_cap' | 'path_c_await_upload'
+
+export function detectPathRuleCopyKind(
+  ra: ReplyActions | null | undefined
+): PathRuleCopyKind | null {
+  if (!isUsableReplyActions(ra)) {
+    return null
+  }
+  const actions = ra!.actions
+  const hasPathSwitch = actions.some(
+    action => action.type === 'choose_option'
+      && chooseOptionPayload(action).kind === 'path_switch'
+  )
+  const hasCheckup = actions.some(action => action.type === 'offer_checkup')
+  if (!hasPathSwitch || !hasCheckup) {
+    return null
+  }
+  if (actions.some(action => action.type === 'ask_report')) {
+    return 'path_c_await_upload'
+  }
+  return 'path_a_cap'
+}
+
+export function pathRuleBubbleI18nKey(kind: PathRuleCopyKind): string {
+  return kind === 'path_c_await_upload'
+    ? 'chat.pathCAwaitUpload'
+    : 'chat.pathACap'
+}
+
+/** path_switch chip label key; FE owns display (ignore BE options[].label). */
+export function pathSwitchChipI18nKey(kind: PathRuleCopyKind): string {
+  return kind === 'path_c_await_upload'
+    ? 'chat.pathCCancelToB'
+    : 'chat.pathSwitchToConsult'
+}
+
+export function isPathSwitchOptionCode(
+  ra: ReplyActions | null | undefined,
+  code: string
+): boolean {
+  if (!isUsableReplyActions(ra)) {
+    return false
+  }
+  return ra!.actions.some((action) => {
+    if (action.type !== 'choose_option') {
+      return false
+    }
+    const payload = chooseOptionPayload(action)
+    if (payload.kind !== 'path_switch') {
+      return false
+    }
+    return (payload.options ?? []).some(option => option.code === code)
+  })
+}
 
 /** True when reply_actions is usable and includes ≥1 required-gap CTA. */
 export function hasUsableGapCta(
@@ -298,7 +364,7 @@ export function hasUsableGapCta(
  * When `openProfileGaps` is omitted, any ask_vitals / profile choose_option counts
  * (hydrate / host discovery). When provided (incl. empty):
  * - profile `choose_option` / `ask_vitals` only if their gap_code (or vitals field) is open
- * - `kind=lab_followup` / `free` / `consultation_goals` never count as profile gaps
+ * - `kind=lab_followup` / `free` / `consultation_goals` / `path_switch` never count as profile gaps
  * - `gap_code=lab_report` never counts (report is required ask like goal, not a gap)
  * - `ask_goal` / `ask_report` are not gap CTAs
  */

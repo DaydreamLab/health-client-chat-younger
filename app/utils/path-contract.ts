@@ -1,9 +1,11 @@
 /**
  * Conversation path contract (A / B / C) — client rules aligned with Irice 定案.
  *
- * Backend candor-core path API may land in parallel; FE keeps an extensible
- * client contract + local journey state. When core exposes path fields /
- * endpoints, wire `setConversationPath` without changing UI gates.
+ * 進站三選在 POST /conversations 時寫入 path（勿先建再改；B→A 不允許）。
+ * Path A 回合計數與引導 CTA 在 core：≥10／≥20 皆 `offer_checkup`＋`choose_option`
+ * `kind=path_switch`（≥20 空 content，文案 FE i18n）。FE 渲染 `reply_actions`，不計回合、
+ * 不自造引導鈕。A→B guide_switch：清 CTA；必填齊且無 goals 時接續 stream。
+ * Path C 待上傳：空 content＋`ask_report`＋`offer_checkup`＋`path_switch`。
  *
  * Completion CTA (offer_recommend /「取得專屬保健品方案」):
  * - Path A: never
@@ -34,12 +36,6 @@ export const REQUIRED_BASIC_PROFILE_GAPS = [
 
 export type RequiredBasicProfileGap = (typeof REQUIRED_BASIC_PROFILE_GAPS)[number]
 
-/** Path A soft guide (checkup｜轉 B) after this many user↔assistant turns. */
-export const PATH_A_SOFT_GUIDE_TURNS = 15
-
-/** Path A hard redirect: fixed reply, only switch to B. */
-export const PATH_A_HARD_REDIRECT_TURNS = 25
-
 /** Runtime feature flag key (`nuxt.config` public.pathContract). */
 export const PATH_CONTRACT_FLAG = 'pathContract'
 
@@ -47,8 +43,20 @@ export function isConversationPath(value: unknown): value is ConversationPath {
   return value === 'A' || value === 'B' || value === 'C'
 }
 
+/**
+ * Accept core API lowercase `a|b|c` or FE `A|B|C`.
+ */
 export function normalizeConversationPath(value: unknown): ConversationPath | null {
-  return isConversationPath(value) ? value : null
+  if (typeof value !== 'string' || value.trim() === '') {
+    return null
+  }
+  const upper = value.trim().toUpperCase()
+  return isConversationPath(upper) ? upper : null
+}
+
+/** Wire path into POST /conversations and POST …/path (core stores lowercase). */
+export function toApiConversationPath(path: ConversationPath): 'a' | 'b' | 'c' {
+  return path.toLowerCase() as 'a' | 'b' | 'c'
 }
 
 function normalizeGapCode(gap: string): string {
@@ -156,33 +164,6 @@ export function completionCtaVisible(input: {
   requiredProfileQuestionActive?: boolean
 }): boolean {
   return completionCtaThresholdMet(input) && completionCtaJourneyAllows(input)
-}
-
-/** Count one user message + following assistant as one turn pair. */
-export function countPathATurnPairs(
-  messages: readonly { role: string }[]
-): number {
-  let pairs = 0
-  let sawUser = false
-  for (const message of messages) {
-    if (message.role === 'user') {
-      sawUser = true
-      continue
-    }
-    if (message.role === 'assistant' && sawUser) {
-      pairs += 1
-      sawUser = false
-    }
-  }
-  return pairs
-}
-
-export function pathASoftGuideDue(turnPairs: number): boolean {
-  return turnPairs >= PATH_A_SOFT_GUIDE_TURNS
-}
-
-export function pathAHardRedirectDue(turnPairs: number): boolean {
-  return turnPairs >= PATH_A_HARD_REDIRECT_TURNS
 }
 
 /**

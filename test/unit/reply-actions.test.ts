@@ -1,13 +1,17 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import {
+  detectPathRuleCopyKind,
   findGapCtaHostMessage,
   hasLabReportBankOrFollowup,
   hasReportRequiredAsk,
   hasUsableGapCta,
+  isPathSwitchOptionCode,
   isUsableReplyActions,
   normalizeChooseOptionMapsTo,
   offerRecommendLabelKey,
   parseReplyActions,
+  pathRuleBubbleI18nKey,
+  pathSwitchChipI18nKey,
   projectReplyActionsToCtas,
   resetReplyActionsUnknownLog,
   shouldSkipFollowUpStream,
@@ -820,6 +824,79 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       'sleep_ok',
       'sleep_bad'
     ])
+  })
+
+  it('path A guide renders offer_checkup and path_switch from reply_actions', () => {
+    const msg = assistant('latest', {
+      replyActions: ra({
+        adaptor: 'rule',
+        actions: [
+          { type: 'offer_checkup', payload: { url: 'https://example.test/checkup' } },
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'path_switch',
+              mode: 'single',
+              confirm: false,
+              options: [{ code: 'b', label: '' }]
+            }
+          }
+        ]
+      })
+    })
+    const visibility = buildTurnActionsVisibility({
+      message: msg,
+      ctx: baseCtx({ lastAssistantId: 'latest', conversationPath: 'A' }),
+      goalOptions: [],
+      needsMultiConfirm: true
+    })
+    expect(visibility.choices.map(choice => choice.code)).toEqual(['b'])
+    expect(visibility.showConfirm).toBe(false)
+    expect(visibility.showCheckup).toBe(true)
+    expect(visibility.showSubmitReview).toBe(false)
+    expect(hasUsableGapCta(msg.replyActions)).toBe(false)
+    expect(detectPathRuleCopyKind(msg.replyActions)).toBe('path_a_cap')
+    expect(pathRuleBubbleI18nKey('path_a_cap')).toBe('chat.pathACap')
+    expect(pathSwitchChipI18nKey('path_a_cap')).toBe('chat.pathSwitchToConsult')
+    expect(isPathSwitchOptionCode(msg.replyActions, 'b')).toBe(true)
+  })
+
+  it('path C await upload renders ask_report + offer_checkup + path_switch', () => {
+    const msg = assistant('latest', {
+      parts: [{ type: 'text', text: '' }],
+      replyActions: ra({
+        adaptor: 'rule',
+        actions: [
+          { type: 'ask_report', payload: { option_codes: ['upload'] } },
+          { type: 'offer_checkup', payload: {} },
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'path_switch',
+              mode: 'single',
+              confirm: false,
+              options: [{ code: 'b', label: '' }]
+            }
+          }
+        ]
+      })
+    })
+    const visibility = buildTurnActionsVisibility({
+      message: msg,
+      ctx: baseCtx({
+        lastAssistantId: 'latest',
+        conversationPath: 'C',
+        checkupLinkReady: true
+      }),
+      goalOptions: [],
+      needsMultiConfirm: true
+    })
+    expect(visibility.showUpload).toBe(true)
+    expect(visibility.showCheckup).toBe(true)
+    expect(visibility.choices.map(choice => choice.code)).toEqual(['b'])
+    expect(detectPathRuleCopyKind(msg.replyActions)).toBe('path_c_await_upload')
+    expect(pathRuleBubbleI18nKey('path_c_await_upload')).toBe('chat.pathCAwaitUpload')
+    expect(pathSwitchChipI18nKey('path_c_await_upload')).toBe('chat.pathCCancelToB')
   })
 
   it('lab_report choose_option: reply_actions path ignores legacy needsMultiConfirm (no confirm btn)', () => {

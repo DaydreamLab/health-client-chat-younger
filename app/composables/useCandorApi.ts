@@ -416,15 +416,21 @@ export function useCandorApi() {
       report_id?: string
       renewal_of_order_id?: string
       package_plan_code?: string
-      /** Path contract entry; core may ignore until path-contract API ships. */
-      path?: 'A' | 'B' | 'C'
+      /** Entry path; send lowercase `a|b|c` to match core. */
+      path?: 'a' | 'b' | 'c' | 'A' | 'B' | 'C'
     } = {}) =>
-      request<ConversationCreate>('/conversations', { method: 'POST', body }),
+      request<ConversationCreate>('/conversations', {
+        method: 'POST',
+        body: {
+          ...body,
+          ...(body.path
+            ? { path: String(body.path).trim().toLowerCase() }
+            : {})
+        }
+      }),
     /**
-     * Sync conversation path A／B／C to core.
-     * TODO(candor-core path-contract): endpoint may be PATCH conversation or
-     * dedicated POST /path — adjust path string when core draft lands.
-     * Callers must soft-fail (catch) so local journey path still drives UI.
+     * Sync conversation path after create (A→B guide／C cancel→B).
+     * Soft-fail so local journey path still drives UI if the endpoint is down.
      */
     setConversationPath: (
       conversationId: string,
@@ -432,7 +438,13 @@ export function useCandorApi() {
     ) =>
       request<ConversationPathAck>(
         `/conversation/${encodeURIComponent(conversationId)}/path`,
-        { method: 'POST', body: body as unknown as Record<string, unknown> }
+        {
+          method: 'POST',
+          body: {
+            ...body,
+            path: String(body.path).trim().toLowerCase()
+          } as unknown as Record<string, unknown>
+        }
       ),
     setConversationGoals: (
       conversationId: string,
@@ -507,9 +519,12 @@ export function useCandorApi() {
       ),
 
     getProfile: () => request<UserHealthProfile>('/profile'),
-    nextProfileQuestion: (reportId?: string | null) =>
+    nextProfileQuestion: (reportId?: string | null, conversationId?: string | null) =>
       request<ProfileNext>('/profile/questions/next', {
-        query: reportId ? { report_id: reportId } : undefined
+        query: {
+          ...(reportId ? { report_id: reportId } : {}),
+          ...(conversationId ? { conversation_id: conversationId } : {})
+        }
       }),
     submitProfileAnswer: (body: {
       gap_code: string

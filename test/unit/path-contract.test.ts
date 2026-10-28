@@ -2,17 +2,14 @@ import { describe, expect, it } from 'vitest'
 import {
   completionCtaThresholdMet,
   completionCtaVisible,
-  countPathATurnPairs,
   isBasicProfileComplete,
   isRequiredBasicGapCode,
+  normalizeConversationPath,
   openRequiredBasicGaps,
-  pathAHardRedirectDue,
-  pathASoftGuideDue,
   pathAfterCancelUploadWithoutReport,
   pathAfterReportUpload,
   pathRequiresBasicProfile,
-  PATH_A_HARD_REDIRECT_TURNS,
-  PATH_A_SOFT_GUIDE_TURNS
+  toApiConversationPath
 } from '../../app/utils/path-contract'
 
 describe('isBasicProfileComplete', () => {
@@ -100,21 +97,18 @@ describe('path transitions', () => {
   })
 })
 
-describe('path A turn guides', () => {
-  it('counts user↔assistant pairs', () => {
-    expect(countPathATurnPairs([
-      { role: 'assistant' },
-      { role: 'user' },
-      { role: 'assistant' },
-      { role: 'user' },
-      { role: 'assistant' }
-    ])).toBe(2)
+describe('normalizeConversationPath / toApiConversationPath', () => {
+  it('accepts core lowercase and FE uppercase', () => {
+    expect(normalizeConversationPath('a')).toBe('A')
+    expect(normalizeConversationPath('B')).toBe('B')
+    expect(normalizeConversationPath('c')).toBe('C')
+    expect(normalizeConversationPath('x')).toBe(null)
+    expect(normalizeConversationPath(null)).toBe(null)
   })
 
-  it('soft／hard thresholds', () => {
-    expect(pathASoftGuideDue(PATH_A_SOFT_GUIDE_TURNS - 1)).toBe(false)
-    expect(pathASoftGuideDue(PATH_A_SOFT_GUIDE_TURNS)).toBe(true)
-    expect(pathAHardRedirectDue(PATH_A_HARD_REDIRECT_TURNS - 1)).toBe(false)
-    expect(pathAHardRedirectDue(PATH_A_HARD_REDIRECT_TURNS)).toBe(true)
+  it('wires FE path to API lowercase', () => {
+    expect(toApiConversationPath('A')).toBe('a')
+    expect(toApiConversationPath('B')).toBe('b')
+    expect(toApiConversationPath('C')).toBe('c')
   })
 })

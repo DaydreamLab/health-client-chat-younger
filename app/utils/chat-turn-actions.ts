@@ -398,7 +398,7 @@ function isNonGapChoosePayload(choose: ChooseOptionPayload): boolean {
   return Boolean(choose.kind && NON_GAP_CHOOSE_OPTION_KINDS.has(choose.kind))
 }
 
-/** Split gap-bound choices from free / lab_followup / consultation_goals / lab_report. */
+/** Split gap-bound choices from free / lab_followup / consultation_goals / lab_report / path_switch. */
 function splitProjectionChoices(projection: ReplyActionsCtaProjection): {
   gapChoices: ChatMessageOption[]
   gapConfirm: boolean

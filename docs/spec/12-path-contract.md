@@ -10,7 +10,7 @@
 | B | 我想諮詢健康方案 | 必填四欄→可問 optional／goals→完成 CTA |
 | C | 幫我看報告 | 先上傳；取消→B；已有報告則補基本→完成 CTA |
 
-選後寫入 `journey.conversationPath`，並 `POST /conversation/{id}/path`（core 未上線時 soft-fail）。
+選後才 `POST /conversations` 並帶 `path=a|b|c`（建立當下定稿）；`journey.conversationPath` 由回應 hydrate。`POST …/path` 只用於之後的 A→B 引導與 C 取消→B。
 
 ## 必填
 
@@ -30,7 +30,9 @@ Path B／C 必須把四欄問出／收齊（`ensureRequiredBasicsCollection`；c
 - 上傳（Dock／對話）→一律升 C；記入對話。
 - C 不傳／取消→退 B。
 - lab_report 問卷進行中：對話區**不預掛** upload／checkup（Dock 空列兩顆仍可點；#35 explainHighlights 常駐不改壞）。
-- Path A：≥15 soft 引導（checkup｜轉 B）；≥25 固定回覆只能轉 B。
+- Path A 引導由 core 計數後寫入 `reply_actions`：≥10／≥20 皆為 `offer_checkup`＋`path_switch`（≥20 短路 LLM、空 `content`，氣泡／chip 文案 FE i18n）。FE 渲染該決策，不計回合、不自造引導鈕。
+- A→B（`path_switch`／`guide_switch`）：`POST …/path` 後清掉引導 CTA；必填未齊則問基本資料，已齊且無 goals 選單則 **接續 stream**，避免只留確認句就停住。
+- Path C 待上傳短路：空 `content`＋`ask_report`＋`offer_checkup`＋`path_switch`；文案 FE i18n。
 
 ## Feature flag
 

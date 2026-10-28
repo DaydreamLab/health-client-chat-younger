@@ -234,6 +234,8 @@ export interface ConversationGreeting {
   selected?: string[]
   /** Not used on greeting; upload CTA comes after lab_report within_1y/within_6m. */
   upload_offer?: boolean
+  plan_offer?: boolean
+  reply_actions?: ReplyActions | null
 }
 
 export interface ConversationCreate {
@@ -242,26 +244,23 @@ export interface ConversationCreate {
   renewal_of_order_id?: string | null
   package_plan?: ConversationPackage | null
   greeting: ConversationGreeting
-  /**
-   * Path contract A／B／C when core supports it.
-   * TODO(candor-core path-contract): hydrate FE journey.conversationPath from this.
-   */
-  path?: 'A' | 'B' | 'C' | null
+  /** Journey path from core (`a`／`b`／`c`). FE normalizes to A／B／C. */
+  path?: 'a' | 'b' | 'c' | 'A' | 'B' | 'C' | null
 }
 
 /**
- * POST /conversation/{id}/path body — TODO until candor-core path-contract lands.
- * FE already sends this; 404／501 soft-fail and keep local journey path.
+ * POST /conversation/{id}/path body.
+ * Prefer lowercase `a|b|c` to match core; uppercase still accepted by core.
  */
 export interface ConversationPathUpdate {
-  path: 'A' | 'B' | 'C'
+  path: 'a' | 'b' | 'c' | 'A' | 'B' | 'C'
   /** Optional reason for audit (entry｜upload_promote｜cancel_demote｜guide_switch). */
   reason?: string | null
 }
 
 export interface ConversationPathAck {
   id: string
-  path: 'A' | 'B' | 'C'
+  path: 'a' | 'b' | 'c' | 'A' | 'B' | 'C'
 }
 
 export interface ConversationAttachAck {

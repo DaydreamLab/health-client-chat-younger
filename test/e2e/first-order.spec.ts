@@ -10,6 +10,10 @@ const labsFile = {
 
 /** 三要件之一：goals 必須先完成，完成 CTA 才依 RA 投影（非 legacy）。 */
 async function finishGoalSelect(page: Page) {
+  const entryB = page.getByTestId('chat-quiz-option-B')
+  if (await entryB.isVisible().catch(() => false)) {
+    await entryB.click()
+  }
   await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
   await page.getByTestId('chat-quiz-option-sleep').click()
   await page.getByTestId('chat-quiz-confirm').click()
@@ -623,8 +627,13 @@ test.describe('profile quiz gate', () => {
   test('goal chips then profile turn chips; upload via composer only', async ({ page, goto }) => {
     await goto('/chat', { waitUntil: 'hydration' })
     await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
-    await expect(page.getByTestId('chat-last-reply')).toContainText('改善方向')
-    await expect(page.getByTestId('chat-quiz-option-weight_loss')).toBeVisible()
+    await goto('/chat', { waitUntil: 'hydration' })
+    const entryB = page.getByTestId('chat-quiz-option-B')
+    if (await entryB.isVisible().catch(() => false)) {
+      await entryB.click()
+    }
+    await expect(page.getByTestId('chat-quiz-option-weight_loss')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible()
     await expect(page.getByTestId('chat-chip-upload')).toHaveCount(0)
     await expect(page.getByTestId('chat-upload')).toBeVisible()
 
@@ -651,6 +660,11 @@ test.describe('profile quiz gate', () => {
     // Irice 2026-10-28: chip／選項答題後不 focus；僅鍵盤 onSubmit 保留。
     await goto('/chat', { waitUntil: 'hydration' })
     await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
+    await goto('/chat', { waitUntil: 'hydration' })
+    const entryB = page.getByTestId('chat-quiz-option-B')
+    if (await entryB.isVisible().catch(() => false)) {
+      await entryB.click()
+    }
     await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible()
     await page.getByTestId('chat-quiz-option-sleep').click()
     await page.getByTestId('chat-quiz-confirm').click()

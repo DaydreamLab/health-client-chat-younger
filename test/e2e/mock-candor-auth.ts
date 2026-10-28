@@ -896,8 +896,10 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
   })
 
   const resolvedConversationPath = options.conversationPath === undefined
-    ? 'B' as const
-    : options.conversationPath
+    ? 'b' as const
+    : options.conversationPath === null
+      ? null
+      : String(options.conversationPath).toLowerCase() as 'a' | 'b' | 'c'
   const resolvedBasicProfileComplete = options.basicProfileComplete ?? true
 
   await page.route('**/api/v1/conversations', async (route) => {
@@ -905,8 +907,22 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       await route.fallback()
       return
     }
-    const postData = route.request().postDataJSON() as { package_plan_code?: string } | null
+    const postData = route.request().postDataJSON() as {
+      package_plan_code?: string
+      path?: string
+    } | null
     const includePackage = options.withPackage || Boolean(postData?.package_plan_code)
+    const bodyPath = typeof postData?.path === 'string'
+      ? postData.path.trim().toLowerCase()
+      : null
+    const path = bodyPath === 'a' || bodyPath === 'b' || bodyPath === 'c'
+      ? bodyPath
+      : (resolvedConversationPath ?? 'b')
+    const greetingContent = path === 'a'
+      ? '你好，想聊什麼都可以。（placeholder）'
+      : path === 'c'
+        ? '請先上傳血檢或健檢報告，我再幫你看。（placeholder）'
+        : '您好，我是健康報告解讀助理。請先選擇改善方向。'
     await route.fulfill({
       status: 201,
       contentType: 'application/json',
@@ -915,9 +931,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         data: {
           id: conversationId,
           report_id: null,
-          ...(resolvedConversationPath
-            ? { path: resolvedConversationPath }
-            : {}),
+          path,
           ...(includePackage
             ? {
                 package_plan: {
@@ -931,22 +945,50 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           greeting: {
             message_id: 'greet-e2e',
             role: 'assistant',
-            content: '您好，我是健康報告解讀助理。請先選擇改善方向。',
-            options: goalOptions,
-            selected: []
+            content: greetingContent,
+            options: path === 'b' ? goalOptions : [],
+            selected: [],
+            ...(path === 'c'
+              ? {
+                  reply_actions: {
+                    schema_version: '0.1',
+                    source: 'rule',
+                    adaptor: 'rule',
+                    degraded: false,
+                    error: null,
+                    actions: [
+                      { type: 'ask_report', payload: { option_codes: ['upload'] } },
+                      { type: 'offer_checkup', payload: {} },
+                      {
+                        type: 'choose_option',
+                        payload: {
+                          kind: 'path_switch',
+                          mode: 'single',
+                          confirm: false,
+                          options: [{ code: 'b', label: '' }],
+                          selected: [],
+                          gap_code: null,
+                          answer_type: null,
+                          exclusive_codes: []
+                        }
+                      }
+                    ]
+                  }
+                }
+              : {})
           }
         }
       })
     })
   })
 
-  // TODO(candor-core path-contract): soft-fail target for FE setConversationPath.
   await page.route(`**/api/v1/conversation/${conversationId}/path`, async (route) => {
     if (route.request().method() !== 'POST') {
       await route.fallback()
       return
     }
     const body = route.request().postDataJSON() as { path?: string } | null
+    const raw = typeof body?.path === 'string' ? body.path.trim().toLowerCase() : ''
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -954,9 +996,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         status: 'success',
         data: {
           id: conversationId,
-          path: body?.path === 'A' || body?.path === 'B' || body?.path === 'C'
-            ? body.path
-            : 'B'
+          path: raw === 'a' || raw === 'b' || raw === 'c' ? raw : 'b'
         }
       })
     })
