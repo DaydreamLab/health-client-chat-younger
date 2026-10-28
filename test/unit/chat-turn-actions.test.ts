@@ -346,7 +346,7 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
 })
 
 describe('reportDockBarVisibility', () => {
-  it('aligns explain highlights with bubble gates', () => {
+  it('keeps explain highlights visible on result dock; disables when blocked', () => {
     const ctx = baseCtx({ hasReportAnalysis: true })
     expect(
       reportDockBarVisibility({
@@ -354,16 +354,13 @@ describe('reportDockBarVisibility', () => {
         profileQuestionActive: false,
         reportInterpretSent: false,
         promptMode: false
-      }).showExplainHighlights
-    ).toBe(true)
-    expect(
-      reportDockBarVisibility({
-        ctx: { ...ctx, pending: true },
-        profileQuestionActive: false,
-        reportInterpretSent: false,
-        promptMode: false
-      }).showExplainHighlights
-    ).toBe(false)
+      })
+    ).toEqual({
+      showExplainHighlights: true,
+      explainHighlightsDisabled: false,
+      showWantMoreTestsLink: true
+    })
+    // Irice 2026-10-28：點過後仍常駐（不因 reportInterpretSent 隱藏）
     expect(
       reportDockBarVisibility({
         ctx,
@@ -371,7 +368,65 @@ describe('reportDockBarVisibility', () => {
         reportInterpretSent: true,
         promptMode: false
       }).showExplainHighlights
+    ).toBe(true)
+    expect(
+      reportDockBarVisibility({
+        ctx,
+        profileQuestionActive: false,
+        reportInterpretSent: true,
+        promptMode: false
+      }).explainHighlightsDisabled
     ).toBe(false)
+    // pending／readonly 等：可見但 disabled
+    expect(
+      reportDockBarVisibility({
+        ctx: { ...ctx, pending: true },
+        profileQuestionActive: false,
+        reportInterpretSent: false,
+        promptMode: false
+      })
+    ).toMatchObject({
+      showExplainHighlights: true,
+      explainHighlightsDisabled: true
+    })
+    expect(
+      reportDockBarVisibility({
+        ctx,
+        profileQuestionActive: true,
+        reportInterpretSent: false,
+        promptMode: false
+      })
+    ).toMatchObject({
+      showExplainHighlights: true,
+      explainHighlightsDisabled: true
+    })
+    expect(
+      reportDockBarVisibility({
+        ctx: { ...ctx, readonlyMode: true },
+        profileQuestionActive: false,
+        reportInterpretSent: false,
+        promptMode: false
+      })
+    ).toMatchObject({
+      showExplainHighlights: true,
+      explainHighlightsDisabled: true
+    })
+  })
+
+  it('hides explain highlights on empty prompt dock', () => {
+    const ctx = baseCtx({ hasReportAnalysis: false })
+    expect(
+      reportDockBarVisibility({
+        ctx,
+        profileQuestionActive: false,
+        reportInterpretSent: false,
+        promptMode: true
+      })
+    ).toEqual({
+      showExplainHighlights: false,
+      explainHighlightsDisabled: false,
+      showWantMoreTestsLink: false
+    })
   })
 
   it('want-more on dock requires checkup url', () => {

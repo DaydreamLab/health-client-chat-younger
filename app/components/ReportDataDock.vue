@@ -7,6 +7,8 @@ const props = defineProps<{
   results: HealthReportResult[]
   reportId?: string | null
   showInterpret?: boolean
+  /** When showInterpret: leave button visible but block clicks. */
+  interpretDisabled?: boolean
   showWantMoreTests?: boolean
   /** Empty-state bar: suggest copy + upload / checkup CTAs, no table. */
   prompt?: boolean
@@ -122,6 +124,7 @@ function onUpdated(results: HealthReportResult[]) {
             v-if="showInterpret"
             class="interpret-btn"
             data-testid="chat-report-interpret"
+            :disabled="interpretDisabled === true"
             @click="emit('interpret')"
           >
             {{ $t('chat.explainHighlights') }}
