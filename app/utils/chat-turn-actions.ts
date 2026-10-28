@@ -618,8 +618,12 @@ export function buildTurnActionsVisibility(input: {
       && !ctx.pathEntryPending
     const canShowOwnVitals = renderGapOnThis && !ctx.readonlyMode && !ctx.escalated
     // Latest turn asking age／height／weight keeps its own card even when an older gap is still open.
-    const ownHasAskVitals = isUsableReplyActions(message.replyActions)
-      && message.replyActions.actions.some(action => action.type === 'ask_vitals')
+    const replyActions = message.replyActions
+    const ownHasAskVitals = Boolean(
+      replyActions
+      && isUsableReplyActions(replyActions)
+      && replyActions.actions.some(action => action.type === 'ask_vitals')
+    )
 
     const own = projectGates({
       replyActions: message.replyActions!,

@@ -23,10 +23,29 @@ async function seedNoExpertCase(page: Page) {
       })
     })
   })
+  await page.route('**/api/v1/conversation/*/expert-review', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'failed',
+          error_message: 'Expert review not found.',
+          error_code: 'not_found'
+        })
+      })
+      return
+    }
+    await route.fallback()
+  })
 }
 
 /** 三要件之一：goals 必須先完成，完成 CTA 才依 RA 投影（非 legacy）。 */
 async function finishGoalSelect(page: Page) {
+  const entryB = page.getByTestId('chat-quiz-option-B')
+  if (await entryB.isVisible().catch(() => false)) {
+    await entryB.click()
+  }
   await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
   await page.getByTestId('chat-quiz-option-sleep').click()
   await page.getByTestId('chat-quiz-confirm').click()

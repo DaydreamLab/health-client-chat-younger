@@ -1,25 +1,31 @@
 import { describe, expect, it } from 'vitest'
 import {
   activePackageItems,
-  expertReviewPollShouldContinue,
+  expertReviewUiStatusFromList,
+  expertReviewUiStatusFromRow,
   packagesForCheckout,
   recommendationFromExpertReview
 } from '../../app/utils/expert-review'
 import type { ExpertCaseReviewStatus, RecommendationPackage } from '../../app/utils/candor-api'
 
 describe('expert-review helpers', () => {
-  it('continues poll only while a case is awaiting_review', () => {
-    expect(expertReviewPollShouldContinue([])).toBe(false)
-    expect(expertReviewPollShouldContinue([
-      { status: 'reviewed' }
-    ])).toBe(false)
-    expect(expertReviewPollShouldContinue([
-      { status: 'awaiting_review' }
-    ])).toBe(true)
-    expect(expertReviewPollShouldContinue([
-      { status: 'reviewed' },
-      { status: 'awaiting_review' }
-    ])).toBe(true)
+  it('maps list row status into journey UI status', () => {
+    expect(expertReviewUiStatusFromRow(undefined)).toBe('none')
+    expect(expertReviewUiStatusFromRow('awaiting_review')).toBe('awaiting_review')
+    expect(expertReviewUiStatusFromRow('reviewed')).toBe('reviewed')
+  })
+
+  it('resolves UI status from list without implying background poll', () => {
+    expect(expertReviewUiStatusFromList([], null)).toBe('none')
+    expect(expertReviewUiStatusFromList([
+      { conversation_id: 'c1', status: 'reviewed' }
+    ], null)).toBe('reviewed')
+    expect(expertReviewUiStatusFromList([
+      { conversation_id: 'c1', status: 'awaiting_review' }
+    ], 'c1')).toBe('awaiting_review')
+    expect(expertReviewUiStatusFromList([
+      { conversation_id: 'c1', status: 'reviewed' }
+    ], 'other')).toBeNull()
   })
 
   it('filters removed items for checkout', () => {

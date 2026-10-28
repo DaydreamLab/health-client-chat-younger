@@ -18,6 +18,22 @@ async function seedNoExpertCase(page: Page) {
       })
     })
   })
+  // Chat mounts sync GET /conversation/{id}/expert-review once (no list poll).
+  await page.route('**/api/v1/conversation/*/expert-review', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'failed',
+          error_message: 'Expert review not found.',
+          error_code: 'not_found'
+        })
+      })
+      return
+    }
+    await route.fallback()
+  })
 }
 
 async function finishGoalSelect(page: Page) {

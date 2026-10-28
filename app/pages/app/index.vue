@@ -442,6 +442,10 @@ import type {
   HealthReportSummary,
   UserHealthProfile
 } from '~/utils/candor-api'
+import {
+  expertReviewUiStatusFromList,
+  expertReviewUiStatusFromRow
+} from '~/utils/expert-review'
 
 definePageMeta({
   layout: 'user',
@@ -511,7 +515,7 @@ function focusReviewConversation(review: ExpertCaseReviewListItem) {
   if (review.health_report_id) {
     journey.reportId = review.health_report_id
   }
-  journey.expertReviewStatus = review.status === 'reviewed' ? 'reviewed' : 'awaiting_review'
+  journey.expertReviewStatus = expertReviewUiStatusFromRow(review.status)
 }
 
 function openReportFromReview(reportId: string) {
@@ -530,13 +534,12 @@ async function loadReviews() {
   try {
     const list = await candor.listExpertCaseReviews({ limit: 50 })
     reviewRecords.value = list.expert_case_reviews ?? []
-    const forConversation = journey.conversationId
-      ? reviewRecords.value.find(row => row.conversation_id === journey.conversationId)
-      : reviewRecords.value[0]
-    if (forConversation) {
-      journey.expertReviewStatus = forConversation.status === 'reviewed' ? 'reviewed' : 'awaiting_review'
-    } else if (!reviewRecords.value.length) {
-      journey.expertReviewStatus = 'none'
+    const nextStatus = expertReviewUiStatusFromList(
+      reviewRecords.value,
+      journey.conversationId
+    )
+    if (nextStatus !== null) {
+      journey.expertReviewStatus = nextStatus
     }
   } catch {
     reviewsError.value = t('member.reviewRecordsLoadError')

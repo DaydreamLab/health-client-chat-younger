@@ -429,6 +429,7 @@ import {
   historyMessageToChatMessage,
   parseConversationMessagesResult
 } from '~/utils/chat-history'
+import { expertReviewUiStatusFromRow } from '~/utils/expert-review'
 import { storeToRefs } from 'pinia'
 
 /** TurnActions choice codes reserved for path contract UI (not profile／goals). */
@@ -2856,6 +2857,33 @@ async function ensureMemberForReview(redirectPath: string) {
   return null
 }
 
+/**
+ * One-shot status sync for the active conversation (no background poll / auto-nav).
+ * Health page loads the member list on enter; chat only needs this conversation.
+ */
+async function syncExpertReviewStatusOnce() {
+  if (isStandardFlow.value || !auth.isMember) {
+    return
+  }
+  const conversationId = journey.conversationId?.trim() ?? ''
+  if (!conversationId) {
+    return
+  }
+  try {
+    const existing = await candor.getExpertReview(conversationId)
+    journey.expertReviewStatus = expertReviewUiStatusFromRow(existing.status)
+    if (existing.health_report_id) {
+      journey.reportId = existing.health_report_id
+    }
+  } catch (err) {
+    // GET expert-review 404 has no error_code in body (ResponseFactory::notFound).
+    if (err instanceof CandorApiError
+      && (err.statusCode === 404 || err.errorCode === 'not_found')) {
+      journey.expertReviewStatus = 'none'
+    }
+  }
+}
+
 /** Submit for expert review → create case → 我的健康. Standard flow never calls this. */
 async function submitExpertReview() {
   if (isStandardFlow.value || readonly.value || escalated.value) {
@@ -2876,7 +2904,7 @@ async function submitExpertReview() {
 
   try {
     const review = await candor.createExpertReview(conversationId)
-    journey.expertReviewStatus = review.status === 'reviewed' ? 'reviewed' : 'awaiting_review'
+    journey.expertReviewStatus = expertReviewUiStatusFromRow(review.status)
     if (review.health_report_id) {
       journey.reportId = review.health_report_id
     }
@@ -2884,7 +2912,7 @@ async function submitExpertReview() {
     if (err instanceof CandorApiError && err.errorCode === 'expert_review_exists') {
       try {
         const existing = await candor.getExpertReview(conversationId)
-        journey.expertReviewStatus = existing.status === 'reviewed' ? 'reviewed' : 'awaiting_review'
+        journey.expertReviewStatus = expertReviewUiStatusFromRow(existing.status)
         if (existing.health_report_id) {
           journey.reportId = existing.health_report_id
         }
@@ -3064,6 +3092,7 @@ onMounted(async () => {
     }
   }
   await restoreReportSession()
+  await syncExpertReviewStatusOnce()
   scrollToLatest('auto')
 })
 

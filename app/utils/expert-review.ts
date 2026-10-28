@@ -4,12 +4,40 @@ import type {
   RecommendationPackage,
   RecommendationResponse
 } from '~/utils/candor-api'
+import type { ExpertReviewUiStatus } from '~/utils/chat-turn-actions'
 
-/** Keep polling only while at least one case is still awaiting_review. */
-export function expertReviewPollShouldContinue(
-  rows: Array<Pick<ExpertCaseReviewListItem, 'status'>>
-): boolean {
-  return rows.some(row => row.status === 'awaiting_review')
+/** Map a member list (or per-conversation) status into journey UI status. */
+export function expertReviewUiStatusFromRow(
+  status: ExpertCaseReviewListItem['status'] | ExpertCaseReviewStatus['status'] | null | undefined
+): ExpertReviewUiStatus {
+  if (status === 'reviewed') {
+    return 'reviewed'
+  }
+  if (status === 'awaiting_review') {
+    return 'awaiting_review'
+  }
+  return 'none'
+}
+
+/**
+ * Pick UI status for the active conversation from GET /expert-case-reviews.
+ * No match and empty list → none; no match but other cases exist → leave caller to keep prior.
+ */
+export function expertReviewUiStatusFromList(
+  rows: Array<Pick<ExpertCaseReviewListItem, 'conversation_id' | 'status'>>,
+  conversationId: string | null
+): ExpertReviewUiStatus | null {
+  if (!rows.length) {
+    return 'none'
+  }
+  if (!conversationId) {
+    return expertReviewUiStatusFromRow(rows[0]?.status)
+  }
+  const match = rows.find(row => row.conversation_id === conversationId)
+  if (!match) {
+    return null
+  }
+  return expertReviewUiStatusFromRow(match.status)
 }
 
 /** Active (non-removed) items for display and checkout. */

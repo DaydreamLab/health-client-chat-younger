@@ -196,9 +196,6 @@ const route = useRoute()
 const { t } = useI18n()
 const mobileNavOpen = ref(false)
 
-// Poll expert-case-reviews only while awaiting_review; flip to reviewed auto-navs to /chat once per session.
-useExpertReviewWatch()
-
 watch(() => route.fullPath, () => {
   mobileNavOpen.value = false
 })
