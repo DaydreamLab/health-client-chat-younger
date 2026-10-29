@@ -245,6 +245,44 @@ export const useJourneyStore = defineStore('journey', () => {
     pathCAwaitingUpload.value = stored.pathCAwaitingUpload
   }
 
+  /**
+   * Point journey at an expert-case conversation (e.g.「查看對話」／「查看推薦方案」).
+   * Clears the prior in-progress transcript／transient CTAs and persists synchronously so
+   * ChatPanel hydrate() cannot race-restore the wrong conversationId from localStorage.
+   */
+  function focusExpertReviewCase(input: {
+    conversationId: string
+    healthReportId?: string | null
+    expertReviewStatus: ExpertReviewUiStatus
+  }) {
+    conversationId.value = input.conversationId
+    expertReviewStatus.value = input.expertReviewStatus
+
+    const nextReportId = typeof input.healthReportId === 'string' && input.healthReportId
+      ? input.healthReportId
+      : null
+    if (nextReportId) {
+      reportId.value = nextReportId
+      hasAnalysis.value = true
+      reportInterpretSent.value = true
+    }
+
+    messages.value = []
+    goalSelectActive.value = false
+    reportAskActive.value = false
+    quizActive.value = false
+    activeQuestion.value = null
+    postQuizGuided.value = false
+    profileGaps.value = []
+    clarifyingGoals.value = []
+    goalOptions.value = []
+    selectedCodes.value = []
+    reportDockOpen.value = false
+    pathCAwaitingUpload.value = false
+
+    persist()
+  }
+
   if (import.meta.client) {
     watch(
       [
@@ -304,6 +342,7 @@ export const useJourneyStore = defineStore('journey', () => {
     snapshotMessages,
     clearSession,
     persist,
-    hydrate
+    hydrate,
+    focusExpertReviewCase
   }
 })

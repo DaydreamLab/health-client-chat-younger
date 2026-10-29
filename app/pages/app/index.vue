@@ -556,11 +556,11 @@ function formatReviewTime(value: string) {
 }
 
 function focusReviewConversation(review: ExpertCaseReviewListItem) {
-  journey.conversationId = review.conversation_id
-  if (review.health_report_id) {
-    journey.reportId = review.health_report_id
-  }
-  journey.expertReviewStatus = expertReviewUiStatusFromRow(review.status)
+  journey.focusExpertReviewCase({
+    conversationId: review.conversation_id,
+    healthReportId: review.health_report_id,
+    expertReviewStatus: expertReviewUiStatusFromRow(review.status)
+  })
 }
 
 function openReportFromReview(reportId: string) {

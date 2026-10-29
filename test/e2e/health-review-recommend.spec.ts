@@ -149,6 +149,51 @@ async function mockExpertReviewByConversation(page: Page) {
   })
 }
 
+const caseHistoryMarker = '案件對話歷史標記：專家判讀還原'
+
+async function mockCaseConversationMessages(page: Page) {
+  await page.route(`**/api/v1/conversation/${caseConversationId}/messages`, async (route: Route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback()
+      return
+    }
+    const url = route.request().url()
+    if (url.includes('/messages/stream')) {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: {
+          conversation_id: caseConversationId,
+          messages: [
+            {
+              id: 'msg-case-user',
+              role: 'user',
+              content: '請依報告給建議'
+            },
+            {
+              id: 'msg-case-assistant',
+              role: 'assistant',
+              content: caseHistoryMarker,
+              options: [],
+              turn: { type: 'message' },
+              profile_question: null,
+              profile_gaps: [],
+              upload_offer: false,
+              checkup_offer: false,
+              reply_actions: null
+            }
+          ]
+        }
+      })
+    })
+  })
+}
+
 test.describe('health review → recommendations (focus case conversation)', () => {
   test('from /app review row, view recommend hits case conversation expert-review', async ({
     page,
@@ -182,5 +227,40 @@ test.describe('health review → recommendations (focus case conversation)', () 
     await expect(page.getByTestId('expert-review-gate')).toHaveCount(0)
     await expect(page.getByTestId('package-plan-basic')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('package-plan-basic')).toContainText('基礎保養')
+  })
+
+  test('from /app review row, open chat loads case conversation messages', async ({
+    page,
+    goto
+  }) => {
+    test.setTimeout(90_000)
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await mockCandorAuth(page, { asMember: true })
+    await mockExpertReviewByConversation(page)
+    await mockCaseConversationMessages(page)
+    await seedLatestConversationJourney(page)
+
+    await goto('/app', { waitUntil: 'hydration' })
+    await expect(page.getByTestId(`health-review-card-${expertReviewId}`)).toBeVisible({
+      timeout: 15_000
+    })
+    await expect(page.getByTestId('health-review-open-chat')).toBeVisible()
+
+    const messagesGet = page.waitForRequest((request) => {
+      if (request.method() !== 'GET') {
+        return false
+      }
+      const url = request.url()
+      return url.includes(`/conversation/${caseConversationId}/messages`)
+        && !url.includes('/messages/stream')
+    })
+
+    await page.getByTestId('health-review-open-chat').click()
+    const hit = await messagesGet
+    expect(hit.url()).toContain(`/conversation/${caseConversationId}/messages`)
+    expect(hit.url()).not.toContain(latestConversationId)
+
+    await expect(page).toHaveURL(/\/chat\/?/)
+    await expect(page.getByText(caseHistoryMarker)).toBeVisible({ timeout: 15_000 })
   })
 })
