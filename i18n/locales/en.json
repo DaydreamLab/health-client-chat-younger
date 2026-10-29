@@ -539,6 +539,7 @@
     "photoTrayTooLarge": "Still over 25MB after compression. Remove some photos or use smaller ones.",
     "photoTrayNeedOne": "Add at least one photo.",
     "checkupLink": "I'd like a checkup to confirm my markers",
+    "continueConsult": "Continue consultation",
     "uploaded": "Uploaded {name}",
     "uploadedPhotos": "Uploaded report photos ({n})",
     "reportStatus": "Report status: {status}",

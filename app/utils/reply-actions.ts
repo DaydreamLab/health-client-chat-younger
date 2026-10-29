@@ -703,3 +703,26 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
 export function offerRecommendLabelKey(flow?: 'standard'): 'chat.submitExpertReview' | 'chat.viewRecommend' {
   return flow === 'standard' ? 'chat.viewRecommend' : 'chat.submitExpertReview'
 }
+
+/** i18n key for FE-appended「繼續諮詢」on checkup suggestion CTAs (stream as normal user text). */
+export const CONTINUE_CONSULT_I18N_KEY = 'chat.continueConsult' as const
+
+/**
+ * True when TurnActions is painting checkup-suggestion CTAs:
+ * (a) lab_followup chips (option.maps_to → ask_report / offer_checkup), or
+ * (b) top-level ask_report + offer_checkup buttons (showUpload && showCheckup).
+ * Single flag → at most one「繼續諮詢」even when (a)+(b) both present.
+ */
+export function shouldShowContinueConsultCta(input: {
+  showUpload: boolean
+  showCheckup: boolean
+  choices: readonly { maps_to?: string | null }[]
+}): boolean {
+  if (input.showUpload && input.showCheckup) {
+    return true
+  }
+  return input.choices.some((choice) => {
+    const mapsTo = normalizeChooseOptionMapsTo(choice.maps_to)
+    return mapsTo === 'ask_report' || mapsTo === 'offer_checkup'
+  })
+}

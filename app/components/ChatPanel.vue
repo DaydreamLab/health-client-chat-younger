@@ -224,6 +224,7 @@
                 @submit-review="submitExpertReview"
                 @recommend="goViewRecommend"
                 @retry="retryReport"
+                @continue-consult="onContinueConsult"
                 @vitals-submit="onVitalsSubmit"
               />
             </div>
@@ -422,6 +423,7 @@ import {
   hasAskReportAction,
   hasReplyActionsColumn,
   hasReportRequiredAsk,
+  CONTINUE_CONSULT_I18N_KEY,
   isContinueConsultationOption,
   isPathSwitchOptionCode,
   isUsableReplyActions,
@@ -2232,6 +2234,15 @@ function clearLastAssistantOptions() {
   message.options = []
   message.profileQuestion = null
   message.turnType = 'message'
+}
+
+/** TurnActions checkup CTA「繼續諮詢」— same stream path as free chip / #40 A／B label send. */
+function onContinueConsult() {
+  if (pending.value || readonly.value || escalated.value) {
+    return
+  }
+  clearLastAssistantOptions()
+  return sendText(t(CONTINUE_CONSULT_I18N_KEY))
 }
 
 function onChoice(option: GreetingOption) {

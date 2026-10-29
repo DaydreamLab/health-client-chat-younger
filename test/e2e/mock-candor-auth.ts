@@ -78,7 +78,15 @@ export type CandorMockOptions = {
    * over a local next_question bank bubble (and may skip covering stream when
    * history already has the gap CTA).
    */
-  replyActions?: 'offer_recommend' | 'ask_report' | 'ask_vitals' | 'degraded' | 'intake_hybrid' | 'none'
+  replyActions?:
+    | 'offer_recommend'
+    | 'ask_report'
+    | 'ask_report_checkup'
+    | 'lab_followup'
+    | 'ask_vitals'
+    | 'degraded'
+    | 'intake_hybrid'
+    | 'none'
   /**
    * When true with usable reply_actions, dual-write legacy `checkup_offer: true`
    * so e2e can assert FE ignores it (RA-only checkup). Default false — do not
@@ -1162,6 +1170,48 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         error: null,
         actions: [
           { type: 'ask_report', payload: {} }
+        ]
+      }
+    }
+    if (mode === 'ask_report_checkup') {
+      // Path B lab_report「無」形態 (b)：頂層 ask_report + offer_checkup
+      return {
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'fake',
+        degraded: false,
+        error: null,
+        actions: [
+          { type: 'ask_report', payload: {} },
+          { type: 'offer_checkup', payload: { url: 'https://example.test/checkup' } }
+        ]
+      }
+    }
+    if (mode === 'lab_followup') {
+      // Path B lab_report「無」形態 (a)：choose_option kind=lab_followup
+      return {
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'fake',
+        degraded: false,
+        error: null,
+        actions: [
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'lab_followup',
+              mode: 'single',
+              confirm: false,
+              options: [
+                { code: 'upload', label: '上傳報告', maps_to: 'ask_report' },
+                { code: 'checkup', label: '我想檢查', maps_to: 'offer_checkup' }
+              ],
+              selected: [],
+              gap_code: null,
+              answer_type: null,
+              exclusive_codes: []
+            }
+          }
         ]
       }
     }

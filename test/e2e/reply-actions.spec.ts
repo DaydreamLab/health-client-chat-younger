@@ -148,6 +148,58 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await expect(last.getByTestId('chat-message-upload')).toBeVisible({ timeout: 15_000 })
     await expect(last.getByTestId('chat-submit-expert-review')).toHaveCount(0)
     await expect(last.getByTestId('chat-quiz-option-legacy_chip')).toHaveCount(0)
+    // 僅 ask_report（無 offer_checkup）不算檢查建議 CTA 組 → 不掛繼續諮詢
+    await expect(last.getByTestId('chat-continue-consult')).toHaveCount(0)
+  })
+
+  test('/chat: lab_followup chips → 繼續諮詢；點擊走 stream', async ({ page, goto }) => {
+    test.setTimeout(90_000)
+    await mockCandorAuth(page, { asMember: true, replyActions: 'lab_followup' })
+    await seedNoExpertCase(page)
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await goto('/chat', { waitUntil: 'hydration' })
+    await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
+
+    await finishGoalSelect(page)
+    await sendChatLine(page, '沒有報告')
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last.getByTestId('chat-quiz-option-upload')).toBeVisible({ timeout: 15_000 })
+    await expect(last.getByTestId('chat-quiz-option-checkup')).toBeVisible()
+    await expect(last.getByTestId('chat-continue-consult')).toBeVisible()
+    await expect(last.getByTestId('chat-continue-consult')).toHaveText('繼續諮詢')
+    await expect(last.getByTestId('chat-continue-consult')).toHaveCount(1)
+
+    const streamReq = page.waitForRequest(req =>
+      req.method() === 'POST'
+      && req.url().includes('/messages/stream')
+      && (req.postData() || '').includes('繼續諮詢')
+    )
+    await last.getByTestId('chat-continue-consult').click()
+    await streamReq
+  })
+
+  test('/chat: ask_report + offer_checkup → 繼續諮詢；不重複', async ({ page, goto }) => {
+    test.setTimeout(90_000)
+    await mockCandorAuth(page, {
+      asMember: true,
+      replyActions: 'ask_report_checkup',
+      individualTestsUrl: 'https://example.test/checkup'
+    })
+    await seedNoExpertCase(page)
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await goto('/chat', { waitUntil: 'hydration' })
+    await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
+
+    await finishGoalSelect(page)
+    await sendChatLine(page, '沒有報告')
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last.getByTestId('chat-message-upload')).toBeVisible({ timeout: 15_000 })
+    await expect(last.getByTestId('chat-message-checkup')).toBeVisible()
+    await expect(last.getByTestId('chat-continue-consult')).toBeVisible()
+    await expect(last.getByTestId('chat-continue-consult')).toHaveText('繼續諮詢')
+    await expect(last.getByTestId('chat-continue-consult')).toHaveCount(1)
   })
 
   test('/chat: intentional none → 不畫怪鈕（無 legacy 取得專屬保健品方案）', async ({ page, goto }) => {
