@@ -25,6 +25,8 @@ const props = defineProps<{
   /** ask_vitals fields from reply_actions (shown one-at-a-time in order). */
   vitalsFields?: VitalsField[]
   vitalsDisabled?: boolean
+  /** Path B／C only; Path A must not show continue-health CTA. */
+  pathAllowsContinue?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -34,7 +36,7 @@ const emit = defineEmits<{
   submitReview: []
   recommend: []
   retry: []
-  /** FE-appended checkup CTA: stream「繼續諮詢」as a normal user message. */
+  /** FE-appended checkup CTA: stream continue-health copy as a normal user message. */
   continueConsult: []
   /** One field per confirm (multi-field = sequential cards). */
   vitalsSubmit: [values: Partial<Record<VitalsField, number>>]
@@ -52,8 +54,17 @@ const showContinueConsult = computed(() =>
   shouldShowContinueConsultCta({
     showUpload: props.showUpload,
     showCheckup: props.showCheckup,
-    choices: props.choices
+    choices: props.choices,
+    pathAllowsContinue: props.pathAllowsContinue !== false
   })
+)
+
+/** lab_followup chips share a row with continue; upload+checkup-only keeps continue in CTA row. */
+const continueConsultInChipRow = computed(
+  () => showContinueConsult.value && props.choices.length > 0
+)
+const continueConsultInCtaRow = computed(
+  () => showContinueConsult.value && props.choices.length === 0
 )
 
 function onVitalsFieldSubmit(value: number) {
@@ -101,6 +112,15 @@ const hasActions = computed(() =>
       >
         {{ option.label }}
       </button>
+      <AppButton
+        v-if="continueConsultInChipRow"
+        variant="outline"
+        data-testid="chat-continue-consult"
+        :disabled="pending"
+        @click="emit('continueConsult')"
+      >
+        {{ $t('chat.continueConsult') }}
+      </AppButton>
     </div>
     <div
       v-if="showConfirm"
@@ -124,7 +144,7 @@ const hasActions = computed(() =>
       @submit="onVitalsFieldSubmit"
     />
     <div
-      v-if="showSubmitReview || showViewRecommend || showUpload || (showCheckup && checkupUrl) || (showWantMoreTests && wantMoreTestsUrl) || showRetry || showContinueConsult"
+      v-if="showSubmitReview || showViewRecommend || showUpload || (showCheckup && checkupUrl) || (showWantMoreTests && wantMoreTestsUrl) || showRetry || continueConsultInCtaRow"
       class="turn-actions-cta"
     >
       <div class="turn-actions-row">
@@ -173,7 +193,7 @@ const hasActions = computed(() =>
           {{ $t('chat.checkupLink') }}
         </AppButton>
         <AppButton
-          v-if="showContinueConsult"
+          v-if="continueConsultInCtaRow"
           variant="outline"
           data-testid="chat-continue-consult"
           :disabled="pending"

@@ -218,6 +218,7 @@
                 :flow="isStandardFlow ? 'standard' : undefined"
                 :vitals-fields="vitalsFieldsFor(message)"
                 :vitals-disabled="pending || readonly || escalated"
+                :path-allows-continue="completionCtaPathAllows(conversationPath)"
                 @choice="onChoice"
                 @confirm="confirmMultiSelection"
                 @upload="openAttachMenu"
@@ -407,6 +408,7 @@ import {
 } from '~/utils/chat-turn-actions'
 import {
   isBasicProfileComplete,
+  completionCtaPathAllows,
   isConversationPath,
   isRequiredBasicGapCode,
   normalizeConversationPath,
@@ -1495,22 +1497,6 @@ async function promotePathToCOnUpload() {
   }
 }
 
-async function invokeContinueHealthConsultation() {
-  if (pending.value || readonly.value) {
-    return
-  }
-  pending.value = true
-  try {
-    const conversationId = await ensureConversation()
-    await candor.continueHealthConsultation(conversationId)
-    await hydrateConversationHistory(conversationId)
-  } catch {
-    appendMessage('assistant', t('chat.streamError'))
-  } finally {
-    pending.value = false
-  }
-}
-
 function applyTurnLimitPayload(input: {
   prompt: string
   reply_actions?: ReplyActions | null
@@ -2236,13 +2222,25 @@ function clearLastAssistantOptions() {
   message.turnType = 'message'
 }
 
-/** TurnActions checkup CTA「繼續諮詢」— same stream path as free chip / #40 A／B label send. */
+/**
+ * LabFollowup FE continue CTA — stream core copy「繼續健康諮詢」so prepareTurn
+ * sets continue_health_consultation same turn (spec 16 preferred path).
+ */
 function onContinueConsult() {
   if (pending.value || readonly.value || escalated.value) {
     return
   }
   clearLastAssistantOptions()
   return sendText(t(CONTINUE_CONSULT_I18N_KEY))
+}
+
+/** Completion／fallback continue_consultation chip: same stream path as onContinueConsult. */
+function submitContinueHealthConsultationLabel(label: string) {
+  if (pending.value || readonly.value || escalated.value) {
+    return
+  }
+  clearLastAssistantOptions()
+  return sendText(label)
 }
 
 function onChoice(option: GreetingOption) {
@@ -2270,9 +2268,7 @@ function onChoice(option: GreetingOption) {
 
   const intake = intakeMessage.value
   if (intake && isContinueConsultationOption(intake.replyActions, option.code)) {
-    appendMessage('user', option.label)
-    void invokeContinueHealthConsultation()
-    return
+    return submitContinueHealthConsultationLabel(option.label)
   }
 
   // LabFollowup maps_to: upload UI or checkup外連 — never POST /profile/answers (#22).

@@ -310,3 +310,25 @@ test('member chrome keeps avatar and logout', async ({ page, goto }) => {
   await expect(page.getByTestId('nav-logout-mobile')).toBeVisible()
   await expect(page.getByTestId('guest-login-drawer')).toHaveCount(0)
 })
+
+test('member health profile clear wipes summary card', async ({ page, goto }) => {
+  await mockCandorAuth(page, { asMember: true, basicProfileComplete: true })
+  await goto('/app', { waitUntil: 'hydration' })
+
+  await expect(page.getByTestId('health-profile-cards')).toBeVisible()
+  await expect(page.getByTestId('health-stat-sex')).toContainText(/女|Female/)
+  await expect(page.getByTestId('health-stat-age')).toContainText(/35/)
+
+  await page.getByTestId('health-profile-clear').click()
+  await expect(page.getByTestId('health-profile-clear-hint')).toBeVisible()
+
+  const clearReq = page.waitForRequest(
+    (req) => req.method() === 'DELETE' && /\/api\/v1\/profile\/?$/.test(new URL(req.url()).pathname)
+  )
+  await page.getByTestId('health-profile-clear-confirm').click()
+  await clearReq
+
+  await expect(page.getByTestId('health-stat-sex')).toContainText(/尚未填寫|Not set yet/)
+  await expect(page.getByTestId('health-stat-age')).toContainText(/尚未填寫|Not set yet/)
+  await expect(page.getByTestId('health-profile-clear')).toBeVisible()
+})

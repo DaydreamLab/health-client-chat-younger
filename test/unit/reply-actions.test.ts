@@ -556,7 +556,16 @@ describe('shouldShowContinueConsultCta — checkup suggestion FE append', () => 
     })).toBe(false)
   })
 
-  it('stream label key is chat.continueConsult (ChatPanel → sendText, same as free chip)', () => {
+  it('pathAllowsContinue false (Path A) → hide', () => {
+    expect(shouldShowContinueConsultCta({
+      showUpload: false,
+      showCheckup: false,
+      choices: labFollowupChoices,
+      pathAllowsContinue: false
+    })).toBe(false)
+  })
+
+  it('stream label key is chat.continueConsult (must match core continue-health copy)', () => {
     expect(CONTINUE_CONSULT_I18N_KEY).toBe('chat.continueConsult')
   })
 })

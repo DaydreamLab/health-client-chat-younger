@@ -541,6 +541,7 @@ export function useCandorApi() {
       ),
 
     getProfile: () => request<UserHealthProfile>('/profile'),
+    clearProfile: () => request<UserHealthProfile>('/profile', { method: 'DELETE' }),
     nextProfileQuestion: (reportId?: string | null, conversationId?: string | null) =>
       request<ProfileNext>('/profile/questions/next', {
         query: {

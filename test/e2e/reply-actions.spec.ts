@@ -148,11 +148,11 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await expect(last.getByTestId('chat-message-upload')).toBeVisible({ timeout: 15_000 })
     await expect(last.getByTestId('chat-submit-expert-review')).toHaveCount(0)
     await expect(last.getByTestId('chat-quiz-option-legacy_chip')).toHaveCount(0)
-    // 僅 ask_report（無 offer_checkup）不算檢查建議 CTA 組 → 不掛繼續諮詢
+    // 僅 ask_report（無 offer_checkup）不算檢查建議 CTA 組 → 不掛繼續健康諮詢
     await expect(last.getByTestId('chat-continue-consult')).toHaveCount(0)
   })
 
-  test('/chat: lab_followup chips → 繼續諮詢；點擊走 stream', async ({ page, goto }) => {
+  test('/chat: lab_followup chips → 繼續健康諮詢；點擊走 stream', async ({ page, goto }) => {
     test.setTimeout(90_000)
     await mockCandorAuth(page, { asMember: true, replyActions: 'lab_followup' })
     await seedNoExpertCase(page)
@@ -167,19 +167,19 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await expect(last.getByTestId('chat-quiz-option-upload')).toBeVisible({ timeout: 15_000 })
     await expect(last.getByTestId('chat-quiz-option-checkup')).toBeVisible()
     await expect(last.getByTestId('chat-continue-consult')).toBeVisible()
-    await expect(last.getByTestId('chat-continue-consult')).toHaveText('繼續諮詢')
+    await expect(last.getByTestId('chat-continue-consult')).toHaveText('繼續健康諮詢')
     await expect(last.getByTestId('chat-continue-consult')).toHaveCount(1)
 
     const streamReq = page.waitForRequest(req =>
       req.method() === 'POST'
       && req.url().includes('/messages/stream')
-      && (req.postData() || '').includes('繼續諮詢')
+      && (req.postData() || '').includes('繼續健康諮詢')
     )
     await last.getByTestId('chat-continue-consult').click()
     await streamReq
   })
 
-  test('/chat: ask_report + offer_checkup → 繼續諮詢；不重複', async ({ page, goto }) => {
+  test('/chat: ask_report + offer_checkup → 繼續健康諮詢；不重複', async ({ page, goto }) => {
     test.setTimeout(90_000)
     await mockCandorAuth(page, {
       asMember: true,
@@ -198,7 +198,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await expect(last.getByTestId('chat-message-upload')).toBeVisible({ timeout: 15_000 })
     await expect(last.getByTestId('chat-message-checkup')).toBeVisible()
     await expect(last.getByTestId('chat-continue-consult')).toBeVisible()
-    await expect(last.getByTestId('chat-continue-consult')).toHaveText('繼續諮詢')
+    await expect(last.getByTestId('chat-continue-consult')).toHaveText('繼續健康諮詢')
     await expect(last.getByTestId('chat-continue-consult')).toHaveCount(1)
   })
 

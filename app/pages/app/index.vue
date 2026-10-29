@@ -45,6 +45,44 @@
           class="rounded-2xl border border-default bg-elevated p-3"
           data-testid="health-profile-cards"
         >
+          <div class="mb-1 flex flex-wrap items-center justify-end gap-2">
+            <template v-if="!clearProfileOpen">
+              <AppButton
+                variant="ghost"
+                class="!px-2 !py-1 text-xs"
+                data-testid="health-profile-clear"
+                :disabled="clearProfilePending"
+                @click="clearProfileOpen = true"
+              >
+                {{ $t('member.profileClear') }}
+              </AppButton>
+            </template>
+            <template v-else>
+              <p
+                class="me-auto w-full text-xs text-muted sm:w-auto"
+                data-testid="health-profile-clear-hint"
+              >
+                {{ $t('member.profileClearConfirm') }}
+              </p>
+              <AppButton
+                class="!px-2 !py-1 text-xs"
+                data-testid="health-profile-clear-confirm"
+                :disabled="clearProfilePending"
+                @click="onClearProfile"
+              >
+                {{ $t('member.profileClearConfirmAction') }}
+              </AppButton>
+              <AppButton
+                variant="ghost"
+                class="!px-2 !py-1 text-xs"
+                data-testid="health-profile-clear-dismiss"
+                :disabled="clearProfilePending"
+                @click="clearProfileOpen = false"
+              >
+                {{ $t('member.profileClearDismiss') }}
+              </AppButton>
+            </template>
+          </div>
           <div
             v-for="card in profileCards"
             :key="card.key"
@@ -66,6 +104,13 @@
           data-testid="health-profile-error"
         >
           {{ profileError }}
+        </p>
+        <p
+          v-if="clearProfileError"
+          class="text-sm text-red-600 dark:text-red-400"
+          data-testid="health-profile-clear-error"
+        >
+          {{ clearProfileError }}
         </p>
 
         <section
@@ -585,6 +630,10 @@ const anonymizeOpen = ref(false)
 const anonymizePending = ref(false)
 const anonymizeError = ref('')
 
+const clearProfileOpen = ref(false)
+const clearProfilePending = ref(false)
+const clearProfileError = ref('')
+
 const profileCards = computed(() => {
   const p = profile.value
   return [
@@ -672,6 +721,8 @@ async function loadProfile() {
   if (!auth.isMember) {
     profile.value = null
     profileError.value = ''
+    clearProfileError.value = ''
+    clearProfileOpen.value = false
     return
   }
   profileError.value = ''
@@ -679,6 +730,22 @@ async function loadProfile() {
     profile.value = await candor.getProfile()
   } catch {
     profileError.value = t('member.profileLoadError')
+  }
+}
+
+async function onClearProfile() {
+  if (clearProfilePending.value) {
+    return
+  }
+  clearProfilePending.value = true
+  clearProfileError.value = ''
+  try {
+    profile.value = await candor.clearProfile()
+    clearProfileOpen.value = false
+  } catch {
+    clearProfileError.value = t('member.profileClearError')
+  } finally {
+    clearProfilePending.value = false
   }
 }
 

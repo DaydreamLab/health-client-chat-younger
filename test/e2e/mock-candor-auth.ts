@@ -926,7 +926,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     : options.conversationPath === null
       ? null
       : String(options.conversationPath).toLowerCase() as 'a' | 'b' | 'c'
-  const resolvedBasicProfileComplete = options.basicProfileComplete ?? true
+  let resolvedBasicProfileComplete = options.basicProfileComplete ?? true
   mockEntryPath = (resolvedConversationPath ?? 'b') as 'a' | 'b' | 'c'
 
   await page.route('**/api/v1/conversations', async (route) => {
@@ -1794,7 +1794,31 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
 
   await page.route('**/api/v1/profile', async (route) => {
     const path = new URL(route.request().url()).pathname.replace(/\/$/, '')
-    if (route.request().method() !== 'GET' || !path.endsWith('/profile')) {
+    if (!path.endsWith('/profile')) {
+      await route.fallback()
+      return
+    }
+    const method = route.request().method()
+    if (method === 'DELETE') {
+      resolvedBasicProfileComplete = false
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            sex: null,
+            age_years: null,
+            height_cm: null,
+            weight_kg: null,
+            diet: null,
+            goals: []
+          }
+        })
+      })
+      return
+    }
+    if (method !== 'GET') {
       await route.fallback()
       return
     }

@@ -704,20 +704,30 @@ export function offerRecommendLabelKey(flow?: 'standard'): 'chat.submitExpertRev
   return flow === 'standard' ? 'chat.viewRecommend' : 'chat.submitExpertReview'
 }
 
-/** i18n key for FE-appended「繼續諮詢」on checkup suggestion CTAs (stream as normal user text). */
+/**
+ * i18n key for FE-appended continue CTA on checkup suggestion turns.
+ * Must match core copy `option.continue_health_consultation` so stream body
+ * triggers prepareTurn same-turn `continue_health_consultation` (spec 16).
+ */
 export const CONTINUE_CONSULT_I18N_KEY = 'chat.continueConsult' as const
 
 /**
  * True when TurnActions is painting checkup-suggestion CTAs:
  * (a) lab_followup chips (option.maps_to → ask_report / offer_checkup), or
  * (b) top-level ask_report + offer_checkup buttons (showUpload && showCheckup).
- * Single flag → at most one「繼續諮詢」even when (a)+(b) both present.
+ * Single flag → at most one continue CTA even when (a)+(b) both present.
+ * Path A never shows — continue mode is B／C only (`pathAllowsContinue`).
  */
 export function shouldShowContinueConsultCta(input: {
   showUpload: boolean
   showCheckup: boolean
   choices: readonly { maps_to?: string | null }[]
+  /** When false／undefined, hide (Path A or unknown path). Default true for unit callers. */
+  pathAllowsContinue?: boolean
 }): boolean {
+  if (input.pathAllowsContinue === false) {
+    return false
+  }
   if (input.showUpload && input.showCheckup) {
     return true
   }
