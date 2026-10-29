@@ -4,6 +4,7 @@
     v-bind="attrs"
     :href="href"
     :class="classes"
+    @click="emit('click', $event)"
   >
     <slot />
   </a>
@@ -14,6 +15,7 @@
     active-class=""
     exact-active-class=""
     :class="classes"
+    @click="emit('click', $event)"
   >
     <slot />
   </NuxtLink>
