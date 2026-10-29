@@ -323,7 +323,7 @@ test('member health profile clear wipes summary card', async ({ page, goto }) =>
   await expect(page.getByTestId('health-profile-clear-hint')).toBeVisible()
 
   const clearReq = page.waitForRequest(
-    (req) => req.method() === 'DELETE' && /\/api\/v1\/profile\/?$/.test(new URL(req.url()).pathname)
+    req => req.method() === 'DELETE' && /\/api\/v1\/profile\/?$/.test(new URL(req.url()).pathname)
   )
   await page.getByTestId('health-profile-clear-confirm').click()
   await clearReq
