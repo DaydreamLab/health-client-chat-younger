@@ -1,5 +1,17 @@
 import type { Page } from '@playwright/test'
 
+/** Flow v2 PR1：A／B／C create 共用 greeting.consult 開場白。 */
+export const FLOW_V2_GREETING_CONSULT
+  = '您好，我是您的專屬個人健康顧問（非醫生），您可以詢問各項醫療保健與健康問題，也可以上傳您的血檢、健診報告，讓我們為您分析健康狀態，並依據我們的了解提供您保健品的健康建議與訂購'
+
+/** 取代 greeting.path_c_await_upload（後端文案；FE 空 content 時 i18n 對齊）。 */
+export const FLOW_V2_PATH_C_AWAIT_UPLOAD
+  = '請上傳血檢或健檢報告；若暫時沒有，也可以點『我想聊聊』隨意聊聊，或點『我想諮詢健康方案』進行健康諮詢。'
+
+/** 取代 greeting.path_c_basics（後端文案）。 */
+export const FLOW_V2_PATH_C_BASICS
+  = '報告收到了，接下來問您幾個問題，先從您想改善的健康方向開始'
+
 const guestUser = {
   id: '11111111-1111-1111-1111-111111111111',
   role: 'guest' as const,
@@ -918,11 +930,6 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     const path = bodyPath === 'a' || bodyPath === 'b' || bodyPath === 'c'
       ? bodyPath
       : (resolvedConversationPath ?? 'b')
-    const greetingContent = path === 'a'
-      ? '你好，想聊什麼都可以。'
-      : path === 'c'
-        ? '請先上傳血檢或健檢報告；若不傳可改為諮詢健康方案。'
-        : '您好，我是健康報告解讀助理。請先選擇改善方向。'
     await route.fulfill({
       status: 201,
       contentType: 'application/json',
@@ -945,11 +952,13 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           greeting: {
             message_id: 'greet-e2e',
             role: 'assistant',
-            content: greetingContent,
+            // A／B／C 皆 greeting.consult；C 上傳引導／收到報告文案見 FLOW_V2_PATH_C_*。
+            content: FLOW_V2_GREETING_CONSULT,
             options: path === 'b' ? goalOptions : [],
             selected: [],
             ...(path === 'c'
               ? {
+                  // 保留既有 upload／checkup／path_switch RA 形狀（C 兩鈕改版屬後續 PR）。
                   reply_actions: {
                     schema_version: '0.1',
                     source: 'rule',
