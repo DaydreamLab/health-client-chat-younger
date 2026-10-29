@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import {
+  CONTINUE_CONSULT_I18N_KEY,
   detectPathRuleCopyKind,
   findGapCtaHostMessage,
   hasLabReportBankOrFollowup,
@@ -14,6 +15,7 @@ import {
   pathSwitchChipI18nKey,
   projectReplyActionsToCtas,
   resetReplyActionsUnknownLog,
+  shouldShowContinueConsultCta,
   shouldSkipFollowUpStream,
   type ReplyActions
 } from '../../app/utils/reply-actions'
@@ -482,6 +484,80 @@ describe('projectReplyActionsToCtas', () => {
     expect(projection.flags.showUpload).toBe(true)
     expect(projection.flags.showCheckup).toBe(true)
     expect(projection.checkupUrlOverride).toBe('https://labs.example/x')
+  })
+})
+
+describe('shouldShowContinueConsultCta — checkup suggestion FE append', () => {
+  const labFollowupChoices = [
+    { code: 'upload', label: '上傳報告', maps_to: 'ask_report' },
+    { code: 'checkup', label: '我想檢查', maps_to: 'offer_checkup' }
+  ]
+
+  it('(a) lab_followup maps_to chips → show continue consult', () => {
+    expect(shouldShowContinueConsultCta({
+      showUpload: false,
+      showCheckup: false,
+      choices: labFollowupChoices
+    })).toBe(true)
+  })
+
+  it('(b) ask_report + offer_checkup buttons → show continue consult', () => {
+    const projection = projectReplyActionsToCtas({
+      replyActions: ra({
+        actions: [
+          { type: 'ask_report' },
+          { type: 'offer_checkup', payload: { url: 'https://labs.example/x' } }
+        ]
+      }),
+      canShowRecommendSlot: false,
+      canShowUpload: true,
+      canShowCheckup: true,
+      canShowVitals: false,
+      expertReviewStatus: 'none'
+    })
+    expect(projection.flags.showUpload).toBe(true)
+    expect(projection.flags.showCheckup).toBe(true)
+    expect(shouldShowContinueConsultCta({
+      showUpload: projection.flags.showUpload,
+      showCheckup: projection.flags.showCheckup,
+      choices: projection.flags.choices
+    })).toBe(true)
+  })
+
+  it('(a)+(b) together still a single show flag (no duplicate CTA)', () => {
+    expect(shouldShowContinueConsultCta({
+      showUpload: true,
+      showCheckup: true,
+      choices: labFollowupChoices
+    })).toBe(true)
+  })
+
+  it('ask_report alone or offer_checkup alone → hide', () => {
+    expect(shouldShowContinueConsultCta({
+      showUpload: true,
+      showCheckup: false,
+      choices: []
+    })).toBe(false)
+    expect(shouldShowContinueConsultCta({
+      showUpload: false,
+      showCheckup: true,
+      choices: []
+    })).toBe(false)
+  })
+
+  it('profile / goal chips without maps_to → hide', () => {
+    expect(shouldShowContinueConsultCta({
+      showUpload: false,
+      showCheckup: false,
+      choices: [
+        { code: 'sleep', label: '睡眠' },
+        { code: 'M', label: '男' }
+      ]
+    })).toBe(false)
+  })
+
+  it('stream label key is chat.continueConsult (ChatPanel → sendText, same as free chip)', () => {
+    expect(CONTINUE_CONSULT_I18N_KEY).toBe('chat.continueConsult')
   })
 })
 

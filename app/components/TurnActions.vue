@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import type { GreetingOption } from '~/utils/candor-api'
-import type { VitalsField } from '~/utils/reply-actions'
+import {
+  shouldShowContinueConsultCta,
+  type VitalsField
+} from '~/utils/reply-actions'
 
 const props = defineProps<{
   choices: GreetingOption[]
@@ -31,6 +34,8 @@ const emit = defineEmits<{
   submitReview: []
   recommend: []
   retry: []
+  /** FE-appended checkup CTA: stream「繼續諮詢」as a normal user message. */
+  continueConsult: []
   /** One field per confirm (multi-field = sequential cards). */
   vitalsSubmit: [values: Partial<Record<VitalsField, number>>]
 }>()
@@ -40,6 +45,15 @@ const activeVitalsFields = computed(() => props.vitalsFields ?? [])
 /** One card at a time: always the head of the remaining fields queue. */
 const activeVitalsField = computed<VitalsField | null>(() =>
   activeVitalsFields.value[0] ?? null
+)
+
+/** Fixed FE CTA when checkup suggestion UI is on (lab_followup chips and/or upload+checkup). */
+const showContinueConsult = computed(() =>
+  shouldShowContinueConsultCta({
+    showUpload: props.showUpload,
+    showCheckup: props.showCheckup,
+    choices: props.choices
+  })
 )
 
 function onVitalsFieldSubmit(value: number) {
@@ -59,6 +73,7 @@ const hasActions = computed(() =>
   || props.showSubmitReview
   || props.showViewRecommend
   || props.showRetry
+  || showContinueConsult.value
   || activeVitalsFields.value.length > 0
 )
 </script>
@@ -109,7 +124,7 @@ const hasActions = computed(() =>
       @submit="onVitalsFieldSubmit"
     />
     <div
-      v-if="showSubmitReview || showViewRecommend || showUpload || (showCheckup && checkupUrl) || (showWantMoreTests && wantMoreTestsUrl) || showRetry"
+      v-if="showSubmitReview || showViewRecommend || showUpload || (showCheckup && checkupUrl) || (showWantMoreTests && wantMoreTestsUrl) || showRetry || showContinueConsult"
       class="turn-actions-cta"
     >
       <div class="turn-actions-row">
@@ -156,6 +171,15 @@ const hasActions = computed(() =>
           data-testid="chat-message-checkup"
         >
           {{ $t('chat.checkupLink') }}
+        </AppButton>
+        <AppButton
+          v-if="showContinueConsult"
+          variant="outline"
+          data-testid="chat-continue-consult"
+          :disabled="pending"
+          @click="emit('continueConsult')"
+        >
+          {{ $t('chat.continueConsult') }}
         </AppButton>
         <AppButton
           v-if="showRetry"
