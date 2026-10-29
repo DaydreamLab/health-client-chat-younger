@@ -4,6 +4,7 @@ import type {
   ApiSuccess,
   ConversationAttachAck,
   ConversationCreate,
+  ContinueHealthConsultationAck,
   ConversationDetachAck,
   ConversationGoalsResult,
   ConversationMessages,
@@ -486,6 +487,11 @@ export function useCandorApi() {
         method: 'PATCH',
         body: { report_id: reportId }
       }),
+    continueHealthConsultation: (conversationId: string) =>
+      request<ContinueHealthConsultationAck>(
+        `/conversation/${encodeURIComponent(conversationId)}/continue-health-consultation`,
+        { method: 'POST' }
+      ),
     detachReport: (conversationId: string) =>
       request<ConversationDetachAck>(
         `/conversation/${encodeURIComponent(conversationId)}/report`,

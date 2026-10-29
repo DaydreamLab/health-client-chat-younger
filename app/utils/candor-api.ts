@@ -244,6 +244,8 @@ export interface ConversationCreate {
   renewal_of_order_id?: string | null
   package_plan?: ConversationPackage | null
   greeting: ConversationGreeting
+  /** Path C 第二則流程提示（上傳引導或「報告收到了…」）。 */
+  flow_prompt?: ConversationGreeting | null
   /** Journey path from core (`a`／`b`／`c`). FE normalizes to A／B／C. */
   path?: 'a' | 'b' | 'c' | 'A' | 'B' | 'C' | null
 }
@@ -266,6 +268,13 @@ export interface ConversationPathAck {
 export interface ConversationAttachAck {
   id: string
   report_id: string
+  path?: 'a' | 'b' | 'c' | 'A' | 'B' | 'C' | null
+  flow_prompt?: ConversationGreeting | null
+}
+
+export interface ContinueHealthConsultationAck {
+  id: string
+  continue_health_consultation: boolean
 }
 
 export interface ConversationDetachAck {
@@ -627,9 +636,22 @@ export interface ProfileAnswerNeedsClarification {
   checkup_suggest?: string | null
   checkup_offer_label?: string | null
   individual_tests_url?: string | null
+  next_question?: ProfileNext
+  reply_actions?: ReplyActions | null
 }
 
-export type ProfileAnswerResult = ProfileAnswerSaved | ProfileAnswerNeedsClarification
+export interface ProfileAnswerTurnLimit {
+  saved: false
+  turn_limit: true
+  prompt: string
+  next_question?: ProfileNext
+  reply_actions?: ReplyActions | null
+}
+
+export type ProfileAnswerResult
+  = ProfileAnswerSaved
+    | ProfileAnswerNeedsClarification
+    | ProfileAnswerTurnLimit
 
 export type ClaimGuardStatus = 'passed' | 'rewritten' | 'blocked'
 

@@ -492,14 +492,14 @@ describe('path contract — completion CTA gates (no FE 硬保)', () => {
     expect(v.showSubmitReview).toBe(true)
   })
 
-  it('path B + basic incomplete hides offer_recommend', () => {
+  it('path B + basic incomplete still shows offer_recommend when RA includes it (core completion_cta_ready)', () => {
     const msg = assistant('latest', { replyActions: offerRecommend })
     const v = visibility(msg, baseCtx({
       lastAssistantId: 'latest',
       conversationPath: 'B',
       openProfileGaps: ['sex', 'age']
     }), { messages: [msg], expertReviewStatus: 'none' })
-    expect(v.showSubmitReview).toBe(false)
+    expect(v.showSubmitReview).toBe(true)
   })
 
   it('path B + basic complete + RA none → still no completion CTA (不硬保)', () => {

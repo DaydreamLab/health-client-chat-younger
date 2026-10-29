@@ -44,9 +44,9 @@ describe('openRequiredBasicGaps / isRequiredBasicGapCode', () => {
 })
 
 describe('completion CTA threshold (no FE 硬保)', () => {
-  it('only B／C + basic complete', () => {
+  it('only path B／C (completion_cta_ready on core)', () => {
     expect(completionCtaThresholdMet({ path: 'A', basicProfileComplete: true })).toBe(false)
-    expect(completionCtaThresholdMet({ path: 'B', basicProfileComplete: false })).toBe(false)
+    expect(completionCtaThresholdMet({ path: 'B', basicProfileComplete: false })).toBe(true)
     expect(completionCtaThresholdMet({ path: 'B', basicProfileComplete: true })).toBe(true)
     expect(completionCtaThresholdMet({ path: 'C', basicProfileComplete: true })).toBe(true)
     expect(completionCtaThresholdMet({ path: null, basicProfileComplete: true })).toBe(false)
@@ -90,10 +90,10 @@ describe('path transitions', () => {
     expect(pathAfterReportUpload(null)).toBe('C')
   })
 
-  it('cancel upload without report demotes C→B', () => {
-    expect(pathAfterCancelUploadWithoutReport('C', false)).toBe('B')
-    expect(pathAfterCancelUploadWithoutReport('C', true)).toBe('C')
-    expect(pathAfterCancelUploadWithoutReport('B', false)).toBe('B')
+  it('path switch from C uses POST …/path (no auto demote helper)', () => {
+    expect(pathAfterCancelUploadWithoutReport('C', false)).toBe(null)
+    expect(pathAfterCancelUploadWithoutReport('C', true)).toBe(null)
+    expect(pathAfterCancelUploadWithoutReport('B', false)).toBe(null)
   })
 })
 

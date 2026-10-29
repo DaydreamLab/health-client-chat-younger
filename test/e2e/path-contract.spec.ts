@@ -140,7 +140,7 @@ test.describe('path contract (A／B／C)', () => {
     await expect(last.getByTestId('chat-submit-expert-review')).toHaveCount(0)
   })
 
-  test('path B：基本未齊時必填 sex 被問出；完成 CTA 不出現', async ({ page, goto }) => {
+  test('path B：goals 後才問 sex；完成 CTA 依 RA', async ({ page, goto }) => {
     test.setTimeout(90_000)
     await mockCandorAuth(page, {
       asMember: true,
@@ -152,7 +152,7 @@ test.describe('path contract (A／B／C)', () => {
     await openFreshChat(page, goto)
     await selectEntryPath(page, 'B')
 
-    // Client／next_question placeholder asks sex first.
+    await finishGoalSelect(page)
     await expect(page.getByTestId('chat-quiz-option-F')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('chat-submit-expert-review')).toHaveCount(0)
   })
@@ -206,27 +206,23 @@ test.describe('path contract (A／B／C)', () => {
     await expect(last.getByTestId('chat-submit-expert-review')).toHaveCount(0)
   })
 
-  test('path C skip → 退回 B，並開始必填', async ({ page, goto }) => {
+  test('path C：flow_prompt 上傳引導＋A／B 兩鈕（無 checkup）', async ({ page, goto }) => {
     test.setTimeout(90_000)
     await mockCandorAuth(page, {
       asMember: true,
       conversationPath: null,
-      basicProfileComplete: false,
-      individualTestsUrl: 'https://example.test/checkup'
+      basicProfileComplete: false
     })
     await seedNoExpertCase(page)
     await openFreshChat(page, goto)
     await selectEntryPath(page, 'C')
 
+    const transcript = page.getByTestId('chat-transcript')
+    await expect(transcript).toContainText(FLOW_V2_PATH_C_AWAIT_UPLOAD, { timeout: 15_000 })
     const last = page.getByTestId('chat-last-reply')
-    await expect(last.getByTestId('chat-message-checkup')).toBeVisible({ timeout: 15_000 })
-    await expect(last.getByTestId('chat-message-checkup')).toHaveText('我想做檢查，確認各項指標')
-    await expect(last.getByTestId('chat-quiz-option-b')).toBeVisible({ timeout: 15_000 })
-    await expect(last.getByTestId('chat-quiz-option-b')).toHaveText(
-      '沒關係，我們改以諮詢健康方案繼續。'
-    )
-    await last.getByTestId('chat-quiz-option-b').click()
-    // Demote to B → ensure required sex ask.
-    await expect(page.getByTestId('chat-quiz-option-F')).toBeVisible({ timeout: 15_000 })
+    await expect(last.getByTestId('chat-message-checkup')).toHaveCount(0)
+    await expect(last.getByTestId('chat-message-upload')).toBeVisible()
+    await expect(last.getByTestId('chat-quiz-option-a')).toHaveText('我想聊聊')
+    await expect(last.getByTestId('chat-quiz-option-b')).toHaveText('我想諮詢健康方案')
   })
 })

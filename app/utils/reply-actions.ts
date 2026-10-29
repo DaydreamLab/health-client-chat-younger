@@ -25,8 +25,10 @@ export type ChooseOptionKind
     | 'lab_followup'
     /** Required ask for report chips (mirrors consultation_goals / ask_goal; not a profile gap). */
     | 'lab_report'
-    /** Switch conversation entry path (A→B guide, C cancel→B). */
+    /** Switch conversation entry path (A→B guide, C→A／C→B). */
     | 'path_switch'
+    /** POST …/continue-health-consultation (completion 組第二鈕). */
+    | 'continue_consultation'
 
 /** choose_option option.maps_to → FE route (LabFollowup dual chips). */
 export type ChooseOptionMapsTo = 'ask_report' | 'offer_checkup'
@@ -284,13 +286,14 @@ export const NON_GAP_CHOOSE_OPTION_KINDS = new Set<string>([
   'consultation_goals',
   // core #100: report 必問 chips（同 ask_goal 模式），不進 open profile gap host
   'lab_report',
-  'path_switch'
+  'path_switch',
+  'continue_consultation'
 ])
 
 /**
  * Path-rule short-circuit signatures (empty content; FE fills i18n).
- * - path_a_cap: offer_checkup + path_switch (also ≥10 guide CTA shape; only fill when content empty)
- * - path_c_await_upload: ask_report + offer_checkup + path_switch
+ * - path_a_cap: offer_checkup + path_switch (A 引導／上限；文案以 core content 為準)
+ * - path_c_await_upload: ask_report + path_switch（PR6 無 checkup）
  */
 export type PathRuleCopyKind = 'path_a_cap' | 'path_c_await_upload'
 
@@ -305,14 +308,16 @@ export function detectPathRuleCopyKind(
     action => action.type === 'choose_option'
       && chooseOptionPayload(action).kind === 'path_switch'
   )
-  const hasCheckup = actions.some(action => action.type === 'offer_checkup')
-  if (!hasPathSwitch || !hasCheckup) {
+  if (!hasPathSwitch) {
     return null
   }
   if (actions.some(action => action.type === 'ask_report')) {
     return 'path_c_await_upload'
   }
-  return 'path_a_cap'
+  if (actions.some(action => action.type === 'offer_checkup')) {
+    return 'path_a_cap'
+  }
+  return null
 }
 
 export function pathRuleBubbleI18nKey(kind: PathRuleCopyKind): string {
@@ -321,11 +326,30 @@ export function pathRuleBubbleI18nKey(kind: PathRuleCopyKind): string {
     : 'chat.pathACap'
 }
 
-/** path_switch chip label key; FE owns display (ignore BE options[].label). */
+/** path_switch chip label fallback when BE omits option label (A→B guide). */
 export function pathSwitchChipI18nKey(kind: PathRuleCopyKind): string {
   return kind === 'path_c_await_upload'
-    ? 'chat.pathCCancelToB'
+    ? 'chat.pathEntryB'
     : 'chat.pathSwitchToConsult'
+}
+
+export function isContinueConsultationOption(
+  ra: ReplyActions | null | undefined,
+  code: string
+): boolean {
+  if (!isUsableReplyActions(ra)) {
+    return false
+  }
+  return ra!.actions.some((action) => {
+    if (action.type !== 'choose_option') {
+      return false
+    }
+    const payload = chooseOptionPayload(action)
+    if (payload.kind !== 'continue_consultation') {
+      return false
+    }
+    return (payload.options ?? []).some(option => option.code === code)
+  })
 }
 
 export function isPathSwitchOptionCode(
