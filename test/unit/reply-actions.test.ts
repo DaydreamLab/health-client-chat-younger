@@ -861,21 +861,23 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     expect(isPathSwitchOptionCode(msg.replyActions, 'b')).toBe(true)
   })
 
-  it('path C await upload renders ask_report + offer_checkup + path_switch', () => {
+  it('path C await upload renders ask_report + path_switch (no checkup)', () => {
     const msg = assistant('latest', {
-      parts: [{ type: 'text', text: '' }],
+      parts: [{ type: 'text', text: '請上傳血檢或健檢報告' }],
       replyActions: ra({
         adaptor: 'rule',
         actions: [
           { type: 'ask_report', payload: { option_codes: ['upload'] } },
-          { type: 'offer_checkup', payload: {} },
           {
             type: 'choose_option',
             payload: {
               kind: 'path_switch',
               mode: 'single',
               confirm: false,
-              options: [{ code: 'b', label: '' }]
+              options: [
+                { code: 'a', label: '我想聊聊' },
+                { code: 'b', label: '我想諮詢健康方案' }
+              ]
             }
           }
         ]
@@ -892,11 +894,10 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       needsMultiConfirm: true
     })
     expect(visibility.showUpload).toBe(true)
-    expect(visibility.showCheckup).toBe(true)
-    expect(visibility.choices.map(choice => choice.code)).toEqual(['b'])
+    expect(visibility.showCheckup).toBe(false)
+    expect(visibility.choices.map(choice => choice.code)).toEqual(['a', 'b'])
     expect(detectPathRuleCopyKind(msg.replyActions)).toBe('path_c_await_upload')
-    expect(pathRuleBubbleI18nKey('path_c_await_upload')).toBe('chat.pathCAwaitUpload')
-    expect(pathSwitchChipI18nKey('path_c_await_upload')).toBe('chat.pathCCancelToB')
+    expect(pathSwitchChipI18nKey('path_c_await_upload')).toBe('chat.pathEntryB')
   })
 
   it('lab_report choose_option: reply_actions path ignores legacy needsMultiConfirm (no confirm btn)', () => {

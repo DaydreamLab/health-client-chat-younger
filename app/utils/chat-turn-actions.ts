@@ -1,10 +1,10 @@
 import type { ChatMessage, ChatMessageOption } from './first-order'
 import { turnChoicesForMessage } from './chat-intake'
 import {
-  completionCtaVisible,
   isBasicProfileComplete,
   isRequiredBasicGapCode,
   shouldSuppressGuidanceCtas,
+  completionCtaJourneyAllows,
   type ConversationPath
 } from './path-contract'
 import {
@@ -130,8 +130,8 @@ export type ExpertReviewUiStatus = 'none' | 'awaiting_review' | 'reviewed'
  * `offer_recommend` (part of **完成 CTA**).
  *
  * Path-aware (when `conversationPath` is B／C):
- * - goals／reportAsk 不挡；僅基本四欄未齊或 required profile question 挡。
- * - Path A：永遠 false（即使 RA 有 offer_recommend）。
+ * - 完成 CTA 只信 usable RA 的 offer_recommend（core completion_cta_ready）
+ * - Path A：永遠 false
  *
  * Path-null（legacy）：保留舊三要件（goals／report／profile question 挡），
  * 且仍須由呼叫端搭配 usable `offer_recommend`（本函式不發明按鈕）。
@@ -160,9 +160,7 @@ export function recommendCtaVisible(input: {
     return false
   }
   if (path === 'B' || path === 'C') {
-    return completionCtaVisible({
-      path,
-      basicProfileComplete: input.basicProfileComplete === true,
+    return completionCtaJourneyAllows({
       readonlyMode: input.readonlyMode,
       escalated: input.escalated,
       isLatestAssistant: input.isLatestAssistant,
@@ -442,7 +440,7 @@ function splitProjectionChoices(projection: ReplyActionsCtaProjection): {
 /**
  * Path overlay on RA-projected flags:
  * - A: always strip completion CTA
- * - B／C: keep completion CTA only when threshold + journey allow
+ * - B／C: keep completion CTA when RA projects it (journey slot only); do not gate on profile_gaps
  * - never invent offer_recommend when RA did not project it (no none／degraded 硬保)
  */
 function applyPathCompletionOverlay(
@@ -471,9 +469,8 @@ function applyPathCompletionOverlay(
     return base
   }
 
-  // Path B／C: only required-basic gaps behind latest block; optional gaps do not.
-  const pendingGapBlocksRecommend = input.pendingGapBehindLatest
-    && !input.basicProfileComplete
+  // Path B／C: optional profile gap behind latest does not block completion CTA.
+  const pendingGapBlocksRecommend = false
   const slotOk = recommendCtaVisible({
     readonlyMode: ctx.readonlyMode,
     escalated: ctx.escalated,

@@ -370,10 +370,12 @@
 <script setup lang="ts">
 import type { PhotoTrayItem } from '~/components/ChatPhotoTray.vue'
 import type {
+  ConversationGreeting,
   GreetingOption,
   HealthReport,
   HealthReportResult,
   ProfileAnswerType,
+  ProfileAnswerNeedsClarification,
   ProfileNext
 } from '~/utils/candor-api'
 import { CandorApiError } from '~/utils/candor-api'
@@ -408,10 +410,8 @@ import {
   isRequiredBasicGapCode,
   normalizeConversationPath,
   PATH_ENTRY_OPTIONS,
-  pathAfterCancelUploadWithoutReport,
   pathAfterReportUpload,
   pathRequiresBasicProfile,
-  REQUIRED_BASIC_PROFILE_GAPS,
   toApiConversationPath,
   type ConversationPath
 } from '~/utils/path-contract'
@@ -422,11 +422,11 @@ import {
   hasAskReportAction,
   hasReplyActionsColumn,
   hasReportRequiredAsk,
+  isContinueConsultationOption,
   isPathSwitchOptionCode,
   isUsableReplyActions,
   normalizeChooseOptionMapsTo,
   parseReplyActions,
-  pathRuleBubbleI18nKey,
   pathSwitchChipI18nKey,
   shouldSkipFollowUpStream,
   type ReplyActions,
@@ -439,9 +439,6 @@ import {
 } from '~/utils/chat-history'
 import { expertReviewUiStatusFromRow } from '~/utils/expert-review'
 import { storeToRefs } from 'pinia'
-
-/** Local skip chip when core has not yet attached path_switch on a path C upload prompt. */
-const PATH_C_SKIP_CODE = 'path_c_skip'
 
 const props = defineProps<{
   flow?: 'standard'
@@ -717,19 +714,6 @@ function pathEntryChoices(): GreetingOption[] {
   }))
 }
 
-function messageHasPathSwitch(message: ChatMessage): boolean {
-  const actions = message.replyActions?.actions
-  if (!actions || !isUsableReplyActions(message.replyActions)) {
-    return false
-  }
-  return actions.some((action) => {
-    if (action.type !== 'choose_option') {
-      return false
-    }
-    return chooseOptionPayload(action).kind === 'path_switch'
-  })
-}
-
 function isPathSwitchChoice(option: GreetingOption): boolean {
   // Only the latest assistant path_switch counts — older guide CTAs must not
   // keep intercepting unrelated chips (e.g. code `b`) after A→B.
@@ -750,30 +734,24 @@ function clearPathRuleGuideCtas() {
   }
 }
 
-function pathCSkipChoices(message: ChatMessage): GreetingOption[] {
-  if (!pathContractEnabled.value
-    || !pathCAwaitingUpload.value
-    || conversationPath.value !== 'C'
-    || message.id !== lastAssistantId.value
-    || messageHasPathSwitch(message)) {
-    return []
-  }
-  return [{ code: PATH_C_SKIP_CODE, label: t('chat.pathCCancelToB') }]
+/** @deprecated flow v2: assistant copy comes from core `content`. */
+function applyPathRuleCopy(_message: ChatMessage | undefined) {
+  // No-op — PR5+ 上限／引導文案由 conversation_copies 回傳。
 }
 
-/** Fill empty assistant bubble from path-rule reply_actions (BE content is ''). */
-function applyPathRuleCopy(message: ChatMessage | undefined) {
-  if (!message || message.role !== 'assistant') {
-    return
+function appendCoreAssistantTurn(turn: ConversationGreeting) {
+  const msg = makeMessage(
+    'assistant',
+    turn.content,
+    turn.message_id || crypto.randomUUID()
+  )
+  const ra = parseReplyActions(turn.reply_actions)
+  if (ra) {
+    msg.replyActions = ra
+    applyReplyActionsInteraction(msg, ra)
   }
-  if (messageText(message).trim() !== '') {
-    return
-  }
-  const kind = detectPathRuleCopyKind(message.replyActions)
-  if (!kind) {
-    return
-  }
-  setMessageText(message.id, t(pathRuleBubbleI18nKey(kind)))
+  journey.messages.push(msg)
+  return msg
 }
 
 function localizePathSwitchChoices(
@@ -789,6 +767,9 @@ function localizePathSwitchChoices(
     if (!isPathSwitchOptionCode(message.replyActions, option.code)) {
       return option
     }
+    if (String(option.label || '').trim() !== '') {
+      return option
+    }
     return { ...option, label }
   })
 }
@@ -797,23 +778,7 @@ function choicesFor(message: ChatMessage): GreetingOption[] {
   if (pathEntryPending.value && message.id === lastAssistantId.value) {
     return pathEntryChoices()
   }
-  const base = localizePathSwitchChoices(message, turnActionsFor(message).choices)
-  if (message.id !== lastAssistantId.value) {
-    return base
-  }
-  const skip = pathCSkipChoices(message)
-  if (!skip.length) {
-    return base
-  }
-  const seen = new Set(base.map(o => o.code))
-  const extra = skip.filter((option) => {
-    if (seen.has(option.code)) {
-      return false
-    }
-    seen.add(option.code)
-    return true
-  })
-  return [...base, ...extra]
+  return localizePathSwitchChoices(message, turnActionsFor(message).choices)
 }
 
 function showConfirmFor(message: ChatMessage) {
@@ -1168,64 +1133,42 @@ async function syncConversationPath(
 }
 
 /**
- * Path B／C: ensure sex／age／height／weight are open／asked.
- * Optional gaps may remain but do not gate completion CTA.
+ * Path B／C: advance questionnaire via core `GET /profile/questions/next` only.
+ * Order (goals → basics → lab_report) is owned by core — no client placeholder reorder.
  */
-async function ensureRequiredBasicsCollection() {
+async function syncQuestionnaireFromBackend() {
   if (!pathContractEnabled.value || !pathRequiresBasicProfile(conversationPath.value)) {
     return
   }
-  if (pending.value || readonly.value || escalated.value) {
+  if (pathCAwaitingUpload.value || goalSelectActive.value || pending.value || readonly.value || escalated.value) {
+    return
+  }
+  if (!journey.conversationId) {
     return
   }
 
-  let missing: string[] = [...REQUIRED_BASIC_PROFILE_GAPS]
-  try {
-    const profile = await candor.getProfile()
-    missing = []
-    if (!profile.sex) {
-      missing.push('sex')
-    }
-    if (profile.age_years == null) {
-      missing.push('age')
-    }
-    if (profile.height_cm == null) {
-      missing.push('height')
-    }
-    if (profile.weight_kg == null) {
-      missing.push('weight')
-    }
-  } catch {
-    // Keep full required set if profile read fails — still try next question.
-  }
-
-  const optionalOpen = profileGaps.value.filter(g => !isRequiredBasicGapCode(g))
-  profileGaps.value = [...missing, ...optionalOpen]
-
-  if (missing.length === 0) {
-    return
-  }
-
-  // Prefer an in-place required ask. A user turn after it (direct upload)
-  // must not count — that splice leaves the height question above the upload.
   const lastMessage = journey.messages[journey.messages.length - 1]
   const userFollowsAsk = basicQuestionFollowsUserTurn(lastMessage?.role)
   const last = [...journey.messages].reverse().find(m => m.role === 'assistant')
-  if (!userFollowsAsk && last?.profileQuestion && isRequiredBasicGapCode(last.profileQuestion.gap_code)) {
+  if (!userFollowsAsk && last?.profileQuestion) {
     quizActive.value = true
     return
   }
   if (!userFollowsAsk && last?.replyActions && isUsableReplyActions(last.replyActions)) {
-    const hasRequiredAsk = last.replyActions.actions.some((action) => {
-      if (action.type === 'ask_vitals') {
+    const hasOpenAsk = last.replyActions.actions.some((action) => {
+      if (action.type === 'ask_vitals' || action.type === 'ask_goal' || action.type === 'ask_report') {
         return true
       }
       if (action.type !== 'choose_option') {
         return false
       }
-      return isRequiredBasicGapCode(chooseOptionPayload(action).gap_code)
+      const payload = chooseOptionPayload(action)
+      return payload.kind === 'consultation_goals'
+        || payload.kind === 'lab_report'
+        || payload.kind === 'profile'
+        || Boolean(payload.gap_code)
     })
-    if (hasRequiredAsk) {
+    if (hasOpenAsk) {
       return
     }
   }
@@ -1235,23 +1178,17 @@ async function ensureRequiredBasicsCollection() {
       journey.reportId,
       journey.conversationId
     )
-    if (next && !next.done && isRequiredBasicGapCode(next.gap_code)) {
-      paintLocalProfileQuestion(next)
-      return
-    }
-    if (next && !next.done && !isRequiredBasicGapCode(next.gap_code)) {
-      // Optional next while required still open — record but do not block on it.
-      if (!profileGaps.value.includes(next.gap_code)) {
-        profileGaps.value = [...profileGaps.value, next.gap_code]
+    if (next && !next.done) {
+      if (isConsultationGoalOptions(next.options ?? undefined, 'consultation_goals') || next.gap_code === 'goals') {
+        goalOptions.value = next.options ?? goalOptions.value
+        goalSelectActive.value = (next.options?.length ?? 0) >= 2
+        return
       }
+      paintLocalProfileQuestion(next)
     }
   } catch {
-    // Core may not expose next yet — fall through to client placeholder.
+    // Core drives questionnaire; no client fallback prompts.
   }
-
-  // Client placeholder so B／C always surfaces required basics even if core
-  // next_question is optional-only or unavailable (path-contract draft).
-  paintClientRequiredBasicPlaceholder(missing[0]!)
 }
 
 function vitalGapField(gap: string): VitalsField | null {
@@ -1337,47 +1274,6 @@ function placeBasicQuestionBubble(prompt: string): ChatMessage | null {
     return lastAssistant
   }
   return appendMessage('assistant', prompt)
-}
-
-function paintClientRequiredBasicPlaceholder(gap: string) {
-  if (gap === 'sex') {
-    paintLocalProfileQuestion({
-      done: false,
-      gap_code: 'sex',
-      prompt: t('chat.pathAskSex'),
-      answer_type: 'enum',
-      options: [
-        { code: 'F', label: t('chat.pathSexFemale') },
-        { code: 'M', label: t('chat.pathSexMale') }
-      ]
-    })
-    return
-  }
-  // age／height／weight → ask_vitals on the latest bubble (same CTA path as RA).
-  const field = gap === 'age' || gap === 'height' || gap === 'weight' ? gap : null
-  if (!field) {
-    return
-  }
-  const promptKey = field === 'age'
-    ? 'chat.pathAskAge'
-    : field === 'height'
-      ? 'chat.pathAskHeight'
-      : 'chat.pathAskWeight'
-  const prompt = t(promptKey)
-  const host = placeBasicQuestionBubble(prompt)
-  if (!host) {
-    return
-  }
-  const existing = messageText(host)
-  if (!existing.includes(prompt)) {
-    setMessageText(host.id, existing ? `${existing}\n\n${prompt}` : prompt)
-  }
-  host.replyActions = askVitalsReplyActions(field)
-  host.turnType = 'message'
-  host.profileQuestion = null
-  quizActive.value = false
-  activeQuestion.value = null
-  goalSelectActive.value = false
 }
 
 function paintLocalProfileQuestion(next: Extract<ProfileNext, { done: false }>) {
@@ -1481,18 +1377,6 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
   // Flow v2：A／B／C 選完路徑後不再附加本地路徑專屬句；開場白僅用 core greeting.consult。
 
   if (path === 'C' && !journey.reportId) {
-    // Keep create-greeting CTAs on the latest bubble (upload／checkup／path_switch).
-    const greetingWithRa = [...journey.messages]
-      .reverse()
-      .find(message => message.role === 'assistant'
-        && message.id !== lastAssistantId.value
-        && isUsableReplyActions(message.replyActions))
-    const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
-    if (last && greetingWithRa?.replyActions) {
-      last.replyActions = greetingWithRa.replyActions
-      applyReplyActionsInteraction(last, last.replyActions)
-      applyPathRuleCopy(last)
-    }
     goalSelectActive.value = false
     quizActive.value = false
     activeQuestion.value = null
@@ -1506,12 +1390,11 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
     return
   }
 
-  // Path B (or C with existing report): collect required basics first.
-  goalSelectActive.value = false
-  await ensureRequiredBasicsCollection()
-  // Basics already complete: surface greeting consultation_goals if present.
-  if (!quizActive.value && goalOptions.value.length >= 2) {
+  // Path B／C（已綁報告或 B 進站）：問卷順序由 core 驅動（先 goals）。
+  if (goalOptions.value.length >= 2) {
     goalSelectActive.value = true
+  } else {
+    await syncQuestionnaireFromBackend()
   }
 
   // A→B guide CTA: basics／goals may already be done — must stream so consult continues
@@ -1561,8 +1444,16 @@ async function createConversationWithPath(path: ConversationPath) {
   if (greetingRa) {
     applyReplyActionsInteraction(greeting, greetingRa)
   }
+  if (created.flow_prompt) {
+    appendCoreAssistantTurn(created.flow_prompt)
+    if (created.flow_prompt.options?.length) {
+      goalOptions.value = created.flow_prompt.options
+    }
+  }
 
-  goalOptions.value = created.greeting.options ?? []
+  goalOptions.value = created.greeting.options?.length
+    ? created.greeting.options
+    : goalOptions.value
   selectedCodes.value = [...(created.greeting.selected ?? [])]
   postQuizGuided.value = false
   profileGaps.value = []
@@ -1584,30 +1475,35 @@ async function promotePathToCOnUpload() {
   pathCAwaitingUpload.value = false
   if (changed) {
     await syncConversationPath(next, 'upload_promote')
-    appendMessage('assistant', t('chat.pathPromotedToC'))
   }
-  await ensureRequiredBasicsCollection()
 }
 
-async function demotePathCToB(reason: 'cancel_demote' | 'guide_switch' = 'cancel_demote') {
-  if (!pathContractEnabled.value) {
+async function invokeContinueHealthConsultation() {
+  if (pending.value || readonly.value) {
     return
   }
-  const next = pathAfterCancelUploadWithoutReport(
-    conversationPath.value,
-    Boolean(journey.reportId)
-  )
-  if (next == null || next === conversationPath.value) {
-    pathCAwaitingUpload.value = false
-    return
+  pending.value = true
+  try {
+    const conversationId = await ensureConversation()
+    await candor.continueHealthConsultation(conversationId)
+    await hydrateConversationHistory(conversationId)
+  } catch {
+    appendMessage('assistant', t('chat.streamError'))
+  } finally {
+    pending.value = false
   }
-  conversationPath.value = next
-  pathCAwaitingUpload.value = false
-  await syncConversationPath(next, reason)
-  if (reason === 'cancel_demote') {
-    appendMessage('assistant', t('chat.pathCCancelToB'))
+}
+
+function applyTurnLimitPayload(input: {
+  prompt: string
+  reply_actions?: ReplyActions | null
+}) {
+  const msg = appendMessage('assistant', input.prompt)
+  const ra = parseReplyActions(input.reply_actions)
+  if (ra) {
+    msg.replyActions = ra
+    applyReplyActionsInteraction(msg, ra)
   }
-  await ensureRequiredBasicsCollection()
 }
 
 async function ensureConversation() {
@@ -1660,17 +1556,22 @@ async function ensureConversation() {
     if (greetingRa) {
       applyReplyActionsInteraction(greeting, greetingRa)
     }
+    if (created.flow_prompt) {
+      appendCoreAssistantTurn(created.flow_prompt)
+    }
   }
-  goalOptions.value = created.greeting.options ?? []
+  goalOptions.value = created.greeting.options?.length
+    ? created.greeting.options
+    : (created.flow_prompt?.options ?? goalOptions.value)
   selectedCodes.value = [...(created.greeting.selected ?? [])]
   goalSelectActive.value = !(pathContractEnabled.value && !isStandardFlow.value
     && conversationPath.value == null)
   quizActive.value = false
   activeQuestion.value = null
 
-  // Path C awaiting first upload: do not collect basics until upload or skip→B.
+  // Path C awaiting upload: questionnaire starts after attach `flow_prompt`.
   if (pathRequiresBasicProfile(conversationPath.value) && !pathCAwaitingUpload.value) {
-    void ensureRequiredBasicsCollection()
+    void syncQuestionnaireFromBackend()
   }
 
   return created.id
@@ -2008,6 +1909,13 @@ async function continueAfterSavedAnswer(opts: {
   }
   // answers bank may omit the user turn when next was already done; restore optimistic bubble.
   restorePendingUserIfMissing(opts.pendingContent)
+  if (next && !next.done) {
+    paintLocalProfileQuestion(next)
+    pending.value = false
+    if (next.options?.length || next.answer_type === 'int' || next.answer_type === 'text') {
+      return
+    }
+  }
   if (shouldSkipFollowUpStream({
     nextQuestionDone: next?.done === true,
     openProfileGaps: profileGaps.value,
@@ -2107,7 +2015,7 @@ async function streamPending() {
     if (pathRequiresBasicProfile(conversationPath.value)
       && !isBasicProfileComplete(profileGaps.value)
       && !quizActive.value) {
-      void ensureRequiredBasicsCollection()
+      void syncQuestionnaireFromBackend()
     }
   } catch {
     if (intent === 'interpret') {
@@ -2266,18 +2174,27 @@ async function sendText(text: string) {
         return
       }
       // diverted / clarification: short reply, keep profile choices
-      appendMessage('assistant', result.prompt)
+      if ('turn_limit' in result && result.turn_limit === true) {
+        applyTurnLimitPayload({
+          prompt: result.prompt,
+          reply_actions: result.reply_actions
+        })
+        pending.value = false
+        return
+      }
+      const clarification = result as ProfileAnswerNeedsClarification
+      appendMessage('assistant', clarification.prompt)
       const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
       if (last) {
-        if (result.options) {
-          last.options = result.options
+        if (clarification.options) {
+          last.options = clarification.options
           last.turnType = 'profile'
           last.profileQuestion = {
             gap_code: profile.gap_code,
             answer_type: profile.answer_type
           }
         }
-        applyCheckupOffer(last, result)
+        applyCheckupOffer(last, clarification)
       }
       pending.value = false
     } catch {
@@ -2316,19 +2233,19 @@ function onChoice(option: GreetingOption) {
 
   if (isPathSwitchChoice(option)) {
     appendMessage('user', option.label)
-    if (option.code.toLowerCase() !== 'b') {
-      return
+    const code = option.code.trim().toLowerCase()
+    if (code === 'a') {
+      void selectConversationPath('A', 'guide_switch')
+    } else if (code === 'b') {
+      void selectConversationPath('B', 'guide_switch')
     }
-    if (conversationPath.value === 'C') {
-      void demotePathCToB('cancel_demote')
-      return
-    }
-    void selectConversationPath('B', 'guide_switch')
     return
   }
-  if (option.code === PATH_C_SKIP_CODE) {
+
+  const intake = intakeMessage.value
+  if (intake && isContinueConsultationOption(intake.replyActions, option.code)) {
     appendMessage('user', option.label)
-    void demotePathCToB('cancel_demote')
+    void invokeContinueHealthConsultation()
     return
   }
 
@@ -2462,22 +2379,31 @@ async function submitProfileChoice(payload: {
     })
 
     if (!result.saved) {
-      appendMessage('assistant', result.prompt)
-      if (result.options) {
+      if ('turn_limit' in result && result.turn_limit === true) {
+        applyTurnLimitPayload({
+          prompt: result.prompt,
+          reply_actions: result.reply_actions
+        })
+        pending.value = false
+        return
+      }
+      const clarification = result as ProfileAnswerNeedsClarification
+      appendMessage('assistant', clarification.prompt)
+      if (clarification.options) {
         const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
         if (last) {
-          last.options = result.options
+          last.options = clarification.options
           last.turnType = 'profile'
           last.profileQuestion = {
             gap_code: profile.gap_code,
             answer_type: profile.answer_type
           }
-          applyCheckupOffer(last, result)
+          applyCheckupOffer(last, clarification)
         }
       } else {
         const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
         if (last) {
-          applyCheckupOffer(last, result)
+          applyCheckupOffer(last, clarification)
         }
       }
       pending.value = false
@@ -2788,9 +2714,10 @@ async function pollReport(reportId: string) {
 async function bindAndInterpret(reportId: string) {
   const conversationId = await ensureConversation()
   let attached = false
+  let attachAck: Awaited<ReturnType<typeof candor.attachReport>> | null = null
   for (let attempt = 0; attempt < 8 && !attached; attempt++) {
     try {
-      await candor.attachReport(conversationId, reportId)
+      attachAck = await candor.attachReport(conversationId, reportId)
       attached = true
     } catch (error) {
       if (error instanceof CandorApiError && error.errorCode === 'report_not_ready') {
@@ -2829,13 +2756,6 @@ async function bindAndInterpret(reportId: string) {
     }
   }
 
-  const keepGoals = goalSelectActive.value
-  const keepProfile = lastAssistantProfile.value !== null
-  const lastAssistant = [...journey.messages].reverse().find(m => m.role === 'assistant')
-  // Direct upload must not start a follow-up stream that covers an open height ask.
-  const keepRequiredAsk = messageHasRequiredBasicAsk(lastAssistant)
-  const gapsRemain = profileGaps.value.length > 0
-
   journey.reportId = reportId
   journey.hasAnalysis = true
   reportAskActive.value = false
@@ -2843,6 +2763,32 @@ async function bindAndInterpret(reportId: string) {
   reportRetryId.value = null
   reportPollStatus.value = null
   openReportDock()
+
+  const hydratedPath = attachAck ? normalizeConversationPath(attachAck.path) : null
+  if (hydratedPath) {
+    conversationPath.value = hydratedPath
+  }
+  pathCAwaitingUpload.value = false
+
+  if (attachAck?.flow_prompt) {
+    appendCoreAssistantTurn(attachAck.flow_prompt)
+    if (attachAck.flow_prompt.options?.length) {
+      goalOptions.value = attachAck.flow_prompt.options
+    }
+    if ((attachAck.flow_prompt.options?.length ?? 0) >= 2
+      || attachAck.flow_prompt.options_kind === 'consultation_goals') {
+      goalSelectActive.value = true
+    } else {
+      void syncQuestionnaireFromBackend()
+    }
+    return
+  }
+
+  const keepGoals = goalSelectActive.value
+  const keepProfile = lastAssistantProfile.value !== null
+  const lastAssistant = [...journey.messages].reverse().find(m => m.role === 'assistant')
+  const keepRequiredAsk = messageHasRequiredBasicAsk(lastAssistant)
+  const gapsRemain = profileGaps.value.length > 0
 
   if (!keepGoals && !keepProfile && !keepRequiredAsk && gapsRemain && !readonly.value && !escalated.value) {
     pendingUserContent.value = t('chat.continueIntake')
@@ -3303,7 +3249,7 @@ onMounted(async () => {
     // After hydrate／create: B／C must still surface required basics (trust GET /profile,
     // not history profile_gaps which may be empty while fields are still missing).
     if (pathRequiresBasicProfile(conversationPath.value) && !pathCAwaitingUpload.value) {
-      await ensureRequiredBasicsCollection()
+      await syncQuestionnaireFromBackend()
     }
     await applyHomeGoal()
   } catch {

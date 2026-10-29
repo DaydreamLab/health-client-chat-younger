@@ -2,18 +2,14 @@
  * Conversation path contract (A / B / C) — client rules aligned with Irice 定案.
  *
  * 進站三選在 POST /conversations 時寫入 path（勿先建再改；B→A 不允許）。
- * Path A 回合計數與引導 CTA 在 core：≥10／≥20 皆 `offer_checkup`＋`choose_option`
- * `kind=path_switch`（≥20 空 content，文案 FE i18n）。FE 渲染 `reply_actions`，不計回合、
- * 不自造引導鈕。A→B guide_switch：清 CTA；必填齊且無 goals 時接續 stream。
- * Path C 待上傳：空 content＋`ask_report`＋`offer_checkup`＋`path_switch`。
+ * Path A 回合計數與引導 CTA 在 core：≥15 引導、20 上限（`chat_turn_count`）。
+ * FE 渲染 `reply_actions` 與 assistant `content`，不計回合、不自造引導鈕。
+ * Path C 待上傳：`flow_prompt`＋`ask_report`＋`path_switch` a／b（無 checkup）。
  *
  * Completion CTA (offer_recommend /「取得專屬保健品方案」):
  * - Path A: never
- * - Path B／C + basic profile (sex／age／height／weight) complete: may show
- *   when usable reply_actions includes offer_recommend（後端硬掛則照常渲染）
- * - ❌ FE 不在 intentional none／degraded／缺 RA 時強掛完成 CTA
- * - goals／報告／optional profile 不挡完成 CTA
- * - Path B／C 必須把基本四欄問出／收齊（舊「三要件全清 profile」拿掉）
+ * - Path B／C: 僅在 usable `reply_actions` 含 `offer_recommend` 時投影（core `completion_cta_ready`）
+ * - ❌ FE 不以本地基本四欄／profile_gaps 再挡或強掛
  */
 
 export type ConversationPath = 'A' | 'B' | 'C'
@@ -120,10 +116,8 @@ export function completionCtaPathAllows(path: ConversationPath | null | undefine
 
 /**
  * Journey safety for completion CTA slot (latest assistant, not pending, …).
- * Does **not** block on goals or report ask (Irice: goals／報告不挡).
- * Still blocks while an active *required* profile question is on the latest
- * bubble so the user can finish sex／age／height／weight first.
- * Optional profile questions do **not** block.
+ * Does **not** re-apply completion_cta_ready — core only emits offer_recommend when ready.
+ * Still blocks while an active *required* profile question is on the latest bubble.
  */
 export function completionCtaJourneyAllows(input: {
   readonlyMode: boolean
@@ -146,7 +140,8 @@ export function completionCtaThresholdMet(input: {
   path: ConversationPath | null | undefined
   basicProfileComplete: boolean
 }): boolean {
-  return completionCtaPathAllows(input.path) && input.basicProfileComplete
+  void input.basicProfileComplete
+  return completionCtaPathAllows(input.path)
 }
 
 /**
@@ -177,19 +172,15 @@ export function pathAfterReportUpload(
 }
 
 /**
- * Path C: user cancels／skips upload without a report → demote to B.
+ * Path C: user taps path_switch → POST …/path (C→A or C→B). No auto demote on skip.
  */
 export function pathAfterCancelUploadWithoutReport(
   current: ConversationPath | null | undefined,
   hasReport: boolean
 ): ConversationPath | null {
-  if (hasReport) {
-    return current ?? null
-  }
-  if (current === 'C') {
-    return 'B'
-  }
-  return current ?? null
+  void current
+  void hasReport
+  return null
 }
 
 /** Whether bubble should hide upload／checkup while lab_report quiz is open. */

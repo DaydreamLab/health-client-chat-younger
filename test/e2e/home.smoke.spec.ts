@@ -147,27 +147,6 @@ test('EN switch keeps selected style and translates plans', async ({ page, goto 
   await expect(page.getByText('Full Tune').first()).toBeVisible()
 })
 
-test('home goal multi-select starts chat with selected directions', async ({ page, goto }) => {
-  await goto('/', { waitUntil: 'hydration' })
-
-  await expect(page.getByTestId('home-goals-cta')).toBeDisabled()
-  await page.getByTestId('home-goal-sleep').click()
-  await expect(page.getByTestId('home-goal-sleep')).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByTestId('home-goals-cta')).toBeEnabled()
-  await page.getByTestId('home-goal-weight_loss').click()
-  await expect(page.getByTestId('home-goal-weight_loss')).toHaveAttribute('aria-pressed', 'true')
-
-  await page.getByTestId('home-goals-cta').click()
-
-  await expect(page).toHaveURL(/\/chat\?/)
-  await expect(page).toHaveURL(/goal=sleep/)
-  await expect(page).toHaveURL(/goal=weight_loss/)
-  await expect(page.getByTestId('chat-transcript')).toContainText('睡眠')
-  await expect(page.getByTestId('chat-transcript')).toContainText('減重')
-  await expect(page.getByTestId('chat-last-reply')).toContainText('基礎保養')
-  await expect(page.getByTestId('chat-quiz-option-sleep')).toHaveCount(0)
-})
-
 test('hero labs CTA opens configured checkup URL', async ({ page, goto }) => {
   await mockCandorAuth(page, { individualTestsUrl: 'https://labs.example/tests' })
   await goto('/', { waitUntil: 'hydration' })
@@ -177,41 +156,6 @@ test('hero labs CTA opens configured checkup URL', async ({ page, goto }) => {
   await expect(labs).toHaveAttribute('href', 'https://labs.example/tests')
   await expect(labs).toHaveAttribute('target', '_blank')
   await expect(labs).toHaveAttribute('rel', 'noopener noreferrer')
-})
-
-test('plan CTA opens chat and AI can reply', async ({ page, goto }) => {
-  await page.setViewportSize({ width: 1280, height: 560 })
-  await goto('/', { waitUntil: 'hydration' })
-
-  await page.getByTestId('package-basic').click()
-
-  await expect(page).toHaveURL(/\/chat\?package=basic/)
-  await expect(page.getByRole('heading', { name: '諮詢' })).toBeVisible()
-  await expect(page.getByTestId('chat-last-reply')).toContainText('改善方向')
-  await expect(page.getByTestId('chat-selected-plan')).toContainText('基礎保養')
-  await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible()
-  await expect(page.getByTestId('chat-quiz-option-sleep')).toHaveCSS('border-radius', '6px')
-  await expect(page.getByTestId('chat-chip-plans')).toHaveCount(0)
-  await page.getByTestId('chat-quiz-option-weight_loss').click()
-  await page.getByTestId('chat-quiz-option-sleep').click()
-  await page.getByTestId('chat-quiz-confirm').click()
-  await expect(page.getByTestId('chat-last-reply')).toBeVisible()
-  const transcript = page.getByTestId('chat-transcript')
-  await expect.poll(async () => transcript.evaluate((el) => {
-    return el.scrollTop + el.clientHeight >= el.scrollHeight - 24
-  })).toBe(true)
-
-  page.once('dialog', dialog => dialog.accept())
-  await page.getByTestId('chat-reset').click()
-  await expect(page.getByTestId('chat-last-reply')).toContainText('改善方向')
-  await expect(page.getByTestId('chat-quiz-option-weight_loss')).toBeVisible()
-  expect(await page.evaluate(() => {
-    const raw = localStorage.getItem('candor.unpaid.journey')
-    if (!raw) {
-      return null
-    }
-    return (JSON.parse(raw) as { messages?: unknown[] }).messages?.length ?? null
-  })).toBe(1)
 })
 
 test('guest escalate and health dashboard without login wall', async ({ page, goto }) => {

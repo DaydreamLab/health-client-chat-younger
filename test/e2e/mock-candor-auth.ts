@@ -97,6 +97,10 @@ export type CandorMockOptions = {
    * Pass false in path-contract specs that assert sex／age／height／weight 必問.
    */
   basicProfileComplete?: boolean
+  /**
+   * Flow v2 四條主流程 e2e（chat-flow-v2.spec.ts）。
+   */
+  chatFlowV2?: 'a-guide-15' | 'b-completion' | 'c-completion' | 'turn-limit-20'
 }
 
 const legacyPackagePlans = [
@@ -208,6 +212,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
   let quizAnswered = false
   let goalsSet = false
   let streamCount = 0
+  let chatFlowTurnCount = 0
+  let mockEntryPath: 'a' | 'b' | 'c' = 'b'
   let reportPollCount = 0
   /** Hybrid intake: sex answered → next answers/stream should offer ask_vitals. */
   let hybridSexAnswered = false
@@ -913,6 +919,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       ? null
       : String(options.conversationPath).toLowerCase() as 'a' | 'b' | 'c'
   const resolvedBasicProfileComplete = options.basicProfileComplete ?? true
+  mockEntryPath = (resolvedConversationPath ?? 'b') as 'a' | 'b' | 'c'
 
   await page.route('**/api/v1/conversations', async (route) => {
     if (route.request().method() !== 'POST') {
@@ -930,6 +937,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     const path = bodyPath === 'a' || bodyPath === 'b' || bodyPath === 'c'
       ? bodyPath
       : (resolvedConversationPath ?? 'b')
+    mockEntryPath = path
     await route.fulfill({
       status: 201,
       contentType: 'application/json',
@@ -952,13 +960,18 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           greeting: {
             message_id: 'greet-e2e',
             role: 'assistant',
-            // A／B／C 皆 greeting.consult；C 上傳引導／收到報告文案見 FLOW_V2_PATH_C_*。
             content: FLOW_V2_GREETING_CONSULT,
             options: path === 'b' ? goalOptions : [],
-            selected: [],
-            ...(path === 'c'
-              ? {
-                  // 保留既有 upload／checkup／path_switch RA 形狀（C 兩鈕改版屬後續 PR）。
+            selected: []
+          },
+          ...(path === 'c'
+            ? {
+                flow_prompt: {
+                  message_id: 'flow-c-await-e2e',
+                  role: 'assistant',
+                  content: FLOW_V2_PATH_C_AWAIT_UPLOAD,
+                  options: [],
+                  selected: [],
                   reply_actions: {
                     schema_version: '0.1',
                     source: 'rule',
@@ -967,14 +980,16 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                     error: null,
                     actions: [
                       { type: 'ask_report', payload: { option_codes: ['upload'] } },
-                      { type: 'offer_checkup', payload: {} },
                       {
                         type: 'choose_option',
                         payload: {
                           kind: 'path_switch',
                           mode: 'single',
                           confirm: false,
-                          options: [{ code: 'b', label: '' }],
+                          options: [
+                            { code: 'a', label: '我想聊聊' },
+                            { code: 'b', label: '我想諮詢健康方案' }
+                          ],
                           selected: [],
                           gap_code: null,
                           answer_type: null,
@@ -984,8 +999,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                     ]
                   }
                 }
-              : {})
-          }
+              }
+            : {})
         }
       })
     })
@@ -998,6 +1013,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     }
     const body = route.request().postDataJSON() as { path?: string } | null
     const raw = typeof body?.path === 'string' ? body.path.trim().toLowerCase() : ''
+    const nextPath = raw === 'a' || raw === 'b' || raw === 'c' ? raw : 'b'
+    mockEntryPath = nextPath
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -1005,7 +1022,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         status: 'success',
         data: {
           id: conversationId,
-          path: raw === 'a' || raw === 'b' || raw === 'c' ? raw : 'b'
+          path: nextPath
         }
       })
     })
@@ -1031,12 +1048,28 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       return
     }
     goalsSet = true
+    const nextQuestion = resolvedBasicProfileComplete
+      ? { done: true }
+      : {
+          done: false,
+          gap_code: 'sex',
+          prompt: '請問您的生理性別？',
+          answer_type: 'enum',
+          options: [
+            { code: 'M', label: '生理男' },
+            { code: 'F', label: '生理女' }
+          ]
+        }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data: { saved: true, goals: goals.length ? goals : ['weight_loss', 'sleep'], next_question: { done: true } }
+        data: {
+          saved: true,
+          goals: goals.length ? goals : ['weight_loss', 'sleep'],
+          next_question: nextQuestion
+        }
       })
     })
   })
@@ -1070,7 +1103,34 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data: { id: conversationId, report_id: reportId }
+        data: {
+          id: conversationId,
+          report_id: reportId,
+          path: 'c',
+          flow_prompt: {
+            message_id: 'flow-c-basics-e2e',
+            role: 'assistant',
+            content: FLOW_V2_PATH_C_BASICS,
+            options: goalOptions,
+            options_kind: 'consultation_goals',
+            selected: []
+          }
+        }
+      })
+    })
+  })
+
+  await page.route(`**/api/v1/conversation/${conversationId}/continue-health-consultation`, async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: { id: conversationId, continue_health_consultation: true }
       })
     })
   })
@@ -1258,6 +1318,204 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
 
   await page.route(`**/api/v1/conversation/${conversationId}/messages/stream`, async (route) => {
     streamCount += 1
+    chatFlowTurnCount += 1
+
+    const completionGroupRa = {
+      schema_version: '0.1',
+      source: 'semantic_judgment',
+      adaptor: 'fake',
+      degraded: false,
+      error: null,
+      actions: [
+        { type: 'offer_recommend', payload: {} },
+        {
+          type: 'choose_option',
+          payload: {
+            kind: 'continue_consultation',
+            mode: 'single',
+            confirm: false,
+            options: [{ code: 'continue', label: '繼續健康諮詢' }],
+            selected: [],
+            gap_code: null,
+            answer_type: null,
+            exclusive_codes: []
+          }
+        },
+        ...(mockEntryPath === 'b'
+          ? [{ type: 'offer_checkup', payload: { url: 'https://example.test/checkup' } }]
+          : [])
+      ]
+    }
+
+    if (options.chatFlowV2 === 'a-guide-15' && mockEntryPath === 'a') {
+      const guide = chatFlowTurnCount >= 15
+      const reply_actions = guide
+        ? {
+            schema_version: '0.1',
+            source: 'rule',
+            adaptor: 'rule',
+            degraded: false,
+            error: null,
+            actions: [
+              { type: 'offer_checkup', payload: { url: 'https://example.test/checkup' } },
+              {
+                type: 'choose_option',
+                payload: {
+                  kind: 'path_switch',
+                  mode: 'single',
+                  confirm: false,
+                  options: [{ code: 'b', label: '進行健康諮詢' }],
+                  selected: [],
+                  gap_code: null,
+                  answer_type: null,
+                  exclusive_codes: []
+                }
+              }
+            ]
+          }
+        : {
+            schema_version: '0.1',
+            source: 'semantic_judgment',
+            adaptor: 'fake',
+            degraded: false,
+            error: null,
+            actions: [{ type: 'none' }]
+          }
+      const content = guide
+        ? '若想取得專屬保健品方案，可以繼續諮詢健康方案。'
+        : `聊聊第 ${chatFlowTurnCount} 輪`
+      const donePayload = {
+        message_id: `msg-v2-a-${chatFlowTurnCount}`,
+        claim_guard: 'passed',
+        content,
+        options: [],
+        turn: { type: 'message' },
+        profile_question: null,
+        external: null,
+        profile_gaps: [],
+        reply_actions
+      }
+      const body = [
+        'event: delta',
+        `data: ${JSON.stringify({ text: content })}`,
+        '',
+        'event: done',
+        `data: ${JSON.stringify(donePayload)}`,
+        '',
+        ''
+      ].join('\n')
+      await route.fulfill({ status: 200, contentType: 'text/event-stream', body })
+      return
+    }
+
+    if (options.chatFlowV2 === 'turn-limit-20' && chatFlowTurnCount >= 20) {
+      const content = mockEntryPath === 'a'
+        ? '這個對話已到上限，請開啟新對話或是進行您的健康諮詢'
+        : '這個對話已到上限，請開啟新對話或是繼續您的健康諮詢'
+      const reply_actions = mockEntryPath === 'a'
+        ? {
+            schema_version: '0.1',
+            source: 'rule',
+            adaptor: 'rule',
+            degraded: false,
+            error: null,
+            actions: [
+              {
+                type: 'choose_option',
+                payload: {
+                  kind: 'path_switch',
+                  mode: 'single',
+                  confirm: false,
+                  options: [{ code: 'b', label: '進行健康諮詢' }],
+                  selected: [],
+                  gap_code: null,
+                  answer_type: null,
+                  exclusive_codes: []
+                }
+              },
+              { type: 'offer_checkup', payload: {} }
+            ]
+          }
+        : completionGroupRa
+      const donePayload = {
+        message_id: `msg-v2-limit-${chatFlowTurnCount}`,
+        claim_guard: 'passed',
+        content,
+        options: [],
+        turn: { type: 'message' },
+        profile_question: null,
+        external: null,
+        profile_gaps: [],
+        reply_actions
+      }
+      const body = [
+        'event: delta',
+        `data: ${JSON.stringify({ text: content })}`,
+        '',
+        'event: done',
+        `data: ${JSON.stringify(donePayload)}`,
+        '',
+        ''
+      ].join('\n')
+      await route.fulfill({ status: 200, contentType: 'text/event-stream', body })
+      return
+    }
+
+    if (options.chatFlowV2 === 'b-completion' && goalsSet && mockEntryPath === 'b') {
+      const content = '依目前資料可以為您規劃專屬方案。'
+      const donePayload = {
+        message_id: `msg-v2-b-${streamCount}`,
+        claim_guard: 'passed',
+        content,
+        options: [],
+        turn: { type: 'message' },
+        profile_question: null,
+        external: null,
+        profile_gaps: [],
+        reply_actions: completionGroupRa
+      }
+      const body = [
+        'event: delta',
+        `data: ${JSON.stringify({ text: content })}`,
+        '',
+        'event: done',
+        `data: ${JSON.stringify(donePayload)}`,
+        '',
+        ''
+      ].join('\n')
+      await route.fulfill({ status: 200, contentType: 'text/event-stream', body })
+      return
+    }
+
+    if (options.chatFlowV2 === 'c-completion' && goalsSet && mockEntryPath === 'c') {
+      const content = '依報告與問卷可以規劃專屬方案。'
+      const donePayload = {
+        message_id: `msg-v2-c-${streamCount}`,
+        claim_guard: 'passed',
+        content,
+        options: [],
+        turn: { type: 'message' },
+        profile_question: null,
+        external: null,
+        profile_gaps: [],
+        reply_actions: {
+          ...completionGroupRa,
+          actions: completionGroupRa.actions.filter(a => a.type !== 'offer_checkup')
+        }
+      }
+      const body = [
+        'event: delta',
+        `data: ${JSON.stringify({ text: content })}`,
+        '',
+        'event: done',
+        `data: ${JSON.stringify(donePayload)}`,
+        '',
+        ''
+      ].join('\n')
+      await route.fulfill({ status: 200, contentType: 'text/event-stream', body })
+      return
+    }
+
     let donePayload: Record<string, unknown> = {
       message_id: `msg-e2e-${streamCount}`,
       claim_guard: 'passed',
