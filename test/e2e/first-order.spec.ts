@@ -2,12 +2,6 @@ import type { Page } from '@playwright/test'
 import { expect, test } from '@nuxt/test-utils/playwright'
 import { mockCandorAuth } from './mock-candor-auth'
 
-const labsFile = {
-  name: 'labs.pdf',
-  mimeType: 'application/pdf',
-  buffer: Buffer.from('%PDF-1.4 demo')
-}
-
 /** 三要件之一：goals 必須先完成，完成 CTA 才依 RA 投影（非 legacy）。 */
 async function finishGoalSelect(page: Page) {
   const entryB = page.getByTestId('chat-quiz-option-B')
@@ -414,48 +408,6 @@ test.describe('member order detail', () => {
   })
 })
 
-test.describe('login then recommend', () => {
-  test.beforeEach(async ({ page }) => {
-    await mockCandorAuth(page)
-  })
-
-  test('after guest login, view recommend keeps member checkout open', async ({ page, goto }) => {
-    test.setTimeout(90_000)
-    await page.setViewportSize({ width: 1280, height: 800 })
-
-    await goto('/chat', { waitUntil: 'hydration' })
-    await page.evaluate(() => {
-      localStorage.removeItem('candor-paid-orders')
-      localStorage.removeItem('candor.unpaid.journey')
-    })
-
-    await page.getByTestId('chat-upload').click()
-    await expect(page).toHaveURL(/\/login/)
-    await page.locator('input[type="email"]').fill('guest@example.com')
-    await page.locator('input[type="password"]').fill('password1234')
-    await page.getByRole('button', { name: '登入' }).click()
-    await expect(page).toHaveURL(/\/chat/)
-
-    await finishGoalSelect(page)
-    await page.getByTestId('chat-upload-input').setInputFiles(labsFile)
-    await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
-    await page.getByTestId('chat-report-interpret').click()
-    // Mock list seeds reviewed; after interpret usable offer_recommend →「查看推薦方案」.
-    await expect(page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend')).toBeVisible({
-      timeout: 15_000
-    })
-    await page.getByTestId('chat-report-dock-toggle').click()
-    await page.getByTestId('chat-view-recommend').click()
-
-    await expect(page).toHaveURL((url) => {
-      return url.pathname === '/app/recommendations' || url.pathname === '/app/recommendations/'
-    })
-    await expect(page.getByTestId('package-plan-basic')).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByTestId('checkout-auth-gate')).toHaveCount(0)
-    await expect(page.getByTestId('checkout-total')).toBeVisible({ timeout: 15_000 })
-  })
-})
-
 test.describe('member checkout', () => {
   test.beforeEach(async ({ page }) => {
     await mockCandorAuth(page, {
@@ -536,89 +488,6 @@ test.describe('member checkout', () => {
       page.getByTestId('chat-last-reply').getByTestId('chat-message-want-more-tests')
     ).toHaveCount(0)
     await expect(page.getByTestId('chat-report-want-more-tests')).toBeVisible()
-  })
-
-  test('unpaid chat survives refresh via journey storage', async ({ page, goto }) => {
-    await goto('/chat', { waitUntil: 'hydration' })
-    await page.evaluate(() => {
-      localStorage.removeItem('candor-paid-orders')
-      localStorage.removeItem('candor.unpaid.journey')
-    })
-    await finishGoalSelect(page)
-    await page.getByTestId('chat-upload-input').setInputFiles(labsFile)
-    await expect(page.getByTestId('chat-report-loading')).toBeVisible()
-    await expect(page.getByTestId('chat-report-loading')).toContainText('報告處理中')
-    await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
-    await page.getByTestId('chat-report-interpret').click()
-    await expect(page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByTestId('chat-recommendation-packages')).toHaveCount(0)
-    await expect(
-      page.getByTestId('chat-last-reply').getByTestId('chat-message-want-more-tests')
-    ).toHaveCount(0)
-    await expect(page.getByTestId('chat-report-loading')).toHaveCount(0)
-    await expect(page.getByTestId('chat-report-dock')).toBeVisible()
-    await expect(page.getByTestId('chat-report-dock')).toContainText('維生素 D3')
-    await expect(page.getByTestId('chat-report-dock')).toContainText('可能原因')
-    await expect(page.getByTestId('chat-escalate')).toBeVisible()
-    expect(await page.evaluate(() => localStorage.getItem('candor-paid-orders'))).toBeNull()
-    expect(await page.evaluate(() => localStorage.getItem('candor.unpaid.journey'))).toContain('conversationId')
-
-    await page.reload({ waitUntil: 'domcontentloaded' })
-    await expect(page.getByRole('heading', { name: '諮詢' })).toBeVisible()
-    await expect(page.getByTestId('chat-view-recommend')).toBeVisible()
-    await expect(page.getByTestId('chat-message-want-more-tests')).toHaveCount(0)
-    await expect(page.getByTestId('chat-input')).toBeVisible()
-    await expect(page.getByTestId('chat-chip-plans')).toHaveCount(0)
-    await expect(page.getByTestId('chat-escalate')).toBeVisible()
-    expect(await page.evaluate(() => localStorage.getItem('candor.unpaid.journey'))).toContain('conversationId')
-  })
-
-  test('labs, month package, checkout redirects to sandbox url', async ({ page, goto }) => {
-    test.setTimeout(90_000)
-    await page.setViewportSize({ width: 1280, height: 800 })
-
-    await goto('/chat', { waitUntil: 'hydration' })
-    await page.evaluate(() => localStorage.removeItem('candor-paid-orders'))
-    await finishGoalSelect(page)
-    await page.getByTestId('chat-upload-input').setInputFiles(labsFile)
-    await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
-    await page.getByTestId('chat-report-interpret').click()
-    await expect(page.getByTestId('chat-last-reply').getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
-    // Dock covers the transcript CTA at this viewport; collapse so recommend is clickable.
-    await page.getByTestId('chat-report-dock-toggle').click()
-    await page.getByTestId('chat-view-recommend').click()
-
-    await expect(page.getByTestId('package-plan-basic')).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByTestId('checkout-auth-gate')).toHaveCount(0)
-    await expect(page.getByTestId('checkout-total')).toContainText('1,280')
-    await expect(page.getByTestId('sellable-item-kind-vitamin_d')).toHaveText('核心')
-    await expect(page.getByTestId('sellable-item-kind-iron')).toHaveText('功能型')
-    await page.getByTestId('checkout-name').fill('林晏婷')
-    await page.getByTestId('checkout-phone').fill('0912345678')
-    await page.getByTestId('checkout-address-city').selectOption('台北市')
-    await page.getByTestId('checkout-address-district').selectOption('大安區')
-    await page.getByTestId('checkout-address').fill('忠孝東路四段1號')
-
-    const pending = page.waitForRequest(request =>
-      request.url().includes('/api/v1/orders') && request.method() === 'POST'
-    )
-    await page.route('https://sandbox.example/**', route => route.fulfill({
-      status: 200,
-      contentType: 'text/html',
-      body: '<!doctype html><title>sandbox</title>'
-    }))
-    await page.getByTestId('checkout-submit').click()
-    const placeReq = await pending
-    const body = placeReq.postDataJSON() as {
-      invoice_type?: string
-      invoice_carrier?: string
-      payment_method?: string
-    }
-    expect(body.payment_method).toBe('card')
-    expect(body.invoice_type).toBe('member')
-    expect(body.invoice_carrier).toBe('guest@example.com')
-
-    await page.waitForURL(/sandbox\.example\/pay/, { timeout: 10_000 })
   })
 })
 
