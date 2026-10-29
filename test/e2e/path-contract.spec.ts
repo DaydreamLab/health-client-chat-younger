@@ -1,6 +1,11 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from '@nuxt/test-utils/playwright'
-import { mockCandorAuth } from './mock-candor-auth'
+import {
+  FLOW_V2_GREETING_CONSULT,
+  FLOW_V2_PATH_C_AWAIT_UPLOAD,
+  FLOW_V2_PATH_C_BASICS,
+  mockCandorAuth
+} from './mock-candor-auth'
 
 async function seedNoExpertCase(page: Page) {
   await page.route('**/api/v1/expert-case-reviews**', async (route) => {
@@ -81,6 +86,38 @@ test.describe('path contract (A／B／C)', () => {
     await expect(page.getByTestId('chat-quiz-option-C')).toHaveText('幫我看報告')
     await expect(page.getByTestId('chat-submit-expert-review')).toHaveCount(0)
   })
+
+  for (const path of ['A', 'B', 'C'] as const) {
+    test(`path ${path}：選完只留 greeting.consult，無路徑專屬本地句`, async ({ page, goto }) => {
+      test.setTimeout(90_000)
+      // Keep C copy constants pinned to SPEC（後端回／FE i18n 對齊用）。
+      expect(FLOW_V2_PATH_C_AWAIT_UPLOAD).toContain('請上傳血檢或健檢報告')
+      expect(FLOW_V2_PATH_C_BASICS).toContain('報告收到了')
+
+      const removedLocalOpeners = [
+        '好的，我們先聊聊',
+        '好的，我們來了解你的基本狀況',
+        '好的，請上傳近期健檢',
+        '你好，想聊什麼都可以',
+        '請先上傳血檢或健檢報告；若不傳可改為諮詢健康方案'
+      ]
+
+      await mockCandorAuth(page, {
+        asMember: true,
+        conversationPath: null,
+        basicProfileComplete: path === 'A'
+      })
+      await seedNoExpertCase(page)
+      await openFreshChat(page, goto)
+      await selectEntryPath(page, path)
+
+      const transcript = page.getByTestId('chat-transcript')
+      await expect(transcript).toContainText(FLOW_V2_GREETING_CONSULT, { timeout: 15_000 })
+      for (const opener of removedLocalOpeners) {
+        await expect(transcript).not.toContainText(opener)
+      }
+    })
+  }
 
   test('path A：usable offer_recommend 仍不顯示完成 CTA', async ({ page, goto }) => {
     test.setTimeout(90_000)

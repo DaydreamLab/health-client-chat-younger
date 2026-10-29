@@ -1478,12 +1478,7 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
     }
   }
 
-  const labelKey = path === 'A'
-    ? 'chat.pathSelectedA'
-    : path === 'B'
-      ? 'chat.pathSelectedB'
-      : 'chat.pathSelectedC'
-  appendMessage('assistant', t(labelKey))
+  // Flow v2：A／B／C 選完路徑後不再附加本地路徑專屬句；開場白僅用 core greeting.consult。
 
   if (path === 'C' && !journey.reportId) {
     // Keep create-greeting CTAs on the latest bubble (upload／checkup／path_switch).
@@ -1520,7 +1515,7 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
   }
 
   // A→B guide CTA: basics／goals may already be done — must stream so consult continues
-  // (otherwise only pathSelectedB is appended and the chat looks stuck).
+  // (otherwise the chat looks stuck after path switch with no follow-up turn).
   if (reason === 'guide_switch' && path === 'B' && !quizActive.value && !goalSelectActive.value) {
     const lastUser = [...journey.messages].reverse().find(message => message.role === 'user')
     pendingUserContent.value = lastUser
