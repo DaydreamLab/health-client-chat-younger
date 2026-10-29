@@ -3082,6 +3082,8 @@ async function syncExpertReviewStatusOnce() {
     journey.expertReviewStatus = expertReviewUiStatusFromRow(existing.status)
     if (existing.health_report_id) {
       journey.reportId = existing.health_report_id
+      journey.hasAnalysis = true
+      journey.reportInterpretSent = true
     }
   } catch (err) {
     // GET expert-review 404 has no error_code in body (ResponseFactory::notFound).
@@ -3305,8 +3307,8 @@ onMounted(async () => {
       appendMessage('assistant', t('chat.conversationError'))
     }
   }
-  await restoreReportSession()
   await syncExpertReviewStatusOnce()
+  await restoreReportSession()
   scrollToLatest('auto')
 })
 

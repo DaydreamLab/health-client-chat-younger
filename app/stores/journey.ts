@@ -101,8 +101,8 @@ function readStored(): JourneySnapshot {
       clarifyingGoals: Array.isArray(parsed.clarifyingGoals) ? parsed.clarifyingGoals : [],
       reportId,
       hasAnalysis,
-      // Never restore as expanded-open; page load keeps dock closed.
-      reportDockOpen: false,
+      // Page load: keep dock closed unless handoff explicitly opened it (e.g. 我的健康 → 查看對話).
+      reportDockOpen: reportId !== null && parsed.reportDockOpen === true,
       // Remember last collapse preference for when the dock is opened again.
       reportDockCollapsed: typeof parsed.reportDockCollapsed === 'boolean'
         ? parsed.reportDockCollapsed
@@ -265,6 +265,15 @@ export const useJourneyStore = defineStore('journey', () => {
       reportId.value = nextReportId
       hasAnalysis.value = true
       reportInterpretSent.value = true
+      // Match ChatPanel restoreReportSession after F5: collapsed dock bar, not expanded table.
+      reportDockOpen.value = true
+      reportDockCollapsed.value = true
+    } else {
+      reportId.value = null
+      hasAnalysis.value = false
+      reportInterpretSent.value = false
+      reportDockOpen.value = false
+      reportDockCollapsed.value = false
     }
 
     messages.value = []
@@ -277,7 +286,6 @@ export const useJourneyStore = defineStore('journey', () => {
     clarifyingGoals.value = []
     goalOptions.value = []
     selectedCodes.value = []
-    reportDockOpen.value = false
     pathCAwaitingUpload.value = false
 
     persist()

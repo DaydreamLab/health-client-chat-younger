@@ -71,6 +71,46 @@ async function seedLatestConversationJourney(page: Page) {
   })
 }
 
+async function mockCaseReportReady(page: Page) {
+  await page.route(`**/api/v1/health-reports/${caseReportId}`, async (route: Route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: {
+          id: caseReportId,
+          status: 'ready',
+          page_count: 1,
+          extraction_confidence: 0.9,
+          results: [
+            {
+              id: 'result-case-1',
+              raw_name: 'Vitamin D3',
+              name_zh: '維生素 D3',
+              name_zh_source: 'dictionary',
+              raw_value: '31.8',
+              value_numeric: 31.8,
+              unit: 'ng/mL',
+              ref_low: 50,
+              ref_high: 80,
+              needs_review: false,
+              range_status: 'low',
+              description: '維生素 D 與骨骼與免疫狀態相關的常見指標。',
+              possible_causes: '偏低可能與日照不足或攝取不足有關。',
+              possible_risks: '偏低時部分人可能需要留意相關健康狀態。'
+            }
+          ]
+        }
+      })
+    })
+  })
+}
+
 /**
  * GET expert-review: 200 only for the reviewed case conversation;
  * latest (post-submit) conversation → 404 not_found (prod bug shape).
@@ -238,6 +278,7 @@ test.describe('health review → recommendations (focus case conversation)', () 
     await mockCandorAuth(page, { asMember: true })
     await mockExpertReviewByConversation(page)
     await mockCaseConversationMessages(page)
+    await mockCaseReportReady(page)
     await seedLatestConversationJourney(page)
 
     await goto('/app', { waitUntil: 'hydration' })
@@ -262,5 +303,8 @@ test.describe('health review → recommendations (focus case conversation)', () 
 
     await expect(page).toHaveURL(/\/chat\/?/)
     await expect(page.getByText(caseHistoryMarker)).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('chat-report-dock')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('chat-report-dock-empty-prompt')).toHaveCount(0)
+    await expect(page.getByTestId('chat-report-dock-toggle')).toBeVisible()
   })
 })
