@@ -1383,6 +1383,20 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
     return
   }
 
+  // Entry A／B: option label already appended as a user turn — send it like a
+  // typed message so core replies (B: goals in stream). Do not GET next for goals.
+  if (reason === 'entry' && (path === 'A' || path === 'B')) {
+    goalSelectActive.value = false
+    quizActive.value = false
+    activeQuestion.value = null
+    const lastUser = [...journey.messages].reverse().find(message => message.role === 'user')
+    if (lastUser) {
+      pendingUserContent.value = messageText(lastUser)
+      await streamPending()
+    }
+    return
+  }
+
   if (path === 'A') {
     goalSelectActive.value = false
     quizActive.value = false
@@ -1390,7 +1404,7 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
     return
   }
 
-  // Path B／C（已綁報告或 B 進站）：問卷順序由 core 驅動（先 goals）。
+  // Path B／C（已綁報告或 guide）：問卷順序由 core 驅動（先 goals）。
   if (goalOptions.value.length >= 2) {
     goalSelectActive.value = true
   } else {
@@ -1440,7 +1454,8 @@ async function createConversationWithPath(path: ConversationPath) {
   if (greetingRa) {
     greeting.replyActions = greetingRa
   }
-  journey.messages = [greeting, ...userTurns]
+  // User path chip first, then core greeting（開場白在選項下方）.
+  journey.messages = [...userTurns, greeting]
   if (greetingRa) {
     applyReplyActionsInteraction(greeting, greetingRa)
   }

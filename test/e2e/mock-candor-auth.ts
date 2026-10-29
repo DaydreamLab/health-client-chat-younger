@@ -961,7 +961,9 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
             message_id: 'greet-e2e',
             role: 'assistant',
             content: FLOW_V2_GREETING_CONSULT,
-            options: path === 'b' ? goalOptions : [],
+            // Create only returns greeting; path B goals come from the first
+            // stream reply after the entry option is sent as a normal message.
+            options: [],
             selected: []
           },
           ...(path === 'c'
@@ -1319,6 +1321,56 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
   await page.route(`**/api/v1/conversation/${conversationId}/messages/stream`, async (route) => {
     streamCount += 1
     chatFlowTurnCount += 1
+
+    // Path B entry: first stream after option text carries consultation_goals
+    // (create greeting has no goals; FE must not paint goals from GET next).
+    if (mockEntryPath === 'b' && !goalsSet) {
+      const content = '先選您想改善的健康方向。'
+      const donePayload = {
+        message_id: `msg-e2e-goals-${streamCount}`,
+        claim_guard: 'passed',
+        content,
+        options: goalOptions,
+        options_kind: 'consultation_goals',
+        turn: { type: 'message' },
+        profile_question: null,
+        external: null,
+        profile_gaps: [],
+        reply_actions: {
+          schema_version: '0.1',
+          source: 'rule',
+          adaptor: 'rule',
+          degraded: false,
+          error: null,
+          actions: [
+            {
+              type: 'choose_option',
+              payload: {
+                kind: 'consultation_goals',
+                mode: 'multi',
+                confirm: true,
+                options: goalOptions,
+                selected: [],
+                gap_code: null,
+                answer_type: 'multi_enum',
+                exclusive_codes: []
+              }
+            }
+          ]
+        }
+      }
+      const body = [
+        'event: delta',
+        `data: ${JSON.stringify({ text: content })}`,
+        '',
+        'event: done',
+        `data: ${JSON.stringify(donePayload)}`,
+        '',
+        ''
+      ].join('\n')
+      await route.fulfill({ status: 200, contentType: 'text/event-stream', body })
+      return
+    }
 
     const completionGroupRa = {
       schema_version: '0.1',
