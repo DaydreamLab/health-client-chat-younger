@@ -524,6 +524,36 @@ describe('path contract — completion CTA gates (no FE 硬保)', () => {
     expect(v.showSubmitReview).toBe(true)
   })
 
+  it('path B + open_question_reply fallback + offer_recommend shows submit', () => {
+    const msg = assistant('latest', {
+      replyActions: {
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'rule',
+        degraded: false,
+        error: null,
+        actions: [
+          { type: 'offer_recommend' as const },
+          {
+            type: 'choose_option' as const,
+            payload: {
+              kind: 'open_question_reply',
+              mode: 'single',
+              options: [{ code: 'continue', label: '繼續健康諮詢' }]
+            }
+          }
+        ]
+      }
+    })
+    const v = visibility(msg, baseCtx({
+      lastAssistantId: 'latest',
+      conversationPath: 'B',
+      openProfileGaps: []
+    }), { messages: [msg], expertReviewStatus: 'none' })
+    expect(v.showSubmitReview).toBe(true)
+    expect(v.choices.map(c => c.code)).toEqual(['continue'])
+  })
+
   it('lab_report quiz active suppresses bubble upload／checkup', () => {
     const msg = assistant('latest', {
       replyActions: {

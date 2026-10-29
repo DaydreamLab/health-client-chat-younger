@@ -1804,6 +1804,7 @@ function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyA
 }
 
 function applyStreamMeta(assistantId: string, result: {
+  message_id?: string
   options?: ChatMessage['options']
   options_kind?: string | null
   turn: { type: string }
@@ -1814,11 +1815,15 @@ function applyStreamMeta(assistantId: string, result: {
   checkup_suggest?: string | null
   individual_tests_url?: string | null
   reply_actions?: ReplyActions | null
-}) {
+}): string {
   const message = journey.messages.find(item => item.id === assistantId)
   const usableRa = isUsableReplyActions(result.reply_actions)
   const raColumn = hasReplyActionsColumn(result.reply_actions)
   if (message) {
+    const serverId = typeof result.message_id === 'string' ? result.message_id.trim() : ''
+    if (serverId && message.id !== serverId) {
+      message.id = serverId
+    }
     message.options = result.options ?? []
     message.turnType = result.turn.type as ChatMessage['turnType']
     message.profileQuestion = result.profile_question ?? null
@@ -1848,7 +1853,7 @@ function applyStreamMeta(assistantId: string, result: {
         resolvedCheckupUrl.value = override
       }
     }
-    return
+    return message.id
   }
 
   applyPathRuleCopy(message)
@@ -1871,6 +1876,24 @@ function applyStreamMeta(assistantId: string, result: {
     if (isConsultationGoalOptions(result.options, result.options_kind)) {
       goalSelectActive.value = true
       goalOptions.value = result.options ?? []
+    }
+  }
+
+  return message?.id ?? assistantId
+}
+
+/** Re-run CTA projection after stream `pending` clears (matches hydrate path). */
+function reapplyTurnActionsAfterStream(lookupId: string) {
+  const message = journey.messages.find(item => item.id === lookupId)
+  if (!message?.replyActions || !hasReplyActionsColumn(message.replyActions)) {
+    return
+  }
+  applyReplyActionsInteraction(message, message.replyActions)
+  applyPathRuleCopy(message)
+  if (isUsableReplyActions(message.replyActions)) {
+    const override = turnActionsFor(message).checkupUrlOverride
+    if (override) {
+      resolvedCheckupUrl.value = override
     }
   }
 }
@@ -1969,6 +1992,7 @@ async function streamPending() {
   }
 
   const assistantId = crypto.randomUUID()
+  let streamMessageLookupId: string = assistantId
   let streamed = ''
   let liveCreated = false
 
@@ -2004,7 +2028,7 @@ async function streamPending() {
 
     // Empty / meta-only replies still need a host bubble for CTAs.
     ensureLiveAssistant()
-    applyStreamMeta(assistantId, result)
+    streamMessageLookupId = applyStreamMeta(assistantId, result)
     // Interpret 外連改吃 stream reply_actions offer_checkup（#20）；勿 FE 硬設 wantMoreTestsOffer.
     if (intent === 'interpret' && !checkupUrlLoaded.value) {
       void loadCheckupLinkUrl()
@@ -2036,6 +2060,8 @@ async function streamPending() {
   } finally {
     pending.value = false
     liveAssistantId.value = null
+    await nextTick()
+    reapplyTurnActionsAfterStream(streamMessageLookupId)
   }
 }
 

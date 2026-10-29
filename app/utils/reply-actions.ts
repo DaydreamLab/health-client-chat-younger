@@ -287,7 +287,9 @@ export const NON_GAP_CHOOSE_OPTION_KINDS = new Set<string>([
   // core #100: report 必問 chips（同 ask_goal 模式），不進 open profile gap host
   'lab_report',
   'path_switch',
-  'continue_consultation'
+  'continue_consultation',
+  // System One asking fallback (continue / no-more-questions); not profile gap host.
+  'open_question_reply'
 ])
 
 /**
