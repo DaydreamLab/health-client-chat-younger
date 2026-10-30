@@ -2759,6 +2759,14 @@ async function pollReport(reportId: string) {
   return null
 }
 
+async function streamReportUploadedAck() {
+  const text = t('chat.reportUploadedAck')
+  appendMessage('user', text)
+  pendingUserContent.value = text
+  pendingIntent.value = null
+  await streamPending()
+}
+
 async function bindAndInterpret(reportId: string) {
   const conversationId = await ensureConversation()
   let attached = false
@@ -2823,25 +2831,19 @@ async function bindAndInterpret(reportId: string) {
     if (attachAck.flow_prompt.options?.length) {
       goalOptions.value = attachAck.flow_prompt.options
     }
+  }
+
+  // ready／needs_review：PATCH（＋flow_prompt）後一律 stream 使用者確認句。
+  await streamReportUploadedAck()
+
+  // Stream 可能帶 offer_* 清掉 goalSelect；flow_prompt 有 goals 時再打開選項。
+  if (attachAck?.flow_prompt) {
     if ((attachAck.flow_prompt.options?.length ?? 0) >= 2
       || attachAck.flow_prompt.options_kind === 'consultation_goals') {
       goalSelectActive.value = true
     } else {
       void syncQuestionnaireFromBackend()
     }
-    return
-  }
-
-  const keepGoals = goalSelectActive.value
-  const keepProfile = lastAssistantProfile.value !== null
-  const lastAssistant = [...journey.messages].reverse().find(m => m.role === 'assistant')
-  const keepRequiredAsk = messageHasRequiredBasicAsk(lastAssistant)
-  const gapsRemain = profileGaps.value.length > 0
-
-  if (!keepGoals && !keepProfile && !keepRequiredAsk && gapsRemain && !readonly.value && !escalated.value) {
-    pendingUserContent.value = t('chat.continueIntake')
-    pendingIntent.value = null
-    await streamPending()
   }
 }
 

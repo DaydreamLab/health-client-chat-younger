@@ -120,6 +120,40 @@ test.describe('chat flow v2 — 四條主流程', () => {
     await expect(last.getByTestId('chat-message-checkup')).toHaveCount(0)
   })
 
+  for (const terminal of ['ready', 'needs_review'] as const) {
+    test(`C：${terminal} 綁定後 stream「我的報告已上傳」`, async ({ page, goto }) => {
+      test.setTimeout(90_000)
+      await mockCandorAuth(page, {
+        asMember: true,
+        conversationPath: null,
+        basicProfileComplete: true,
+        reportTerminalStatus: terminal
+      })
+      await seedNoExpertCase(page)
+      await openFreshChat(page, goto)
+      await selectEntryPath(page, 'C')
+
+      const streamAck = page.waitForRequest((req) => {
+        if (req.method() !== 'POST' || !req.url().includes('/messages/stream')) {
+          return false
+        }
+        return (req.postData() || '').includes('我的報告已上傳')
+      }, { timeout: 30_000 })
+
+      await page.getByTestId('chat-message-upload').click()
+      await page.setInputFiles('[data-testid="chat-upload-input"]', {
+        name: 'report.pdf',
+        mimeType: 'application/pdf',
+        buffer: Buffer.from('%PDF-1.4 mock')
+      })
+
+      const transcript = page.getByTestId('chat-transcript')
+      await expect(transcript).toContainText(FLOW_V2_PATH_C_BASICS, { timeout: 30_000 })
+      await streamAck
+      await expect(transcript).toContainText('我的報告已上傳')
+    })
+  }
+
   test('20 題上限：後端文案 + 按鈕', async ({ page, goto }) => {
     test.setTimeout(120_000)
     await mockCandorAuth(page, {

@@ -109,6 +109,11 @@ export type CandorMockOptions = {
    * Flow v2 四條主流程 e2e（chat-flow-v2.spec.ts）。
    */
   chatFlowV2?: 'a-guide-15' | 'b-completion' | 'c-completion' | 'turn-limit-20'
+  /**
+   * Terminal status after the first processing poll on GET /health-reports/{id}.
+   * Default `ready`. Use `needs_review` to assert POST-attach stream ack.
+   */
+  reportTerminalStatus?: 'ready' | 'needs_review'
 }
 
 const legacyPackagePlans = [
@@ -1372,10 +1377,12 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     streamCount += 1
     chatFlowTurnCount += 1
 
-    // Path B entry: first stream after option text carries consultation_goals
+    // Path B entry / Path C post-attach ack: first stream carries consultation_goals
     // (create greeting has no goals; FE must not paint goals from GET next).
-    if (mockEntryPath === 'b' && !goalsSet) {
-      const content = '先選您想改善的健康方向。'
+    if ((mockEntryPath === 'b' || mockEntryPath === 'c') && !goalsSet) {
+      const content = mockEntryPath === 'c'
+        ? '報告已收到，先選您想改善的健康方向。'
+        : '先選您想改善的健康方向。'
       const donePayload = {
         message_id: `msg-e2e-goals-${streamCount}`,
         claim_guard: 'passed',
@@ -1871,6 +1878,9 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       })
       return
     }
+    const terminalStatus = options.reportTerminalStatus === 'needs_review'
+      ? 'needs_review'
+      : 'ready'
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -1878,9 +1888,9 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         status: 'success',
         data: {
           id: reportId,
-          status: 'ready',
+          status: terminalStatus,
           page_count: 1,
-          extraction_confidence: 0.9,
+          extraction_confidence: terminalStatus === 'needs_review' ? 0.55 : 0.9,
           results: [
             {
               id: 'result-e2e-1',
@@ -1892,7 +1902,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
               unit: 'ng/mL',
               ref_low: 50,
               ref_high: 80,
-              needs_review: false,
+              needs_review: terminalStatus === 'needs_review',
               range_status: 'low',
               description: '維生素 D 與骨骼與免疫狀態相關的常見指標。',
               possible_causes: '偏低可能與日照不足或攝取不足有關。',

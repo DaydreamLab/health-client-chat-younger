@@ -554,6 +554,7 @@
     "reportReady": "Report is ready. You can view it in the reading panel.",
     "explainHighlights": "Explain the highlights",
     "continueIntake": "Please continue the unfinished questions",
+    "reportUploadedAck": "My report has been uploaded",
     "reportSkippedMismatch": "This report’s patient details don’t match the sex/age from your answers, so it was skipped. We’ll continue from the goals you selected.",
     "goalsNeedTwo": "Please pick at least one focus area before confirming.",
     "reportFailed": "Report processing failed. You can retry.",
