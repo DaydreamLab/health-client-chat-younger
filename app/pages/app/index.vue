@@ -491,6 +491,7 @@ import {
   expertReviewUiStatusFromList,
   expertReviewUiStatusFromRow
 } from '~/utils/expert-review'
+import { formatLocalDateTime } from '~/utils/format-local-datetime'
 
 definePageMeta({
   layout: 'user',
@@ -541,18 +542,11 @@ const headerCta = computed<'view' | 'submit' | 'none'>(() => {
 })
 
 function formatReviewTime(value: string) {
-  const ts = Date.parse(value)
-  if (Number.isNaN(ts)) {
-    return value
-  }
-  try {
-    return new Intl.DateTimeFormat(locale.value || 'zh-TW', {
-      dateStyle: 'medium',
-      timeStyle: 'short'
-    }).format(new Date(ts))
-  } catch {
-    return value
-  }
+  return formatLocalDateTime(value, {
+    style: 'intl-short',
+    locale: locale.value || 'zh-TW',
+    empty: value
+  })
 }
 
 function focusReviewConversation(review: ExpertCaseReviewListItem) {
@@ -707,14 +701,11 @@ function statusLabel(status: string) {
 }
 
 function formatReportDate(iso: string) {
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) {
-    return iso
-  }
-  return new Intl.DateTimeFormat(locale.value === 'en' ? 'en-US' : 'zh-TW', {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  }).format(date)
+  return formatLocalDateTime(iso, {
+    style: 'intl-short',
+    locale: locale.value === 'en' ? 'en-US' : 'zh-TW',
+    empty: iso
+  })
 }
 
 async function loadProfile() {

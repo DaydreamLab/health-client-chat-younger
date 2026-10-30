@@ -3,6 +3,12 @@
  * Wired to candor-core member inbox APIs (list / unread-count / mark-read).
  */
 
+import {
+  calendarPartsInZone,
+  civilDayNumber,
+  parseInstant
+} from './format-local-datetime'
+
 /** Wave-1 inbox event types from core enqueue. */
 export type NotificationType = 'member_registered' | 'expert_review_completed'
 
@@ -72,52 +78,25 @@ export function formatUnreadBadgeLabel(count: number): string | undefined {
   return count > 99 ? '99+' : String(count)
 }
 
-const TAIPEI_TZ = 'Asia/Taipei'
-
-function taipeiCalendarParts(date: Date): { y: number, m: number, d: number, time: string } {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: TAIPEI_TZ,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23'
-  }).formatToParts(date)
-
-  const pick = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find(part => part.type === type)?.value ?? '0'
-
-  return {
-    y: Number(pick('year')),
-    m: Number(pick('month')),
-    d: Number(pick('day')),
-    time: `${pick('hour').padStart(2, '0')}:${pick('minute').padStart(2, '0')}`
-  }
-}
-
-function taipeiDayNumber(y: number, m: number, d: number): number {
-  // Civil day index in Taipei calendar (UTC noon; TW has no DST).
-  return Math.floor(Date.UTC(y, m - 1, d, 12) / 86_400_000)
-}
-
 /**
  * Relative day label keys + optional clock for "today".
- * Callers resolve i18n; clock uses Asia/Taipei 24h HH:mm.
+ * Callers resolve i18n; clock uses the viewer timezone (browser default).
+ * Pass `timeZone` only in tests.
  */
 export function notificationTimeParts(
   iso: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  timeZone?: string
 ): { key: 'today' | 'yesterday' | 'lastWeek' | 'older', time?: string, date?: string } {
-  const at = new Date(iso)
-  if (Number.isNaN(at.getTime())) {
+  const at = parseInstant(iso) ?? (Number.isNaN(Date.parse(iso)) ? null : new Date(iso))
+  if (at === null) {
     return { key: 'older', date: iso }
   }
 
-  const atParts = taipeiCalendarParts(at)
-  const nowParts = taipeiCalendarParts(now)
-  const dayDiff = taipeiDayNumber(nowParts.y, nowParts.m, nowParts.d)
-    - taipeiDayNumber(atParts.y, atParts.m, atParts.d)
+  const atParts = calendarPartsInZone(at, timeZone)
+  const nowParts = calendarPartsInZone(now, timeZone)
+  const dayDiff = civilDayNumber(nowParts.y, nowParts.m, nowParts.d)
+    - civilDayNumber(atParts.y, atParts.m, atParts.d)
 
   if (dayDiff === 0) {
     return { key: 'today', time: atParts.time }

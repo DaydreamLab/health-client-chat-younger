@@ -31,19 +31,27 @@ describe('notifications helpers', () => {
     expect(formatUnreadBadgeLabel(100)).toBe('99+')
   })
 
-  it('formats relative time buckets', () => {
+  it('formats relative time buckets in viewer timezone', () => {
     const now = new Date('2026-10-25T18:00:00+08:00')
-    expect(notificationTimeParts('2026-10-25T14:20:00+08:00', now)).toEqual({
+    expect(notificationTimeParts('2026-10-25T14:20:00+08:00', now, 'Asia/Taipei')).toEqual({
       key: 'today',
       time: '14:20'
     })
-    expect(notificationTimeParts('2026-10-24T10:00:00+08:00', now)).toEqual({
+    expect(notificationTimeParts('2026-10-25T06:22:00Z', now, 'Asia/Taipei')).toEqual({
+      key: 'today',
+      time: '14:22'
+    })
+    expect(notificationTimeParts('2026-10-25T06:22:00Z', now, 'UTC')).toEqual({
+      key: 'today',
+      time: '06:22'
+    })
+    expect(notificationTimeParts('2026-10-24T10:00:00+08:00', now, 'Asia/Taipei')).toEqual({
       key: 'yesterday'
     })
-    expect(notificationTimeParts('2026-10-20T10:00:00+08:00', now)).toEqual({
+    expect(notificationTimeParts('2026-10-20T10:00:00+08:00', now, 'Asia/Taipei')).toEqual({
       key: 'lastWeek'
     })
-    expect(notificationTimeParts('2026-09-01T10:00:00+08:00', now)).toEqual({
+    expect(notificationTimeParts('2026-09-01T10:00:00+08:00', now, 'Asia/Taipei')).toEqual({
       key: 'older',
       date: '2026-09-01'
     })

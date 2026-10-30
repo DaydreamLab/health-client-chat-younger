@@ -183,6 +183,7 @@
 </template>
 
 <script setup lang="ts">
+import { formatLocalDateTime, parseInstant } from '~/utils/format-local-datetime'
 import {
   WEARABLE_DEMO_STATE_QUERY,
   devicesForDemoState,
@@ -220,25 +221,24 @@ function deviceIcon(deviceId: string) {
 }
 
 function formatSyncTime(iso: string) {
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) {
+  const date = parseInstant(iso)
+  if (date === null) {
     return iso
   }
   if (locale.value === 'en') {
-    return date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    return formatLocalDateTime(iso, { style: 'intl-short', locale: 'en-US', empty: iso })
   }
   const now = new Date('2026-10-19T12:00:00+08:00')
   const sameDay = date.toDateString() === now.toDateString()
   if (sameDay) {
-    return t('wearables.syncToday', {
-      time: date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })
-    })
+    const clock = formatLocalDateTime(iso, { style: 'list', empty: iso }).slice(-5)
+    return t('wearables.syncToday', { time: clock })
   }
   const diffDays = Math.round((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
   if (diffDays > 0 && diffDays < 7) {
     return t('wearables.syncDaysAgo', { count: diffDays })
   }
-  return date.toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
+  return formatLocalDateTime(iso, { style: 'intl-short', locale: 'zh-TW', empty: iso })
 }
 
 const errorBanners = computed(() => {

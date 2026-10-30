@@ -154,6 +154,7 @@ import {
   getWearableMetricSummary,
   type WearableMetricType
 } from '~/utils/wearables-mock'
+import { formatLocalDateTime, parseInstant } from '~/utils/format-local-datetime'
 import { formatSleepDurationMinutes } from '~/utils/wearables-format'
 
 definePageMeta({
@@ -264,12 +265,13 @@ const secondaryAverages = computed(() => {
 })
 
 function formatSyncTime(iso: string) {
-  const date = new Date(iso)
-  if (locale.value === 'en') {
-    return date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  if (parseInstant(iso) === null) {
+    return iso
   }
-  return t('wearables.syncToday', {
-    time: date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })
-  })
+  if (locale.value === 'en') {
+    return formatLocalDateTime(iso, { style: 'intl-short', locale: 'en-US', empty: iso })
+  }
+  const clock = formatLocalDateTime(iso, { style: 'list', empty: iso }).slice(-5)
+  return t('wearables.syncToday', { time: clock })
 }
 </script>
