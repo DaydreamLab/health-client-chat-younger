@@ -218,7 +218,6 @@
                 :flow="isStandardFlow ? 'standard' : undefined"
                 :vitals-fields="vitalsFieldsFor(message)"
                 :vitals-disabled="pending || readonly || escalated"
-                :path-allows-continue="completionCtaPathAllows(conversationPath)"
                 @choice="onChoice"
                 @confirm="confirmMultiSelection"
                 @upload="openAttachMenu"
@@ -408,7 +407,6 @@ import {
 } from '~/utils/chat-turn-actions'
 import {
   isBasicProfileComplete,
-  completionCtaPathAllows,
   isConversationPath,
   isRequiredBasicGapCode,
   normalizeConversationPath,
@@ -2313,6 +2311,9 @@ function onChoice(option: GreetingOption) {
       void loadCheckupLinkUrl()
     }
     return
+  }
+  if (mapsTo === 'continue_consultation') {
+    return submitContinueHealthConsultationLabel(option.label)
   }
 
   if (goalSelectActive.value || lastAssistantProfile.value?.answer_type === 'multi_enum') {

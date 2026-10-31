@@ -30,11 +30,11 @@ export type ChooseOptionKind
     /** POST …/continue-health-consultation (completion 組第二鈕). */
     | 'continue_consultation'
 
-/** choose_option option.maps_to → FE route (LabFollowup dual chips). */
-export type ChooseOptionMapsTo = 'ask_report' | 'offer_checkup'
+/** choose_option option.maps_to → FE route (LabFollowup chips). */
+export type ChooseOptionMapsTo = 'ask_report' | 'offer_checkup' | 'continue_consultation'
 
 export function normalizeChooseOptionMapsTo(raw: string | null | undefined): ChooseOptionMapsTo | null {
-  if (raw === 'ask_report' || raw === 'offer_checkup') {
+  if (raw === 'ask_report' || raw === 'offer_checkup' || raw === 'continue_consultation') {
     return raw
   }
   // Tolerant aliases from catalog / copy variants.
@@ -718,16 +718,17 @@ export const CONTINUE_CONSULT_I18N_KEY = 'chat.continueConsult' as const
  * (a) lab_followup chips (option.maps_to → ask_report / offer_checkup), or
  * (b) top-level ask_report + offer_checkup buttons (showUpload && showCheckup).
  * Single flag → at most one continue CTA even when (a)+(b) both present.
- * Path A never shows — continue mode is B／C only (`pathAllowsContinue`).
+ * Every path shows it. Skip when the payload already has a continue chip.
  */
 export function shouldShowContinueConsultCta(input: {
   showUpload: boolean
   showCheckup: boolean
   choices: readonly { maps_to?: string | null }[]
-  /** When false／undefined, hide (Path A or unknown path). Default true for unit callers. */
-  pathAllowsContinue?: boolean
 }): boolean {
-  if (input.pathAllowsContinue === false) {
+  const alreadyInChoices = input.choices.some(
+    choice => normalizeChooseOptionMapsTo(choice.maps_to) === 'continue_consultation'
+  )
+  if (alreadyInChoices) {
     return false
   }
   if (input.showUpload && input.showCheckup) {

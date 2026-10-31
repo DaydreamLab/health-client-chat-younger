@@ -556,12 +556,22 @@ describe('shouldShowContinueConsultCta — checkup suggestion FE append', () => 
     })).toBe(false)
   })
 
-  it('pathAllowsContinue false (Path A) → hide', () => {
+  it('path does not hide continue consult on lab_followup chips', () => {
     expect(shouldShowContinueConsultCta({
       showUpload: false,
       showCheckup: false,
-      choices: labFollowupChoices,
-      pathAllowsContinue: false
+      choices: labFollowupChoices
+    })).toBe(true)
+  })
+
+  it('payload already has continue chip → do not append a second button', () => {
+    expect(shouldShowContinueConsultCta({
+      showUpload: true,
+      showCheckup: true,
+      choices: [
+        ...labFollowupChoices,
+        { code: 'continue', label: '繼續健康諮詢', maps_to: 'continue_consultation' }
+      ]
     })).toBe(false)
   })
 

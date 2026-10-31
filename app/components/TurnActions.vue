@@ -25,8 +25,6 @@ const props = defineProps<{
   /** ask_vitals fields from reply_actions (shown one-at-a-time in order). */
   vitalsFields?: VitalsField[]
   vitalsDisabled?: boolean
-  /** Path B／C only; Path A must not show continue-health CTA. */
-  pathAllowsContinue?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -54,8 +52,7 @@ const showContinueConsult = computed(() =>
   shouldShowContinueConsultCta({
     showUpload: props.showUpload,
     showCheckup: props.showCheckup,
-    choices: props.choices,
-    pathAllowsContinue: props.pathAllowsContinue !== false
+    choices: props.choices
   })
 )
 
