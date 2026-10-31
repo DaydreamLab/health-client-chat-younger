@@ -114,7 +114,6 @@ export interface RecommendationPackageItem {
   name?: string | null
   unit_price: number
   daily_dose: number
-  daily_servings_min?: number | null
   daily_servings_max?: number | null
   monthly_cost: number
   /** 是否基礎（核心）品；來自主檔，false／缺省視為功能型 */
