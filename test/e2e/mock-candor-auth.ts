@@ -94,9 +94,10 @@ export type CandorMockOptions = {
    */
   legacyCheckupOfferConflict?: boolean
   /**
-   * Path contract A／B／C on POST /conversations.
-   * Default `B` so existing e2e skip 進站三選 and keep goal chips.
-   * Pass `null` to force entry three-choice UI (path-contract specs).
+   * Path contract A／B／C.
+   * Default `B` so existing e2e skip 進站三選 and keep goal chips
+   * (mock still creates with path=b when option is undefined).
+   * Pass `null` for core #133 entry: create without path → greeting + path_switch a／b／c.
    */
   conversationPath?: 'A' | 'B' | 'C' | null
   /**
@@ -618,7 +619,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     })
   })
 
-  const reviewedPackages = [
+  const _reviewedPackages = [
     {
       package_plan_code: 'basic',
       package_plan_name: '基礎保養',
@@ -785,40 +786,36 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       })
       return
     }
+    // Default GET 404: a reviewed case with health_report_id would make
+    // ChatPanel syncExpertReview＋restoreReport attach the report and expand
+    // the dock (stealing null-path entry / covering goal chips). Specs that
+    // need a case override this route (health-review-recommend, etc.).
+    if (memberExpertReviewStatus !== 'awaiting_review') {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'failed',
+          error_message: 'Expert review not found.',
+          error_code: 'not_found'
+        })
+      })
+      return
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data: memberExpertReviewStatus === 'reviewed'
-          ? {
-              id: expertReviewId,
-              conversation_id: conversationId,
-              health_report_id: reportId,
-              status: 'reviewed',
-              recommendation_run_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
-              created_at: '2026-01-01T00:00:00Z',
-              updated_at: '2026-01-01T01:00:00Z',
-              reviewed_at: '2026-01-01T01:00:00Z',
-              packages: reviewedPackages,
-              weight_set: { id: 'ws-e2e', version: '0.1.0' },
-              summary: {
-                top_domains: [],
-                data_gaps: [],
-                profile_gaps: [],
-                strategy_code: 'focus_abnormal',
-                message: null
-              }
-            }
-          : {
-              id: expertReviewId,
-              conversation_id: conversationId,
-              health_report_id: reportId,
-              status: 'awaiting_review',
-              recommendation_run_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
-              created_at: '2026-01-01T00:00:00Z',
-              updated_at: '2026-01-01T00:00:00Z'
-            }
+        data: {
+          id: expertReviewId,
+          conversation_id: conversationId,
+          health_report_id: reportId,
+          status: 'awaiting_review',
+          recommendation_run_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+          created_at: '2026-01-01T00:00:00Z',
+          updated_at: '2026-01-01T00:00:00Z'
+        }
       })
     })
   })
@@ -925,7 +922,61 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       ? null
       : String(options.conversationPath).toLowerCase() as 'a' | 'b' | 'c'
   let resolvedBasicProfileComplete = options.basicProfileComplete ?? true
+  /** Track null-path entry until POST …/path (core #133). */
+  let mockEntryPathSelected: 'a' | 'b' | 'c' | null = resolvedConversationPath
   mockEntryPath = (resolvedConversationPath ?? 'b') as 'a' | 'b' | 'c'
+
+  const entryPathSwitchReplyActions = {
+    schema_version: '0.1',
+    source: 'semantic_judgment',
+    adaptor: 'rule',
+    degraded: false,
+    error: null,
+    actions: [{
+      type: 'choose_option',
+      payload: {
+        kind: 'path_switch',
+        mode: 'single',
+        confirm: false,
+        options: [
+          { code: 'a', label: '我想聊聊' },
+          { code: 'b', label: '我想諮詢健康方案' },
+          { code: 'c', label: '幫我看報告' }
+        ],
+        selected: [],
+        gap_code: null,
+        answer_type: null,
+        exclusive_codes: []
+      }
+    }]
+  }
+
+  const pathCAwaitUploadReplyActions = {
+    schema_version: '0.1',
+    source: 'rule',
+    adaptor: 'rule',
+    degraded: false,
+    error: null,
+    actions: [
+      { type: 'ask_report', payload: { option_codes: ['upload'] } },
+      {
+        type: 'choose_option',
+        payload: {
+          kind: 'path_switch',
+          mode: 'single',
+          confirm: false,
+          options: [
+            { code: 'a', label: '我想聊聊' },
+            { code: 'b', label: '我想諮詢健康方案' }
+          ],
+          selected: [],
+          gap_code: null,
+          answer_type: null,
+          exclusive_codes: []
+        }
+      }
+    ]
+  }
 
   await page.route('**/api/v1/conversations', async (route) => {
     if (route.request().method() !== 'POST') {
@@ -935,15 +986,31 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     const postData = route.request().postDataJSON() as {
       package_plan_code?: string
       path?: string
+      report_id?: string
     } | null
     const includePackage = options.withPackage || Boolean(postData?.package_plan_code)
     const bodyPath = typeof postData?.path === 'string'
       ? postData.path.trim().toLowerCase()
       : null
-    const path = bodyPath === 'a' || bodyPath === 'b' || bodyPath === 'c'
-      ? bodyPath
-      : (resolvedConversationPath ?? 'b')
-    mockEntryPath = path
+    const hasReport = Boolean(postData?.report_id)
+    // Explicit path or report → forced path; else honor resolvedConversationPath
+    // (null = entry without path per core #133).
+    let path: 'a' | 'b' | 'c' | null
+    if (hasReport) {
+      path = 'c'
+    } else if (bodyPath === 'a' || bodyPath === 'b' || bodyPath === 'c') {
+      path = bodyPath
+    } else if (resolvedConversationPath === null) {
+      path = null
+    } else {
+      path = resolvedConversationPath ?? 'b'
+    }
+    mockEntryPathSelected = path
+    mockEntryPath = (path ?? 'b') as 'a' | 'b' | 'c'
+    const entryGreeting = path === null
+    const greetingContent = entryGreeting
+      ? `${FLOW_V2_GREETING_CONSULT}\n\n想先從哪裡開始？`
+      : FLOW_V2_GREETING_CONSULT
     await route.fulfill({
       status: 201,
       contentType: 'application/json',
@@ -951,7 +1018,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         status: 'success',
         data: {
           id: conversationId,
-          report_id: null,
+          report_id: hasReport ? postData?.report_id : null,
           path,
           ...(includePackage
             ? {
@@ -966,13 +1033,16 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           greeting: {
             message_id: 'greet-e2e',
             role: 'assistant',
-            content: FLOW_V2_GREETING_CONSULT,
+            content: greetingContent,
             // Create only returns greeting; path B goals come from the first
             // stream reply after the entry option is sent as a normal message.
             options: [],
-            selected: []
+            selected: [],
+            ...(entryGreeting
+              ? { reply_actions: entryPathSwitchReplyActions }
+              : {})
           },
-          ...(path === 'c'
+          ...(path === 'c' && !hasReport
             ? {
                 flow_prompt: {
                   message_id: 'flow-c-await-e2e',
@@ -980,32 +1050,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   content: FLOW_V2_PATH_C_AWAIT_UPLOAD,
                   options: [],
                   selected: [],
-                  reply_actions: {
-                    schema_version: '0.1',
-                    source: 'rule',
-                    adaptor: 'rule',
-                    degraded: false,
-                    error: null,
-                    actions: [
-                      { type: 'ask_report', payload: { option_codes: ['upload'] } },
-                      {
-                        type: 'choose_option',
-                        payload: {
-                          kind: 'path_switch',
-                          mode: 'single',
-                          confirm: false,
-                          options: [
-                            { code: 'a', label: '我想聊聊' },
-                            { code: 'b', label: '我想諮詢健康方案' }
-                          ],
-                          selected: [],
-                          gap_code: null,
-                          answer_type: null,
-                          exclusive_codes: []
-                        }
-                      }
-                    ]
-                  }
+                  reply_actions: pathCAwaitUploadReplyActions
                 }
               }
             : {})
@@ -1023,15 +1068,29 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     const raw = typeof body?.path === 'string' ? body.path.trim().toLowerCase() : ''
     const nextPath = raw === 'a' || raw === 'b' || raw === 'c' ? raw : 'b'
     mockEntryPath = nextPath
+    mockEntryPathSelected = nextPath
+    const data: Record<string, unknown> = {
+      id: conversationId,
+      path: nextPath,
+      report_id: null
+    }
+    // First select → C without report: return await-upload flow_prompt.
+    if (nextPath === 'c') {
+      data.flow_prompt = {
+        message_id: 'flow-c-await-e2e',
+        role: 'assistant',
+        content: FLOW_V2_PATH_C_AWAIT_UPLOAD,
+        options: [],
+        selected: [],
+        reply_actions: pathCAwaitUploadReplyActions
+      }
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data: {
-          id: conversationId,
-          path: nextPath
-        }
+        data
       })
     })
   })
@@ -1285,7 +1344,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     return null
   }
 
-  /** GET history — only returns transcript when replyActions mock mode is set. */
+  /** GET history — entry null-path greeting, or replyActions mock transcript. */
   await page.route(`**/api/v1/conversation/${conversationId}/messages`, async (route) => {
     if (route.request().method() !== 'GET') {
       await route.fallback()
@@ -1294,6 +1353,30 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     const url = route.request().url()
     if (url.includes('/messages/stream')) {
       await route.fallback()
+      return
+    }
+    // Unselected-path entry: hydrate greeting + path_switch a／b／c (core #133).
+    if (mockEntryPathSelected == null) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            conversation_id: conversationId,
+            messages: [{
+              id: 'greet-e2e',
+              role: 'assistant',
+              content: `${FLOW_V2_GREETING_CONSULT}\n\n想先從哪裡開始？`,
+              options: [],
+              turn: { type: 'message' },
+              profile_question: null,
+              profile_gaps: [],
+              reply_actions: entryPathSwitchReplyActions
+            }]
+          }
+        })
+      })
       return
     }
     if (!options.replyActions) {
@@ -1372,7 +1455,15 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
 
     // Path B entry / Path C post-attach ack: first stream carries consultation_goals
     // (create greeting has no goals; FE must not paint goals from GET next).
-    if ((mockEntryPath === 'b' || mockEntryPath === 'c') && !goalsSet) {
+    // Only when the user message is an entry／attach ack — do not steal streams for
+    // replyActions／profileQuiz regressions (e.g. lab_report=none → offer_recommend).
+    const streamBody = route.request().postDataJSON() as { content?: string } | null
+    const streamContent = typeof streamBody?.content === 'string' ? streamBody.content : ''
+    const isEntryOrUploadAck = streamContent === '我想聊聊'
+      || streamContent === '我想諮詢健康方案'
+      || streamContent === '幫我看報告'
+      || streamContent === '我的報告已上傳'
+    if ((mockEntryPath === 'b' || mockEntryPath === 'c') && !goalsSet && isEntryOrUploadAck) {
       const content = mockEntryPath === 'c'
         ? '報告已收到，先選您想改善的健康方向。'
         : '先選您想改善的健康方向。'
@@ -1697,7 +1788,9 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         external: null,
         profile_gaps: ['sex', 'age', 'diet']
       }
-    } else if (options.profileQuiz && goalsSet && quizAnswered && streamCount <= 2) {
+    } else if (options.profileQuiz && goalsSet && quizAnswered && streamCount <= 3) {
+      // Allow streamCount 3: entry path select may consume stream #1 for goals
+      // (core #133), then goals→sex (#2), sex→follow-up chips (#3).
       donePayload = {
         message_id: `msg-e2e-${streamCount}`,
         claim_guard: 'passed',

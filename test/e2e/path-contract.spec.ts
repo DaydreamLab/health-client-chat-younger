@@ -41,16 +41,25 @@ async function seedNoExpertCase(page: Page) {
 
 async function openFreshChat(page: Page, goto: (path: string, opts?: { waitUntil?: 'hydration' }) => Promise<unknown>) {
   await page.setViewportSize({ width: 1280, height: 800 })
-  await goto('/chat', { waitUntil: 'hydration' })
-  await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
+  // Clear journey BEFORE first /chat mount — entry now POSTs /conversations on
+  // mount; a leftover reportId would attach＋stream and steal path before 進站三選.
+  await goto('/', { waitUntil: 'hydration' })
+  await page.evaluate(() => {
+    localStorage.removeItem('candor.unpaid.journey')
+  })
   await goto('/chat', { waitUntil: 'hydration' })
   await expect(page.getByTestId('chat-transcript')).toBeVisible({ timeout: 20_000 })
 }
 
-/** Path is create-time: pick 進站三選 before goals／chat. */
+/** Entry chips from greeting.reply_actions path_switch (codes a／b／c). */
 async function selectEntryPath(page: Page, path: 'A' | 'B' | 'C') {
-  await expect(page.getByTestId(`chat-quiz-option-${path}`)).toBeVisible({ timeout: 15_000 })
-  await page.getByTestId(`chat-quiz-option-${path}`).click()
+  const code = path.toLowerCase()
+  const chip = page.getByTestId(`chat-quiz-option-${code}`)
+  await expect(chip).toBeVisible({ timeout: 15_000 })
+  await chip.click()
+  // onChoice fires void selectConversationPath — wait until entry `c` chip clears
+  // (path POST done). Path C flow_prompt may still show a／b switch chips.
+  await expect(page.getByTestId('chat-quiz-option-c')).toHaveCount(0, { timeout: 15_000 })
 }
 
 async function finishGoalSelect(page: Page) {
@@ -78,12 +87,18 @@ test.describe('path contract (A／B／C)', () => {
     await seedNoExpertCase(page)
     await openFreshChat(page, goto)
 
-    await expect(page.getByTestId('chat-quiz-option-A')).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByTestId('chat-quiz-option-B')).toBeVisible()
-    await expect(page.getByTestId('chat-quiz-option-C')).toBeVisible()
-    await expect(page.getByTestId('chat-quiz-option-A')).toHaveText('我想聊聊')
-    await expect(page.getByTestId('chat-quiz-option-B')).toHaveText('我想諮詢健康方案')
-    await expect(page.getByTestId('chat-quiz-option-C')).toHaveText('幫我看報告')
+    const transcript = page.getByTestId('chat-transcript')
+    await expect(transcript).toContainText(FLOW_V2_GREETING_CONSULT, { timeout: 15_000 })
+    await expect(transcript).toContainText('想先從哪裡開始？')
+    await expect(page.getByTestId('chat-quiz-option-a')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('chat-quiz-option-b')).toBeVisible()
+    await expect(page.getByTestId('chat-quiz-option-c')).toBeVisible()
+    await expect(page.getByTestId('chat-quiz-option-a')).toHaveText('我想聊聊')
+    await expect(page.getByTestId('chat-quiz-option-b')).toHaveText('我想諮詢健康方案')
+    await expect(page.getByTestId('chat-quiz-option-c')).toHaveText('幫我看報告')
+    // 開場白在上、三鈕在下
+    const text = await transcript.innerText()
+    expect(text.indexOf(FLOW_V2_GREETING_CONSULT)).toBeLessThan(text.indexOf('我想聊聊'))
     await expect(page.getByTestId('chat-submit-expert-review')).toHaveCount(0)
   })
 
@@ -95,7 +110,7 @@ test.describe('path contract (A／B／C)', () => {
     '請先上傳血檢或健檢報告；若不傳可改為諮詢健康方案'
   ]
 
-  test('path A：選項當一般訊息送出；greeting 在選項下方', async ({ page, goto }) => {
+  test('path A：選項當一般訊息送出；開場白在上、三鈕在下', async ({ page, goto }) => {
     test.setTimeout(90_000)
     await mockCandorAuth(page, {
       asMember: true,
@@ -104,13 +119,20 @@ test.describe('path contract (A／B／C)', () => {
     })
     await seedNoExpertCase(page)
     await openFreshChat(page, goto)
+
+    const before = page.getByTestId('chat-transcript')
+    await expect(before).toContainText(FLOW_V2_GREETING_CONSULT, { timeout: 15_000 })
+    const beforeText = await before.innerText()
+    expect(beforeText.indexOf(FLOW_V2_GREETING_CONSULT)).toBeLessThan(beforeText.indexOf('我想聊聊'))
+
     await selectEntryPath(page, 'A')
 
     const transcript = page.getByTestId('chat-transcript')
     await expect(transcript).toContainText('我想聊聊', { timeout: 15_000 })
     await expect(transcript).toContainText(FLOW_V2_GREETING_CONSULT, { timeout: 15_000 })
     const text = await transcript.innerText()
-    expect(text.indexOf('我想聊聊')).toBeLessThan(text.indexOf(FLOW_V2_GREETING_CONSULT))
+    // 選後仍維持資料庫順序：開場白 → 使用者選項
+    expect(text.indexOf(FLOW_V2_GREETING_CONSULT)).toBeLessThan(text.indexOf('我想聊聊'))
     for (const opener of removedLocalOpeners) {
       await expect(transcript).not.toContainText(opener)
     }
@@ -118,7 +140,7 @@ test.describe('path contract (A／B／C)', () => {
     await expect(page.getByTestId('chat-quiz-option-sleep')).toHaveCount(0)
   })
 
-  test('path B：選項當一般訊息送出 → stream 回 goals；greeting 在選項下方', async ({ page, goto }) => {
+  test('path B：選項當一般訊息送出 → stream 回 goals；開場白在上、三鈕在下', async ({ page, goto }) => {
     test.setTimeout(90_000)
     await mockCandorAuth(page, {
       asMember: true,
@@ -127,13 +149,19 @@ test.describe('path contract (A／B／C)', () => {
     })
     await seedNoExpertCase(page)
     await openFreshChat(page, goto)
+
+    const before = page.getByTestId('chat-transcript')
+    await expect(before).toContainText(FLOW_V2_GREETING_CONSULT, { timeout: 15_000 })
+    const beforeText = await before.innerText()
+    expect(beforeText.indexOf(FLOW_V2_GREETING_CONSULT)).toBeLessThan(beforeText.indexOf('我想諮詢健康方案'))
+
     await selectEntryPath(page, 'B')
 
     const transcript = page.getByTestId('chat-transcript')
     await expect(transcript).toContainText('我想諮詢健康方案', { timeout: 15_000 })
     await expect(transcript).toContainText(FLOW_V2_GREETING_CONSULT, { timeout: 15_000 })
     const text = await transcript.innerText()
-    expect(text.indexOf('我想諮詢健康方案')).toBeLessThan(text.indexOf(FLOW_V2_GREETING_CONSULT))
+    expect(text.indexOf(FLOW_V2_GREETING_CONSULT)).toBeLessThan(text.indexOf('我想諮詢健康方案'))
     for (const opener of removedLocalOpeners) {
       await expect(transcript).not.toContainText(opener)
     }
@@ -141,7 +169,7 @@ test.describe('path contract (A／B／C)', () => {
     await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
   })
 
-  test('path C：選完只留 greeting.consult，無路徑專屬本地句', async ({ page, goto }) => {
+  test('path C：選完顯示 greeting + flow_prompt 上傳引導，無路徑專屬本地句', async ({ page, goto }) => {
     test.setTimeout(90_000)
     // Keep C copy constants pinned to SPEC（後端回／FE i18n 對齊用）。
     expect(FLOW_V2_PATH_C_AWAIT_UPLOAD).toContain('請上傳血檢或健檢報告')
@@ -158,6 +186,7 @@ test.describe('path contract (A／B／C)', () => {
 
     const transcript = page.getByTestId('chat-transcript')
     await expect(transcript).toContainText(FLOW_V2_GREETING_CONSULT, { timeout: 15_000 })
+    await expect(transcript).toContainText(FLOW_V2_PATH_C_AWAIT_UPLOAD, { timeout: 15_000 })
     for (const opener of removedLocalOpeners) {
       await expect(transcript).not.toContainText(opener)
     }
@@ -210,10 +239,7 @@ test.describe('path contract (A／B／C)', () => {
       replyActions: 'offer_recommend'
     })
     await seedNoExpertCase(page)
-    await page.setViewportSize({ width: 1280, height: 800 })
-    await goto('/chat', { waitUntil: 'hydration' })
-    await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
-    await goto('/chat', { waitUntil: 'hydration' })
+    await openFreshChat(page, goto)
     await selectEntryPath(page, 'B')
 
     await finishGoalSelect(page)
@@ -236,10 +262,7 @@ test.describe('path contract (A／B／C)', () => {
       replyActions: 'none'
     })
     await seedNoExpertCase(page)
-    await page.setViewportSize({ width: 1280, height: 800 })
-    await goto('/chat', { waitUntil: 'hydration' })
-    await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
-    await goto('/chat', { waitUntil: 'hydration' })
+    await openFreshChat(page, goto)
     await selectEntryPath(page, 'B')
 
     await finishGoalSelect(page)

@@ -586,4 +586,44 @@ describe('path contract — completion CTA gates (no FE 硬保)', () => {
     expect(v.showUpload).toBe(false)
     expect(v.showCheckup).toBe(false)
   })
+
+  it('path entry pending：greeting reply_actions path_switch 仍投影 a／b／c 三鈕', () => {
+    const msg = assistant('greet', {
+      parts: [{ type: 'text', text: '開場白\n\n想先從哪裡開始？' }],
+      replyActions: {
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'rule',
+        degraded: false,
+        error: null,
+        actions: [{
+          type: 'choose_option',
+          payload: {
+            kind: 'path_switch',
+            mode: 'single',
+            confirm: false,
+            options: [
+              { code: 'a', label: '我想聊聊' },
+              { code: 'b', label: '我想諮詢健康方案' },
+              { code: 'c', label: '幫我看報告' }
+            ],
+            selected: [],
+            gap_code: null,
+            answer_type: null,
+            exclusive_codes: []
+          }
+        }]
+      }
+    })
+    const v = visibility(msg, baseCtx({
+      lastAssistantId: 'greet',
+      conversationPath: null,
+      pathEntryPending: true
+    }), { messages: [msg] })
+    expect(v.choices.map(c => c.code)).toEqual(['a', 'b', 'c'])
+    expect(v.showConfirm).toBe(false)
+    expect(v.showUpload).toBe(false)
+    expect(v.showCheckup).toBe(false)
+    expect(v.showSubmitReview).toBe(false)
+  })
 })

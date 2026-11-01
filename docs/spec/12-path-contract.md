@@ -1,6 +1,6 @@
 # 對話路徑契約（client）
 
-對齊 Irice 定案（進站 A／B／C）。candor-core path API 並行 draft；本檔為 FE 可擴充契約。
+對齊 Irice 定案（進站 A／B／C）與 candor-core draft #133。本檔為 FE 可擴充契約。
 
 ## 進站三選
 
@@ -10,7 +10,7 @@
 | B | 我想諮詢健康方案 | 必填四欄→可問 optional／goals→完成 CTA |
 | C | 幫我看報告 | 先上傳；取消→B；已有報告則補基本→完成 CTA |
 
-選後才 `POST /conversations` 並帶 `path=a|b|c`（建立當下定稿）；`journey.conversationPath` 由回應 hydrate。`POST …/path` 只用於之後的 A→B 引導與 C 取消→B。
+進頁即 `POST /conversations`（**不帶 path**）→ core 寫入開場白（含「想先從哪裡開始？」／"Where would you like to start?"）並附 `reply_actions` `path_switch` a／b／c（label 依 locale，C 英＝"Help me read my report"）；前台顯示開場白，三鈕在其下，以 core label 為準。點鈕呼叫 `POST …/path` 首次選路徑（不再建對話）。`journey.conversationPath` 由 path 回應 hydrate。帶 `report_id` 建對話仍強制 path=c、不出三鈕。未選路徑直接打字：FE 不禁輸入，照常送出；core 當 A 處理。
 
 ## 必填
 

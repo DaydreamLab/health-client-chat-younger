@@ -262,6 +262,12 @@ export interface ConversationPathUpdate {
 export interface ConversationPathAck {
   id: string
   path: 'a' | 'b' | 'c' | 'A' | 'B' | 'C'
+  report_id?: string | null
+  /**
+   * First path select → C without report: await-upload prompt
+   * (ask_report + path_switch a／b). Absent for A／B and idempotent same-path.
+   */
+  flow_prompt?: ConversationGreeting | null
 }
 
 export interface ConversationAttachAck {

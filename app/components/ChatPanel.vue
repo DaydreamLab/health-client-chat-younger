@@ -407,7 +407,6 @@ import {
 } from '~/utils/chat-turn-actions'
 import {
   isBasicProfileComplete,
-  isConversationPath,
   isRequiredBasicGapCode,
   normalizeConversationPath,
   PATH_ENTRY_OPTIONS,
@@ -604,10 +603,9 @@ const selectedPackageCodeFromQuery = computed(() => queryPackageCode(route.query
 const messages = computed(() => readonly.value ? viewMessages.value : journey.messages)
 
 /**
- * Waiting for 進站三選 on a fresh greeting only.
- * May be before POST /conversations (path is create-time); after create with path,
- * conversationPath is set and this is false.
- * Legacy／hydrate sessions with user turns keep path=null → RA rules (no entry overlay).
+ * Waiting for 進站三選 on a core greeting (path still null).
+ * Conversation already exists (POST /conversations without path); chips come from
+ * greeting.reply_actions path_switch. Legacy／hydrate with user turns → no overlay.
  */
 const pathEntryPending = computed(() =>
   pathContractEnabled.value
@@ -709,9 +707,19 @@ function turnActionsFor(message: ChatMessage) {
   })
 }
 
-function pathEntryChoices(): GreetingOption[] {
+/**
+ * Prefer core greeting.reply_actions path_switch (codes a／b／c).
+ * Fallback to local PATH_ENTRY_OPTIONS only if greeting lacked RA (should not happen with core #133).
+ */
+function pathEntryChoices(message?: ChatMessage): GreetingOption[] {
+  if (message) {
+    const fromRa = localizePathSwitchChoices(message, turnActionsFor(message).choices)
+    if (fromRa.length > 0) {
+      return fromRa
+    }
+  }
   return PATH_ENTRY_OPTIONS.map(option => ({
-    code: option.code,
+    code: option.code.toLowerCase(),
     label: t(option.labelKey)
   }))
 }
@@ -778,7 +786,7 @@ function localizePathSwitchChoices(
 
 function choicesFor(message: ChatMessage): GreetingOption[] {
   if (pathEntryPending.value && message.id === lastAssistantId.value) {
-    return pathEntryChoices()
+    return pathEntryChoices(message)
   }
   return localizePathSwitchChoices(message, turnActionsFor(message).choices)
 }
@@ -1089,12 +1097,7 @@ async function resetConversation() {
   journey.clearSession()
 
   try {
-    if (pathContractEnabled.value && !isStandardFlow.value) {
-      await auth.ensureSession()
-      ensureLocalPathEntryGreeting()
-    } else {
-      await ensureConversation()
-    }
+    await ensureConversation()
     await nextTick()
     scrollToLatest('auto')
   } catch {
@@ -1104,15 +1107,31 @@ async function resetConversation() {
   }
 }
 
-/** Local welcome + 進站三選 before create (path is written at POST /conversations). */
-function ensureLocalPathEntryGreeting() {
-  if (journey.messages.length > 0) {
-    return
+/** Drop entry greeting path_switch chips after path is chosen or user types freely. */
+function clearGreetingEntryPathSwitch() {
+  for (const message of journey.messages) {
+    if (message.role !== 'assistant' || !message.replyActions) {
+      continue
+    }
+    if (!isUsableReplyActions(message.replyActions)) {
+      continue
+    }
+    const remaining = message.replyActions.actions.filter((action) => {
+      if (action.type !== 'choose_option') {
+        return true
+      }
+      return chooseOptionPayload(action).kind !== 'path_switch'
+    })
+    if (remaining.length === message.replyActions.actions.length) {
+      continue
+    }
+    if (remaining.length === 0) {
+      message.replyActions = undefined
+      message.options = []
+    } else {
+      message.replyActions = { ...message.replyActions, actions: remaining }
+    }
   }
-  appendMessage('assistant', t('chat.pathEntryPrompt'))
-  goalSelectActive.value = false
-  quizActive.value = false
-  activeQuestion.value = null
 }
 
 async function syncConversationPath(
@@ -1121,16 +1140,17 @@ async function syncConversationPath(
 ) {
   const conversationId = journey.conversationId
   if (!conversationId) {
-    return
+    return null
   }
   // Soft-fail if path API is down; local journey path still drives UI gates.
   try {
-    await candor.setConversationPath(conversationId, {
+    return await candor.setConversationPath(conversationId, {
       path: toApiConversationPath(path),
       reason
     })
   } catch {
     // Keep local journey path.
+    return null
   }
 }
 
@@ -1353,49 +1373,75 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
   if (!pathContractEnabled.value || pending.value || readonly.value) {
     return
   }
-  conversationPath.value = path
-  pathCAwaitingUpload.value = path === 'C' && !journey.reportId
 
-  // Entry choice: create with path (do not POST …/path — B→A is rejected).
-  if (reason === 'entry' && !journey.conversationId) {
+  // Entry: conversation already exists — POST …/path (not create). Disable chips in-flight.
+  if (reason === 'entry') {
     pending.value = true
+    conversationPath.value = path
+    pathCAwaitingUpload.value = path === 'C' && !journey.reportId
     try {
-      await createConversationWithPath(path)
+      if (!journey.conversationId) {
+        await ensureConversation()
+      }
+      const ack = await candor.setConversationPath(journey.conversationId!, {
+        path: toApiConversationPath(path),
+        reason: 'entry'
+      })
+      const normalized = normalizeConversationPath(ack.path) ?? path
+      conversationPath.value = normalized
+      if (ack.report_id) {
+        journey.reportId = ack.report_id
+      }
+      pathCAwaitingUpload.value = normalized === 'C' && !journey.reportId
+      clearGreetingEntryPathSwitch()
+
+      // Flow v2：選完路徑不再附加本地路徑專屬句；開場白保留 core greeting。
+      if (normalized === 'C' && !journey.reportId) {
+        goalSelectActive.value = false
+        quizActive.value = false
+        activeQuestion.value = null
+        if (ack.flow_prompt) {
+          appendCoreAssistantTurn(ack.flow_prompt)
+          if (ack.flow_prompt.options?.length) {
+            goalOptions.value = ack.flow_prompt.options
+          }
+        }
+        return
+      }
+
+      // Entry A／B: option label already appended as a user turn — send it like a
+      // typed message so core replies (B: goals in stream).
+      if (normalized === 'A' || normalized === 'B') {
+        goalSelectActive.value = false
+        quizActive.value = false
+        activeQuestion.value = null
+        const lastUser = [...journey.messages].reverse().find(message => message.role === 'user')
+        if (lastUser) {
+          pendingUserContent.value = messageText(lastUser)
+          await streamPending()
+        }
+      }
     } catch {
       conversationPath.value = null
       pathCAwaitingUpload.value = false
       appendMessage('assistant', t('chat.conversationError'))
+    } finally {
       pending.value = false
-      return
     }
-    pending.value = false
-  } else if (reason !== 'entry') {
-    await syncConversationPath(path, reason)
-    if (reason === 'guide_switch') {
-      clearPathRuleGuideCtas()
-    }
+    return
   }
 
-  // Flow v2：A／B／C 選完路徑後不再附加本地路徑專屬句；開場白僅用 core greeting.consult。
+  conversationPath.value = path
+  pathCAwaitingUpload.value = path === 'C' && !journey.reportId
+  await syncConversationPath(path, reason)
+  if (reason === 'guide_switch') {
+    clearPathRuleGuideCtas()
+  }
 
   if (path === 'C' && !journey.reportId) {
     goalSelectActive.value = false
     quizActive.value = false
     activeQuestion.value = null
-    return
-  }
-
-  // Entry A／B: option label already appended as a user turn — send it like a
-  // typed message so core replies (B: goals in stream). Do not GET next for goals.
-  if (reason === 'entry' && (path === 'A' || path === 'B')) {
-    goalSelectActive.value = false
-    quizActive.value = false
-    activeQuestion.value = null
-    const lastUser = [...journey.messages].reverse().find(message => message.role === 'user')
-    if (lastUser) {
-      pendingUserContent.value = messageText(lastUser)
-      await streamPending()
-    }
     return
   }
 
@@ -1424,64 +1470,6 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
   }
 }
 
-/**
- * Create conversation with entry path; replace local 進站 greeting with core greeting.
- */
-async function createConversationWithPath(path: ConversationPath) {
-  await auth.ensureSession()
-  applyPackageFromQuery()
-  const packageCode = selectedPackageCodeFromQuery.value
-    ?? journey.selectedPackageCode
-    ?? undefined
-  const created = await candor.createConversation({
-    path: toApiConversationPath(path),
-    ...(packageCode ? { package_plan_code: packageCode } : {})
-  })
-  journey.conversationId = created.id
-  if (created.package_plan) {
-    selectedPackage.value = created.package_plan
-    packageConfirmed.value = created.package_plan.confirmed
-  }
-  const normalized = normalizeConversationPath(created.path) ?? path
-  conversationPath.value = normalized
-  pathCAwaitingUpload.value = normalized === 'C' && !created.report_id
-
-  const userTurns = journey.messages.filter(message => message.role === 'user')
-  const greeting = makeMessage(
-    'assistant',
-    created.greeting.content,
-    created.greeting.message_id || 'greet'
-  )
-  const greetingRa = parseReplyActions(created.greeting.reply_actions)
-  if (greetingRa) {
-    greeting.replyActions = greetingRa
-  }
-  // User path chip first, then core greeting（開場白在選項下方）.
-  journey.messages = [...userTurns, greeting]
-  if (greetingRa) {
-    applyReplyActionsInteraction(greeting, greetingRa)
-  }
-  if (created.flow_prompt) {
-    appendCoreAssistantTurn(created.flow_prompt)
-    if (created.flow_prompt.options?.length) {
-      goalOptions.value = created.flow_prompt.options
-    }
-  }
-
-  goalOptions.value = created.greeting.options?.length
-    ? created.greeting.options
-    : goalOptions.value
-  selectedCodes.value = [...(created.greeting.selected ?? [])]
-  postQuizGuided.value = false
-  profileGaps.value = []
-  reportResults.value = []
-  journey.reportDockOpen = false
-  journey.reportDockCollapsed = false
-  goalSelectActive.value = false
-  quizActive.value = false
-  activeQuestion.value = null
-}
-
 async function promotePathToCOnUpload() {
   if (!pathContractEnabled.value) {
     return
@@ -1507,34 +1495,48 @@ function applyTurnLimitPayload(input: {
   }
 }
 
+/** Dedupe concurrent create calls (double mount／連點) — core also reuses null-path entry. */
+let ensureConversationInflight: Promise<string> | null = null
+
 async function ensureConversation() {
   if (journey.conversationId) {
     return journey.conversationId
   }
-
-  // Path contract: wait for 進站三選 — do not create with default b.
-  if (pathContractEnabled.value && !isStandardFlow.value && conversationPath.value == null) {
-    ensureLocalPathEntryGreeting()
-    throw new Error('path_entry_pending')
+  if (ensureConversationInflight) {
+    return ensureConversationInflight
   }
+  ensureConversationInflight = createConversationOnce().finally(() => {
+    ensureConversationInflight = null
+  })
+  return ensureConversationInflight
+}
 
+async function createConversationOnce() {
   await auth.ensureSession()
   applyPackageFromQuery()
   const packageCode = selectedPackageCodeFromQuery.value
     ?? journey.selectedPackageCode
     ?? undefined
+  // Path contract entry: omit path so core writes greeting + path_switch a／b／c.
+  // Explicit path／report-bound create only when already known (e.g. report → C).
   const pathForCreate = conversationPath.value
+  const reportId = journey.reportId?.trim() || undefined
   const created = await candor.createConversation({
     ...(packageCode ? { package_plan_code: packageCode } : {}),
-    ...(pathForCreate ? { path: toApiConversationPath(pathForCreate) } : {})
+    ...(pathForCreate ? { path: toApiConversationPath(pathForCreate) } : {}),
+    ...(reportId ? { report_id: reportId } : {})
   })
   journey.conversationId = created.id
   if (created.package_plan) {
     selectedPackage.value = created.package_plan
     packageConfirmed.value = created.package_plan.confirmed
   }
+  if (created.report_id) {
+    journey.reportId = created.report_id
+  }
   const hydratedPath = normalizeConversationPath(created.path)
-  if (pathContractEnabled.value && hydratedPath) {
+  if (pathContractEnabled.value) {
+    // null path = entry pending; do not invent B locally.
     conversationPath.value = hydratedPath
     pathCAwaitingUpload.value = hydratedPath === 'C' && !created.report_id
   }
@@ -1565,6 +1567,7 @@ async function ensureConversation() {
     ? created.greeting.options
     : (created.flow_prompt?.options ?? goalOptions.value)
   selectedCodes.value = [...(created.greeting.selected ?? [])]
+  // Wait for 進站三選 before goal chips／quiz when path still null.
   goalSelectActive.value = !(pathContractEnabled.value && !isStandardFlow.value
     && conversationPath.value == null)
   quizActive.value = false
@@ -2177,8 +2180,11 @@ async function sendText(text: string) {
   if (!content || pending.value || readonly.value || escalated.value) {
     return
   }
-  if (pathEntryPending.value) {
-    return
+
+  // 未選路徑直接打字：不禁輸入；core 當 A 處理。清掉開場三鈕避免殘留。
+  const clearingEntryPathSwitch = pathEntryPending.value
+  if (clearingEntryPathSwitch) {
+    clearGreetingEntryPathSwitch()
   }
 
   const profile = lastAssistantProfile.value
@@ -2272,11 +2278,25 @@ function onChoice(option: GreetingOption) {
     return
   }
 
-  // Path contract: 進站三選
-  if (pathEntryPending.value && isConversationPath(option.code)) {
-    appendMessage('user', option.label)
-    void selectConversationPath(option.code, 'entry')
-    return
+  // Path contract: 進站三選（reply_actions codes a／b／c 或 fallback A／B／C）
+  if (pathEntryPending.value) {
+    const entryPath = normalizeConversationPath(option.code)
+    if (entryPath) {
+      appendMessage('user', option.label)
+      void selectConversationPath(entryPath, 'entry')
+      return
+    }
+  }
+
+  // Greeting still showing entry a／b／c（e.g. race after leftover report attach）:
+  // treat as first path select, not A→B guide_switch.
+  if (conversationPath.value == null || pathEntryPending.value) {
+    const entryPath = normalizeConversationPath(option.code)
+    if (entryPath && isPathSwitchChoice(option)) {
+      appendMessage('user', option.label)
+      void selectConversationPath(entryPath, 'entry')
+      return
+    }
   }
 
   if (isPathSwitchChoice(option)) {
@@ -2986,9 +3006,6 @@ async function onSubmit() {
   if (!content || pending.value) {
     return
   }
-  if (pathEntryPending.value) {
-    return
-  }
 
   if (goalSelectActive.value) {
     appendMessage('user', content)
@@ -3078,6 +3095,11 @@ async function syncExpertReviewStatusOnce() {
   }
   const conversationId = journey.conversationId?.trim() ?? ''
   if (!conversationId) {
+    return
+  }
+  // Null-path entry greeting：勿用舊案件的 health_report_id 綁上報告而抢走進站三選。
+  // 帶報告開 C 走 create(report_id)／focusExpertReviewCase，不經這條捷徑。
+  if (pathContractEnabled.value && conversationPath.value == null) {
     return
   }
   try {
@@ -3192,6 +3214,10 @@ async function restoreReportSession() {
   if (!reportId || readonly.value) {
     return
   }
+  // Fresh null-path entry：不要把殘留 reportId attach 上去抢走三鈕（帶報告開 C 走 create）。
+  if (pathContractEnabled.value && conversationPath.value == null && pathEntryPending.value) {
+    return
+  }
 
   try {
     const report = await candor.getHealthReport(reportId)
@@ -3286,18 +3312,12 @@ onMounted(async () => {
   }
 
   try {
+    // Always create／reuse conversation on enter (core #133: null-path entry greeting).
+    // Restoring: GET …/messages hydrate after ensure so unselected-path chips survive refresh.
     const restoringConversation = Boolean(journey.conversationId)
-    if (restoringConversation) {
-      await ensureConversation()
-      if (journey.conversationId) {
-        await hydrateConversationHistory(journey.conversationId)
-      }
-    } else if (pathContractEnabled.value && !isStandardFlow.value) {
-      // Delay POST /conversations until 進站三選 (path is create-time).
-      await auth.ensureSession()
-      ensureLocalPathEntryGreeting()
-    } else {
-      await ensureConversation()
+    await ensureConversation()
+    if (restoringConversation && journey.conversationId) {
+      await hydrateConversationHistory(journey.conversationId)
     }
     // After hydrate／create: B／C must still surface required basics (trust GET /profile,
     // not history profile_gaps which may be empty while fields are still missing).

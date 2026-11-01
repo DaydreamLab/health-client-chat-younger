@@ -493,16 +493,23 @@ test.describe('member checkout', () => {
 
 test.describe('profile quiz gate', () => {
   test.beforeEach(async ({ page }) => {
-    await mockCandorAuth(page, { profileQuiz: true, asMember: true })
+    // null path → entry a／b／c; tests select B then stream goals (core #133).
+    await mockCandorAuth(page, {
+      profileQuiz: true,
+      asMember: true,
+      conversationPath: null
+    })
   })
 
   test('goal chips then profile turn chips; upload via composer only', async ({ page, goto }) => {
-    await goto('/chat', { waitUntil: 'hydration' })
+    await goto('/', { waitUntil: 'hydration' })
     await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
     await goto('/chat', { waitUntil: 'hydration' })
-    const entryB = page.getByTestId('chat-quiz-option-B')
+    // Entry chips use lowercase codes from reply_actions; default mock path=b skips them.
+    const entryB = page.getByTestId('chat-quiz-option-b')
     if (await entryB.isVisible().catch(() => false)) {
       await entryB.click()
+      await expect(page.getByTestId('chat-quiz-option-c')).toHaveCount(0, { timeout: 15_000 })
     }
     await expect(page.getByTestId('chat-quiz-option-weight_loss')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible()
@@ -512,7 +519,7 @@ test.describe('profile quiz gate', () => {
     await page.getByTestId('chat-quiz-option-weight_loss').click()
     await page.getByTestId('chat-quiz-option-sleep').click()
     await page.getByTestId('chat-quiz-confirm').click()
-    await expect(page.getByTestId('chat-transcript')).toContainText('請問您的生理性別？')
+    await expect(page.getByTestId('chat-transcript')).toContainText('請問您的生理性別？', { timeout: 15_000 })
     await expect(page.getByTestId('chat-quiz-option-F')).toBeVisible()
     await expect(page.getByTestId('chat-chip-upload')).toHaveCount(0)
     await expect(page.getByTestId('chat-upload')).toBeVisible()
@@ -530,14 +537,15 @@ test.describe('profile quiz gate', () => {
 
   test('chip answer does not autofocus chat input', async ({ page, goto }) => {
     // Irice 2026-10-28: chip／選項答題後不 focus；僅鍵盤 onSubmit 保留。
-    await goto('/chat', { waitUntil: 'hydration' })
+    await goto('/', { waitUntil: 'hydration' })
     await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
     await goto('/chat', { waitUntil: 'hydration' })
-    const entryB = page.getByTestId('chat-quiz-option-B')
+    const entryB = page.getByTestId('chat-quiz-option-b')
     if (await entryB.isVisible().catch(() => false)) {
       await entryB.click()
+      await expect(page.getByTestId('chat-quiz-option-c')).toHaveCount(0, { timeout: 15_000 })
     }
-    await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible()
+    await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
     await page.getByTestId('chat-quiz-option-sleep').click()
     await page.getByTestId('chat-quiz-confirm').click()
     await expect(page.getByTestId('chat-quiz-option-F')).toBeVisible({ timeout: 15_000 })

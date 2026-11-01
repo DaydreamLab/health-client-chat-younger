@@ -1,7 +1,9 @@
 /**
- * Conversation path contract (A / B / C) — client rules aligned with Irice 定案.
+ * Conversation path contract (A / B / C) — client rules aligned with Irice 定案
+ * and candor-core draft #133.
  *
- * 進站三選在 POST /conversations 時寫入 path（勿先建再改；B→A 不允許）。
+ * 進頁 POST /conversations（不帶 path）→ core greeting 含 path_switch a／b／c；
+ * 點鈕 POST …/path 首次選路徑。帶 path／report_id 的 create 維持舊行為。
  * Path A 回合計數與引導 CTA 在 core：≥15 引導、20 上限（`chat_turn_count`）。
  * FE 渲染 `reply_actions` 與 assistant `content`，不計回合、不自造引導鈕。
  * Path C 待上傳：`flow_prompt`＋`ask_report`＋`path_switch` a／b（無 checkup）。
