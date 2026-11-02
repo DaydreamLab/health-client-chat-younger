@@ -6,9 +6,9 @@
 
 | Code | 文案（zh） | 行為摘要 |
 |------|------------|----------|
-| A | 我想聊聊 | 可聊、可蒐基本；**永不**顯示完成 CTA |
-| B | 我想諮詢健康方案 | 必填四欄→可問 optional／goals→完成 CTA |
-| C | 幫我看報告 | 先上傳；取消→B；已有報告則補基本→完成 CTA |
+| A | 我想聊聊 | 可聊、可蒐基本；完成 CTA 由 core stripOfferRecommend 決定（FE 不依 path 再藏） |
+| B | 我想諮詢健康方案 | 必填四欄→可問 optional／goals→完成 CTA（信 RA） |
+| C | 幫我看報告 | 先上傳；取消→B；已有報告則補基本→完成 CTA（信 RA） |
 
 選後才 `POST /conversations` 並帶 `path=a|b|c`（建立當下定稿）；`journey.conversationPath` 由回應 hydrate。`POST …/path` 只用於之後的 A→B 引導與 C 取消→B。
 
@@ -20,14 +20,16 @@ Path B／C 必須把四欄問出／收齊（`ensureRequiredBasicsCollection`；c
 
 ## 完成 CTA
 
-- 僅 B／C；門檻＝基本四欄齊；A 永不顯示。
-- 仍依 usable `reply_actions.offer_recommend` 投影。
+- 只信 usable `reply_actions.offer_recommend`（core 在 A 已 strip）。
+- FE 不再依 path A／path-null 藏完成鈕；journey 安全門（readonly／latest／pending／required ask）仍在。
 - **❌ 不在** intentional none／degraded／缺 RA 時由 FE 強掛完成 CTA。
 - 文案維持「取得專屬保健品方案」／hint「以上為 AI 對話資訊…」（#34）。
 
 ## 其他
 
-- 上傳（Dock／對話）→一律升 C；記入對話。
+- 上傳（Dock／對話）→ core attachReport 升 C；FE 只同步 ack.path（不再 POST …/path upload_promote）。
+- C 等上傳暫停問卷由 core 短路；FE 不再用 pathCAwaitingUpload 擋 GET next。
+- A→B：僅 path_switch「我想諮詢健康方案」；「繼續健康諮詢」留在 A。
 - C 不傳／取消→退 B。
 - lab_report 問卷進行中：對話區**不預掛** upload／checkup（Dock 空列兩顆仍可點；#35 explainHighlights 常駐不改壞）。
 - Path A 引導由 core 計數後寫入 `reply_actions`：≥10／≥20 皆為 `offer_checkup`＋`path_switch`（≥20 短路 LLM、空 `content`，氣泡／chip 文案 FE i18n）。FE 渲染該決策，不計回合、不自造引導鈕。

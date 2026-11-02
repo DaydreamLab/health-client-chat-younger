@@ -82,23 +82,19 @@ describe('recommendCtaVisible', () => {
     reportRetry: false
   }
 
-  it('blocks while goals or report ask still active (三要件未齊)', () => {
-    expect(recommendCtaVisible({ ...base, goalSelectActive: true })).toBe(false)
-    expect(recommendCtaVisible({ ...base, reportAskActive: true })).toBe(false)
-    expect(
-      recommendCtaVisible({
-        ...base,
-        goalSelectActive: true,
-        hasReportAnalysis: true
-      })
-    ).toBe(false)
+  it('does not FE-block on goals／report／path A／path-null (core owns offer_recommend)', () => {
+    expect(recommendCtaVisible({ ...base, goalSelectActive: true })).toBe(true)
+    expect(recommendCtaVisible({ ...base, reportAskActive: true })).toBe(true)
+    expect(recommendCtaVisible({ ...base, conversationPath: 'A' })).toBe(true)
+    expect(recommendCtaVisible({ ...base, conversationPath: null })).toBe(true)
   })
 
-  it('blocks on non-latest, pending, profile question, retry', () => {
+  it('blocks on non-latest, pending, required profile question, retry, path entry', () => {
     expect(recommendCtaVisible({ ...base, isLatestAssistant: false })).toBe(false)
     expect(recommendCtaVisible({ ...base, pending: true })).toBe(false)
     expect(recommendCtaVisible({ ...base, profileQuestionActive: true })).toBe(false)
     expect(recommendCtaVisible({ ...base, reportRetry: true })).toBe(false)
+    expect(recommendCtaVisible({ ...base, pathEntryPending: true })).toBe(false)
   })
 })
 
@@ -469,14 +465,14 @@ describe('path contract — completion CTA gates (no FE 硬保)', () => {
     actions: [{ type: 'none' as const }]
   }
 
-  it('path A never shows completion CTA even with usable offer_recommend', () => {
+  it('path A trusts usable offer_recommend (core stripOfferRecommend; FE no longer hides)', () => {
     const msg = assistant('latest', { replyActions: offerRecommend })
     const v = visibility(msg, baseCtx({
       lastAssistantId: 'latest',
       conversationPath: 'A',
       openProfileGaps: []
     }), { messages: [msg], expertReviewStatus: 'none' })
-    expect(v.showSubmitReview).toBe(false)
+    expect(v.showSubmitReview).toBe(true)
     expect(v.showViewRecommend).toBe(false)
   })
 

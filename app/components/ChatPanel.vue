@@ -466,8 +466,7 @@ const {
   packageConfirmed,
   postQuizGuided,
   profileGaps,
-  conversationPath,
-  pathCAwaitingUpload
+  conversationPath
 } = storeToRefs(journey)
 const ordersApi = useFirstOrderApi()
 const candor = useCandorApi()
@@ -1134,7 +1133,8 @@ async function syncQuestionnaireFromBackend() {
   if (!pathContractEnabled.value || !pathRequiresBasicProfile(conversationPath.value)) {
     return
   }
-  if (pathCAwaitingUpload.value || goalSelectActive.value || pending.value || readonly.value || escalated.value) {
+  // C awaiting upload: core already short-circuits; FE no longer pauses here.
+  if (goalSelectActive.value || pending.value || readonly.value || escalated.value) {
     return
   }
   if (!journey.conversationId) {
@@ -1346,7 +1346,7 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
     return
   }
   conversationPath.value = path
-  pathCAwaitingUpload.value = path === 'C' && !journey.reportId
+  // pathCAwaitingUpload no longer gates questionnaire (core owns C-await pause).
 
   // Entry choice: create with path (do not POST …/path — B→A is rejected).
   if (reason === 'entry' && !journey.conversationId) {
@@ -1355,7 +1355,6 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
       await createConversationWithPath(path)
     } catch {
       conversationPath.value = null
-      pathCAwaitingUpload.value = false
       appendMessage('assistant', t('chat.conversationError'))
       pending.value = false
       return
@@ -1442,7 +1441,6 @@ async function createConversationWithPath(path: ConversationPath) {
   }
   const normalized = normalizeConversationPath(created.path) ?? path
   conversationPath.value = normalized
-  pathCAwaitingUpload.value = normalized === 'C' && !created.report_id
 
   const userTurns = journey.messages.filter(message => message.role === 'user')
   const greeting = makeMessage(
@@ -1478,19 +1476,6 @@ async function createConversationWithPath(path: ConversationPath) {
   goalSelectActive.value = false
   quizActive.value = false
   activeQuestion.value = null
-}
-
-async function promotePathToCOnUpload() {
-  if (!pathContractEnabled.value) {
-    return
-  }
-  const next = pathAfterReportUpload(conversationPath.value)
-  const changed = conversationPath.value !== next
-  conversationPath.value = next
-  pathCAwaitingUpload.value = false
-  if (changed) {
-    await syncConversationPath(next, 'upload_promote')
-  }
 }
 
 function applyTurnLimitPayload(input: {
@@ -1534,7 +1519,6 @@ async function ensureConversation() {
   const hydratedPath = normalizeConversationPath(created.path)
   if (pathContractEnabled.value && hydratedPath) {
     conversationPath.value = hydratedPath
-    pathCAwaitingUpload.value = hydratedPath === 'C' && !created.report_id
   }
   postQuizGuided.value = false
   profileGaps.value = []
@@ -1568,8 +1552,8 @@ async function ensureConversation() {
   quizActive.value = false
   activeQuestion.value = null
 
-  // Path C awaiting upload: questionnaire starts after attach `flow_prompt`.
-  if (pathRequiresBasicProfile(conversationPath.value) && !pathCAwaitingUpload.value) {
+  // Core owns C-await short-circuit; FE may still ask next when path requires basics.
+  if (pathRequiresBasicProfile(conversationPath.value)) {
     void syncQuestionnaireFromBackend()
   }
 
@@ -2701,7 +2685,7 @@ async function confirmPhotoTray() {
     const uploaded = await candor.uploadHealthReportFiles(compressed)
     journey.reportId = uploaded.id
     reportPollStatus.value = uploaded.status || 'uploaded'
-    await promotePathToCOnUpload()
+    // Path → C comes from attachReport ack in bindAndInterpret (no early POST …/path).
 
     const report = await pollReport(uploaded.id)
     if (!report) {
@@ -2834,11 +2818,11 @@ async function bindAndInterpret(reportId: string) {
   reportPollStatus.value = null
   openReportDock()
 
-  const hydratedPath = attachAck ? normalizeConversationPath(attachAck.path) : null
-  if (hydratedPath) {
-    conversationPath.value = hydratedPath
+  // Core attachReport already promotes path to C — sync from ack; no POST …/path.
+  if (pathContractEnabled.value) {
+    conversationPath.value = normalizeConversationPath(attachAck?.path)
+      ?? pathAfterReportUpload(conversationPath.value)
   }
-  pathCAwaitingUpload.value = false
 
   if (attachAck?.flow_prompt) {
     appendCoreAssistantTurn(attachAck.flow_prompt)
@@ -2912,7 +2896,7 @@ async function onFile(event: Event) {
     const uploaded = await candor.uploadHealthReport(file)
     journey.reportId = uploaded.id
     reportPollStatus.value = uploaded.status || 'uploaded'
-    await promotePathToCOnUpload()
+    // Path → C comes from attachReport ack in bindAndInterpret (no early POST …/path).
 
     const report = await pollReport(uploaded.id)
     if (!report) {
@@ -3318,7 +3302,8 @@ onMounted(async () => {
     }
     // After hydrate／create: B／C must still surface required basics (trust GET /profile,
     // not history profile_gaps which may be empty while fields are still missing).
-    if (pathRequiresBasicProfile(conversationPath.value) && !pathCAwaitingUpload.value) {
+    // C-await pause is core-owned; FE no longer skips via pathCAwaitingUpload.
+    if (pathRequiresBasicProfile(conversationPath.value)) {
       await syncQuestionnaireFromBackend()
     }
     await applyHomeGoal()

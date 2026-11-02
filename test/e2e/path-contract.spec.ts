@@ -163,8 +163,9 @@ test.describe('path contract (A／B／C)', () => {
     }
   })
 
-  test('path A：usable offer_recommend 仍不顯示完成 CTA', async ({ page, goto }) => {
+  test('path A：core stripOfferRecommend → 無完成 CTA（FE 不依 path 再藏）', async ({ page, goto }) => {
     test.setTimeout(90_000)
+    // Mock mirrors core: path A stream omits offer_recommend even if mode asks for it.
     await mockCandorAuth(page, {
       asMember: true,
       conversationPath: null,

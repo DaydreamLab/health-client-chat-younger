@@ -7,9 +7,8 @@
  * Path C 待上傳：`flow_prompt`＋`ask_report`＋`path_switch` a／b（無 checkup）。
  *
  * Completion CTA (offer_recommend /「取得專屬保健品方案」):
- * - Path A: never
- * - Path B／C: 僅在 usable `reply_actions` 含 `offer_recommend` 時投影（core `completion_cta_ready`）
- * - ❌ FE 不以本地基本四欄／profile_gaps 再挡或強掛
+ * - 只信 usable `reply_actions` 含 `offer_recommend`（core stripOfferRecommend 負責 A）
+ * - ❌ FE 不以 path／本地基本四欄／profile_gaps 再挡或強掛
  */
 
 export type ConversationPath = 'A' | 'B' | 'C'
@@ -109,9 +108,13 @@ export function pathRequiresBasicProfile(
   return path === 'B' || path === 'C'
 }
 
-/** Completion CTA allowed only on B／C with basic four fields filled. */
+/**
+ * @deprecated Path no longer FE-gates completion CTA (core stripOfferRecommend).
+ * Kept for call-site compatibility; always true.
+ */
 export function completionCtaPathAllows(path: ConversationPath | null | undefined): boolean {
-  return path === 'B' || path === 'C'
+  void path
+  return true
 }
 
 /**

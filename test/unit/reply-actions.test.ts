@@ -1067,30 +1067,30 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     expect(v.showUpload).toBe(false)
   })
 
-  it('reportAskActive blocks offer_recommend until report ask clears', () => {
+  it('reportAskActive no longer FE-blocks offer_recommend (core／RA owns completion)', () => {
     const msg = assistant('latest', {
       replyActions: ra({
         actions: [{ type: 'offer_recommend' }, { type: 'ask_report' }]
       })
     })
-    const blocked = buildTurnActionsVisibility({
+    const withReportAsk = buildTurnActionsVisibility({
       message: msg,
       ctx: baseCtx({ lastAssistantId: 'latest', reportAskActive: true }),
       goalOptions: [],
       needsMultiConfirm: false,
       expertReviewStatus: 'none'
     })
-    expect(blocked.showUpload).toBe(true)
-    expect(blocked.showSubmitReview).toBe(false)
+    expect(withReportAsk.showUpload).toBe(true)
+    expect(withReportAsk.showSubmitReview).toBe(true)
 
-    const open = buildTurnActionsVisibility({
+    const cleared = buildTurnActionsVisibility({
       message: msg,
       ctx: baseCtx({ lastAssistantId: 'latest', reportAskActive: false }),
       goalOptions: [],
       needsMultiConfirm: false,
       expertReviewStatus: 'none'
     })
-    expect(open.showSubmitReview).toBe(true)
+    expect(cleared.showSubmitReview).toBe(true)
   })
 
   it('/chat-ai standard flow shows view-recommend for offer_recommend', () => {
@@ -1165,7 +1165,8 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       lastAssistantId: 'stream',
       gapCtaHostId: 'bank',
       gapCtaHostReplyActions: bank.replyActions,
-      hasReportAnalysis: true
+      hasReportAnalysis: true,
+      openProfileGaps: ['height']
     })
     const onBank = buildTurnActionsVisibility({
       message: bank,
@@ -1189,7 +1190,7 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     })
     expect(onStream.vitalsFields).toEqual(['height'])
     expect(onStream.vitalsGapCode).toBe('height')
-    // Pending gap behind latest suppresses recommend/upload on the covering turn.
+    // Required basic still open → suppress recommend; upload stays off while gap behind.
     expect(onStream.showViewRecommend).toBe(false)
     expect(onStream.showUpload).toBe(false)
   })
@@ -1247,7 +1248,8 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     const ctx = baseCtx({
       lastAssistantId: 'stream',
       gapCtaHostId: 'bank',
-      gapCtaHostReplyActions: bank.replyActions
+      gapCtaHostReplyActions: bank.replyActions,
+      openProfileGaps: ['sex']
     })
     const onBank = buildTurnActionsVisibility({
       message: bank,

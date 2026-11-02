@@ -44,18 +44,27 @@ describe('openRequiredBasicGaps / isRequiredBasicGapCode', () => {
   })
 })
 
-describe('completion CTA threshold (no FE 硬保)', () => {
-  it('only path B／C (completion_cta_ready on core)', () => {
-    expect(completionCtaThresholdMet({ path: 'A', basicProfileComplete: true })).toBe(false)
+describe('completion CTA threshold (no FE path gate)', () => {
+  it('path no longer FE-gates — core stripOfferRecommend owns A', () => {
+    expect(completionCtaThresholdMet({ path: 'A', basicProfileComplete: true })).toBe(true)
     expect(completionCtaThresholdMet({ path: 'B', basicProfileComplete: false })).toBe(true)
     expect(completionCtaThresholdMet({ path: 'B', basicProfileComplete: true })).toBe(true)
     expect(completionCtaThresholdMet({ path: 'C', basicProfileComplete: true })).toBe(true)
-    expect(completionCtaThresholdMet({ path: null, basicProfileComplete: true })).toBe(false)
+    expect(completionCtaThresholdMet({ path: null, basicProfileComplete: true })).toBe(true)
   })
 
   it('journey allows when required ask not active; goals／report not in this gate', () => {
     expect(completionCtaVisible({
       path: 'B',
+      basicProfileComplete: true,
+      readonlyMode: false,
+      escalated: false,
+      isLatestAssistant: true,
+      reportRetry: false,
+      requiredProfileQuestionActive: false
+    })).toBe(true)
+    expect(completionCtaVisible({
+      path: 'A',
       basicProfileComplete: true,
       readonlyMode: false,
       escalated: false,

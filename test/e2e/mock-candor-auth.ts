@@ -1833,6 +1833,20 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       }
     }
 
+    // Mirror core stripOfferRecommend on path A — FE no longer hides by path.
+    if (mockEntryPath === 'a' && donePayload.reply_actions
+      && typeof donePayload.reply_actions === 'object') {
+      const ra = donePayload.reply_actions as {
+        actions?: Array<{ type?: string }>
+      }
+      if (Array.isArray(ra.actions)) {
+        donePayload.reply_actions = {
+          ...ra,
+          actions: ra.actions.filter(action => action.type !== 'offer_recommend')
+        }
+      }
+    }
+
     const body = [
       'event: delta',
       `data: ${JSON.stringify({ text: donePayload.content })}`,
