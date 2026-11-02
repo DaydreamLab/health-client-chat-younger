@@ -7,9 +7,8 @@
  * Path C 待上傳：`flow_prompt`＋`ask_report`＋`path_switch` a／b（無 checkup）。
  *
  * Completion CTA (offer_recommend /「取得專屬保健品方案」):
- * - Path A: never
- * - Path B／C: 僅在 usable `reply_actions` 含 `offer_recommend` 時投影（core `completion_cta_ready`）
- * - ❌ FE 不以本地基本四欄／profile_gaps 再挡或強掛
+ * - 只信 usable `reply_actions` 含 `offer_recommend`（core stripOfferRecommend 負責 A）
+ * - ❌ FE 不以 path／本地基本四欄／profile_gaps 再挡或強掛
  */
 
 export type ConversationPath = 'A' | 'B' | 'C'
@@ -41,6 +40,7 @@ export function isConversationPath(value: unknown): value is ConversationPath {
 
 /**
  * Accept core API lowercase `a|b|c` or FE `A|B|C`.
+ * Explicit API `null`／missing／invalid → `null` (unselected).
  */
 export function normalizeConversationPath(value: unknown): ConversationPath | null {
   if (typeof value !== 'string' || value.trim() === '') {
@@ -48,6 +48,16 @@ export function normalizeConversationPath(value: unknown): ConversationPath | nu
   }
   const upper = value.trim().toUpperCase()
   return isConversationPath(upper) ? upper : null
+}
+
+/**
+ * Unselected path (API `null`) resolves as A for FE rules.
+ * Never POST null→`a` back to core — API keeps null until the user picks.
+ */
+export function resolveEntryPath(
+  path: ConversationPath | null | undefined
+): ConversationPath {
+  return path ?? 'A'
 }
 
 /** Wire path into POST /conversations and POST …/path (core stores lowercase). */
@@ -101,17 +111,22 @@ export function isRequiredBasicGapCode(gapCode: string | null | undefined): bool
 
 /**
  * Path B／C must collect the four required basics (ask until complete).
- * Path A may collect opportunistically but does not gate completion CTA.
+ * Path A／unselected (null→A) may collect opportunistically but does not gate completion CTA.
  */
 export function pathRequiresBasicProfile(
   path: ConversationPath | null | undefined
 ): boolean {
-  return path === 'B' || path === 'C'
+  const resolved = resolveEntryPath(path)
+  return resolved === 'B' || resolved === 'C'
 }
 
-/** Completion CTA allowed only on B／C with basic four fields filled. */
+/**
+ * @deprecated Path no longer FE-gates completion CTA (core stripOfferRecommend).
+ * Kept for call-site compatibility; always true.
+ */
 export function completionCtaPathAllows(path: ConversationPath | null | undefined): boolean {
-  return path === 'B' || path === 'C'
+  void path
+  return true
 }
 
 /**
@@ -188,6 +203,23 @@ export function shouldSuppressGuidanceCtas(input: {
   labReportQuizActive: boolean
 }): boolean {
   return input.labReportQuizActive
+}
+
+/**
+ * Whether to force-open the goals menu from cached `goalOptions` after a path change.
+ *
+ * A→B `guide_switch` must NOT reopen goals solely because chips are still cached
+ * (goals may already be answered). Trust stream／`reply_actions`／`flow_prompt` instead
+ * of `GET …/questions/next` (core #139).
+ */
+export function shouldOpenGoalsFromCachedOptions(input: {
+  reason: string
+  goalOptionsCount: number
+}): boolean {
+  if (input.reason === 'guide_switch') {
+    return false
+  }
+  return input.goalOptionsCount >= 2
 }
 
 export interface PathEntryOption {

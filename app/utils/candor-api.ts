@@ -262,6 +262,11 @@ export interface ConversationPathUpdate {
 export interface ConversationPathAck {
   id: string
   path: 'a' | 'b' | 'c' | 'A' | 'B' | 'C'
+  /**
+   * Path B opening／A→B guide: core #140 may attach goals／next-ask
+   * `reply_actions` on this flow turn (same shape as create.flow_prompt).
+   */
+  flow_prompt?: ConversationGreeting | null
 }
 
 export interface ConversationAttachAck {
@@ -481,6 +486,8 @@ export interface ConversationHistoryMessageDto {
 
 export interface ConversationMessages {
   conversation_id?: string
+  /** Journey path when core includes it on history payload (optional). */
+  path?: 'a' | 'b' | 'c' | 'A' | 'B' | 'C' | null
   messages: ConversationHistoryMessageDto[]
 }
 
@@ -690,6 +697,12 @@ export interface StreamMessageResult {
    * when usable; see `app/utils/reply-actions.ts`.
    */
   reply_actions?: ReplyActions | null
+  /**
+   * Journey path after this turn when core includes it on SSE `done` (core #139).
+   * Prefer lowercase `a|b|c`; FE normalizes.
+   * Key absent → do not overwrite FE path; explicit `null` → unselected (treat as A).
+   */
+  path?: 'a' | 'b' | 'c' | 'A' | 'B' | 'C' | null
 }
 
 export interface ApiSuccess<T> {

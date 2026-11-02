@@ -406,13 +406,12 @@ import {
   resolveEffectiveGoalOptions
 } from '~/utils/chat-turn-actions'
 import {
-  isBasicProfileComplete,
   isConversationPath,
   isRequiredBasicGapCode,
   normalizeConversationPath,
   PATH_ENTRY_OPTIONS,
   pathAfterReportUpload,
-  pathRequiresBasicProfile,
+  shouldOpenGoalsFromCachedOptions,
   toApiConversationPath,
   type ConversationPath
 } from '~/utils/path-contract'
@@ -429,7 +428,7 @@ import {
   isUsableReplyActions,
   normalizeChooseOptionMapsTo,
   parseReplyActions,
-  pathSwitchChipI18nKey,
+  resolvePathSwitchChoiceLabels,
   shouldSkipFollowUpStream,
   type ReplyActions,
   type VitalsField
@@ -439,6 +438,10 @@ import {
   historyMessageToChatMessage,
   parseConversationMessagesResult
 } from '~/utils/chat-history'
+import {
+  clearChatMessageActions,
+  discardFailedFollowUpAssistant
+} from '~/utils/flow-prompt-actions'
 import { expertReviewUiStatusFromRow } from '~/utils/expert-review'
 import { STREAM_INTENT_AFTER_ANSWER } from '~/utils/stream-message'
 import { storeToRefs } from 'pinia'
@@ -466,8 +469,7 @@ const {
   packageConfirmed,
   postQuizGuided,
   profileGaps,
-  conversationPath,
-  pathCAwaitingUpload
+  conversationPath
 } = storeToRefs(journey)
 const ordersApi = useFirstOrderApi()
 const candor = useCandorApi()
@@ -761,20 +763,11 @@ function localizePathSwitchChoices(
   message: ChatMessage,
   choices: GreetingOption[]
 ): GreetingOption[] {
-  const kind = detectPathRuleCopyKind(message.replyActions)
-  if (!kind) {
-    return choices
-  }
-  const label = t(pathSwitchChipI18nKey(kind))
-  return choices.map((option) => {
-    if (!isPathSwitchOptionCode(message.replyActions, option.code)) {
-      return option
-    }
-    if (String(option.label || '').trim() !== '') {
-      return option
-    }
-    return { ...option, label }
-  })
+  return resolvePathSwitchChoiceLabels(
+    message.replyActions,
+    choices,
+    key => t(key)
+  )
 }
 
 function choicesFor(message: ChatMessage): GreetingOption[] {
@@ -1116,81 +1109,42 @@ function ensureLocalPathEntryGreeting() {
   activeQuestion.value = null
 }
 
+/**
+ * Overwrite local path from core when the payload includes `path`.
+ * Explicit null → store null (treat as A via resolveEntryPath); never POST null→a.
+ * Missing key (pre-core #139) → leave local path unchanged.
+ */
+function applyServerConversationPath(
+  payload: { path?: unknown } | null | undefined
+) {
+  if (!pathContractEnabled.value || !payload) {
+    return
+  }
+  if (!Object.prototype.hasOwnProperty.call(payload, 'path')) {
+    return
+  }
+  conversationPath.value = normalizeConversationPath(payload.path)
+}
+
 async function syncConversationPath(
   path: ConversationPath,
   reason: string
-) {
+): Promise<Awaited<ReturnType<typeof candor.setConversationPath>> | null> {
   const conversationId = journey.conversationId
   if (!conversationId) {
-    return
+    return null
   }
   // Soft-fail if path API is down; local journey path still drives UI gates.
   try {
-    await candor.setConversationPath(conversationId, {
+    const ack = await candor.setConversationPath(conversationId, {
       path: toApiConversationPath(path),
       reason
     })
+    applyServerConversationPath(ack)
+    return ack
   } catch {
     // Keep local journey path.
-  }
-}
-
-/**
- * Path B／C: advance questionnaire via core `GET /profile/questions/next` only.
- * Order (goals → basics → lab_report) is owned by core — no client placeholder reorder.
- */
-async function syncQuestionnaireFromBackend() {
-  if (!pathContractEnabled.value || !pathRequiresBasicProfile(conversationPath.value)) {
-    return
-  }
-  if (pathCAwaitingUpload.value || goalSelectActive.value || pending.value || readonly.value || escalated.value) {
-    return
-  }
-  if (!journey.conversationId) {
-    return
-  }
-
-  const lastMessage = journey.messages[journey.messages.length - 1]
-  const userFollowsAsk = basicQuestionFollowsUserTurn(lastMessage?.role)
-  const last = [...journey.messages].reverse().find(m => m.role === 'assistant')
-  if (!userFollowsAsk && last?.profileQuestion) {
-    quizActive.value = true
-    return
-  }
-  if (!userFollowsAsk && last?.replyActions && isUsableReplyActions(last.replyActions)) {
-    const hasOpenAsk = last.replyActions.actions.some((action) => {
-      if (action.type === 'ask_vitals' || action.type === 'ask_goal' || action.type === 'ask_report') {
-        return true
-      }
-      if (action.type !== 'choose_option') {
-        return false
-      }
-      const payload = chooseOptionPayload(action)
-      return payload.kind === 'consultation_goals'
-        || payload.kind === 'lab_report'
-        || payload.kind === 'profile'
-        || Boolean(payload.gap_code)
-    })
-    if (hasOpenAsk) {
-      return
-    }
-  }
-
-  try {
-    const next = await candor.nextProfileQuestion(
-      journey.reportId,
-      journey.conversationId
-    )
-    if (next && !next.done) {
-      if (isConsultationGoalOptions(next.options ?? undefined, 'consultation_goals') || next.gap_code === 'goals') {
-        goalOptions.value = next.options ?? goalOptions.value
-        goalSelectActive.value = (next.options?.length ?? 0) >= 2
-        return
-      }
-      paintLocalProfileQuestion(next)
-    }
-  } catch {
-    // Core drives questionnaire; no client fallback prompts.
+    return null
   }
 }
 
@@ -1355,7 +1309,6 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
     return
   }
   conversationPath.value = path
-  pathCAwaitingUpload.value = path === 'C' && !journey.reportId
 
   // Entry choice: create with path (do not POST …/path — B→A is rejected).
   if (reason === 'entry' && !journey.conversationId) {
@@ -1364,22 +1317,26 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
       await createConversationWithPath(path)
     } catch {
       conversationPath.value = null
-      pathCAwaitingUpload.value = false
       appendMessage('assistant', t('chat.conversationError'))
       pending.value = false
       return
     }
     pending.value = false
   } else if (reason !== 'entry') {
-    await syncConversationPath(path, reason)
+    const pathAck = await syncConversationPath(path, reason)
     if (reason === 'guide_switch') {
       clearPathRuleGuideCtas()
+    }
+    // core #140：POST …/path A→B may return flow_prompt＋goals／next-ask RA — paint as-is.
+    if (pathAck?.flow_prompt) {
+      appendCoreAssistantTurn(pathAck.flow_prompt)
     }
   }
 
   // Flow v2：A／B／C 選完路徑後不再附加本地路徑專屬句；開場白僅用 core greeting.consult。
 
   if (path === 'C' && !journey.reportId) {
+    // Trust create／path ack flow_prompt＋ask_report／path_switch (core #139／#140).
     goalSelectActive.value = false
     quizActive.value = false
     activeQuestion.value = null
@@ -1387,15 +1344,27 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
   }
 
   // Entry A／B: option label already appended as a user turn — send it like a
-  // typed message so core replies (B: goals in stream). Do not GET next for goals.
+  // typed message so core replies with bank reply_actions (B: goals). No GET next.
+  // If create already painted flow_prompt／greeting RA (B opening goals), keep it
+  // until the stream succeeds, then move CTAs to the new assistant bubble.
   if (reason === 'entry' && (path === 'A' || path === 'B')) {
-    goalSelectActive.value = false
     quizActive.value = false
     activeQuestion.value = null
+    const openingHost = [...journey.messages].reverse().find(message => message.role === 'assistant')
     const lastUser = [...journey.messages].reverse().find(message => message.role === 'user')
     if (lastUser) {
       pendingUserContent.value = messageText(lastUser)
-      await streamPending()
+      const streamed = await streamPending()
+      if (streamed.ok) {
+        if (openingHost && openingHost.id !== streamed.assistantId) {
+          clearChatMessageActions(openingHost)
+        }
+      } else {
+        discardFailedFollowUpAssistant(journey.messages, streamed.assistantId, openingHost?.id)
+        if (openingHost?.replyActions && isUsableReplyActions(openingHost.replyActions)) {
+          applyReplyActionsInteraction(openingHost, openingHost.replyActions)
+        }
+      }
     }
     return
   }
@@ -1407,21 +1376,36 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
     return
   }
 
-  // Path B／C（已綁報告或 guide）：問卷順序由 core 驅動（先 goals）。
-  if (goalOptions.value.length >= 2) {
+  // Path B／C（已綁報告或 guide）：問卷只信 stream／flow_prompt reply_actions（core #140）。
+  // guide_switch: never reopen goals from cached chips — goals may already be answered.
+  if (shouldOpenGoalsFromCachedOptions({
+    reason,
+    goalOptionsCount: goalOptions.value.length
+  })) {
     goalSelectActive.value = true
   } else {
-    await syncQuestionnaireFromBackend()
+    goalSelectActive.value = false
   }
 
-  // A→B guide CTA: basics／goals may already be done — must stream so consult continues
-  // (otherwise the chat looks stuck after path switch with no follow-up turn).
+  // A→B guide: if path ack flow_prompt already opened goals／quiz, stay on that RA.
+  // Otherwise stream so consult continues; move／keep CTAs like path-C upload ack.
   if (reason === 'guide_switch' && path === 'B' && !quizActive.value && !goalSelectActive.value) {
+    const flowHost = [...journey.messages].reverse().find(message => message.role === 'assistant')
     const lastUser = [...journey.messages].reverse().find(message => message.role === 'user')
     pendingUserContent.value = lastUser
       ? messageText(lastUser)
       : t('chat.pathSwitchToConsult')
-    await streamPending()
+    const streamed = await streamPending()
+    if (streamed.ok) {
+      if (flowHost && flowHost.id !== streamed.assistantId) {
+        clearChatMessageActions(flowHost)
+      }
+    } else {
+      discardFailedFollowUpAssistant(journey.messages, streamed.assistantId, flowHost?.id)
+      if (flowHost?.replyActions && isUsableReplyActions(flowHost.replyActions)) {
+        applyReplyActionsInteraction(flowHost, flowHost.replyActions)
+      }
+    }
   }
 }
 
@@ -1445,7 +1429,6 @@ async function createConversationWithPath(path: ConversationPath) {
   }
   const normalized = normalizeConversationPath(created.path) ?? path
   conversationPath.value = normalized
-  pathCAwaitingUpload.value = normalized === 'C' && !created.report_id
 
   const userTurns = journey.messages.filter(message => message.role === 'user')
   const greeting = makeMessage(
@@ -1459,15 +1442,6 @@ async function createConversationWithPath(path: ConversationPath) {
   }
   // User path chip first, then core greeting（開場白在選項下方）.
   journey.messages = [...userTurns, greeting]
-  if (greetingRa) {
-    applyReplyActionsInteraction(greeting, greetingRa)
-  }
-  if (created.flow_prompt) {
-    appendCoreAssistantTurn(created.flow_prompt)
-    if (created.flow_prompt.options?.length) {
-      goalOptions.value = created.flow_prompt.options
-    }
-  }
 
   goalOptions.value = created.greeting.options?.length
     ? created.greeting.options
@@ -1478,21 +1452,17 @@ async function createConversationWithPath(path: ConversationPath) {
   reportResults.value = []
   journey.reportDockOpen = false
   journey.reportDockCollapsed = false
+  // Reset before applying RA so greeting／flow_prompt goals chips are not wiped.
   goalSelectActive.value = false
   quizActive.value = false
   activeQuestion.value = null
-}
 
-async function promotePathToCOnUpload() {
-  if (!pathContractEnabled.value) {
-    return
+  if (greetingRa) {
+    applyReplyActionsInteraction(greeting, greetingRa)
   }
-  const next = pathAfterReportUpload(conversationPath.value)
-  const changed = conversationPath.value !== next
-  conversationPath.value = next
-  pathCAwaitingUpload.value = false
-  if (changed) {
-    await syncConversationPath(next, 'upload_promote')
+  // Path B／C opening may carry goals／lab RA on flow_prompt (core); paint as-is.
+  if (created.flow_prompt) {
+    appendCoreAssistantTurn(created.flow_prompt)
   }
 }
 
@@ -1534,16 +1504,23 @@ async function ensureConversation() {
     selectedPackage.value = created.package_plan
     packageConfirmed.value = created.package_plan.confirmed
   }
-  const hydratedPath = normalizeConversationPath(created.path)
-  if (pathContractEnabled.value && hydratedPath) {
-    conversationPath.value = hydratedPath
-    pathCAwaitingUpload.value = hydratedPath === 'C' && !created.report_id
-  }
+  // Overwrite from create ack when `path` is present (null → treat as A; no write-back).
+  applyServerConversationPath(created)
   postQuizGuided.value = false
   profileGaps.value = []
   reportResults.value = []
   journey.reportDockOpen = false
   journey.reportDockCollapsed = false
+  goalOptions.value = created.greeting.options?.length
+    ? created.greeting.options
+    : (created.flow_prompt?.options ?? goalOptions.value)
+  selectedCodes.value = [...(created.greeting.selected ?? [])]
+  // Default on unless waiting for 進站三選; greeting／flow_prompt RA may override.
+  goalSelectActive.value = !(pathContractEnabled.value && !isStandardFlow.value
+    && conversationPath.value == null)
+  quizActive.value = false
+  activeQuestion.value = null
+
   if (journey.messages.length === 0) {
     const greeting = makeMessage(
       'assistant',
@@ -1558,23 +1535,13 @@ async function ensureConversation() {
     if (greetingRa) {
       applyReplyActionsInteraction(greeting, greetingRa)
     }
+    // Create-with-report／path B opening may attach goals／lab RA on flow_prompt.
     if (created.flow_prompt) {
       appendCoreAssistantTurn(created.flow_prompt)
     }
   }
-  goalOptions.value = created.greeting.options?.length
-    ? created.greeting.options
-    : (created.flow_prompt?.options ?? goalOptions.value)
-  selectedCodes.value = [...(created.greeting.selected ?? [])]
-  goalSelectActive.value = !(pathContractEnabled.value && !isStandardFlow.value
-    && conversationPath.value == null)
-  quizActive.value = false
-  activeQuestion.value = null
 
-  // Path C awaiting upload: questionnaire starts after attach `flow_prompt`.
-  if (pathRequiresBasicProfile(conversationPath.value) && !pathCAwaitingUpload.value) {
-    void syncQuestionnaireFromBackend()
-  }
+  // B／C basics come from greeting／flow_prompt／stream reply_actions — no GET next.
 
   return created.id
 }
@@ -1636,6 +1603,8 @@ async function hydrateConversationHistory(conversationId: string) {
   try {
     const payload = await candor.getConversationMessages(conversationId)
     const parsed = parseConversationMessagesResult(payload)
+    // data.path when present overwrites FE (null → treat as A; never POST back).
+    applyServerConversationPath(parsed)
     if (parsed.messages.length === 0) {
       return
     }
@@ -1778,7 +1747,7 @@ function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyA
   }
 
   if (choose?.kind === 'path_switch' && choose.options?.length) {
-    message.options = choose.options
+    message.options = visibility.choices.length ? visibility.choices : choose.options
     message.turnType = 'message'
     message.profileQuestion = null
     quizActive.value = false
@@ -1787,8 +1756,22 @@ function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyA
     return
   }
 
-  if (choose?.kind === 'free' && choose.options?.length) {
-    message.options = choose.options
+  if (choose?.kind === 'continue_consultation'
+    && (visibility.choices.length || choose.options?.length)) {
+    message.options = visibility.choices.length ? visibility.choices : (choose.options ?? [])
+    message.turnType = 'message'
+    message.profileQuestion = null
+    quizActive.value = false
+    activeQuestion.value = null
+    goalSelectActive.value = false
+    return
+  }
+
+  // free／open_question_reply: chips from projection (may include companion
+  // path_switch／continue_consultation).
+  if ((choose?.kind === 'free' || choose?.kind === 'open_question_reply')
+    && (visibility.choices.length || choose.options?.length)) {
+    message.options = visibility.choices.length ? visibility.choices : (choose.options ?? [])
     quizActive.value = false
     activeQuestion.value = null
     return
@@ -1814,7 +1797,10 @@ function applyStreamMeta(assistantId: string, result: {
   checkup_suggest?: string | null
   individual_tests_url?: string | null
   reply_actions?: ReplyActions | null
+  path?: 'a' | 'b' | 'c' | 'A' | 'B' | 'C' | null
 }): string {
+  // SSE done.path when present overwrites FE (null → treat as A; never POST back).
+  applyServerConversationPath(result)
   const message = journey.messages.find(item => item.id === assistantId)
   const usableRa = isUsableReplyActions(result.reply_actions)
   const raColumn = hasReplyActionsColumn(result.reply_actions)
@@ -1976,7 +1962,7 @@ function restorePendingUserIfMissing(pendingContent: string) {
   appendMessage('user', text)
 }
 
-async function streamPending() {
+async function streamPending(): Promise<{ ok: boolean, assistantId: string | null }> {
   const content = pendingUserContent.value
   const intent = pendingIntent.value
   pendingUserContent.value = null
@@ -1992,7 +1978,7 @@ async function streamPending() {
     }
     guideAfterQuiz()
     pending.value = false
-    return
+    return { ok: true, assistantId: null }
   }
 
   if (wasSelectingGoals) {
@@ -2003,6 +1989,7 @@ async function streamPending() {
   let streamMessageLookupId: string = assistantId
   let streamed = ''
   let liveCreated = false
+  let ok = false
 
   /** Keep the thinking row (… animation) until the first token arrives. */
   const ensureLiveAssistant = () => {
@@ -2037,6 +2024,7 @@ async function streamPending() {
     // Empty / meta-only replies still need a host bubble for CTAs.
     ensureLiveAssistant()
     streamMessageLookupId = applyStreamMeta(assistantId, result)
+
     // Interpret 外連改吃 stream reply_actions offer_checkup（#20）；勿 FE 硬設 wantMoreTestsOffer.
     if (intent === 'interpret' && !checkupUrlLoaded.value) {
       void loadCheckupLinkUrl()
@@ -2045,13 +2033,8 @@ async function streamPending() {
       openReportDock({ expand: false })
     }
     guideAfterQuiz()
-    // Path B／C: if stream did not surface required basics, try one follow-up collect.
-    // Avoid re-entrancy while another ensure is already painting／streaming.
-    if (pathRequiresBasicProfile(conversationPath.value)
-      && !isBasicProfileComplete(profileGaps.value)
-      && !quizActive.value) {
-      void syncQuestionnaireFromBackend()
-    }
+    // B／C next ask is only via stream／answers reply_actions — no GET …/questions/next.
+    ok = true
   } catch {
     if (intent === 'interpret') {
       journey.reportInterpretSent = false
@@ -2059,18 +2042,21 @@ async function streamPending() {
     if (wasSelectingGoals) {
       goalSelectActive.value = true
     }
-    const existing = journey.messages.find(item => item.id === assistantId)
-    if (existing) {
-      setMessageText(assistantId, t('chat.streamError'))
-    } else {
-      appendMessage('assistant', t('chat.streamError'))
-    }
+    // Always use the reserved assistantId so callers can discard on failure
+    // (e.g. keep path-C flow_prompt CTAs instead of an error bubble).
+    ensureLiveAssistant()
+    setMessageText(assistantId, t('chat.streamError'))
+    streamMessageLookupId = assistantId
+    ok = false
   } finally {
     pending.value = false
     liveAssistantId.value = null
     await nextTick()
-    reapplyTurnActionsAfterStream(streamMessageLookupId)
+    if (ok) {
+      reapplyTurnActionsAfterStream(streamMessageLookupId)
+    }
   }
+  return { ok, assistantId: streamMessageLookupId }
 }
 
 async function runProfileThenStream() {
@@ -2701,7 +2687,7 @@ async function confirmPhotoTray() {
     const uploaded = await candor.uploadHealthReportFiles(compressed)
     journey.reportId = uploaded.id
     reportPollStatus.value = uploaded.status || 'uploaded'
-    await promotePathToCOnUpload()
+    // Path → C comes from attachReport ack in bindAndInterpret (no early POST …/path).
 
     const report = await pollReport(uploaded.id)
     if (!report) {
@@ -2773,12 +2759,12 @@ async function pollReport(reportId: string) {
   return null
 }
 
-async function streamReportUploadedAck() {
+async function streamReportUploadedAck(): Promise<{ ok: boolean, assistantId: string | null }> {
   const text = t('chat.reportUploadedAck')
   appendMessage('user', text)
   pendingUserContent.value = text
   pendingIntent.value = null
-  await streamPending()
+  return streamPending()
 }
 
 async function bindAndInterpret(reportId: string) {
@@ -2834,30 +2820,32 @@ async function bindAndInterpret(reportId: string) {
   reportPollStatus.value = null
   openReportDock()
 
-  const hydratedPath = attachAck ? normalizeConversationPath(attachAck.path) : null
-  if (hydratedPath) {
-    conversationPath.value = hydratedPath
-  }
-  pathCAwaitingUpload.value = false
-
-  if (attachAck?.flow_prompt) {
-    appendCoreAssistantTurn(attachAck.flow_prompt)
-    if (attachAck.flow_prompt.options?.length) {
-      goalOptions.value = attachAck.flow_prompt.options
-    }
-  }
-
-  // ready／needs_review：PATCH（＋flow_prompt）後一律 stream 使用者確認句。
-  await streamReportUploadedAck()
-
-  // Stream 可能帶 offer_* 清掉 goalSelect；flow_prompt 有 goals 時再打開選項。
-  if (attachAck?.flow_prompt) {
-    if ((attachAck.flow_prompt.options?.length ?? 0) >= 2
-      || attachAck.flow_prompt.options_kind === 'consultation_goals') {
-      goalSelectActive.value = true
+  // Core attachReport already promotes path to C — sync from ack; no POST …/path.
+  if (pathContractEnabled.value) {
+    if (attachAck && Object.prototype.hasOwnProperty.call(attachAck, 'path')) {
+      applyServerConversationPath(attachAck)
     } else {
-      void syncQuestionnaireFromBackend()
+      conversationPath.value = pathAfterReportUpload(conversationPath.value)
     }
+  }
+
+  // Paint flow_prompt＋reply_actions (goals／lab_followup 三鈕等) before the ack stream.
+  const flowHost = attachAck?.flow_prompt
+    ? appendCoreAssistantTurn(attachAck.flow_prompt)
+    : null
+
+  // Irice 21:50：保留自動送「我的報告已上傳」；成功則 CTA 搬到新助理則、清掉 flow 舊鈕。
+  const ack = await streamReportUploadedAck()
+  if (ack.ok) {
+    if (flowHost) {
+      clearChatMessageActions(flowHost)
+    }
+    return
+  }
+  // Stream 失敗：丟掉 error 泡泡，讓 flow_prompt RA 留在最新助理則（勿卡住無鈕）。
+  discardFailedFollowUpAssistant(journey.messages, ack.assistantId, flowHost?.id)
+  if (flowHost?.replyActions && isUsableReplyActions(flowHost.replyActions)) {
+    applyReplyActionsInteraction(flowHost, flowHost.replyActions)
   }
 }
 
@@ -2912,7 +2900,7 @@ async function onFile(event: Event) {
     const uploaded = await candor.uploadHealthReport(file)
     journey.reportId = uploaded.id
     reportPollStatus.value = uploaded.status || 'uploaded'
-    await promotePathToCOnUpload()
+    // Path → C comes from attachReport ack in bindAndInterpret (no early POST …/path).
 
     const report = await pollReport(uploaded.id)
     if (!report) {
@@ -3012,6 +3000,10 @@ async function onSubmit() {
       const result = await candor.setConversationGoals(conversationId, { raw_text: content })
       if (result.saved) {
         selectedCodes.value = []
+        // Mark goals answered so A→B guide_switch does not reopen the menu.
+        if (journey.clarifyingGoals.length === 0) {
+          journey.clarifyingGoals = [content]
+        }
         // Clear after pending is already true so recommend CTA does not flash.
         goalSelectActive.value = false
         const nextAfterGoals = result.next_question
@@ -3312,11 +3304,8 @@ onMounted(async () => {
     } else {
       await ensureConversation()
     }
-    // After hydrate／create: B／C must still surface required basics (trust GET /profile,
-    // not history profile_gaps which may be empty while fields are still missing).
-    if (pathRequiresBasicProfile(conversationPath.value) && !pathCAwaitingUpload.value) {
-      await syncQuestionnaireFromBackend()
-    }
+    // After hydrate／create: B／C basics come from history／stream／flow_prompt
+    // reply_actions only — no proactive GET …/questions/next (core #139).
     await applyHomeGoal()
   } catch {
     if (journey.messages.length === 0) {

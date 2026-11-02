@@ -9,6 +9,8 @@ import {
   pathAfterCancelUploadWithoutReport,
   pathAfterReportUpload,
   pathRequiresBasicProfile,
+  resolveEntryPath,
+  shouldOpenGoalsFromCachedOptions,
   toApiConversationPath
 } from '../../app/utils/path-contract'
 
@@ -43,18 +45,27 @@ describe('openRequiredBasicGaps / isRequiredBasicGapCode', () => {
   })
 })
 
-describe('completion CTA threshold (no FE 硬保)', () => {
-  it('only path B／C (completion_cta_ready on core)', () => {
-    expect(completionCtaThresholdMet({ path: 'A', basicProfileComplete: true })).toBe(false)
+describe('completion CTA threshold (no FE path gate)', () => {
+  it('path no longer FE-gates — core stripOfferRecommend owns A', () => {
+    expect(completionCtaThresholdMet({ path: 'A', basicProfileComplete: true })).toBe(true)
     expect(completionCtaThresholdMet({ path: 'B', basicProfileComplete: false })).toBe(true)
     expect(completionCtaThresholdMet({ path: 'B', basicProfileComplete: true })).toBe(true)
     expect(completionCtaThresholdMet({ path: 'C', basicProfileComplete: true })).toBe(true)
-    expect(completionCtaThresholdMet({ path: null, basicProfileComplete: true })).toBe(false)
+    expect(completionCtaThresholdMet({ path: null, basicProfileComplete: true })).toBe(true)
   })
 
   it('journey allows when required ask not active; goals／report not in this gate', () => {
     expect(completionCtaVisible({
       path: 'B',
+      basicProfileComplete: true,
+      readonlyMode: false,
+      escalated: false,
+      isLatestAssistant: true,
+      reportRetry: false,
+      requiredProfileQuestionActive: false
+    })).toBe(true)
+    expect(completionCtaVisible({
+      path: 'A',
       basicProfileComplete: true,
       readonlyMode: false,
       escalated: false,
@@ -97,7 +108,7 @@ describe('path transitions', () => {
   })
 })
 
-describe('normalizeConversationPath / toApiConversationPath', () => {
+describe('normalizeConversationPath / toApiConversationPath / resolveEntryPath', () => {
   it('accepts core lowercase and FE uppercase', () => {
     expect(normalizeConversationPath('a')).toBe('A')
     expect(normalizeConversationPath('B')).toBe('B')
@@ -110,5 +121,41 @@ describe('normalizeConversationPath / toApiConversationPath', () => {
     expect(toApiConversationPath('A')).toBe('a')
     expect(toApiConversationPath('B')).toBe('b')
     expect(toApiConversationPath('C')).toBe('c')
+  })
+
+  it('null／undefined resolve as A for FE rules (never write null→a)', () => {
+    expect(resolveEntryPath(null)).toBe('A')
+    expect(resolveEntryPath(undefined)).toBe('A')
+    expect(resolveEntryPath('B')).toBe('B')
+    expect(resolveEntryPath('C')).toBe('C')
+    expect(resolveEntryPath('A')).toBe('A')
+  })
+})
+
+describe('shouldOpenGoalsFromCachedOptions — A→B guide_switch', () => {
+  it('guide_switch never force-opens from cached chips (goals may already be answered)', () => {
+    expect(shouldOpenGoalsFromCachedOptions({
+      reason: 'guide_switch',
+      goalOptionsCount: 5
+    })).toBe(false)
+    expect(shouldOpenGoalsFromCachedOptions({
+      reason: 'guide_switch',
+      goalOptionsCount: 0
+    })).toBe(false)
+  })
+
+  it('non-guide still opens when ≥2 cached options (goals not yet answered path)', () => {
+    expect(shouldOpenGoalsFromCachedOptions({
+      reason: 'entry',
+      goalOptionsCount: 2
+    })).toBe(true)
+    expect(shouldOpenGoalsFromCachedOptions({
+      reason: 'upload_promote',
+      goalOptionsCount: 5
+    })).toBe(true)
+    expect(shouldOpenGoalsFromCachedOptions({
+      reason: 'entry',
+      goalOptionsCount: 1
+    })).toBe(false)
   })
 })

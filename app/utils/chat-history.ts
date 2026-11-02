@@ -25,6 +25,12 @@ export interface ConversationHistoryMessage {
 
 export interface ConversationMessagesResult {
   conversation_id?: string
+  /**
+   * Journey path on GET …/messages `data` when the key is present (core #139).
+   * `undefined` = key absent (pre-#139 — do not overwrite FE path).
+   * `null` = unselected (treat as A locally; never POST null→a).
+   */
+  path?: string | null
   messages: ConversationHistoryMessage[]
 }
 
@@ -66,12 +72,17 @@ export function parseConversationMessagesResult(raw: unknown): ConversationMessa
     return { messages: [] }
   }
   const list = Array.isArray(raw.messages) ? raw.messages : []
-  return {
+  const result: ConversationMessagesResult = {
     conversation_id: typeof raw.conversation_id === 'string' ? raw.conversation_id : undefined,
     messages: list
       .map(parseHistoryMessage)
       .filter((m): m is ConversationHistoryMessage => m !== null)
   }
+  // Distinguish missing key (pre-#139) from explicit null (unselected → treat as A).
+  if (Object.prototype.hasOwnProperty.call(raw, 'path')) {
+    result.path = typeof raw.path === 'string' ? raw.path : null
+  }
+  return result
 }
 
 export function parseHistoryMessage(raw: unknown): ConversationHistoryMessage | null {
