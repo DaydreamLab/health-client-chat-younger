@@ -584,6 +584,12 @@ export interface ReplyActionsCtaProjection {
   flags: ReplyActionsCtaFlags
   /** When choose_option drives chips. */
   chooseOption: ChooseOptionPayload | null
+  /**
+   * path_switch payload when present.
+   * When another choose_option is primary, chips are still appended to `flags.choices`
+   * so the switch CTA coexists (e.g. open_question_reply + path_switch).
+   */
+  pathSwitch: ChooseOptionPayload | null
   /** ask_goal without consultation_goals choose_option. */
   askGoal: AskGoalPayload | null
   vitalsFields: VitalsField[]
@@ -626,13 +632,24 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
   const vitalsAction = actions.find(a => a.type === 'ask_vitals')
   const checkupAction = actions.find(a => a.type === 'offer_checkup')
 
+  // path_switch may coexist with open_question_reply／goals／profile／lab.
+  // Keep it out of the primary pick so it cannot hide other chips; append later.
   let chooseOption: ChooseOptionPayload | null = null
+  let pathSwitch: ChooseOptionPayload | null = null
   for (const action of chooseActions) {
     const payload = chooseOptionPayload(action)
+    if (payload.kind === 'path_switch') {
+      pathSwitch = payload
+      continue
+    }
     // Prefer consultation_goals when multiple choose_option appear.
     if (!chooseOption || payload.kind === 'consultation_goals') {
       chooseOption = payload
     }
+  }
+  // Solo path_switch (no other choose_option) remains the primary chip host.
+  if (!chooseOption && pathSwitch) {
+    chooseOption = pathSwitch
   }
 
   const hasConsultationGoals = chooseOption?.kind === 'consultation_goals'
@@ -664,6 +681,18 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
     showConfirm = choices.length > 0
   }
 
+  // Companion path_switch: extra switch chip(s) beside the primary choose_option.
+  if (pathSwitch && chooseOption?.kind !== 'path_switch') {
+    const seen = new Set(choices.map(option => option.code))
+    for (const option of pathSwitch.options ?? []) {
+      if (seen.has(option.code)) {
+        continue
+      }
+      seen.add(option.code)
+      choices = [...choices, option]
+    }
+  }
+
   const standardFlow = input.flow === 'standard'
   const showSubmitReview = hasRecommend
     && input.canShowRecommendSlot
@@ -691,6 +720,7 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
       showViewRecommend
     },
     chooseOption,
+    pathSwitch,
     askGoal,
     vitalsFields,
     vitalsGapCode: vitals?.gap_code ?? null,

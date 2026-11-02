@@ -1786,8 +1786,10 @@ function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyA
     return
   }
 
-  if (choose?.kind === 'free' && choose.options?.length) {
-    message.options = choose.options
+  // free／open_question_reply: chips from projection (may include companion path_switch).
+  if ((choose?.kind === 'free' || choose?.kind === 'open_question_reply')
+    && (visibility.choices.length || choose.options?.length)) {
+    message.options = visibility.choices.length ? visibility.choices : (choose.options ?? [])
     quizActive.value = false
     activeQuestion.value = null
     return

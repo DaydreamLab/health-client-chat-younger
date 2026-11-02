@@ -396,6 +396,14 @@ function isNonGapChoosePayload(choose: ChooseOptionPayload): boolean {
   return Boolean(choose.kind && NON_GAP_CHOOSE_OPTION_KINDS.has(choose.kind))
 }
 
+/** Companion path_switch chips when another choose_option is primary. */
+function companionPathSwitchChoices(projection: ReplyActionsCtaProjection): ChatMessageOption[] {
+  if (!projection.pathSwitch || projection.chooseOption?.kind === 'path_switch') {
+    return []
+  }
+  return projection.pathSwitch.options ?? []
+}
+
 /** Split gap-bound choices from free / lab_followup / consultation_goals / lab_report / path_switch. */
 function splitProjectionChoices(projection: ReplyActionsCtaProjection): {
   gapChoices: ChatMessageOption[]
@@ -404,6 +412,8 @@ function splitProjectionChoices(projection: ReplyActionsCtaProjection): {
   nonGapConfirm: boolean
 } {
   const choose = projection.chooseOption
+  const companion = companionPathSwitchChoices(projection)
+  const companionCodes = new Set(companion.map(option => option.code))
   if (!choose) {
     // ask_goal chips are required-ask (non-gap), like report.
     if (projection.askGoal) {
@@ -417,7 +427,7 @@ function splitProjectionChoices(projection: ReplyActionsCtaProjection): {
     return {
       gapChoices: [],
       gapConfirm: false,
-      nonGapChoices: [],
+      nonGapChoices: companion,
       nonGapConfirm: false
     }
   }
@@ -425,14 +435,16 @@ function splitProjectionChoices(projection: ReplyActionsCtaProjection): {
     return {
       gapChoices: [],
       gapConfirm: false,
+      // flags.choices already includes companion path_switch when present.
       nonGapChoices: projection.flags.choices,
       nonGapConfirm: projection.flags.showConfirm
     }
   }
+  // Gap primary: keep profile chips on gap host; peel companion path_switch to non-gap.
   return {
-    gapChoices: projection.flags.choices,
+    gapChoices: projection.flags.choices.filter(option => !companionCodes.has(option.code)),
     gapConfirm: projection.flags.showConfirm,
-    nonGapChoices: [],
+    nonGapChoices: companion,
     nonGapConfirm: false
   }
 }

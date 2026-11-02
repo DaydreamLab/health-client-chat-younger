@@ -1697,7 +1697,9 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         external: null,
         profile_gaps: ['sex', 'age', 'diet']
       }
-    } else if (options.profileQuiz && goalsSet && quizAnswered && streamCount <= 2) {
+    } else if (options.profileQuiz && goalsSet && quizAnswered && streamCount <= 3) {
+      // Allow streamCount 3: entry path select may consume stream #1 for goals,
+      // then goals→sex (#2), sex→follow-up chips (#3).
       donePayload = {
         message_id: `msg-e2e-${streamCount}`,
         claim_guard: 'passed',

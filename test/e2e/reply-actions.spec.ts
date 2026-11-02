@@ -507,7 +507,15 @@ test.describe('reply_actions v0.1 CTAs', () => {
     test.setTimeout(90_000)
     // Must match mockCandorAuth conversationId so /messages/stream is mocked.
     const conversationId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
-    await mockCandorAuth(page, { asMember: true, replyActions: 'offer_recommend' })
+    // Path A: avoid B／C first-stream goals short-circuit so lab answer streams offer_recommend.
+    await mockCandorAuth(page, {
+      asMember: true,
+      replyActions: 'offer_recommend',
+      conversationPath: 'A'
+    })
+    // Default mock seeds a reviewed expert case＋report; clear so hydrate stays on lab bank
+    // (Path C attach would otherwise stream and detach the「無」chip).
+    await seedNoExpertCase(page)
     await page.setViewportSize({ width: 1280, height: 800 })
 
     // Align with core #99: lab present must not hard-attach offer_checkup on the same turn.
