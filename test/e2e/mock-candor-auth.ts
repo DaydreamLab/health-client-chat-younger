@@ -108,7 +108,11 @@ export type CandorMockOptions = {
   /**
    * Flow v2 四條主流程 e2e（chat-flow-v2.spec.ts）。
    */
-  chatFlowV2?: 'a-guide-15' | 'b-completion' | 'c-completion' | 'turn-limit-20'
+  chatFlowV2?: 'a-guide-15' | 'b-completion' | 'b-triad-asking' | 'c-completion' | 'turn-limit-20'
+  /**
+   * Pretend POST /goals already succeeded (A→B guide_switch must not re-ask).
+   */
+  goalsAlreadySet?: boolean
   /**
    * Terminal status after the first processing poll on GET /health-reports/{id}.
    * Default `ready`. Use `needs_review` to assert POST-attach stream ack.
@@ -223,7 +227,7 @@ const PRIVACY_CONSENT_STORAGE_KEY = 'candor.privacy.consent.version'
 /** Mock candor-core auth + chat/report/profile so e2e does not need a live API. */
 export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}) {
   let quizAnswered = false
-  let goalsSet = false
+  let goalsSet = Boolean(options.goalsAlreadySet)
   let streamCount = 0
   let chatFlowTurnCount = 0
   let mockEntryPath: 'a' | 'b' | 'c' = 'b'
@@ -1303,7 +1307,11 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         contentType: 'application/json',
         body: JSON.stringify({
           status: 'success',
-          data: { conversation_id: conversationId, messages: [] }
+          data: {
+            conversation_id: conversationId,
+            path: mockEntryPath,
+            messages: []
+          }
         })
       })
       return
@@ -1354,6 +1362,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         status: 'success',
         data: {
           conversation_id: conversationId,
+          // Optional until core adds path; FE sync uses it after A→B continue-health.
+          path: mockEntryPath,
           messages: [
             {
               id: 'msg-history-user',
@@ -1594,6 +1604,73 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         external: null,
         profile_gaps: [],
         reply_actions: completionGroupRa
+      }
+      const body = [
+        'event: delta',
+        `data: ${JSON.stringify({ text: content })}`,
+        '',
+        'event: done',
+        `data: ${JSON.stringify(donePayload)}`,
+        '',
+        ''
+      ].join('\n')
+      await route.fulfill({ status: 200, contentType: 'text/event-stream', body })
+      return
+    }
+
+    // core #135 triad asking summary: open_question_reply + continue_consultation + completion CTA
+    if (options.chatFlowV2 === 'b-triad-asking' && goalsSet && mockEntryPath === 'b') {
+      const content = '目前整理如下，還有想釐清的嗎？'
+      const donePayload = {
+        message_id: `msg-v2-b-triad-${streamCount}`,
+        claim_guard: 'passed',
+        content,
+        options: [],
+        turn: { type: 'message' },
+        profile_question: null,
+        external: null,
+        profile_gaps: [],
+        reply_actions: {
+          schema_version: '0.1',
+          source: 'semantic_judgment',
+          adaptor: 'rule',
+          degraded: false,
+          error: null,
+          actions: [
+            { type: 'offer_recommend', payload: {} },
+            { type: 'ask_report', payload: {} },
+            {
+              type: 'choose_option',
+              payload: {
+                kind: 'open_question_reply',
+                mode: 'single',
+                confirm: false,
+                options: [
+                  { code: 'no_more', label: '我沒有問題了' },
+                  { code: 'suggest', label: '你有什麼建議' }
+                ],
+                selected: [],
+                gap_code: null,
+                answer_type: null,
+                exclusive_codes: []
+              }
+            },
+            {
+              type: 'choose_option',
+              payload: {
+                kind: 'continue_consultation',
+                mode: 'single',
+                confirm: false,
+                options: [{ code: 'continue', label: '繼續健康諮詢' }],
+                selected: [],
+                gap_code: null,
+                answer_type: null,
+                exclusive_codes: []
+              }
+            },
+            { type: 'offer_checkup', payload: { url: 'https://example.test/checkup' } }
+          ]
+        }
       }
       const body = [
         'event: delta',

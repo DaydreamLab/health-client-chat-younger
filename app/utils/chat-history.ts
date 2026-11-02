@@ -25,6 +25,8 @@ export interface ConversationHistoryMessage {
 
 export interface ConversationMessagesResult {
   conversation_id?: string
+  /** Present when core includes journey path on GET …/messages `data`. */
+  path?: string | null
   messages: ConversationHistoryMessage[]
 }
 
@@ -68,6 +70,7 @@ export function parseConversationMessagesResult(raw: unknown): ConversationMessa
   const list = Array.isArray(raw.messages) ? raw.messages : []
   return {
     conversation_id: typeof raw.conversation_id === 'string' ? raw.conversation_id : undefined,
+    path: typeof raw.path === 'string' ? raw.path : null,
     messages: list
       .map(parseHistoryMessage)
       .filter((m): m is ConversationHistoryMessage => m !== null)

@@ -413,6 +413,7 @@ import {
   PATH_ENTRY_OPTIONS,
   pathAfterReportUpload,
   pathRequiresBasicProfile,
+  shouldOpenGoalsFromCachedOptions,
   toApiConversationPath,
   type ConversationPath
 } from '~/utils/path-contract'
@@ -1398,9 +1399,15 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
   }
 
   // Path B／C（已綁報告或 guide）：問卷順序由 core 驅動（先 goals）。
-  if (goalOptions.value.length >= 2) {
+  // guide_switch: never reopen goals from cached chips — goals may already be answered
+  // in A; ask core for next missing ask, else stream summary／consult.
+  if (shouldOpenGoalsFromCachedOptions({
+    reason,
+    goalOptionsCount: goalOptions.value.length
+  })) {
     goalSelectActive.value = true
   } else {
+    goalSelectActive.value = false
     await syncQuestionnaireFromBackend()
   }
 
@@ -1768,7 +1775,7 @@ function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyA
   }
 
   if (choose?.kind === 'path_switch' && choose.options?.length) {
-    message.options = choose.options
+    message.options = visibility.choices.length ? visibility.choices : choose.options
     message.turnType = 'message'
     message.profileQuestion = null
     quizActive.value = false
@@ -1777,7 +1784,19 @@ function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyA
     return
   }
 
-  // free／open_question_reply: chips from projection (may include companion path_switch).
+  if (choose?.kind === 'continue_consultation'
+    && (visibility.choices.length || choose.options?.length)) {
+    message.options = visibility.choices.length ? visibility.choices : (choose.options ?? [])
+    message.turnType = 'message'
+    message.profileQuestion = null
+    quizActive.value = false
+    activeQuestion.value = null
+    goalSelectActive.value = false
+    return
+  }
+
+  // free／open_question_reply: chips from projection (may include companion
+  // path_switch／continue_consultation).
   if ((choose?.kind === 'free' || choose?.kind === 'open_question_reply')
     && (visibility.choices.length || choose.options?.length)) {
     message.options = visibility.choices.length ? visibility.choices : (choose.options ?? [])
@@ -2020,6 +2039,7 @@ async function streamPending() {
     // Empty / meta-only replies still need a host bubble for CTAs.
     ensureLiveAssistant()
     streamMessageLookupId = applyStreamMeta(assistantId, result)
+
     // Interpret 外連改吃 stream reply_actions offer_checkup（#20）；勿 FE 硬設 wantMoreTestsOffer.
     if (intent === 'interpret' && !checkupUrlLoaded.value) {
       void loadCheckupLinkUrl()
@@ -2992,6 +3012,10 @@ async function onSubmit() {
       const result = await candor.setConversationGoals(conversationId, { raw_text: content })
       if (result.saved) {
         selectedCodes.value = []
+        // Mark goals answered so A→B guide_switch does not reopen the menu.
+        if (journey.clarifyingGoals.length === 0) {
+          journey.clarifyingGoals = [content]
+        }
         // Clear after pending is already true so recommend CTA does not flash.
         goalSelectActive.value = false
         const nextAfterGoals = result.next_question

@@ -648,6 +648,12 @@ export interface ReplyActionsCtaProjection {
    * so the switch CTA coexists (e.g. open_question_reply + path_switch).
    */
   pathSwitch: ChooseOptionPayload | null
+  /**
+   * continue_consultation payload when present.
+   * Coexists with open_question_reply／other chips (B／C triad summary); click still
+   * streams the label so core prepareTurn opens continue_health_consultation.
+   */
+  continueConsultation: ChooseOptionPayload | null
   /** ask_goal without consultation_goals choose_option. */
   askGoal: AskGoalPayload | null
   vitalsFields: VitalsField[]
@@ -690,14 +696,19 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
   const vitalsAction = actions.find(a => a.type === 'ask_vitals')
   const checkupAction = actions.find(a => a.type === 'offer_checkup')
 
-  // path_switch may coexist with open_question_reply／goals／profile／lab.
-  // Keep it out of the primary pick so it cannot hide other chips; append later.
+  // path_switch／continue_consultation may coexist with open_question_reply／goals／…
+  // Keep them out of the primary pick so they cannot hide other chips; append later.
   let chooseOption: ChooseOptionPayload | null = null
   let pathSwitch: ChooseOptionPayload | null = null
+  let continueConsultation: ChooseOptionPayload | null = null
   for (const action of chooseActions) {
     const payload = chooseOptionPayload(action)
     if (payload.kind === 'path_switch') {
       pathSwitch = payload
+      continue
+    }
+    if (payload.kind === 'continue_consultation') {
+      continueConsultation = payload
       continue
     }
     // Prefer consultation_goals when multiple choose_option appear.
@@ -705,9 +716,12 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
       chooseOption = payload
     }
   }
-  // Solo path_switch (no other choose_option) remains the primary chip host.
+  // Solo companion (no other choose_option) remains the primary chip host.
   if (!chooseOption && pathSwitch) {
     chooseOption = pathSwitch
+  }
+  if (!chooseOption && continueConsultation) {
+    chooseOption = continueConsultation
   }
 
   const hasConsultationGoals = chooseOption?.kind === 'consultation_goals'
@@ -724,6 +738,9 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
       && (answerType === 'int' || answerType === 'text')
     if (!chipsHidden) {
       choices = chooseOption.options ?? []
+      if (chooseOption.kind === 'continue_consultation') {
+        choices = stampContinueConsultationMapsTo(choices)
+      }
       const wantsConfirm = chooseOption.confirm === true
         || chooseOption.mode === 'multi'
         || chooseOption.kind === 'consultation_goals'
@@ -743,6 +760,18 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
   if (pathSwitch && chooseOption?.kind !== 'path_switch') {
     const seen = new Set(choices.map(option => option.code))
     for (const option of pathSwitch.options ?? []) {
+      if (seen.has(option.code)) {
+        continue
+      }
+      seen.add(option.code)
+      choices = [...choices, option]
+    }
+  }
+
+  // Companion continue_consultation: triad summary「繼續健康諮詢」beside open_question_reply.
+  if (continueConsultation && chooseOption?.kind !== 'continue_consultation') {
+    const seen = new Set(choices.map(option => option.code))
+    for (const option of stampContinueConsultationMapsTo(continueConsultation.options ?? [])) {
       if (seen.has(option.code)) {
         continue
       }
@@ -779,6 +808,7 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
     },
     chooseOption,
     pathSwitch,
+    continueConsultation,
     askGoal,
     vitalsFields,
     vitalsGapCode: vitals?.gap_code ?? null,
@@ -787,6 +817,18 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
       ? chooseOption.exclusive_codes
       : ['none', 'none_of_above']
   }
+}
+
+/** Stamp maps_to so FE checkup continue CTA does not duplicate RA continue chips. */
+function stampContinueConsultationMapsTo(
+  options: ChatMessageOption[]
+): ChatMessageOption[] {
+  return options.map((option) => {
+    if (normalizeChooseOptionMapsTo(option.maps_to) === 'continue_consultation') {
+      return option
+    }
+    return { ...option, maps_to: 'continue_consultation' }
+  })
 }
 
 /** offer_recommend button copy by route (same backend type). */

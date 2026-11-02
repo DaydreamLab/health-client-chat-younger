@@ -6,6 +6,7 @@ import {
   hasLabReportBankOrFollowup,
   hasReportRequiredAsk,
   hasUsableGapCta,
+  isContinueConsultationOption,
   isPathSwitchOptionCode,
   isUsableReplyActions,
   normalizeChooseOptionMapsTo,
@@ -710,6 +711,175 @@ describe('projectReplyActionsToCtas', () => {
     expect(projection.flags.showConfirm).toBe(false)
     expect(projection.flags.showCheckup).toBe(true)
   })
+
+  it('triad asking: open_question_reply + continue_consultation + offer_recommend keeps all chips', () => {
+    // core #135 B／C 摘要問句版
+    const replyActions = ra({
+      adaptor: 'rule',
+      actions: [
+        { type: 'offer_recommend', payload: {} },
+        { type: 'ask_report', payload: {} },
+        {
+          type: 'choose_option',
+          payload: {
+            kind: 'open_question_reply',
+            mode: 'single',
+            confirm: false,
+            options: [
+              { code: 'no_more', label: '我沒有問題了' },
+              { code: 'suggest', label: '你有什麼建議' }
+            ]
+          }
+        },
+        {
+          type: 'choose_option',
+          payload: {
+            kind: 'continue_consultation',
+            mode: 'single',
+            confirm: false,
+            options: [{ code: 'continue', label: '繼續健康諮詢' }]
+          }
+        }
+      ]
+    })
+    const projection = projectReplyActionsToCtas({
+      replyActions,
+      canShowRecommendSlot: true,
+      canShowUpload: true,
+      canShowCheckup: false,
+      canShowVitals: false,
+      expertReviewStatus: 'none'
+    })
+    expect(projection.chooseOption?.kind).toBe('open_question_reply')
+    expect(projection.continueConsultation?.kind).toBe('continue_consultation')
+    expect(projection.flags.choices.map(c => c.code)).toEqual([
+      'no_more',
+      'suggest',
+      'continue'
+    ])
+    expect(projection.flags.choices.find(c => c.code === 'continue')?.label)
+      .toBe('繼續健康諮詢')
+    expect(projection.flags.choices.find(c => c.code === 'continue')?.maps_to)
+      .toBe('continue_consultation')
+    expect(projection.flags.showSubmitReview).toBe(true)
+    expect(projection.flags.showUpload).toBe(true)
+    expect(projection.flags.showConfirm).toBe(false)
+    expect(isContinueConsultationOption(replyActions, 'continue')).toBe(true)
+    // Stamped maps_to suppresses FE-appended duplicate continue CTA.
+    expect(shouldShowContinueConsultCta({
+      showUpload: true,
+      showCheckup: true,
+      choices: projection.flags.choices
+    })).toBe(false)
+  })
+
+  it('triad non-asking: offer_recommend + continue_consultation only', () => {
+    const projection = projectReplyActionsToCtas({
+      replyActions: ra({
+        adaptor: 'rule',
+        actions: [
+          { type: 'offer_recommend', payload: {} },
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'continue_consultation',
+              mode: 'single',
+              confirm: false,
+              options: [{ code: 'continue', label: '繼續健康諮詢' }]
+            }
+          }
+        ]
+      }),
+      canShowRecommendSlot: true,
+      canShowUpload: false,
+      canShowCheckup: false,
+      canShowVitals: false,
+      expertReviewStatus: 'none'
+    })
+    expect(projection.chooseOption?.kind).toBe('continue_consultation')
+    expect(projection.continueConsultation?.kind).toBe('continue_consultation')
+    expect(projection.flags.choices).toEqual([
+      { code: 'continue', label: '繼續健康諮詢', maps_to: 'continue_consultation' }
+    ])
+    expect(projection.flags.showSubmitReview).toBe(true)
+  })
+
+  it('path_switch companion still appends when continue_consultation also present', () => {
+    const projection = projectReplyActionsToCtas({
+      replyActions: ra({
+        adaptor: 'rule',
+        actions: [
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'open_question_reply',
+              mode: 'single',
+              confirm: false,
+              options: [{ code: 'no_more', label: '我沒有問題了' }]
+            }
+          },
+          { type: 'offer_checkup', payload: { url: 'https://example.test/checkup' } },
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'path_switch',
+              mode: 'single',
+              confirm: false,
+              options: [{ code: 'b', label: '' }]
+            }
+          },
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'continue_consultation',
+              mode: 'single',
+              confirm: false,
+              options: [{ code: 'continue', label: '繼續健康諮詢' }]
+            }
+          }
+        ]
+      }),
+      canShowRecommendSlot: false,
+      canShowUpload: false,
+      canShowCheckup: true,
+      canShowVitals: false,
+      expertReviewStatus: 'none'
+    })
+    expect(projection.chooseOption?.kind).toBe('open_question_reply')
+    expect(projection.flags.choices.map(c => c.code)).toEqual([
+      'no_more',
+      'b',
+      'continue'
+    ])
+  })
+
+  it('path A path_switch-only guide unchanged (no continue_consultation invented)', () => {
+    const projection = projectReplyActionsToCtas({
+      replyActions: ra({
+        adaptor: 'rule',
+        actions: [
+          { type: 'offer_checkup', payload: { url: 'https://example.test/checkup' } },
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'path_switch',
+              mode: 'single',
+              confirm: false,
+              options: [{ code: 'b', label: '' }]
+            }
+          }
+        ]
+      }),
+      canShowRecommendSlot: true,
+      canShowUpload: false,
+      canShowCheckup: true,
+      canShowVitals: false,
+      expertReviewStatus: 'none'
+    })
+    expect(projection.continueConsultation).toBeNull()
+    expect(projection.flags.choices.map(c => c.code)).toEqual(['b'])
+    expect(projection.flags.showSubmitReview).toBe(false)
+  })
 })
 
 describe('shouldShowContinueConsultCta — checkup suggestion FE append', () => {
@@ -1179,6 +1349,53 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     expect(pathRuleBubbleI18nKey('path_a_cap')).toBe('chat.pathACap')
     expect(pathSwitchChipI18nKey('path_a_cap')).toBe('chat.pathSwitchToConsult')
     expect(isPathSwitchOptionCode(msg.replyActions, 'b')).toBe(true)
+  })
+
+  it('triad asking visibility: open_question_reply + continue + submit on path B', () => {
+    const msg = assistant('latest', {
+      replyActions: ra({
+        adaptor: 'rule',
+        actions: [
+          { type: 'offer_recommend', payload: {} },
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'open_question_reply',
+              mode: 'single',
+              confirm: false,
+              options: [
+                { code: 'no_more', label: '我沒有問題了' },
+                { code: 'suggest', label: '你有什麼建議' }
+              ]
+            }
+          },
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'continue_consultation',
+              mode: 'single',
+              confirm: false,
+              options: [{ code: 'continue', label: '繼續健康諮詢' }]
+            }
+          }
+        ]
+      })
+    })
+    const visibility = buildTurnActionsVisibility({
+      message: msg,
+      ctx: baseCtx({ lastAssistantId: 'latest', conversationPath: 'B' }),
+      goalOptions: [],
+      needsMultiConfirm: false,
+      expertReviewStatus: 'none'
+    })
+    expect(visibility.choices.map(c => c.code)).toEqual([
+      'no_more',
+      'suggest',
+      'continue'
+    ])
+    expect(visibility.showSubmitReview).toBe(true)
+    expect(visibility.showConfirm).toBe(false)
+    expect(isContinueConsultationOption(msg.replyActions, 'continue')).toBe(true)
   })
 
   it('seq 750 visibility: open_question_reply chips + path_switch b + checkup', () => {

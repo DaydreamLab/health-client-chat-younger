@@ -9,6 +9,7 @@ import {
   pathAfterCancelUploadWithoutReport,
   pathAfterReportUpload,
   pathRequiresBasicProfile,
+  shouldOpenGoalsFromCachedOptions,
   toApiConversationPath
 } from '../../app/utils/path-contract'
 
@@ -110,5 +111,33 @@ describe('normalizeConversationPath / toApiConversationPath', () => {
     expect(toApiConversationPath('A')).toBe('a')
     expect(toApiConversationPath('B')).toBe('b')
     expect(toApiConversationPath('C')).toBe('c')
+  })
+})
+
+describe('shouldOpenGoalsFromCachedOptions — A→B guide_switch', () => {
+  it('guide_switch never force-opens from cached chips (goals may already be answered)', () => {
+    expect(shouldOpenGoalsFromCachedOptions({
+      reason: 'guide_switch',
+      goalOptionsCount: 5
+    })).toBe(false)
+    expect(shouldOpenGoalsFromCachedOptions({
+      reason: 'guide_switch',
+      goalOptionsCount: 0
+    })).toBe(false)
+  })
+
+  it('non-guide still opens when ≥2 cached options (goals not yet answered path)', () => {
+    expect(shouldOpenGoalsFromCachedOptions({
+      reason: 'entry',
+      goalOptionsCount: 2
+    })).toBe(true)
+    expect(shouldOpenGoalsFromCachedOptions({
+      reason: 'upload_promote',
+      goalOptionsCount: 5
+    })).toBe(true)
+    expect(shouldOpenGoalsFromCachedOptions({
+      reason: 'entry',
+      goalOptionsCount: 1
+    })).toBe(false)
   })
 })
