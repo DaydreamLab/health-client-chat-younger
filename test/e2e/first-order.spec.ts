@@ -2,11 +2,48 @@ import type { Page } from '@playwright/test'
 import { expect, test } from '@nuxt/test-utils/playwright'
 import { mockCandorAuth } from './mock-candor-auth'
 
+/** Default candor mock seeds a reviewed expert case; clear so dock stays empty／clickable. */
+async function seedNoExpertCase(page: Page) {
+  await page.route('**/api/v1/expert-case-reviews**', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: { expert_case_reviews: [] }
+      })
+    })
+  })
+  await page.route('**/api/v1/conversation/*/expert-review', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'failed',
+          error_message: 'Expert review not found.',
+          error_code: 'not_found'
+        })
+      })
+      return
+    }
+    await route.fallback()
+  })
+}
+
 /** 三要件之一：goals 必須先完成，完成 CTA 才依 RA 投影（非 legacy）。 */
 async function finishGoalSelect(page: Page) {
-  const entryB = page.getByTestId('chat-quiz-option-B')
+  // Entry chips: RA path_switch uses a／b／c；legacy PATH_ENTRY used A／B／C.
+  const entryB = page.getByTestId('chat-quiz-option-b')
+  const entryBLegacy = page.getByTestId('chat-quiz-option-B')
   if (await entryB.isVisible().catch(() => false)) {
     await entryB.click()
+  } else if (await entryBLegacy.isVisible().catch(() => false)) {
+    await entryBLegacy.click()
   }
   await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
   await page.getByTestId('chat-quiz-option-sleep').click()
@@ -414,6 +451,7 @@ test.describe('member checkout', () => {
       asMember: true,
       individualTestsUrl: 'https://labs.example/tests'
     })
+    await seedNoExpertCase(page)
   })
 
   test('empty report dock hides checkup when tests url is empty', async ({ page, goto }) => {

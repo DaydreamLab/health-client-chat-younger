@@ -37,9 +37,13 @@ async function seedNoExpertCase(page: Page) {
 }
 
 async function finishGoalSelect(page: Page) {
-  const entryB = page.getByTestId('chat-quiz-option-B')
+  // Entry chips: RA path_switch uses a／b／c；legacy PATH_ENTRY used A／B／C.
+  const entryB = page.getByTestId('chat-quiz-option-b')
+  const entryBLegacy = page.getByTestId('chat-quiz-option-B')
   if (await entryB.isVisible().catch(() => false)) {
     await entryB.click()
+  } else if (await entryBLegacy.isVisible().catch(() => false)) {
+    await entryBLegacy.click()
   }
   await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
   await page.getByTestId('chat-quiz-option-sleep').click()
@@ -327,6 +331,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
   test('ask_vitals age picker → int profile/answers; then height numpad sequential', async ({ page, goto }) => {
     test.setTimeout(90_000)
     await mockCandorAuth(page, { asMember: true, replyActions: 'ask_vitals' })
+    await seedNoExpertCase(page)
     await page.setViewportSize({ width: 1280, height: 800 })
     await goto('/chat', { waitUntil: 'hydration' })
     await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))

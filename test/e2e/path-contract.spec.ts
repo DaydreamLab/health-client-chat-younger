@@ -292,4 +292,184 @@ test.describe('path contract (A／B／C)', () => {
     await expect(last.getByTestId('chat-quiz-option-a')).toHaveText('我想聊聊')
     await expect(last.getByTestId('chat-quiz-option-b')).toHaveText('我想諮詢健康方案')
   })
+
+  test('path B：create flow_prompt goals RA 顯示；不打 questions/next', async ({ page, goto }) => {
+    test.setTimeout(90_000)
+    const nextCalls: string[] = []
+    page.on('request', (req) => {
+      if (req.url().includes('/profile/questions/next')) {
+        nextCalls.push(req.url())
+      }
+    })
+    await mockCandorAuth(page, {
+      asMember: true,
+      conversationPath: null,
+      basicProfileComplete: false,
+      bOpeningFlowPromptRa: true
+    })
+    await seedNoExpertCase(page)
+    await openFreshChat(page, goto)
+    await selectEntryPath(page, 'B')
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
+    // Opening RA may move onto the entry stream bubble; still only one goals host.
+    await expect(page.getByTestId('chat-quiz-option-sleep')).toHaveCount(1)
+    expect(nextCalls).toEqual([])
+  })
+
+  test('path B：hydrate 開場 consultation_goals RA；不打 questions/next', async ({ page, goto }) => {
+    test.setTimeout(90_000)
+    const nextCalls: string[] = []
+    page.on('request', (req) => {
+      if (req.url().includes('/profile/questions/next')) {
+        nextCalls.push(req.url())
+      }
+    })
+    await mockCandorAuth(page, {
+      asMember: true,
+      conversationPath: 'B',
+      basicProfileComplete: false,
+      replyActions: 'consultation_goals'
+    })
+    await seedNoExpertCase(page)
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await page.addInitScript((journey) => {
+      localStorage.setItem('candor.unpaid.journey', JSON.stringify(journey))
+    }, {
+      conversationId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      conversationPath: 'B',
+      messages: [
+        {
+          id: 'stale-user',
+          role: 'user',
+          parts: [{ type: 'text', text: '我想諮詢健康方案' }]
+        },
+        {
+          id: 'stale-assistant',
+          role: 'assistant',
+          parts: [{ type: 'text', text: '本機舊開場' }]
+        }
+      ],
+      hasAnalysis: false,
+      selectedPackageCode: null,
+      reportId: null,
+      reportDockOpen: false,
+      reportDockCollapsed: true,
+      reportInterpretSent: false,
+      selectedPackage: null,
+      packageConfirmed: false,
+      goalSelectActive: false,
+      reportAskActive: false,
+      goalOptions: [],
+      selectedCodes: [],
+      quizActive: false,
+      activeQuestion: null,
+      postQuizGuided: false,
+      profileGaps: [],
+      clarifyingGoals: [],
+      expertReviewStatus: 'none'
+    })
+    await goto('/chat', { waitUntil: 'hydration' })
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last).toContainText('先選您想改善的健康方向', { timeout: 15_000 })
+    await expect(last.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText('本機舊開場')).toHaveCount(0)
+    expect(nextCalls).toEqual([])
+  })
+
+  test('path C：attach flow_prompt RA → 自動送後搬到新助理則', async ({ page, goto }) => {
+    test.setTimeout(120_000)
+    await mockCandorAuth(page, {
+      asMember: true,
+      conversationPath: null,
+      basicProfileComplete: true,
+      attachFlowPromptRa: 'consultation_goals'
+    })
+    await seedNoExpertCase(page)
+    await openFreshChat(page, goto)
+    await selectEntryPath(page, 'C')
+
+    const streamAck = page.waitForRequest((req) => {
+      if (req.method() !== 'POST' || !req.url().includes('/messages/stream')) {
+        return false
+      }
+      return (req.postData() || '').includes('我的報告已上傳')
+    }, { timeout: 30_000 })
+
+    await page.getByTestId('chat-message-upload').click()
+    await page.setInputFiles('[data-testid="chat-upload-input"]', {
+      name: 'report.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('%PDF-1.4 mock')
+    })
+
+    const transcript = page.getByTestId('chat-transcript')
+    await expect(transcript).toContainText(FLOW_V2_PATH_C_BASICS, { timeout: 30_000 })
+    await streamAck
+    await expect(transcript).toContainText('我的報告已上傳')
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('chat-quiz-option-sleep')).toHaveCount(1)
+  })
+
+  test('path C：自動送失敗時保留 flow_prompt 按鈕', async ({ page, goto }) => {
+    test.setTimeout(120_000)
+    await mockCandorAuth(page, {
+      asMember: true,
+      conversationPath: null,
+      basicProfileComplete: true,
+      attachFlowPromptRa: 'consultation_goals',
+      failReportUploadedAckStream: true
+    })
+    await seedNoExpertCase(page)
+    await openFreshChat(page, goto)
+    await selectEntryPath(page, 'C')
+
+    await page.getByTestId('chat-message-upload').click()
+    await page.setInputFiles('[data-testid="chat-upload-input"]', {
+      name: 'report.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('%PDF-1.4 mock')
+    })
+
+    const transcript = page.getByTestId('chat-transcript')
+    await expect(transcript).toContainText(FLOW_V2_PATH_C_BASICS, { timeout: 30_000 })
+    await expect(transcript).toContainText('我的報告已上傳', { timeout: 15_000 })
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last).toContainText(FLOW_V2_PATH_C_BASICS)
+    await expect(last.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
+    await expect(last).not.toContainText('回覆暫時無法取得')
+  })
+
+  test('path C：舊報告 attach flow_prompt 三鈕顯示', async ({ page, goto }) => {
+    test.setTimeout(120_000)
+    await mockCandorAuth(page, {
+      asMember: true,
+      conversationPath: null,
+      basicProfileComplete: true,
+      attachFlowPromptRa: 'lab_followup_stale',
+      individualTestsUrl: 'https://example.test/checkup'
+    })
+    await seedNoExpertCase(page)
+    await openFreshChat(page, goto)
+    await selectEntryPath(page, 'C')
+
+    await page.getByTestId('chat-message-upload').click()
+    await page.setInputFiles('[data-testid="chat-upload-input"]', {
+      name: 'report.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('%PDF-1.4 mock')
+    })
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last.getByTestId('chat-quiz-option-upload_new')).toHaveText('上傳新報告', {
+      timeout: 30_000
+    })
+    await expect(last.getByTestId('chat-quiz-option-consult')).toHaveText('進行健康諮詢')
+    await expect(last.getByTestId('chat-quiz-option-checkup')).toHaveText('進行血檢')
+  })
 })
