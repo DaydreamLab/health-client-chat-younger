@@ -509,7 +509,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
     test.setTimeout(90_000)
     // Must match mockCandorAuth conversationId so /messages/stream is mocked.
     const conversationId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
-// Path A: avoid B／C first-stream goals short-circuit so lab answer streams offer_recommend.
+    // Path A: avoid B／C first-stream goals short-circuit so lab answer streams offer_recommend.
     await mockCandorAuth(page, {
       asMember: true,
       replyActions: 'offer_recommend',
