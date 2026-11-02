@@ -992,7 +992,7 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     expect(visibility.showCheckup).toBe(false)
     expect(visibility.choices.map(choice => choice.code)).toEqual(['a', 'b'])
     expect(detectPathRuleCopyKind(msg.replyActions)).toBe('path_c_await_upload')
-    expect(pathSwitchChipI18nKey('path_c_await_upload')).toBe('chat.pathEntryB')
+    expect(pathSwitchChipI18nKey('path_c_await_upload')).toBe('chat.pathSwitchToConsult')
   })
 
   it('lab_report choose_option: reply_actions path ignores legacy needsMultiConfirm (no confirm btn)', () => {
