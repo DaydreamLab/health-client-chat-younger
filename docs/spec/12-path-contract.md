@@ -1,6 +1,6 @@
 # 對話路徑契約（client）
 
-對齊 Irice 定案（進站 A／B／C）。candor-core path API 並行 draft；本檔為 FE 可擴充契約。
+對齊 Irice 定案與 candor-core [`docs/spec/30-path-frontend-contract.md`](https://github.com/DaydreamLab/candor-core/pull/139)（core #139，draft）。本檔為 FE 行為。
 
 ## 進站三選
 
@@ -12,11 +12,17 @@
 
 選後才 `POST /conversations` 並帶 `path=a|b|c`（建立當下定稿）；`journey.conversationPath` 由回應 hydrate。`POST …/path` 只用於之後的 A→B 引導與 C 取消→B。
 
-## 必填
+## `path` hydrate
 
-僅 `sex`／`age`／`height`／`weight`。optional profile + goals **不挡**完成 CTA（舊 triad 全清 profile 拿掉）。
+- 來源：create／`POST …/path`／attach／SSE `done`／`GET …/messages` 的 `data.path`（小寫 `a|b|c`，未選 `null`）。
+- FE 用最新回覆蓋過本機；**key 缺席**（#139 未合前）不覆寫。
+- `null` → 本機當 A（`resolveEntryPath`），**不** POST null→`a`。
 
-Path B／C 必須把四欄問出／收齊（`ensureRequiredBasicsCollection`；core `next` 缺件時 FE placeholder）。
+## 必填／出題
+
+僅 `sex`／`age`／`height`／`weight`。optional profile + goals **不挡**完成 CTA。
+
+Path B／C 出題只信後端 `reply_actions`／`flow_prompt`／`POST /profile/answers` 的 `next_question`。**不再**主動 `GET …/questions/next`（依賴 core #139）。
 
 ## 完成 CTA
 
@@ -28,12 +34,12 @@ Path B／C 必須把四欄問出／收齊（`ensureRequiredBasicsCollection`；c
 ## 其他
 
 - 上傳（Dock／對話）→ core attachReport 升 C；FE 只同步 ack.path（不再 POST …/path upload_promote）。
-- C 等上傳暫停問卷由 core 短路；FE 不再用 pathCAwaitingUpload 擋 GET next。
-- A→B：僅 path_switch「我想諮詢健康方案」；「繼續健康諮詢」留在 A。
+- C 等上傳：信 core `flow_prompt`／`ask_report`／`path_switch`；FE **刪** `pathCAwaitingUpload`。
+- A→B：**僅** `path_switch`「我想諮詢健康方案」；A「繼續健康諮詢」留在 A，不切 B。
 - C 不傳／取消→退 B。
 - lab_report 問卷進行中：對話區**不預掛** upload／checkup（Dock 空列兩顆仍可點；#35 explainHighlights 常駐不改壞）。
 - Path A 引導由 core 計數後寫入 `reply_actions`：≥10／≥20 皆為 `offer_checkup`＋`path_switch`（≥20 短路 LLM、空 `content`，氣泡／chip 文案 FE i18n）。FE 渲染該決策，不計回合、不自造引導鈕。
-- A→B（`path_switch`／`guide_switch`）：`POST …/path` 後清掉引導 CTA；必填未齊則問基本資料，已齊且無 goals 選單則 **接續 stream**，避免只留確認句就停住。
+- A→B（`path_switch`／`guide_switch`）：`POST …/path` 後清掉引導 CTA；接續 stream 帶下一則 RA，避免只留確認句就停住。
 - Path C 待上傳短路：空 `content`＋`ask_report`＋`offer_checkup`＋`path_switch`；文案 FE i18n。
 
 ## Feature flag

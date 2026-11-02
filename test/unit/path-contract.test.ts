@@ -9,6 +9,7 @@ import {
   pathAfterCancelUploadWithoutReport,
   pathAfterReportUpload,
   pathRequiresBasicProfile,
+  resolveEntryPath,
   shouldOpenGoalsFromCachedOptions,
   toApiConversationPath
 } from '../../app/utils/path-contract'
@@ -107,7 +108,7 @@ describe('path transitions', () => {
   })
 })
 
-describe('normalizeConversationPath / toApiConversationPath', () => {
+describe('normalizeConversationPath / toApiConversationPath / resolveEntryPath', () => {
   it('accepts core lowercase and FE uppercase', () => {
     expect(normalizeConversationPath('a')).toBe('A')
     expect(normalizeConversationPath('B')).toBe('B')
@@ -120,6 +121,14 @@ describe('normalizeConversationPath / toApiConversationPath', () => {
     expect(toApiConversationPath('A')).toBe('a')
     expect(toApiConversationPath('B')).toBe('b')
     expect(toApiConversationPath('C')).toBe('c')
+  })
+
+  it('null／undefined resolve as A for FE rules (never write null→a)', () => {
+    expect(resolveEntryPath(null)).toBe('A')
+    expect(resolveEntryPath(undefined)).toBe('A')
+    expect(resolveEntryPath('B')).toBe('B')
+    expect(resolveEntryPath('C')).toBe('C')
+    expect(resolveEntryPath('A')).toBe('A')
   })
 })
 

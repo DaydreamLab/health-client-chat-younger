@@ -234,7 +234,9 @@ export function useCandorApi() {
     let checkupOfferLabel: string | null = null
     let individualTestsUrl: string | null = null
     let replyActions: StreamMessageResult['reply_actions'] = null
-    let path: StreamMessageResult['path'] = null
+    /** Only set when SSE `done` includes the `path` key (core #139). */
+    let path: StreamMessageResult['path'] | undefined
+    let pathPresent = false
 
     while (true) {
       const { done, value } = await reader.read()
@@ -316,12 +318,16 @@ export function useCandorApi() {
             ? data.individual_tests_url
             : null
           replyActions = parseReplyActions(data.reply_actions)
-          // Optional until core adds path on done (A→B continue-health). Accept a|b|c.
-          const rawPath = data.path
-          path = rawPath === 'a' || rawPath === 'b' || rawPath === 'c'
-            || rawPath === 'A' || rawPath === 'B' || rawPath === 'C'
-            ? rawPath
-            : null
+          // Overwrite FE path only when core includes the key (core #139).
+          // Explicit null = unselected (treat as A); missing key = leave local path.
+          if (Object.prototype.hasOwnProperty.call(data, 'path')) {
+            pathPresent = true
+            const rawPath = data.path
+            path = rawPath === 'a' || rawPath === 'b' || rawPath === 'c'
+              || rawPath === 'A' || rawPath === 'B' || rawPath === 'C'
+              ? rawPath
+              : null
+          }
           handlers.onReplace?.(full)
         } else if (eventName === 'error') {
           const err = data.error as { code?: string, message?: string } | undefined
@@ -350,7 +356,7 @@ export function useCandorApi() {
       checkup_offer_label: checkupOfferLabel,
       individual_tests_url: individualTestsUrl,
       reply_actions: replyActions,
-      path
+      ...(pathPresent ? { path: path ?? null } : {})
     }
   }
 

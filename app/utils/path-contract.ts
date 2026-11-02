@@ -40,6 +40,7 @@ export function isConversationPath(value: unknown): value is ConversationPath {
 
 /**
  * Accept core API lowercase `a|b|c` or FE `A|B|C`.
+ * Explicit API `null`／missing／invalid → `null` (unselected).
  */
 export function normalizeConversationPath(value: unknown): ConversationPath | null {
   if (typeof value !== 'string' || value.trim() === '') {
@@ -47,6 +48,16 @@ export function normalizeConversationPath(value: unknown): ConversationPath | nu
   }
   const upper = value.trim().toUpperCase()
   return isConversationPath(upper) ? upper : null
+}
+
+/**
+ * Unselected path (API `null`) resolves as A for FE rules.
+ * Never POST null→`a` back to core — API keeps null until the user picks.
+ */
+export function resolveEntryPath(
+  path: ConversationPath | null | undefined
+): ConversationPath {
+  return path ?? 'A'
 }
 
 /** Wire path into POST /conversations and POST …/path (core stores lowercase). */
@@ -100,12 +111,13 @@ export function isRequiredBasicGapCode(gapCode: string | null | undefined): bool
 
 /**
  * Path B／C must collect the four required basics (ask until complete).
- * Path A may collect opportunistically but does not gate completion CTA.
+ * Path A／unselected (null→A) may collect opportunistically but does not gate completion CTA.
  */
 export function pathRequiresBasicProfile(
   path: ConversationPath | null | undefined
 ): boolean {
-  return path === 'B' || path === 'C'
+  const resolved = resolveEntryPath(path)
+  return resolved === 'B' || resolved === 'C'
 }
 
 /**
@@ -197,8 +209,8 @@ export function shouldSuppressGuidanceCtas(input: {
  * Whether to force-open the goals menu from cached `goalOptions` after a path change.
  *
  * A→B `guide_switch` must NOT reopen goals solely because chips are still cached
- * (goals may already be answered). Caller should `syncQuestionnaireFromBackend`
- * instead; core returns goals only when still missing, else next gap／done → stream.
+ * (goals may already be answered). Trust stream／`reply_actions`／`flow_prompt` instead
+ * of `GET …/questions/next` (core #139).
  */
 export function shouldOpenGoalsFromCachedOptions(input: {
   reason: string
