@@ -262,6 +262,11 @@ export interface ConversationPathUpdate {
 export interface ConversationPathAck {
   id: string
   path: 'a' | 'b' | 'c' | 'A' | 'B' | 'C'
+  /**
+   * Path B opening／A→B guide: core #140 may attach goals／next-ask
+   * `reply_actions` on this flow turn (same shape as create.flow_prompt).
+   */
+  flow_prompt?: ConversationGreeting | null
 }
 
 export interface ConversationAttachAck {

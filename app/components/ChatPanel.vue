@@ -438,6 +438,10 @@ import {
   historyMessageToChatMessage,
   parseConversationMessagesResult
 } from '~/utils/chat-history'
+import {
+  clearChatMessageActions,
+  discardFailedFollowUpAssistant
+} from '~/utils/flow-prompt-actions'
 import { expertReviewUiStatusFromRow } from '~/utils/expert-review'
 import { storeToRefs } from 'pinia'
 
@@ -1124,10 +1128,10 @@ function applyServerConversationPath(
 async function syncConversationPath(
   path: ConversationPath,
   reason: string
-) {
+): Promise<Awaited<ReturnType<typeof candor.setConversationPath>> | null> {
   const conversationId = journey.conversationId
   if (!conversationId) {
-    return
+    return null
   }
   // Soft-fail if path API is down; local journey path still drives UI gates.
   try {
@@ -1136,8 +1140,10 @@ async function syncConversationPath(
       reason
     })
     applyServerConversationPath(ack)
+    return ack
   } catch {
     // Keep local journey path.
+    return null
   }
 }
 
@@ -1316,16 +1322,20 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
     }
     pending.value = false
   } else if (reason !== 'entry') {
-    await syncConversationPath(path, reason)
+    const pathAck = await syncConversationPath(path, reason)
     if (reason === 'guide_switch') {
       clearPathRuleGuideCtas()
+    }
+    // core #140：POST …/path A→B may return flow_prompt＋goals／next-ask RA — paint as-is.
+    if (pathAck?.flow_prompt) {
+      appendCoreAssistantTurn(pathAck.flow_prompt)
     }
   }
 
   // Flow v2：A／B／C 選完路徑後不再附加本地路徑專屬句；開場白僅用 core greeting.consult。
 
   if (path === 'C' && !journey.reportId) {
-    // Trust create／path ack flow_prompt＋ask_report／path_switch (core #139).
+    // Trust create／path ack flow_prompt＋ask_report／path_switch (core #139／#140).
     goalSelectActive.value = false
     quizActive.value = false
     activeQuestion.value = null
@@ -1334,14 +1344,26 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
 
   // Entry A／B: option label already appended as a user turn — send it like a
   // typed message so core replies with bank reply_actions (B: goals). No GET next.
+  // If create already painted flow_prompt／greeting RA (B opening goals), keep it
+  // until the stream succeeds, then move CTAs to the new assistant bubble.
   if (reason === 'entry' && (path === 'A' || path === 'B')) {
-    goalSelectActive.value = false
     quizActive.value = false
     activeQuestion.value = null
+    const openingHost = [...journey.messages].reverse().find(message => message.role === 'assistant')
     const lastUser = [...journey.messages].reverse().find(message => message.role === 'user')
     if (lastUser) {
       pendingUserContent.value = messageText(lastUser)
-      await streamPending()
+      const streamed = await streamPending()
+      if (streamed.ok) {
+        if (openingHost && openingHost.id !== streamed.assistantId) {
+          clearChatMessageActions(openingHost)
+        }
+      } else {
+        discardFailedFollowUpAssistant(journey.messages, streamed.assistantId, openingHost?.id)
+        if (openingHost?.replyActions && isUsableReplyActions(openingHost.replyActions)) {
+          applyReplyActionsInteraction(openingHost, openingHost.replyActions)
+        }
+      }
     }
     return
   }
@@ -1353,7 +1375,7 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
     return
   }
 
-  // Path B／C（已綁報告或 guide）：問卷只信 stream／flow_prompt reply_actions（core #139）。
+  // Path B／C（已綁報告或 guide）：問卷只信 stream／flow_prompt reply_actions（core #140）。
   // guide_switch: never reopen goals from cached chips — goals may already be answered.
   if (shouldOpenGoalsFromCachedOptions({
     reason,
@@ -1364,15 +1386,25 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
     goalSelectActive.value = false
   }
 
-  // A→B guide CTA: basics／goals may already be done — must stream so consult continues
-  // (otherwise the chat looks stuck after path switch with no follow-up turn).
-  // Stream／RA carry the next ask; do not GET …/questions/next.
+  // A→B guide: if path ack flow_prompt already opened goals／quiz, stay on that RA.
+  // Otherwise stream so consult continues; move／keep CTAs like path-C upload ack.
   if (reason === 'guide_switch' && path === 'B' && !quizActive.value && !goalSelectActive.value) {
+    const flowHost = [...journey.messages].reverse().find(message => message.role === 'assistant')
     const lastUser = [...journey.messages].reverse().find(message => message.role === 'user')
     pendingUserContent.value = lastUser
       ? messageText(lastUser)
       : t('chat.pathSwitchToConsult')
-    await streamPending()
+    const streamed = await streamPending()
+    if (streamed.ok) {
+      if (flowHost && flowHost.id !== streamed.assistantId) {
+        clearChatMessageActions(flowHost)
+      }
+    } else {
+      discardFailedFollowUpAssistant(journey.messages, streamed.assistantId, flowHost?.id)
+      if (flowHost?.replyActions && isUsableReplyActions(flowHost.replyActions)) {
+        applyReplyActionsInteraction(flowHost, flowHost.replyActions)
+      }
+    }
   }
 }
 
@@ -1409,15 +1441,6 @@ async function createConversationWithPath(path: ConversationPath) {
   }
   // User path chip first, then core greeting（開場白在選項下方）.
   journey.messages = [...userTurns, greeting]
-  if (greetingRa) {
-    applyReplyActionsInteraction(greeting, greetingRa)
-  }
-  if (created.flow_prompt) {
-    appendCoreAssistantTurn(created.flow_prompt)
-    if (created.flow_prompt.options?.length) {
-      goalOptions.value = created.flow_prompt.options
-    }
-  }
 
   goalOptions.value = created.greeting.options?.length
     ? created.greeting.options
@@ -1428,9 +1451,18 @@ async function createConversationWithPath(path: ConversationPath) {
   reportResults.value = []
   journey.reportDockOpen = false
   journey.reportDockCollapsed = false
+  // Reset before applying RA so greeting／flow_prompt goals chips are not wiped.
   goalSelectActive.value = false
   quizActive.value = false
   activeQuestion.value = null
+
+  if (greetingRa) {
+    applyReplyActionsInteraction(greeting, greetingRa)
+  }
+  // Path B／C opening may carry goals／lab RA on flow_prompt (core); paint as-is.
+  if (created.flow_prompt) {
+    appendCoreAssistantTurn(created.flow_prompt)
+  }
 }
 
 function applyTurnLimitPayload(input: {
@@ -1478,6 +1510,16 @@ async function ensureConversation() {
   reportResults.value = []
   journey.reportDockOpen = false
   journey.reportDockCollapsed = false
+  goalOptions.value = created.greeting.options?.length
+    ? created.greeting.options
+    : (created.flow_prompt?.options ?? goalOptions.value)
+  selectedCodes.value = [...(created.greeting.selected ?? [])]
+  // Default on unless waiting for 進站三選; greeting／flow_prompt RA may override.
+  goalSelectActive.value = !(pathContractEnabled.value && !isStandardFlow.value
+    && conversationPath.value == null)
+  quizActive.value = false
+  activeQuestion.value = null
+
   if (journey.messages.length === 0) {
     const greeting = makeMessage(
       'assistant',
@@ -1492,18 +1534,11 @@ async function ensureConversation() {
     if (greetingRa) {
       applyReplyActionsInteraction(greeting, greetingRa)
     }
+    // Create-with-report／path B opening may attach goals／lab RA on flow_prompt.
     if (created.flow_prompt) {
       appendCoreAssistantTurn(created.flow_prompt)
     }
   }
-  goalOptions.value = created.greeting.options?.length
-    ? created.greeting.options
-    : (created.flow_prompt?.options ?? goalOptions.value)
-  selectedCodes.value = [...(created.greeting.selected ?? [])]
-  goalSelectActive.value = !(pathContractEnabled.value && !isStandardFlow.value
-    && conversationPath.value == null)
-  quizActive.value = false
-  activeQuestion.value = null
 
   // B／C basics come from greeting／flow_prompt／stream reply_actions — no GET next.
 
@@ -1917,7 +1952,7 @@ function restorePendingUserIfMissing(pendingContent: string) {
   appendMessage('user', text)
 }
 
-async function streamPending() {
+async function streamPending(): Promise<{ ok: boolean, assistantId: string | null }> {
   const content = pendingUserContent.value
   const intent = pendingIntent.value
   pendingUserContent.value = null
@@ -1933,7 +1968,7 @@ async function streamPending() {
     }
     guideAfterQuiz()
     pending.value = false
-    return
+    return { ok: true, assistantId: null }
   }
 
   if (wasSelectingGoals) {
@@ -1944,6 +1979,7 @@ async function streamPending() {
   let streamMessageLookupId: string = assistantId
   let streamed = ''
   let liveCreated = false
+  let ok = false
 
   /** Keep the thinking row (… animation) until the first token arrives. */
   const ensureLiveAssistant = () => {
@@ -1988,6 +2024,7 @@ async function streamPending() {
     }
     guideAfterQuiz()
     // B／C next ask is only via stream／answers reply_actions — no GET …/questions/next.
+    ok = true
   } catch {
     if (intent === 'interpret') {
       journey.reportInterpretSent = false
@@ -1995,18 +2032,21 @@ async function streamPending() {
     if (wasSelectingGoals) {
       goalSelectActive.value = true
     }
-    const existing = journey.messages.find(item => item.id === assistantId)
-    if (existing) {
-      setMessageText(assistantId, t('chat.streamError'))
-    } else {
-      appendMessage('assistant', t('chat.streamError'))
-    }
+    // Always use the reserved assistantId so callers can discard on failure
+    // (e.g. keep path-C flow_prompt CTAs instead of an error bubble).
+    ensureLiveAssistant()
+    setMessageText(assistantId, t('chat.streamError'))
+    streamMessageLookupId = assistantId
+    ok = false
   } finally {
     pending.value = false
     liveAssistantId.value = null
     await nextTick()
-    reapplyTurnActionsAfterStream(streamMessageLookupId)
+    if (ok) {
+      reapplyTurnActionsAfterStream(streamMessageLookupId)
+    }
   }
+  return { ok, assistantId: streamMessageLookupId }
 }
 
 async function runProfileThenStream() {
@@ -2706,12 +2746,12 @@ async function pollReport(reportId: string) {
   return null
 }
 
-async function streamReportUploadedAck() {
+async function streamReportUploadedAck(): Promise<{ ok: boolean, assistantId: string | null }> {
   const text = t('chat.reportUploadedAck')
   appendMessage('user', text)
   pendingUserContent.value = text
   pendingIntent.value = null
-  await streamPending()
+  return streamPending()
 }
 
 async function bindAndInterpret(reportId: string) {
@@ -2776,23 +2816,23 @@ async function bindAndInterpret(reportId: string) {
     }
   }
 
-  if (attachAck?.flow_prompt) {
-    appendCoreAssistantTurn(attachAck.flow_prompt)
-    if (attachAck.flow_prompt.options?.length) {
-      goalOptions.value = attachAck.flow_prompt.options
+  // Paint flow_prompt＋reply_actions (goals／lab_followup 三鈕等) before the ack stream.
+  const flowHost = attachAck?.flow_prompt
+    ? appendCoreAssistantTurn(attachAck.flow_prompt)
+    : null
+
+  // Irice 21:50：保留自動送「我的報告已上傳」；成功則 CTA 搬到新助理則、清掉 flow 舊鈕。
+  const ack = await streamReportUploadedAck()
+  if (ack.ok) {
+    if (flowHost) {
+      clearChatMessageActions(flowHost)
     }
+    return
   }
-
-  // ready／needs_review：PATCH（＋flow_prompt）後一律 stream 使用者確認句。
-  await streamReportUploadedAck()
-
-  // Stream 可能帶 offer_* 清掉 goalSelect；flow_prompt 有 goals 時再打開選項。
-  // Otherwise trust stream／flow_prompt RA — no GET …/questions/next (core #139).
-  if (attachAck?.flow_prompt) {
-    if ((attachAck.flow_prompt.options?.length ?? 0) >= 2
-      || attachAck.flow_prompt.options_kind === 'consultation_goals') {
-      goalSelectActive.value = true
-    }
+  // Stream 失敗：丟掉 error 泡泡，讓 flow_prompt RA 留在最新助理則（勿卡住無鈕）。
+  discardFailedFollowUpAssistant(journey.messages, ack.assistantId, flowHost?.id)
+  if (flowHost?.replyActions && isUsableReplyActions(flowHost.replyActions)) {
+    applyReplyActionsInteraction(flowHost, flowHost.replyActions)
   }
 }
 
