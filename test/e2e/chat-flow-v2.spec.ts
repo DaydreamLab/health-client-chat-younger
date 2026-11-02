@@ -73,6 +73,62 @@ test.describe('chat flow v2 — 四條主流程', () => {
     await expect(last.getByTestId('chat-submit-expert-review')).toHaveCount(0)
   })
 
+  test('A→B：goals 已答過 → 切換後不再開 goals 選單', async ({ page, goto }) => {
+    test.setTimeout(120_000)
+    await mockCandorAuth(page, {
+      asMember: true,
+      conversationPath: null,
+      individualTestsUrl: 'https://example.test/checkup',
+      chatFlowV2: 'a-guide-15',
+      goalsAlreadySet: true,
+      basicProfileComplete: true
+    })
+    await seedNoExpertCase(page)
+    await openFreshChat(page, goto)
+    await selectEntryPath(page, 'A')
+
+    for (let i = 0; i < 15; i++) {
+      await sendChatLine(page, `聊聊 ${i + 1}`)
+      await expect(page.getByTestId('chat-send')).toBeEnabled({ timeout: 15_000 })
+    }
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last.getByTestId('chat-quiz-option-b')).toBeVisible({ timeout: 15_000 })
+    await last.getByTestId('chat-quiz-option-b').click()
+    // goalsAlreadySet: backend／mock will not re-emit consultation_goals; FE must not
+    // force-open from cached chips either (unit covers the cache gate).
+    await expect(page.getByTestId('chat-quiz-confirm')).toHaveCount(0, { timeout: 10_000 })
+    await expect(page.getByTestId('chat-quiz-option-sleep')).toHaveCount(0)
+    await expect(page.getByTestId('chat-quiz-option-weight_loss')).toHaveCount(0)
+  })
+
+  test('A→B：goals 未答 → 切換後仍顯示 goals 選單', async ({ page, goto }) => {
+    test.setTimeout(120_000)
+    await mockCandorAuth(page, {
+      asMember: true,
+      conversationPath: null,
+      individualTestsUrl: 'https://example.test/checkup',
+      chatFlowV2: 'a-guide-15',
+      goalsAlreadySet: false,
+      basicProfileComplete: true
+    })
+    await seedNoExpertCase(page)
+    await openFreshChat(page, goto)
+    await selectEntryPath(page, 'A')
+
+    for (let i = 0; i < 15; i++) {
+      await sendChatLine(page, `聊聊 ${i + 1}`)
+      await expect(page.getByTestId('chat-send')).toBeEnabled({ timeout: 15_000 })
+    }
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last.getByTestId('chat-quiz-option-b')).toBeVisible({ timeout: 15_000 })
+    await last.getByTestId('chat-quiz-option-b').click()
+
+    await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('chat-quiz-confirm')).toBeVisible()
+  })
+
   test('B：問完必填 → 完成按鈕組', async ({ page, goto }) => {
     test.setTimeout(90_000)
     await mockCandorAuth(page, {

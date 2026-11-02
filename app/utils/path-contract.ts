@@ -190,6 +190,23 @@ export function shouldSuppressGuidanceCtas(input: {
   return input.labReportQuizActive
 }
 
+/**
+ * Whether to force-open the goals menu from cached `goalOptions` after a path change.
+ *
+ * A→B `guide_switch` must NOT reopen goals solely because chips are still cached
+ * (goals may already be answered). Caller should `syncQuestionnaireFromBackend`
+ * instead; core returns goals only when still missing, else next gap／done → stream.
+ */
+export function shouldOpenGoalsFromCachedOptions(input: {
+  reason: string
+  goalOptionsCount: number
+}): boolean {
+  if (input.reason === 'guide_switch') {
+    return false
+  }
+  return input.goalOptionsCount >= 2
+}
+
 export interface PathEntryOption {
   code: PathEntryCode
   /** i18n key under `chat.pathEntry*` */

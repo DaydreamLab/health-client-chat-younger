@@ -110,6 +110,10 @@ export type CandorMockOptions = {
    */
   chatFlowV2?: 'a-guide-15' | 'b-completion' | 'b-triad-asking' | 'c-completion' | 'turn-limit-20'
   /**
+   * Pretend POST /goals already succeeded (A→B guide_switch must not re-ask).
+   */
+  goalsAlreadySet?: boolean
+  /**
    * Terminal status after the first processing poll on GET /health-reports/{id}.
    * Default `ready`. Use `needs_review` to assert POST-attach stream ack.
    */
@@ -223,7 +227,7 @@ const PRIVACY_CONSENT_STORAGE_KEY = 'candor.privacy.consent.version'
 /** Mock candor-core auth + chat/report/profile so e2e does not need a live API. */
 export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}) {
   let quizAnswered = false
-  let goalsSet = false
+  let goalsSet = Boolean(options.goalsAlreadySet)
   let streamCount = 0
   let chatFlowTurnCount = 0
   let mockEntryPath: 'a' | 'b' | 'c' = 'b'

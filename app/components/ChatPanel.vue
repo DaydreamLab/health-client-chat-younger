@@ -413,6 +413,7 @@ import {
   PATH_ENTRY_OPTIONS,
   pathAfterReportUpload,
   pathRequiresBasicProfile,
+  shouldOpenGoalsFromCachedOptions,
   toApiConversationPath,
   type ConversationPath
 } from '~/utils/path-contract'
@@ -1398,9 +1399,15 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
   }
 
   // Path B／C（已綁報告或 guide）：問卷順序由 core 驅動（先 goals）。
-  if (goalOptions.value.length >= 2) {
+  // guide_switch: never reopen goals from cached chips — goals may already be answered
+  // in A; ask core for next missing ask, else stream summary／consult.
+  if (shouldOpenGoalsFromCachedOptions({
+    reason,
+    goalOptionsCount: goalOptions.value.length
+  })) {
     goalSelectActive.value = true
   } else {
+    goalSelectActive.value = false
     await syncQuestionnaireFromBackend()
   }
 
@@ -3004,6 +3011,10 @@ async function onSubmit() {
       const result = await candor.setConversationGoals(conversationId, { raw_text: content })
       if (result.saved) {
         selectedCodes.value = []
+        // Mark goals answered so A→B guide_switch does not reopen the menu.
+        if (journey.clarifyingGoals.length === 0) {
+          journey.clarifyingGoals = [content]
+        }
         // Clear after pending is already true so recommend CTA does not flash.
         goalSelectActive.value = false
         const nextAfterGoals = result.next_question
