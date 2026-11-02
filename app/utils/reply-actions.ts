@@ -152,10 +152,9 @@ function asOptionList(raw: unknown): ChatMessageOption[] {
     if (!code) {
       continue
     }
-    // Empty label allowed (path_switch: BE omits copy; FE i18n fills display).
-    const label = typeof item.label === 'string' && item.label !== ''
-      ? item.label
-      : code
+    // Keep empty string (path_switch: BE omits copy; FE i18n fills display).
+    // Missing label field still falls back to code for other choose_option kinds.
+    const label = typeof item.label === 'string' ? item.label : code
     const mapsTo = typeof item.maps_to === 'string' ? item.maps_to : null
     out.push(mapsTo ? { code, label, maps_to: mapsTo } : { code, label })
   }
@@ -333,6 +332,65 @@ export function pathSwitchChipI18nKey(kind: PathRuleCopyKind): string {
   return kind === 'path_c_await_upload'
     ? 'chat.pathEntryB'
     : 'chat.pathSwitchToConsult'
+}
+
+/**
+ * Per-option i18n for path_switch when BE label is empty.
+ * Path C a／b／c → pathEntry*; Path A guide `b` → pathSwitchToConsult.
+ */
+export function pathSwitchOptionI18nKey(kind: PathRuleCopyKind, code: string): string {
+  const normalized = code.trim().toLowerCase()
+  if (kind === 'path_c_await_upload') {
+    if (normalized === 'a') {
+      return 'chat.pathEntryA'
+    }
+    if (normalized === 'c') {
+      return 'chat.pathEntryC'
+    }
+    return 'chat.pathEntryB'
+  }
+  if (normalized === 'a') {
+    return 'chat.pathEntryA'
+  }
+  if (normalized === 'c') {
+    return 'chat.pathEntryC'
+  }
+  return 'chat.pathSwitchToConsult'
+}
+
+/**
+ * True when BE omitted chip copy: empty label, or parser fell back to code.
+ * Non-empty distinct labels from core win (existing priority).
+ */
+export function pathSwitchLabelNeedsI18n(
+  option: { code: string, label?: string | null }
+): boolean {
+  const label = String(option.label ?? '').trim()
+  return label === '' || label === option.code
+}
+
+/** Fill empty path_switch chip labels via existing i18n keys (no new copy). */
+export function resolvePathSwitchChoiceLabels(
+  ra: ReplyActions | null | undefined,
+  choices: ChatMessageOption[],
+  translate: (key: string) => string
+): ChatMessageOption[] {
+  const kind = detectPathRuleCopyKind(ra)
+  if (!kind) {
+    return choices
+  }
+  return choices.map((option) => {
+    if (!isPathSwitchOptionCode(ra, option.code)) {
+      return option
+    }
+    if (!pathSwitchLabelNeedsI18n(option)) {
+      return option
+    }
+    return {
+      ...option,
+      label: translate(pathSwitchOptionI18nKey(kind, option.code))
+    }
+  })
 }
 
 export function isContinueConsultationOption(

@@ -429,7 +429,7 @@ import {
   isUsableReplyActions,
   normalizeChooseOptionMapsTo,
   parseReplyActions,
-  pathSwitchChipI18nKey,
+  resolvePathSwitchChoiceLabels,
   shouldSkipFollowUpStream,
   type ReplyActions,
   type VitalsField
@@ -760,20 +760,11 @@ function localizePathSwitchChoices(
   message: ChatMessage,
   choices: GreetingOption[]
 ): GreetingOption[] {
-  const kind = detectPathRuleCopyKind(message.replyActions)
-  if (!kind) {
-    return choices
-  }
-  const label = t(pathSwitchChipI18nKey(kind))
-  return choices.map((option) => {
-    if (!isPathSwitchOptionCode(message.replyActions, option.code)) {
-      return option
-    }
-    if (String(option.label || '').trim() !== '') {
-      return option
-    }
-    return { ...option, label }
-  })
+  return resolvePathSwitchChoiceLabels(
+    message.replyActions,
+    choices,
+    key => t(key)
+  )
 }
 
 function choicesFor(message: ChatMessage): GreetingOption[] {

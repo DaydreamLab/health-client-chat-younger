@@ -994,9 +994,10 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                           kind: 'path_switch',
                           mode: 'single',
                           confirm: false,
+                          // Empty labels: FE fills pathEntryA／B i18n (core omits copy).
                           options: [
-                            { code: 'a', label: '我想聊聊' },
-                            { code: 'b', label: '我想諮詢健康方案' }
+                            { code: 'a', label: '' },
+                            { code: 'b', label: '' }
                           ],
                           selected: [],
                           gap_code: null,
@@ -1459,6 +1460,22 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
             degraded: false,
             error: null,
             actions: [
+              {
+                type: 'choose_option',
+                payload: {
+                  kind: 'open_question_reply',
+                  mode: 'single',
+                  confirm: false,
+                  options: [
+                    { code: 'no_more', label: '我沒有問題了' },
+                    { code: 'suggest', label: '你有什麼建議' }
+                  ],
+                  selected: [],
+                  gap_code: null,
+                  answer_type: null,
+                  exclusive_codes: []
+                }
+              },
               { type: 'offer_checkup', payload: { url: 'https://example.test/checkup' } },
               {
                 type: 'choose_option',
@@ -1466,7 +1483,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   kind: 'path_switch',
                   mode: 'single',
                   confirm: false,
-                  options: [{ code: 'b', label: '進行健康諮詢' }],
+                  // Empty label: FE fills chat.pathSwitchToConsult (not code "b").
+                  options: [{ code: 'b', label: '' }],
                   selected: [],
                   gap_code: null,
                   answer_type: null,
@@ -1528,7 +1546,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   kind: 'path_switch',
                   mode: 'single',
                   confirm: false,
-                  options: [{ code: 'b', label: '進行健康諮詢' }],
+                  // Solo path_switch: empty label → FE i18n pathSwitchToConsult
+                  options: [{ code: 'b', label: '' }],
                   selected: [],
                   gap_code: null,
                   answer_type: null,

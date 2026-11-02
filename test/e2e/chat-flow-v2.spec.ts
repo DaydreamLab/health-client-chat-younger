@@ -65,7 +65,10 @@ test.describe('chat flow v2 — 四條主流程', () => {
 
     const last = page.getByTestId('chat-last-reply')
     await expect(last).toContainText('專屬保健品方案', { timeout: 15_000 })
-    await expect(last.getByTestId('chat-quiz-option-b')).toBeVisible()
+    await expect(last.getByTestId('chat-quiz-option-no_more')).toHaveText('我沒有問題了')
+    await expect(last.getByTestId('chat-quiz-option-suggest')).toHaveText('你有什麼建議')
+    // path_switch empty label must show i18n, never raw code "b"
+    await expect(last.getByTestId('chat-quiz-option-b')).toHaveText('我想諮詢健康方案')
     await expect(last.getByTestId('chat-message-checkup')).toBeVisible()
     await expect(last.getByTestId('chat-submit-expert-review')).toHaveCount(0)
   })

@@ -13,8 +13,11 @@ import {
   parseReplyActions,
   pathRuleBubbleI18nKey,
   pathSwitchChipI18nKey,
+  pathSwitchLabelNeedsI18n,
+  pathSwitchOptionI18nKey,
   projectReplyActionsToCtas,
   resetReplyActionsUnknownLog,
+  resolvePathSwitchChoiceLabels,
   shouldShowContinueConsultCta,
   shouldSkipFollowUpStream,
   type ReplyActions
@@ -1261,6 +1264,187 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     expect(visibility.choices.map(choice => choice.code)).toEqual(['a', 'b'])
     expect(detectPathRuleCopyKind(msg.replyActions)).toBe('path_c_await_upload')
     expect(pathSwitchChipI18nKey('path_c_await_upload')).toBe('chat.pathEntryB')
+  })
+
+  describe('resolvePathSwitchChoiceLabels — empty BE label → i18n, not code', () => {
+    const zh = (key: string) => {
+      const map: Record<string, string> = {
+        'chat.pathSwitchToConsult': '我想諮詢健康方案',
+        'chat.pathEntryA': '我想聊聊',
+        'chat.pathEntryB': '我想諮詢健康方案',
+        'chat.pathEntryC': '幫我看報告'
+      }
+      return map[key] ?? key
+    }
+
+    it('open_question_reply + path_switch empty label → i18n「我想諮詢健康方案」not code b', () => {
+      const replyActions = ra({
+        adaptor: 'rule',
+        actions: [
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'open_question_reply',
+              mode: 'single',
+              confirm: false,
+              options: [
+                { code: 'no_more', label: '我沒有問題了' },
+                { code: 'suggest', label: '你有什麼建議' }
+              ]
+            }
+          },
+          { type: 'offer_checkup', payload: { url: 'https://example.test/checkup' } },
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'path_switch',
+              mode: 'single',
+              confirm: false,
+              options: [{ code: 'b', label: '' }]
+            }
+          }
+        ]
+      })
+      const projection = projectReplyActionsToCtas({
+        replyActions,
+        canShowRecommendSlot: false,
+        canShowUpload: false,
+        canShowCheckup: true,
+        canShowVitals: false,
+        expertReviewStatus: 'none'
+      })
+      // Parser may keep '' or historically fall back to code — both need i18n.
+      const rawSwitch = projection.flags.choices.find(c => c.code === 'b')
+      expect(rawSwitch).toBeTruthy()
+      expect(pathSwitchLabelNeedsI18n(rawSwitch!)).toBe(true)
+      expect(pathSwitchOptionI18nKey('path_a_cap', 'b')).toBe('chat.pathSwitchToConsult')
+
+      const localized = resolvePathSwitchChoiceLabels(
+        replyActions,
+        projection.flags.choices,
+        zh
+      )
+      expect(localized.map(c => ({ code: c.code, label: c.label }))).toEqual([
+        { code: 'no_more', label: '我沒有問題了' },
+        { code: 'suggest', label: '你有什麼建議' },
+        { code: 'b', label: '我想諮詢健康方案' }
+      ])
+    })
+
+    it('solo path_switch empty label → i18n not code', () => {
+      const replyActions = ra({
+        adaptor: 'rule',
+        actions: [
+          { type: 'offer_checkup', payload: { url: 'https://example.test/checkup' } },
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'path_switch',
+              mode: 'single',
+              confirm: false,
+              options: [{ code: 'b', label: '' }]
+            }
+          }
+        ]
+      })
+      const projection = projectReplyActionsToCtas({
+        replyActions,
+        canShowRecommendSlot: false,
+        canShowUpload: false,
+        canShowCheckup: true,
+        canShowVitals: false,
+        expertReviewStatus: 'none'
+      })
+      const localized = resolvePathSwitchChoiceLabels(
+        replyActions,
+        projection.flags.choices,
+        zh
+      )
+      expect(localized).toEqual([{ code: 'b', label: '我想諮詢健康方案' }])
+    })
+
+    it('solo path_switch with label===code fallback still gets i18n', () => {
+      const replyActions = ra({
+        adaptor: 'rule',
+        actions: [
+          { type: 'offer_checkup', payload: { url: 'https://example.test/checkup' } },
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'path_switch',
+              mode: 'single',
+              confirm: false,
+              options: [{ code: 'b', label: 'b' }]
+            }
+          }
+        ]
+      })
+      const localized = resolvePathSwitchChoiceLabels(
+        replyActions,
+        [{ code: 'b', label: 'b' }],
+        zh
+      )
+      expect(localized[0]?.label).toBe('我想諮詢健康方案')
+    })
+
+    it('path C empty a／b labels → pathEntryA／pathEntryB i18n', () => {
+      const replyActions = ra({
+        adaptor: 'rule',
+        actions: [
+          { type: 'ask_report', payload: { option_codes: ['upload'] } },
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'path_switch',
+              mode: 'single',
+              confirm: false,
+              options: [
+                { code: 'a', label: '' },
+                { code: 'b', label: '' }
+              ]
+            }
+          }
+        ]
+      })
+      expect(pathSwitchOptionI18nKey('path_c_await_upload', 'a')).toBe('chat.pathEntryA')
+      expect(pathSwitchOptionI18nKey('path_c_await_upload', 'b')).toBe('chat.pathEntryB')
+      const localized = resolvePathSwitchChoiceLabels(
+        replyActions,
+        [
+          { code: 'a', label: '' },
+          { code: 'b', label: '' }
+        ],
+        zh
+      )
+      expect(localized).toEqual([
+        { code: 'a', label: '我想聊聊' },
+        { code: 'b', label: '我想諮詢健康方案' }
+      ])
+    })
+
+    it('non-empty core label wins over i18n', () => {
+      const replyActions = ra({
+        adaptor: 'rule',
+        actions: [
+          { type: 'offer_checkup', payload: { url: 'https://example.test/checkup' } },
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'path_switch',
+              mode: 'single',
+              confirm: false,
+              options: [{ code: 'b', label: '進行健康諮詢' }]
+            }
+          }
+        ]
+      })
+      const localized = resolvePathSwitchChoiceLabels(
+        replyActions,
+        [{ code: 'b', label: '進行健康諮詢' }],
+        zh
+      )
+      expect(localized[0]?.label).toBe('進行健康諮詢')
+    })
   })
 
   it('lab_report choose_option: reply_actions path ignores legacy needsMultiConfirm (no confirm btn)', () => {

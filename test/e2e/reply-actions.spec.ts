@@ -631,6 +631,104 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await expect(page.getByTestId('chat-last-reply')).toContainText('基礎保養', { timeout: 15_000 })
   })
 
+  test('solo path_switch empty label → chip shows i18n「我想諮詢健康方案」not code b', async ({
+    page,
+    goto
+  }) => {
+    test.setTimeout(90_000)
+    const conversationId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+    await mockCandorAuth(page, { asMember: true, conversationPath: 'A' })
+    await seedNoExpertCase(page)
+    await page.setViewportSize({ width: 1280, height: 800 })
+
+    await page.route(`**/api/v1/conversation/${conversationId}/messages`, async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback()
+        return
+      }
+      if (route.request().url().includes('/messages/stream')) {
+        await route.fallback()
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            conversation_id: conversationId,
+            messages: [
+              { id: 'u-solo-switch', role: 'user', content: '繼續' },
+              {
+                id: 'a-solo-switch',
+                role: 'assistant',
+                content: '若想取得專屬保健品方案，可以繼續諮詢健康方案。',
+                reply_actions: {
+                  schema_version: '0.1',
+                  source: 'rule',
+                  adaptor: 'rule',
+                  degraded: false,
+                  error: null,
+                  actions: [
+                    { type: 'offer_checkup', payload: { url: 'https://example.test/checkup' } },
+                    {
+                      type: 'choose_option',
+                      payload: {
+                        kind: 'path_switch',
+                        mode: 'single',
+                        confirm: false,
+                        options: [{ code: 'b', label: '' }],
+                        selected: [],
+                        gap_code: null,
+                        answer_type: null,
+                        exclusive_codes: []
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        })
+      })
+    })
+
+    await page.addInitScript((journey) => {
+      localStorage.setItem('candor.unpaid.journey', JSON.stringify(journey))
+    }, {
+      conversationId,
+      messages: [{
+        id: 'stale',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'stale' }]
+      }],
+      hasAnalysis: false,
+      selectedPackageCode: null,
+      reportId: null,
+      reportDockOpen: false,
+      reportDockCollapsed: true,
+      reportInterpretSent: false,
+      selectedPackage: null,
+      packageConfirmed: false,
+      goalSelectActive: false,
+      goalOptions: [],
+      selectedCodes: [],
+      quizActive: false,
+      activeQuestion: null,
+      postQuizGuided: false,
+      profileGaps: [],
+      clarifyingGoals: [],
+      expertReviewStatus: 'none',
+      conversationPath: 'A'
+    })
+
+    await goto('/chat', { waitUntil: 'hydration' })
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last).toContainText('專屬保健品方案', { timeout: 15_000 })
+    await expect(last.getByTestId('chat-quiz-option-b')).toHaveText('我想諮詢健康方案')
+    await expect(last.getByTestId('chat-quiz-option-b')).not.toHaveText('b')
+  })
+
   test('gap CTA fallback: hydrate keeps ask_vitals on bank when latest is offer_recommend-only', async ({
     page,
     goto
