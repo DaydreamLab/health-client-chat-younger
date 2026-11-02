@@ -91,9 +91,68 @@ test.describe('chat flow v2 — 四條主流程', () => {
 
     const last = page.getByTestId('chat-last-reply')
     await expect(last).toContainText('專屬保健品方案', { timeout: 15_000 })
-    await expect(last.getByTestId('chat-quiz-option-b')).toBeVisible()
+    await expect(last.getByTestId('chat-quiz-option-no_more')).toHaveText('我沒有問題了')
+    await expect(last.getByTestId('chat-quiz-option-suggest')).toHaveText('你有什麼建議')
+    // path_switch empty label must show i18n, never raw code "b"
+    await expect(last.getByTestId('chat-quiz-option-b')).toHaveText('我想諮詢健康方案')
     await expect(last.getByTestId('chat-message-checkup')).toBeVisible()
     await expect(last.getByTestId('chat-submit-expert-review')).toHaveCount(0)
+  })
+
+  test('A→B：goals 已答過 → 切換後不再開 goals 選單', async ({ page, goto }) => {
+    test.setTimeout(120_000)
+    await mockCandorAuth(page, {
+      asMember: true,
+      conversationPath: null,
+      individualTestsUrl: 'https://example.test/checkup',
+      chatFlowV2: 'a-guide-15',
+      goalsAlreadySet: true,
+      basicProfileComplete: true
+    })
+    await seedNoExpertCase(page)
+    await openFreshChat(page, goto)
+    await selectEntryPath(page, 'A')
+
+    for (let i = 0; i < 15; i++) {
+      await sendChatLine(page, `聊聊 ${i + 1}`)
+      await expect(page.getByTestId('chat-send')).toBeEnabled({ timeout: 15_000 })
+    }
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last.getByTestId('chat-quiz-option-b')).toBeVisible({ timeout: 15_000 })
+    await last.getByTestId('chat-quiz-option-b').click()
+    // goalsAlreadySet: backend／mock will not re-emit consultation_goals; FE must not
+    // force-open from cached chips either (unit covers the cache gate).
+    await expect(page.getByTestId('chat-quiz-confirm')).toHaveCount(0, { timeout: 10_000 })
+    await expect(page.getByTestId('chat-quiz-option-sleep')).toHaveCount(0)
+    await expect(page.getByTestId('chat-quiz-option-weight_loss')).toHaveCount(0)
+  })
+
+  test('A→B：goals 未答 → 切換後仍顯示 goals 選單', async ({ page, goto }) => {
+    test.setTimeout(120_000)
+    await mockCandorAuth(page, {
+      asMember: true,
+      conversationPath: null,
+      individualTestsUrl: 'https://example.test/checkup',
+      chatFlowV2: 'a-guide-15',
+      goalsAlreadySet: false,
+      basicProfileComplete: true
+    })
+    await seedNoExpertCase(page)
+    await openFreshChat(page, goto)
+    await selectEntryPath(page, 'A')
+
+    for (let i = 0; i < 15; i++) {
+      await sendChatLine(page, `聊聊 ${i + 1}`)
+      await expect(page.getByTestId('chat-send')).toBeEnabled({ timeout: 15_000 })
+    }
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last.getByTestId('chat-quiz-option-b')).toBeVisible({ timeout: 15_000 })
+    await last.getByTestId('chat-quiz-option-b').click()
+
+    await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('chat-quiz-confirm')).toBeVisible()
   })
 
   test('B：問完必填 → 完成按鈕組', async ({ page, goto }) => {
@@ -114,6 +173,40 @@ test.describe('chat flow v2 — 四條主流程', () => {
     await expect(last.getByTestId('chat-submit-expert-review')).toBeVisible({ timeout: 15_000 })
     await expect(last.getByTestId('chat-quiz-option-continue')).toHaveText('繼續健康諮詢')
     await expect(last.getByTestId('chat-message-checkup')).toBeVisible()
+  })
+
+  test('B：摘要問句版 → open_question_reply＋繼續健康諮詢＋完成 CTA；點繼續 stream content', async ({
+    page,
+    goto
+  }) => {
+    test.setTimeout(90_000)
+    await mockCandorAuth(page, {
+      asMember: true,
+      conversationPath: null,
+      basicProfileComplete: true,
+      chatFlowV2: 'b-triad-asking'
+    })
+    await seedNoExpertCase(page)
+    await openFreshChat(page, goto)
+    await selectEntryPath(page, 'B')
+    await finishGoalSelect(page)
+    await sendChatLine(page, '請給方案')
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last.getByTestId('chat-submit-expert-review')).toBeVisible({ timeout: 15_000 })
+    await expect(last.getByTestId('chat-quiz-option-no_more')).toHaveText('我沒有問題了')
+    await expect(last.getByTestId('chat-quiz-option-suggest')).toHaveText('你有什麼建議')
+    await expect(last.getByTestId('chat-quiz-option-continue')).toHaveText('繼續健康諮詢')
+    // FE-appended duplicate continue must not appear beside RA continue chip.
+    await expect(last.getByTestId('chat-continue-consult')).toHaveCount(0)
+    await expect(last.getByTestId('chat-message-checkup')).toBeVisible()
+
+    const streamReq = page.waitForRequest(req =>
+      req.url().includes('/messages/stream') && req.method() === 'POST'
+    )
+    await last.getByTestId('chat-quiz-option-continue').click()
+    const posted = await streamReq
+    expect(posted.postDataJSON()).toEqual({ content: '繼續健康諮詢' })
   })
 
   test('C：上傳後問完 goals → 完成按鈕組（無 checkup）', async ({ page, goto }) => {

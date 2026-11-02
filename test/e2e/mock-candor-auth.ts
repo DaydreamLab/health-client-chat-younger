@@ -83,9 +83,12 @@ export type CandorMockOptions = {
     | 'ask_report'
     | 'ask_report_checkup'
     | 'lab_followup'
+    /** Old-report triad: 上傳新報告／進行健康諮詢／進行血檢. */
+    | 'lab_followup_stale'
     | 'ask_vitals'
     | 'degraded'
     | 'intake_hybrid'
+    | 'consultation_goals'
     | 'none'
   /**
    * When true with usable reply_actions, dual-write legacy `checkup_offer: true`
@@ -94,9 +97,8 @@ export type CandorMockOptions = {
    */
   legacyCheckupOfferConflict?: boolean
   /**
-   * Path contract A／B／C.
-   * Default `B` so existing e2e skip 進站三選 and keep goal chips
-   * (mock still creates with path=b when option is undefined).
+   * Path contract A／B／C on POST /conversations.
+   * Default `B` so existing e2e skip 進站三選 and keep goal chips.
    * Pass `null` for core #133 entry: create without path → greeting + path_switch a／b／c.
    */
   conversationPath?: 'A' | 'B' | 'C' | null
@@ -109,12 +111,86 @@ export type CandorMockOptions = {
   /**
    * Flow v2 四條主流程 e2e（chat-flow-v2.spec.ts）。
    */
-  chatFlowV2?: 'a-guide-15' | 'b-completion' | 'c-completion' | 'turn-limit-20'
+  chatFlowV2?: 'a-guide-15' | 'b-completion' | 'b-triad-asking' | 'c-completion' | 'turn-limit-20'
+  /**
+   * Pretend POST /goals already succeeded (A→B guide_switch must not re-ask).
+   */
+  goalsAlreadySet?: boolean
   /**
    * Terminal status after the first processing poll on GET /health-reports/{id}.
    * Default `ready`. Use `needs_review` to assert POST-attach stream ack.
    */
   reportTerminalStatus?: 'ready' | 'needs_review'
+  /**
+   * Path B create `flow_prompt` carries consultation_goals reply_actions
+   * (core opening bank). Entry stream may still run; FE must paint RA first.
+   */
+  bOpeningFlowPromptRa?: boolean
+  /**
+   * Attach `flow_prompt` reply_actions shape. Default `consultation_goals`.
+   * Use `lab_followup_stale` for old-report triad chips.
+   */
+  attachFlowPromptRa?: 'consultation_goals' | 'lab_followup_stale'
+  /**
+   * Fail the auto「我的報告已上傳」stream so FE must keep flow_prompt CTAs.
+   */
+  failReportUploadedAckStream?: boolean
+}
+
+/** Shared goals choose_option column for create／attach flow_prompt mocks. */
+export function mockConsultationGoalsReplyActions() {
+  return {
+    schema_version: '0.1',
+    source: 'rule',
+    adaptor: 'rule',
+    degraded: false,
+    error: null,
+    actions: [
+      {
+        type: 'choose_option',
+        payload: {
+          kind: 'consultation_goals',
+          mode: 'multi',
+          confirm: true,
+          options: goalOptions,
+          selected: [],
+          gap_code: null,
+          answer_type: 'multi_enum',
+          exclusive_codes: []
+        }
+      }
+    ]
+  }
+}
+
+/** Old-report triad on attach flow_prompt (core lab_followup). */
+export function mockStaleReportLabFollowupReplyActions() {
+  return {
+    schema_version: '0.1',
+    source: 'rule',
+    adaptor: 'rule',
+    degraded: false,
+    error: null,
+    actions: [
+      {
+        type: 'choose_option',
+        payload: {
+          kind: 'lab_followup',
+          mode: 'single',
+          confirm: false,
+          options: [
+            { code: 'upload_new', label: '上傳新報告', maps_to: 'ask_report' },
+            { code: 'consult', label: '進行健康諮詢', maps_to: 'continue_consultation' },
+            { code: 'checkup', label: '進行血檢', maps_to: 'offer_checkup' }
+          ],
+          selected: [],
+          gap_code: null,
+          answer_type: null,
+          exclusive_codes: []
+        }
+      }
+    ]
+  }
 }
 
 const legacyPackagePlans = [
@@ -224,7 +300,7 @@ const PRIVACY_CONSENT_STORAGE_KEY = 'candor.privacy.consent.version'
 /** Mock candor-core auth + chat/report/profile so e2e does not need a live API. */
 export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}) {
   let quizAnswered = false
-  let goalsSet = false
+  let goalsSet = Boolean(options.goalsAlreadySet)
   let streamCount = 0
   let chatFlowTurnCount = 0
   let mockEntryPath: 'a' | 'b' | 'c' = 'b'
@@ -619,7 +695,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     })
   })
 
-  const _reviewedPackages = [
+  const reviewedPackages = [
     {
       package_plan_code: 'basic',
       package_plan_name: '基礎保養',
@@ -786,36 +862,40 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       })
       return
     }
-    // Default GET 404: a reviewed case with health_report_id would make
-    // ChatPanel syncExpertReview＋restoreReport attach the report and expand
-    // the dock (stealing null-path entry / covering goal chips). Specs that
-    // need a case override this route (health-review-recommend, etc.).
-    if (memberExpertReviewStatus !== 'awaiting_review') {
-      await route.fulfill({
-        status: 404,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          status: 'failed',
-          error_message: 'Expert review not found.',
-          error_code: 'not_found'
-        })
-      })
-      return
-    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data: {
-          id: expertReviewId,
-          conversation_id: conversationId,
-          health_report_id: reportId,
-          status: 'awaiting_review',
-          recommendation_run_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
-          created_at: '2026-01-01T00:00:00Z',
-          updated_at: '2026-01-01T00:00:00Z'
-        }
+        data: memberExpertReviewStatus === 'reviewed'
+          ? {
+              id: expertReviewId,
+              conversation_id: conversationId,
+              health_report_id: reportId,
+              status: 'reviewed',
+              recommendation_run_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T01:00:00Z',
+              reviewed_at: '2026-01-01T01:00:00Z',
+              packages: reviewedPackages,
+              weight_set: { id: 'ws-e2e', version: '0.1.0' },
+              summary: {
+                top_domains: [],
+                data_gaps: [],
+                profile_gaps: [],
+                strategy_code: 'focus_abnormal',
+                message: null
+              }
+            }
+          : {
+              id: expertReviewId,
+              conversation_id: conversationId,
+              health_report_id: reportId,
+              status: 'awaiting_review',
+              recommendation_run_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z'
+            }
       })
     })
   })
@@ -965,9 +1045,10 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           kind: 'path_switch',
           mode: 'single',
           confirm: false,
+          // Empty labels: FE fills pathEntryA／B i18n (core omits copy).
           options: [
-            { code: 'a', label: '我想聊聊' },
-            { code: 'b', label: '我想諮詢健康方案' }
+            { code: 'a', label: '' },
+            { code: 'b', label: '' }
           ],
           selected: [],
           gap_code: null,
@@ -1034,8 +1115,6 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
             message_id: 'greet-e2e',
             role: 'assistant',
             content: greetingContent,
-            // Create only returns greeting; path B goals come from the first
-            // stream reply after the entry option is sent as a normal message.
             options: [],
             selected: [],
             ...(entryGreeting
@@ -1053,6 +1132,18 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   reply_actions: pathCAwaitUploadReplyActions
                 }
               }
+            : {}),
+          ...(path === 'b' && options.bOpeningFlowPromptRa
+            ? {
+                flow_prompt: {
+                  message_id: 'flow-b-goals-e2e',
+                  role: 'assistant',
+                  content: '先選您想改善的健康方向。',
+                  options: [],
+                  selected: [],
+                  reply_actions: mockConsultationGoalsReplyActions()
+                }
+              }
             : {})
         }
       })
@@ -1067,30 +1158,43 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     const body = route.request().postDataJSON() as { path?: string } | null
     const raw = typeof body?.path === 'string' ? body.path.trim().toLowerCase() : ''
     const nextPath = raw === 'a' || raw === 'b' || raw === 'c' ? raw : 'b'
-    mockEntryPath = nextPath
     mockEntryPathSelected = nextPath
-    const data: Record<string, unknown> = {
-      id: conversationId,
-      path: nextPath,
-      report_id: null
-    }
-    // First select → C without report: return await-upload flow_prompt.
-    if (nextPath === 'c') {
-      data.flow_prompt = {
-        message_id: 'flow-c-await-e2e',
-        role: 'assistant',
-        content: FLOW_V2_PATH_C_AWAIT_UPLOAD,
-        options: [],
-        selected: [],
-        reply_actions: pathCAwaitUploadReplyActions
-      }
-    }
+    mockEntryPath = nextPath
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data
+        data: {
+          id: conversationId,
+          path: nextPath,
+          // Entry C without report: await-upload flow_prompt (core #133).
+          ...(nextPath === 'c'
+            ? {
+                flow_prompt: {
+                  message_id: 'flow-c-await-path-e2e',
+                  role: 'assistant',
+                  content: FLOW_V2_PATH_C_AWAIT_UPLOAD,
+                  options: [],
+                  selected: [],
+                  reply_actions: pathCAwaitUploadReplyActions
+                }
+              }
+            : {}),
+          // core #140: A→B path ack may include opening flow_prompt＋goals RA.
+          ...(nextPath === 'b' && !goalsSet
+            ? {
+                flow_prompt: {
+                  message_id: 'flow-path-b-goals-e2e',
+                  role: 'assistant',
+                  content: '先選您想改善的健康方向。',
+                  options: [],
+                  selected: [],
+                  reply_actions: mockConsultationGoalsReplyActions()
+                }
+              }
+            : {})
+        }
       })
     })
   })
@@ -1178,9 +1282,11 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
             message_id: 'flow-c-basics-e2e',
             role: 'assistant',
             content: FLOW_V2_PATH_C_BASICS,
-            options: goalOptions,
-            options_kind: 'consultation_goals',
-            selected: []
+            options: [],
+            selected: [],
+            reply_actions: options.attachFlowPromptRa === 'lab_followup_stale'
+              ? mockStaleReportLabFollowupReplyActions()
+              : mockConsultationGoalsReplyActions()
           }
         }
       })
@@ -1272,6 +1378,12 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         ]
       }
     }
+    if (mode === 'lab_followup_stale') {
+      return mockStaleReportLabFollowupReplyActions()
+    }
+    if (mode === 'consultation_goals') {
+      return mockConsultationGoalsReplyActions()
+    }
     if (mode === 'none') {
       return {
         schema_version: '0.1',
@@ -1344,7 +1456,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     return null
   }
 
-  /** GET history — entry null-path greeting, or replyActions mock transcript. */
+  /** GET history — only returns transcript when replyActions mock mode is set. */
   await page.route(`**/api/v1/conversation/${conversationId}/messages`, async (route) => {
     if (route.request().method() !== 'GET') {
       await route.fallback()
@@ -1364,6 +1476,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           status: 'success',
           data: {
             conversation_id: conversationId,
+            path: null,
             messages: [{
               id: 'greet-e2e',
               role: 'assistant',
@@ -1385,7 +1498,11 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         contentType: 'application/json',
         body: JSON.stringify({
           status: 'success',
-          data: { conversation_id: conversationId, messages: [] }
+          data: {
+            conversation_id: conversationId,
+            path: mockEntryPath,
+            messages: []
+          }
         })
       })
       return
@@ -1395,10 +1512,18 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     // still satisfies e2e text assertions (sex / vitals).
     let assistantContent = '依報告來看，基礎保養會是合適起點。'
     let assistantOptions: Array<{ code: string, label: string }> = options.replyActions !== 'degraded'
+      && options.replyActions !== 'consultation_goals'
+      && options.replyActions !== 'lab_followup_stale'
       ? [{ code: 'legacy_chip', label: '舊選項' }]
       : []
     let profileGaps: string[] = []
-    if (options.replyActions === 'intake_hybrid' && goalsSet) {
+    if (options.replyActions === 'consultation_goals') {
+      assistantContent = '先選您想改善的健康方向。'
+      assistantOptions = []
+    } else if (options.replyActions === 'lab_followup_stale') {
+      assistantContent = '這份報告日期較舊，您可以上傳新報告、繼續諮詢，或安排血檢。'
+      assistantOptions = []
+    } else if (options.replyActions === 'intake_hybrid' && goalsSet) {
       if (!hybridSexAnswered) {
         assistantContent = '請問您的生理性別？'
         assistantOptions = [
@@ -1436,6 +1561,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         status: 'success',
         data: {
           conversation_id: conversationId,
+          // Optional until core adds path; FE sync uses it after A→B continue-health.
+          path: mockEntryPath,
           messages: [
             {
               id: 'msg-history-user',
@@ -1453,17 +1580,50 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     streamCount += 1
     chatFlowTurnCount += 1
 
+    const streamBody = route.request().postDataJSON() as { content?: string } | null
+    const streamText = typeof streamBody?.content === 'string' ? streamBody.content : ''
+
+    // Path C upload ack failure: keep flow_prompt CTAs on the prior assistant bubble.
+    if (options.failReportUploadedAckStream && streamText.includes('我的報告已上傳')) {
+      const body = [
+        'event: error',
+        `data: ${JSON.stringify({ error: { code: 'stream_error', message: 'ack failed' } })}`,
+        '',
+        ''
+      ].join('\n')
+      await route.fulfill({ status: 200, contentType: 'text/event-stream', body })
+      return
+    }
+
     // Path B entry / Path C post-attach ack: first stream carries consultation_goals
     // (create greeting has no goals; FE must not paint goals from GET next).
-    // Only when the user message is an entry／attach ack — do not steal streams for
-    // replyActions／profileQuiz regressions (e.g. lab_report=none → offer_recommend).
-    const streamBody = route.request().postDataJSON() as { content?: string } | null
-    const streamContent = typeof streamBody?.content === 'string' ? streamBody.content : ''
-    const isEntryOrUploadAck = streamContent === '我想聊聊'
-      || streamContent === '我想諮詢健康方案'
-      || streamContent === '幫我看報告'
-      || streamContent === '我的報告已上傳'
-    if ((mockEntryPath === 'b' || mockEntryPath === 'c') && !goalsSet && isEntryOrUploadAck) {
+    // Old-report attach may instead echo lab_followup_stale on the ack stream.
+    if ((mockEntryPath === 'b' || mockEntryPath === 'c') && !goalsSet) {
+      if (mockEntryPath === 'c' && options.attachFlowPromptRa === 'lab_followup_stale') {
+        const content = '這份報告日期較舊，您可以上傳新報告、繼續諮詢，或安排血檢。'
+        const donePayload = {
+          message_id: `msg-e2e-stale-${streamCount}`,
+          claim_guard: 'passed',
+          content,
+          options: [],
+          turn: { type: 'message' },
+          profile_question: null,
+          external: null,
+          profile_gaps: [],
+          reply_actions: mockStaleReportLabFollowupReplyActions()
+        }
+        const body = [
+          'event: delta',
+          `data: ${JSON.stringify({ text: content })}`,
+          '',
+          'event: done',
+          `data: ${JSON.stringify(donePayload)}`,
+          '',
+          ''
+        ].join('\n')
+        await route.fulfill({ status: 200, contentType: 'text/event-stream', body })
+        return
+      }
       const content = mockEntryPath === 'c'
         ? '報告已收到，先選您想改善的健康方向。'
         : '先選您想改善的健康方向。'
@@ -1477,28 +1637,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         profile_question: null,
         external: null,
         profile_gaps: [],
-        reply_actions: {
-          schema_version: '0.1',
-          source: 'rule',
-          adaptor: 'rule',
-          degraded: false,
-          error: null,
-          actions: [
-            {
-              type: 'choose_option',
-              payload: {
-                kind: 'consultation_goals',
-                mode: 'multi',
-                confirm: true,
-                options: goalOptions,
-                selected: [],
-                gap_code: null,
-                answer_type: 'multi_enum',
-                exclusive_codes: []
-              }
-            }
-          ]
-        }
+        reply_actions: mockConsultationGoalsReplyActions()
       }
       const body = [
         'event: delta',
@@ -1550,6 +1689,22 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
             degraded: false,
             error: null,
             actions: [
+              {
+                type: 'choose_option',
+                payload: {
+                  kind: 'open_question_reply',
+                  mode: 'single',
+                  confirm: false,
+                  options: [
+                    { code: 'no_more', label: '我沒有問題了' },
+                    { code: 'suggest', label: '你有什麼建議' }
+                  ],
+                  selected: [],
+                  gap_code: null,
+                  answer_type: null,
+                  exclusive_codes: []
+                }
+              },
               { type: 'offer_checkup', payload: { url: 'https://example.test/checkup' } },
               {
                 type: 'choose_option',
@@ -1557,7 +1712,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   kind: 'path_switch',
                   mode: 'single',
                   confirm: false,
-                  options: [{ code: 'b', label: '進行健康諮詢' }],
+                  // Empty label: FE fills chat.pathSwitchToConsult (not code "b").
+                  options: [{ code: 'b', label: '' }],
                   selected: [],
                   gap_code: null,
                   answer_type: null,
@@ -1619,7 +1775,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   kind: 'path_switch',
                   mode: 'single',
                   confirm: false,
-                  options: [{ code: 'b', label: '進行健康諮詢' }],
+                  // Solo path_switch: empty label → FE i18n pathSwitchToConsult
+                  options: [{ code: 'b', label: '' }],
                   selected: [],
                   gap_code: null,
                   answer_type: null,
@@ -1666,6 +1823,73 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         external: null,
         profile_gaps: [],
         reply_actions: completionGroupRa
+      }
+      const body = [
+        'event: delta',
+        `data: ${JSON.stringify({ text: content })}`,
+        '',
+        'event: done',
+        `data: ${JSON.stringify(donePayload)}`,
+        '',
+        ''
+      ].join('\n')
+      await route.fulfill({ status: 200, contentType: 'text/event-stream', body })
+      return
+    }
+
+    // core #135 triad asking summary: open_question_reply + continue_consultation + completion CTA
+    if (options.chatFlowV2 === 'b-triad-asking' && goalsSet && mockEntryPath === 'b') {
+      const content = '目前整理如下，還有想釐清的嗎？'
+      const donePayload = {
+        message_id: `msg-v2-b-triad-${streamCount}`,
+        claim_guard: 'passed',
+        content,
+        options: [],
+        turn: { type: 'message' },
+        profile_question: null,
+        external: null,
+        profile_gaps: [],
+        reply_actions: {
+          schema_version: '0.1',
+          source: 'semantic_judgment',
+          adaptor: 'rule',
+          degraded: false,
+          error: null,
+          actions: [
+            { type: 'offer_recommend', payload: {} },
+            { type: 'ask_report', payload: {} },
+            {
+              type: 'choose_option',
+              payload: {
+                kind: 'open_question_reply',
+                mode: 'single',
+                confirm: false,
+                options: [
+                  { code: 'no_more', label: '我沒有問題了' },
+                  { code: 'suggest', label: '你有什麼建議' }
+                ],
+                selected: [],
+                gap_code: null,
+                answer_type: null,
+                exclusive_codes: []
+              }
+            },
+            {
+              type: 'choose_option',
+              payload: {
+                kind: 'continue_consultation',
+                mode: 'single',
+                confirm: false,
+                options: [{ code: 'continue', label: '繼續健康諮詢' }],
+                selected: [],
+                gap_code: null,
+                answer_type: null,
+                exclusive_codes: []
+              }
+            },
+            { type: 'offer_checkup', payload: { url: 'https://example.test/checkup' } }
+          ]
+        }
       }
       const body = [
         'event: delta',
@@ -1789,8 +2013,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         profile_gaps: ['sex', 'age', 'diet']
       }
     } else if (options.profileQuiz && goalsSet && quizAnswered && streamCount <= 3) {
-      // Allow streamCount 3: entry path select may consume stream #1 for goals
-      // (core #133), then goals→sex (#2), sex→follow-up chips (#3).
+      // Allow streamCount 3: entry path select may consume stream #1 for goals,
+      // then goals→sex (#2), sex→follow-up chips (#3).
       donePayload = {
         message_id: `msg-e2e-${streamCount}`,
         claim_guard: 'passed',
@@ -1825,6 +2049,20 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         // checkup_offer only when a dedicated conflict test opts in.
         checkup_offer: Boolean(options.legacyCheckupOfferConflict),
         reply_actions: replyActions
+      }
+    }
+
+    // Mirror core stripOfferRecommend on path A — FE no longer hides by path.
+    if (mockEntryPath === 'a' && donePayload.reply_actions
+      && typeof donePayload.reply_actions === 'object') {
+      const ra = donePayload.reply_actions as {
+        actions?: Array<{ type?: string }>
+      }
+      if (Array.isArray(ra.actions)) {
+        donePayload.reply_actions = {
+          ...ra,
+          actions: ra.actions.filter(action => action.type !== 'offer_recommend')
+        }
       }
     }
 
