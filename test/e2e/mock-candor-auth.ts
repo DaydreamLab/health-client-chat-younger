@@ -1307,7 +1307,11 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         contentType: 'application/json',
         body: JSON.stringify({
           status: 'success',
-          data: { conversation_id: conversationId, messages: [] }
+          data: {
+            conversation_id: conversationId,
+            path: mockEntryPath,
+            messages: []
+          }
         })
       })
       return
@@ -1358,6 +1362,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         status: 'success',
         data: {
           conversation_id: conversationId,
+          // Optional until core adds path; FE sync uses it after A→B continue-health.
+          path: mockEntryPath,
           messages: [
             {
               id: 'msg-history-user',
@@ -1374,6 +1380,14 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
   await page.route(`**/api/v1/conversation/${conversationId}/messages/stream`, async (route) => {
     streamCount += 1
     chatFlowTurnCount += 1
+
+    // core #139: path A + label「繼續健康諮詢」→ switchPath to B (prepareTurn).
+    // Omit `path` on done so FE hybrid refetch／optimistic path stays covered.
+    const streamBody = route.request().postDataJSON() as { content?: string } | null
+    const streamContent = typeof streamBody?.content === 'string' ? streamBody.content.trim() : ''
+    if (mockEntryPath === 'a' && streamContent === '繼續健康諮詢') {
+      mockEntryPath = 'b'
+    }
 
     // Path B entry / Path C post-attach ack: first stream carries consultation_goals
     // (create greeting has no goals; FE must not paint goals from GET next).

@@ -207,6 +207,36 @@ export function shouldOpenGoalsFromCachedOptions(input: {
   return input.goalOptionsCount >= 2
 }
 
+/**
+ * After streaming the continue-health label from path A, core may have switched to B
+ * (candor-core #139 prepareTurn／switchPath). Prefer `path` on stream done or
+ * GET messages; if still missing, optimistically use B so the FE is not stuck on A.
+ * Returns null when this turn is not an A→B continue-consult sync.
+ */
+export function resolvePathAfterContinueConsult(input: {
+  pathBefore: ConversationPath | null
+  continueLabel: string
+  sentContent: string
+  pathFromStream?: unknown
+  pathFromRefetch?: unknown
+}): ConversationPath | null {
+  if (input.pathBefore !== 'A') {
+    return null
+  }
+  if (input.sentContent.trim() !== input.continueLabel.trim()) {
+    return null
+  }
+  const fromStream = normalizeConversationPath(input.pathFromStream)
+  if (fromStream) {
+    return fromStream
+  }
+  const fromRefetch = normalizeConversationPath(input.pathFromRefetch)
+  if (fromRefetch) {
+    return fromRefetch
+  }
+  return 'B'
+}
+
 export interface PathEntryOption {
   code: PathEntryCode
   /** i18n key under `chat.pathEntry*` */

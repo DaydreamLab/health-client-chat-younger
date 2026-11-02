@@ -481,6 +481,8 @@ export interface ConversationHistoryMessageDto {
 
 export interface ConversationMessages {
   conversation_id?: string
+  /** Journey path when core includes it on history payload (optional). */
+  path?: 'a' | 'b' | 'c' | 'A' | 'B' | 'C' | null
   messages: ConversationHistoryMessageDto[]
 }
 
@@ -690,6 +692,11 @@ export interface StreamMessageResult {
    * when usable; see `app/utils/reply-actions.ts`.
    */
   reply_actions?: ReplyActions | null
+  /**
+   * Optional journey path after this turn (e.g. A→B continue-health switch).
+   * Prefer lowercase `a|b|c`; FE normalizes. Absent until core adds the field.
+   */
+  path?: 'a' | 'b' | 'c' | 'A' | 'B' | 'C' | null
 }
 
 export interface ApiSuccess<T> {

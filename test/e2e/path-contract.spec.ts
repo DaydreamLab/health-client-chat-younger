@@ -250,6 +250,71 @@ test.describe('path contract (A／B／C)', () => {
     await expect(last.getByTestId('chat-submit-expert-review')).toHaveCount(0)
   })
 
+  test('path A：點「繼續健康諮詢」後 journey path 立刻變 B', async ({ page, goto }) => {
+    test.setTimeout(90_000)
+    await mockCandorAuth(page, {
+      asMember: true,
+      conversationPath: 'A',
+      basicProfileComplete: true,
+      replyActions: 'lab_followup',
+      goalsAlreadySet: true,
+      individualTestsUrl: 'https://example.test/checkup'
+    })
+    await seedNoExpertCase(page)
+    await page.setViewportSize({ width: 1280, height: 800 })
+
+    const seeded = {
+      conversationId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      messages: [],
+      hasAnalysis: false,
+      selectedPackageCode: null,
+      reportId: null,
+      reportDockOpen: false,
+      reportDockCollapsed: true,
+      reportInterpretSent: false,
+      selectedPackage: null,
+      packageConfirmed: false,
+      goalSelectActive: false,
+      reportAskActive: false,
+      goalOptions: [],
+      selectedCodes: [],
+      quizActive: false,
+      activeQuestion: null,
+      postQuizGuided: false,
+      profileGaps: [],
+      clarifyingGoals: [],
+      expertReviewStatus: 'none',
+      conversationPath: 'A',
+      pathCAwaitingUpload: false
+    }
+    await page.addInitScript((journey) => {
+      localStorage.setItem('candor.unpaid.journey', JSON.stringify(journey))
+    }, seeded)
+    await goto('/chat', { waitUntil: 'hydration' })
+
+    await sendChatLine(page, '沒有報告')
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last.getByTestId('chat-continue-consult')).toBeVisible({ timeout: 15_000 })
+
+    const streamReq = page.waitForRequest(req =>
+      req.method() === 'POST'
+      && req.url().includes('/messages/stream')
+      && (req.postData() || '').includes('繼續健康諮詢')
+    )
+    await last.getByTestId('chat-continue-consult').click()
+    await streamReq
+
+    await expect.poll(async () => {
+      return page.evaluate(() => {
+        const raw = localStorage.getItem('candor.unpaid.journey')
+        if (!raw) {
+          return null
+        }
+        return (JSON.parse(raw) as { conversationPath?: string }).conversationPath ?? null
+      })
+    }, { timeout: 15_000 }).toBe('B')
+  })
+
   test('path C：flow_prompt 上傳引導＋A／B 兩鈕（無 checkup）', async ({ page, goto }) => {
     test.setTimeout(90_000)
     await mockCandorAuth(page, {

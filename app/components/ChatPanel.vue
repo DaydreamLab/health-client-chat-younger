@@ -413,6 +413,7 @@ import {
   PATH_ENTRY_OPTIONS,
   pathAfterReportUpload,
   pathRequiresBasicProfile,
+  resolvePathAfterContinueConsult,
   shouldOpenGoalsFromCachedOptions,
   toApiConversationPath,
   type ConversationPath
@@ -2016,6 +2017,10 @@ async function streamPending() {
     liveAssistantId.value = assistantId
   }
 
+  // Capture before stream: core #139 may switch A→B on continue-health label.
+  const pathBeforeStream = conversationPath.value
+  const continueConsultLabel = t(CONTINUE_CONSULT_I18N_KEY)
+
   try {
     const conversationId = await ensureConversation()
 
@@ -2039,6 +2044,34 @@ async function streamPending() {
     // Empty / meta-only replies still need a host bubble for CTAs.
     ensureLiveAssistant()
     streamMessageLookupId = applyStreamMeta(assistantId, result)
+
+    // A +「繼續健康諮詢」: sync FE path to B (stream path → refetch → optimistic).
+    // B／C continue and path_switch are untouched (helper returns null).
+    if (pathContractEnabled.value
+      && pathBeforeStream === 'A'
+      && content.trim() === continueConsultLabel.trim()) {
+      let pathFromRefetch: unknown
+      if (result.path == null) {
+        try {
+          const history = await candor.getConversationMessages(conversationId)
+          pathFromRefetch = parseConversationMessagesResult(history).path
+        } catch {
+          // History may 404／405 — fall through to optimistic B.
+        }
+      }
+      const nextPath = resolvePathAfterContinueConsult({
+        pathBefore: pathBeforeStream,
+        continueLabel: continueConsultLabel,
+        sentContent: content,
+        pathFromStream: result.path,
+        pathFromRefetch
+      })
+      if (nextPath) {
+        conversationPath.value = nextPath
+        pathCAwaitingUpload.value = false
+      }
+    }
+
     // Interpret 外連改吃 stream reply_actions offer_checkup（#20）；勿 FE 硬設 wantMoreTestsOffer.
     if (intent === 'interpret' && !checkupUrlLoaded.value) {
       void loadCheckupLinkUrl()
