@@ -440,6 +440,7 @@ import {
   parseConversationMessagesResult
 } from '~/utils/chat-history'
 import { expertReviewUiStatusFromRow } from '~/utils/expert-review'
+import { STREAM_INTENT_AFTER_ANSWER } from '~/utils/stream-message'
 import { storeToRefs } from 'pinia'
 
 const props = defineProps<{
@@ -1916,6 +1917,11 @@ async function continueAfterSavedAnswer(opts: {
   profileGaps: string[]
   nextQuestion?: ProfileNext | null
   pendingContent: string
+  /**
+   * Stream body intent for the echo follow-up. Set `after_answer` only after
+   * POST /profile/answers (candor-core #134). Goals／other flows omit this.
+   */
+  streamIntent?: string | null
 }) {
   profileGaps.value = opts.profileGaps
   const next = opts.nextQuestion
@@ -1950,6 +1956,10 @@ async function continueAfterSavedAnswer(opts: {
   }
 
   pendingUserContent.value = opts.pendingContent
+  // Do not overwrite interpret／other intents; only set when caller passes one.
+  if (opts.streamIntent) {
+    pendingIntent.value = opts.streamIntent
+  }
   await streamPending()
 }
 
@@ -2160,7 +2170,8 @@ async function onVitalsSubmit(values: Partial<Record<VitalsField, number>>) {
       await continueAfterSavedAnswer({
         profileGaps: result.profile_gaps,
         nextQuestion: result.next_question,
-        pendingContent: display
+        pendingContent: display,
+        streamIntent: STREAM_INTENT_AFTER_ANSWER
       })
       return
     }
@@ -2196,7 +2207,8 @@ async function sendText(text: string) {
         await continueAfterSavedAnswer({
           profileGaps: result.profile_gaps,
           nextQuestion: result.next_question,
-          pendingContent: content
+          pendingContent: content,
+          streamIntent: STREAM_INTENT_AFTER_ANSWER
         })
         return
       }
@@ -2462,7 +2474,8 @@ async function submitProfileChoice(payload: {
     await continueAfterSavedAnswer({
       profileGaps: result.profile_gaps,
       nextQuestion: result.next_question,
-      pendingContent: payload.display
+      pendingContent: payload.display,
+      streamIntent: STREAM_INTENT_AFTER_ANSWER
     })
   } catch {
     appendMessage('assistant', t('chat.streamError'))

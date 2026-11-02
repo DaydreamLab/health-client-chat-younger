@@ -1372,7 +1372,15 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
 
     // Path B entry / Path C post-attach ack: first stream carries consultation_goals
     // (create greeting has no goals; FE must not paint goals from GET next).
-    if ((mockEntryPath === 'b' || mockEntryPath === 'c') && !goalsSet) {
+    // Only steal when the user message is an entry／attach ack — do not intercept
+    // replyActions／profileQuiz follow-ups (e.g. lab_report=none →「無」+ after_answer).
+    const streamBody = route.request().postDataJSON() as { content?: string, intent?: string } | null
+    const streamContent = typeof streamBody?.content === 'string' ? streamBody.content : ''
+    const isEntryOrUploadAck = streamContent === '我想聊聊'
+      || streamContent === '我想諮詢健康方案'
+      || streamContent === '幫我看報告'
+      || streamContent === '我的報告已上傳'
+    if ((mockEntryPath === 'b' || mockEntryPath === 'c') && !goalsSet && isEntryOrUploadAck) {
       const content = mockEntryPath === 'c'
         ? '報告已收到，先選您想改善的健康方向。'
         : '先選您想改善的健康方向。'
@@ -1697,7 +1705,9 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         external: null,
         profile_gaps: ['sex', 'age', 'diet']
       }
-    } else if (options.profileQuiz && goalsSet && quizAnswered && streamCount <= 2) {
+    } else if (options.profileQuiz && goalsSet && quizAnswered && streamCount <= 3) {
+      // Allow streamCount 3: entry path select may consume stream #1 for goals,
+      // then goals→sex (#2), sex→follow-up chips (#3).
       donePayload = {
         message_id: `msg-e2e-${streamCount}`,
         claim_guard: 'passed',

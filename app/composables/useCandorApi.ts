@@ -1,3 +1,4 @@
+import { buildStreamRequestBody } from '../utils/stream-message'
 import type {
   AnonymizeAccepted,
   ApiFailed,
@@ -181,6 +182,10 @@ export function useCandorApi() {
     }
   }
 
+  /**
+   * POST …/messages/stream with JSON `{ content, intent? }` (intent same level as content).
+   * After profile/answers echo, pass intent=`after_answer` (candor-core #134).
+   */
   async function streamMessage(
     conversationId: string,
     content: string,
@@ -204,7 +209,7 @@ export function useCandorApi() {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify(intent ? { content, intent } : { content })
+      body: JSON.stringify(buildStreamRequestBody(content, intent))
     })
 
     const ct = res.headers.get('content-type') || ''

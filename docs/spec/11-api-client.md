@@ -53,7 +53,8 @@
 
 ## SSE
 
-- 路徑：`POST /conversation/{id}/messages/stream`。
+- 路徑：`POST /conversation/{id}/messages/stream`（本 FE 回聲 follow-up 只走 stream；非 stream `POST …/messages` 同契約欄位，見 candor-core draft #134）。
+- Body：`{ "content": "…", "intent": "…" }`（`intent` 與 `content` 同層；`buildStreamRequestBody`／`useCandorApi.streamMessage`）。`POST /profile/answers` 成功後的回聲 follow-up 帶 `intent: "after_answer"`（例：`{ "content": "無", "intent": "after_answer" }`），供 core 跳過問卷推斷；未知 intent core 白名單會忽略。使用者自行打字、`path_switch`、goals、報告上傳確認句不帶；判讀 CTA 仍用既有 `intent: "interpret"`。
 - `claim_guard=blocked`：顯示安全提示原文，清空已串流 delta。
 - 不得為 SSE 另建 BFF 代理（除非日後 core ADR 明確允許）。
 
