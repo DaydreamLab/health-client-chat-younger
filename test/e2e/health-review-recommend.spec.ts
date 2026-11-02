@@ -66,8 +66,7 @@ async function seedLatestConversationJourney(page: Page) {
     profileGaps: [],
     clarifyingGoals: [],
     expertReviewStatus: 'none',
-    conversationPath: 'C',
-    pathCAwaitingUpload: false
+    conversationPath: 'C'
   })
 }
 

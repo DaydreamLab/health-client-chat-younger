@@ -122,7 +122,7 @@
 | 能力 | 端點 | 狀態 |
 |------|------|------|
 | 摘要讀取 | `GET /profile` | 已接 |
-| 下一題 | `GET /profile/questions/next` | 已接 |
+| 下一題 | `GET /profile/questions/next` | 已接（API 保留）；B／C **不再主動拉**，出題改信 RA／answers `next_question`（依賴 core #139） |
 | 作答 | `POST /profile/answers` | 已接 |
 
 ### 對話
@@ -137,8 +137,8 @@
 | 同步訊息 | `POST /conversation/{id}/messages` | Mock |
 | SSE 串流 | `POST /conversation/{id}/messages/stream` | 已接 |
 | `reply_actions` v0.1 CTA（SSE `done`／訊息欄） | 契約定稿；FE 已接；**legacy meta 不當 fallback**（intentional `none`／degraded＝無 CTA）；path 契約下完成 CTA 門檻＝B／C＋基本四欄（goals／報告／optional 不挡；**不**在 none 時 FE 強掛）；`ask_vitals` 數字卡；gap CTA 抬到最新泡泡；free chips 可與 bank gap 並存於最新 | 接線中 |
-| 對話路徑契約 A／B／C | 進站三選、上傳升 C、C 取消退 B、A 回合引導、B／C 必填四欄；`POST …/path` soft-fail 待 core；見 [docs/spec/12-path-contract.md](spec/12-path-contract.md) | 接線中 |
-| 對話 history hydrate | `GET /conversation/{id}/messages` → 每則 `reply_actions` 映 CTA（與 SSE 同路徑）；缺欄／none 不回退 legacy upload／recommend | 接線中 |
+| 對話路徑契約 A／B／C | 進站三選、上傳升 C、C 取消退 B、A 回合引導、B／C 出題信 RA；path 由 SSE／GET messages 覆寫（null→當 A 不回寫）；見 [docs/spec/12-path-contract.md](spec/12-path-contract.md)；**依賴 core #139** | 接線中 |
+| 對話 history hydrate | `GET /conversation/{id}/messages` → 每則 `reply_actions` 映 CTA（與 SSE 同路徑）；`data.path` 覆寫本機（key 缺席不蓋）；缺欄／none 不回退 legacy upload／recommend | 接線中 |
 
 ### 建議與價格帶
 

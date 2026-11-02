@@ -264,8 +264,8 @@ export interface ConversationPathAck {
   path: 'a' | 'b' | 'c' | 'A' | 'B' | 'C'
   report_id?: string | null
   /**
-   * First path select → C without report: await-upload prompt
-   * (ask_report + path_switch a／b). Absent for A／B and idempotent same-path.
+   * Entry C without report, or Path B opening／A→B guide (core #133／#140):
+   * flow turn with `reply_actions` (same shape as create.flow_prompt).
    */
   flow_prompt?: ConversationGreeting | null
 }
@@ -487,6 +487,8 @@ export interface ConversationHistoryMessageDto {
 
 export interface ConversationMessages {
   conversation_id?: string
+  /** Journey path when core includes it on history payload (optional). */
+  path?: 'a' | 'b' | 'c' | 'A' | 'B' | 'C' | null
   messages: ConversationHistoryMessageDto[]
 }
 
@@ -696,6 +698,12 @@ export interface StreamMessageResult {
    * when usable; see `app/utils/reply-actions.ts`.
    */
   reply_actions?: ReplyActions | null
+  /**
+   * Journey path after this turn when core includes it on SSE `done` (core #139).
+   * Prefer lowercase `a|b|c`; FE normalizes.
+   * Key absent → do not overwrite FE path; explicit `null` → unselected (treat as A).
+   */
+  path?: 'a' | 'b' | 'c' | 'A' | 'B' | 'C' | null
 }
 
 export interface ApiSuccess<T> {

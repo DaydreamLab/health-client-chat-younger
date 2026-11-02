@@ -152,10 +152,9 @@ function asOptionList(raw: unknown): ChatMessageOption[] {
     if (!code) {
       continue
     }
-    // Empty label allowed (path_switch: BE omits copy; FE i18n fills display).
-    const label = typeof item.label === 'string' && item.label !== ''
-      ? item.label
-      : code
+    // Keep empty string (path_switch: BE omits copy; FE i18n fills display).
+    // Missing label field still falls back to code for other choose_option kinds.
+    const label = typeof item.label === 'string' ? item.label : code
     const mapsTo = typeof item.maps_to === 'string' ? item.maps_to : null
     out.push(mapsTo ? { code, label, maps_to: mapsTo } : { code, label })
   }
@@ -333,6 +332,65 @@ export function pathSwitchChipI18nKey(kind: PathRuleCopyKind): string {
   return kind === 'path_c_await_upload'
     ? 'chat.pathEntryB'
     : 'chat.pathSwitchToConsult'
+}
+
+/**
+ * Per-option i18n for path_switch when BE label is empty.
+ * Path C a／b／c → pathEntry*; Path A guide `b` → pathSwitchToConsult.
+ */
+export function pathSwitchOptionI18nKey(kind: PathRuleCopyKind, code: string): string {
+  const normalized = code.trim().toLowerCase()
+  if (kind === 'path_c_await_upload') {
+    if (normalized === 'a') {
+      return 'chat.pathEntryA'
+    }
+    if (normalized === 'c') {
+      return 'chat.pathEntryC'
+    }
+    return 'chat.pathEntryB'
+  }
+  if (normalized === 'a') {
+    return 'chat.pathEntryA'
+  }
+  if (normalized === 'c') {
+    return 'chat.pathEntryC'
+  }
+  return 'chat.pathSwitchToConsult'
+}
+
+/**
+ * True when BE omitted chip copy: empty label, or parser fell back to code.
+ * Non-empty distinct labels from core win (existing priority).
+ */
+export function pathSwitchLabelNeedsI18n(
+  option: { code: string, label?: string | null }
+): boolean {
+  const label = String(option.label ?? '').trim()
+  return label === '' || label === option.code
+}
+
+/** Fill empty path_switch chip labels via existing i18n keys (no new copy). */
+export function resolvePathSwitchChoiceLabels(
+  ra: ReplyActions | null | undefined,
+  choices: ChatMessageOption[],
+  translate: (key: string) => string
+): ChatMessageOption[] {
+  const kind = detectPathRuleCopyKind(ra)
+  if (!kind) {
+    return choices
+  }
+  return choices.map((option) => {
+    if (!isPathSwitchOptionCode(ra, option.code)) {
+      return option
+    }
+    if (!pathSwitchLabelNeedsI18n(option)) {
+      return option
+    }
+    return {
+      ...option,
+      label: translate(pathSwitchOptionI18nKey(kind, option.code))
+    }
+  })
 }
 
 export function isContinueConsultationOption(
@@ -584,6 +642,18 @@ export interface ReplyActionsCtaProjection {
   flags: ReplyActionsCtaFlags
   /** When choose_option drives chips. */
   chooseOption: ChooseOptionPayload | null
+  /**
+   * path_switch payload when present.
+   * When another choose_option is primary, chips are still appended to `flags.choices`
+   * so the switch CTA coexists (e.g. open_question_reply + path_switch).
+   */
+  pathSwitch: ChooseOptionPayload | null
+  /**
+   * continue_consultation payload when present.
+   * Coexists with open_question_reply／other chips (B／C triad summary); click still
+   * streams the label so core prepareTurn opens continue_health_consultation.
+   */
+  continueConsultation: ChooseOptionPayload | null
   /** ask_goal without consultation_goals choose_option. */
   askGoal: AskGoalPayload | null
   vitalsFields: VitalsField[]
@@ -626,13 +696,32 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
   const vitalsAction = actions.find(a => a.type === 'ask_vitals')
   const checkupAction = actions.find(a => a.type === 'offer_checkup')
 
+  // path_switch／continue_consultation may coexist with open_question_reply／goals／…
+  // Keep them out of the primary pick so they cannot hide other chips; append later.
   let chooseOption: ChooseOptionPayload | null = null
+  let pathSwitch: ChooseOptionPayload | null = null
+  let continueConsultation: ChooseOptionPayload | null = null
   for (const action of chooseActions) {
     const payload = chooseOptionPayload(action)
+    if (payload.kind === 'path_switch') {
+      pathSwitch = payload
+      continue
+    }
+    if (payload.kind === 'continue_consultation') {
+      continueConsultation = payload
+      continue
+    }
     // Prefer consultation_goals when multiple choose_option appear.
     if (!chooseOption || payload.kind === 'consultation_goals') {
       chooseOption = payload
     }
+  }
+  // Solo companion (no other choose_option) remains the primary chip host.
+  if (!chooseOption && pathSwitch) {
+    chooseOption = pathSwitch
+  }
+  if (!chooseOption && continueConsultation) {
+    chooseOption = continueConsultation
   }
 
   const hasConsultationGoals = chooseOption?.kind === 'consultation_goals'
@@ -649,6 +738,9 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
       && (answerType === 'int' || answerType === 'text')
     if (!chipsHidden) {
       choices = chooseOption.options ?? []
+      if (chooseOption.kind === 'continue_consultation') {
+        choices = stampContinueConsultationMapsTo(choices)
+      }
       const wantsConfirm = chooseOption.confirm === true
         || chooseOption.mode === 'multi'
         || chooseOption.kind === 'consultation_goals'
@@ -662,6 +754,30 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
   } else if (askGoal) {
     choices = goalOptionsFromAskGoal(askGoal)
     showConfirm = choices.length > 0
+  }
+
+  // Companion path_switch: extra switch chip(s) beside the primary choose_option.
+  if (pathSwitch && chooseOption?.kind !== 'path_switch') {
+    const seen = new Set(choices.map(option => option.code))
+    for (const option of pathSwitch.options ?? []) {
+      if (seen.has(option.code)) {
+        continue
+      }
+      seen.add(option.code)
+      choices = [...choices, option]
+    }
+  }
+
+  // Companion continue_consultation: triad summary「繼續健康諮詢」beside open_question_reply.
+  if (continueConsultation && chooseOption?.kind !== 'continue_consultation') {
+    const seen = new Set(choices.map(option => option.code))
+    for (const option of stampContinueConsultationMapsTo(continueConsultation.options ?? [])) {
+      if (seen.has(option.code)) {
+        continue
+      }
+      seen.add(option.code)
+      choices = [...choices, option]
+    }
   }
 
   const standardFlow = input.flow === 'standard'
@@ -691,6 +807,8 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
       showViewRecommend
     },
     chooseOption,
+    pathSwitch,
+    continueConsultation,
     askGoal,
     vitalsFields,
     vitalsGapCode: vitals?.gap_code ?? null,
@@ -699,6 +817,18 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
       ? chooseOption.exclusive_codes
       : ['none', 'none_of_above']
   }
+}
+
+/** Stamp maps_to so FE checkup continue CTA does not duplicate RA continue chips. */
+function stampContinueConsultationMapsTo(
+  options: ChatMessageOption[]
+): ChatMessageOption[] {
+  return options.map((option) => {
+    if (normalizeChooseOptionMapsTo(option.maps_to) === 'continue_consultation') {
+      return option
+    }
+    return { ...option, maps_to: 'continue_consultation' }
+  })
 }
 
 /** offer_recommend button copy by route (same backend type). */
