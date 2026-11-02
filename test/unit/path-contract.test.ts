@@ -9,7 +9,6 @@ import {
   pathAfterCancelUploadWithoutReport,
   pathAfterReportUpload,
   pathRequiresBasicProfile,
-  resolvePathAfterContinueConsult,
   shouldOpenGoalsFromCachedOptions,
   toApiConversationPath
 } from '../../app/utils/path-contract'
@@ -112,62 +111,6 @@ describe('normalizeConversationPath / toApiConversationPath', () => {
     expect(toApiConversationPath('A')).toBe('a')
     expect(toApiConversationPath('B')).toBe('b')
     expect(toApiConversationPath('C')).toBe('c')
-  })
-})
-
-describe('resolvePathAfterContinueConsult — A→B continue-health sync', () => {
-  const continueLabel = '繼續健康諮詢'
-
-  it('A + continue label → prefers stream path', () => {
-    expect(resolvePathAfterContinueConsult({
-      pathBefore: 'A',
-      continueLabel,
-      sentContent: continueLabel,
-      pathFromStream: 'b',
-      pathFromRefetch: 'c'
-    })).toBe('B')
-  })
-
-  it('A + continue label → uses refetch path when stream omits path', () => {
-    expect(resolvePathAfterContinueConsult({
-      pathBefore: 'A',
-      continueLabel,
-      sentContent: ` ${continueLabel} `,
-      pathFromStream: null,
-      pathFromRefetch: 'B'
-    })).toBe('B')
-  })
-
-  it('A + continue label → optimistic B when core omits path everywhere', () => {
-    expect(resolvePathAfterContinueConsult({
-      pathBefore: 'A',
-      continueLabel,
-      sentContent: continueLabel
-    })).toBe('B')
-  })
-
-  it('B／C／null or non-continue content → no-op (null)', () => {
-    expect(resolvePathAfterContinueConsult({
-      pathBefore: 'B',
-      continueLabel,
-      sentContent: continueLabel,
-      pathFromStream: 'b'
-    })).toBe(null)
-    expect(resolvePathAfterContinueConsult({
-      pathBefore: 'C',
-      continueLabel,
-      sentContent: continueLabel
-    })).toBe(null)
-    expect(resolvePathAfterContinueConsult({
-      pathBefore: null,
-      continueLabel,
-      sentContent: continueLabel
-    })).toBe(null)
-    expect(resolvePathAfterContinueConsult({
-      pathBefore: 'A',
-      continueLabel,
-      sentContent: '聊聊別的'
-    })).toBe(null)
   })
 })
 

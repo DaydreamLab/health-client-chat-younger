@@ -1381,14 +1381,6 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     streamCount += 1
     chatFlowTurnCount += 1
 
-    // core #139: path A + label「繼續健康諮詢」→ switchPath to B (prepareTurn).
-    // Omit `path` on done so FE hybrid refetch／optimistic path stays covered.
-    const streamBody = route.request().postDataJSON() as { content?: string } | null
-    const streamContent = typeof streamBody?.content === 'string' ? streamBody.content.trim() : ''
-    if (mockEntryPath === 'a' && streamContent === '繼續健康諮詢') {
-      mockEntryPath = 'b'
-    }
-
     // Path B entry / Path C post-attach ack: first stream carries consultation_goals
     // (create greeting has no goals; FE must not paint goals from GET next).
     if ((mockEntryPath === 'b' || mockEntryPath === 'c') && !goalsSet) {
