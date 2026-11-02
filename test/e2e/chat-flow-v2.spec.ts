@@ -93,6 +93,40 @@ test.describe('chat flow v2 — 四條主流程', () => {
     await expect(last.getByTestId('chat-message-checkup')).toBeVisible()
   })
 
+  test('B：摘要問句版 → open_question_reply＋繼續健康諮詢＋完成 CTA；點繼續 stream content', async ({
+    page,
+    goto
+  }) => {
+    test.setTimeout(90_000)
+    await mockCandorAuth(page, {
+      asMember: true,
+      conversationPath: null,
+      basicProfileComplete: true,
+      chatFlowV2: 'b-triad-asking'
+    })
+    await seedNoExpertCase(page)
+    await openFreshChat(page, goto)
+    await selectEntryPath(page, 'B')
+    await finishGoalSelect(page)
+    await sendChatLine(page, '請給方案')
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last.getByTestId('chat-submit-expert-review')).toBeVisible({ timeout: 15_000 })
+    await expect(last.getByTestId('chat-quiz-option-no_more')).toHaveText('我沒有問題了')
+    await expect(last.getByTestId('chat-quiz-option-suggest')).toHaveText('你有什麼建議')
+    await expect(last.getByTestId('chat-quiz-option-continue')).toHaveText('繼續健康諮詢')
+    // FE-appended duplicate continue must not appear beside RA continue chip.
+    await expect(last.getByTestId('chat-continue-consult')).toHaveCount(0)
+    await expect(last.getByTestId('chat-message-checkup')).toBeVisible()
+
+    const streamReq = page.waitForRequest(req =>
+      req.url().includes('/messages/stream') && req.method() === 'POST'
+    )
+    await last.getByTestId('chat-quiz-option-continue').click()
+    const posted = await streamReq
+    expect(posted.postDataJSON()).toEqual({ content: '繼續健康諮詢' })
+  })
+
   test('C：上傳後問完 goals → 完成按鈕組（無 checkup）', async ({ page, goto }) => {
     test.setTimeout(120_000)
     await mockCandorAuth(page, {

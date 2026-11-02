@@ -1768,7 +1768,7 @@ function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyA
   }
 
   if (choose?.kind === 'path_switch' && choose.options?.length) {
-    message.options = choose.options
+    message.options = visibility.choices.length ? visibility.choices : choose.options
     message.turnType = 'message'
     message.profileQuestion = null
     quizActive.value = false
@@ -1777,7 +1777,19 @@ function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyA
     return
   }
 
-  // free／open_question_reply: chips from projection (may include companion path_switch).
+  if (choose?.kind === 'continue_consultation'
+    && (visibility.choices.length || choose.options?.length)) {
+    message.options = visibility.choices.length ? visibility.choices : (choose.options ?? [])
+    message.turnType = 'message'
+    message.profileQuestion = null
+    quizActive.value = false
+    activeQuestion.value = null
+    goalSelectActive.value = false
+    return
+  }
+
+  // free／open_question_reply: chips from projection (may include companion
+  // path_switch／continue_consultation).
   if ((choose?.kind === 'free' || choose?.kind === 'open_question_reply')
     && (visibility.choices.length || choose.options?.length)) {
     message.options = visibility.choices.length ? visibility.choices : (choose.options ?? [])

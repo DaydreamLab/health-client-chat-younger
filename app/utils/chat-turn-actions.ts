@@ -396,12 +396,17 @@ function isNonGapChoosePayload(choose: ChooseOptionPayload): boolean {
   return Boolean(choose.kind && NON_GAP_CHOOSE_OPTION_KINDS.has(choose.kind))
 }
 
-/** Companion path_switch chips when another choose_option is primary. */
-function companionPathSwitchChoices(projection: ReplyActionsCtaProjection): ChatMessageOption[] {
-  if (!projection.pathSwitch || projection.chooseOption?.kind === 'path_switch') {
-    return []
+/** Companion path_switch／continue_consultation chips when another choose_option is primary. */
+function companionNonGapChoices(projection: ReplyActionsCtaProjection): ChatMessageOption[] {
+  const extras: ChatMessageOption[] = []
+  if (projection.pathSwitch && projection.chooseOption?.kind !== 'path_switch') {
+    extras.push(...(projection.pathSwitch.options ?? []))
   }
-  return projection.pathSwitch.options ?? []
+  if (projection.continueConsultation
+    && projection.chooseOption?.kind !== 'continue_consultation') {
+    extras.push(...(projection.continueConsultation.options ?? []))
+  }
+  return extras
 }
 
 /** Split gap-bound choices from free / lab_followup / consultation_goals / lab_report / path_switch. */
@@ -412,7 +417,7 @@ function splitProjectionChoices(projection: ReplyActionsCtaProjection): {
   nonGapConfirm: boolean
 } {
   const choose = projection.chooseOption
-  const companion = companionPathSwitchChoices(projection)
+  const companion = companionNonGapChoices(projection)
   const companionCodes = new Set(companion.map(option => option.code))
   if (!choose) {
     // ask_goal chips are required-ask (non-gap), like report.
@@ -435,12 +440,12 @@ function splitProjectionChoices(projection: ReplyActionsCtaProjection): {
     return {
       gapChoices: [],
       gapConfirm: false,
-      // flags.choices already includes companion path_switch when present.
+      // flags.choices already includes companion path_switch／continue when present.
       nonGapChoices: projection.flags.choices,
       nonGapConfirm: projection.flags.showConfirm
     }
   }
-  // Gap primary: keep profile chips on gap host; peel companion path_switch to non-gap.
+  // Gap primary: keep profile chips on gap host; peel companion chips to non-gap.
   return {
     gapChoices: projection.flags.choices.filter(option => !companionCodes.has(option.code)),
     gapConfirm: projection.flags.showConfirm,
