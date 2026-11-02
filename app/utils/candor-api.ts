@@ -693,8 +693,9 @@ export interface StreamMessageResult {
    */
   reply_actions?: ReplyActions | null
   /**
-   * Optional journey path after this turn (e.g. A→B continue-health switch).
-   * Prefer lowercase `a|b|c`; FE normalizes. Absent until core adds the field.
+   * Journey path after this turn when core includes it on SSE `done` (core #139).
+   * Prefer lowercase `a|b|c`; FE normalizes.
+   * Key absent → do not overwrite FE path; explicit `null` → unselected (treat as A).
    */
   path?: 'a' | 'b' | 'c' | 'A' | 'B' | 'C' | null
 }

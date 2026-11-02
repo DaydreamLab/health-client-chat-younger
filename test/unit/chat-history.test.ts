@@ -57,7 +57,7 @@ describe('parseConversationMessagesResult / historyMessageToChatMessage', () => 
       ]
     })
     expect(parsed.messages).toHaveLength(2)
-    expect(parsed.path).toBeNull()
+    expect(parsed.path).toBeUndefined()
     const assistant = historyMessageToChatMessage(parsed.messages[1]!)
     expect(assistant.id).toBe('a1')
     expect(isUsableReplyActions(assistant.replyActions)).toBe(true)
@@ -87,11 +87,18 @@ describe('parseConversationMessagesResult / historyMessageToChatMessage', () => 
       messages: []
     })
     expect(withPath.path).toBe('b')
+    const explicitNull = parseConversationMessagesResult({
+      conversation_id: 'c1',
+      path: null,
+      messages: []
+    })
+    expect(explicitNull.path).toBeNull()
+    // Missing key (pre-#139) must stay undefined so FE does not wipe local path.
     const missing = parseConversationMessagesResult({
       conversation_id: 'c1',
       messages: []
     })
-    expect(missing.path).toBeNull()
+    expect(missing.path).toBeUndefined()
   })
 
   it('degraded / missing reply_actions do not fall back to legacy upload', () => {
