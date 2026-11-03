@@ -892,6 +892,7 @@
     "refundBlockBeforeReviewed": "專家完成方案後才能申請退款。",
     "refundBlockPicking": "商品已開始理貨，無法申請退款，如有問題請聯絡客服。",
     "refundBlockShipped": "商品已出貨，無法申請退款，如有問題請聯絡客服。",
+    "refundBlockGenericTodo": "TODO: refund blocked (design copy pending)",
     "expertProcessingTitle": "專家處理中",
     "expertProcessingBody": "專家將於約一個工作天內完成您的方案。",
     "refundRejectedTitle": "退款申請未通過",

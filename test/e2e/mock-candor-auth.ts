@@ -981,12 +981,17 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       await route.fallback()
       return
     }
+    const convId = route.request().url().match(/conversations\/([^/]+)/)?.[1]
+      ?? '00000000-0000-4000-8000-000000000001'
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data: { recorded: true, choice: 'view_recommend' }
+        data: {
+          conversation_id: convId,
+          chosen_at: new Date().toISOString()
+        }
       })
     })
   })
@@ -1411,7 +1416,14 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         degraded: false,
         error: null,
         actions: [
-          { type: 'offer_recommend', payload: {} }
+          {
+            type: 'offer_recommend',
+            payload: {
+              mode: 'view_recommendations',
+              label: '查看推薦方案',
+              path: '/app/recommendations'
+            }
+          }
         ]
       }
     }
@@ -1756,7 +1768,14 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       degraded: false,
       error: null,
       actions: [
-        { type: 'offer_recommend', payload: {} },
+        {
+          type: 'offer_recommend',
+          payload: {
+            mode: 'view_recommendations',
+            label: '查看推薦方案',
+            path: '/app/recommendations'
+          }
+        },
         {
           type: 'choose_option',
           payload: {
@@ -1953,7 +1972,14 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           degraded: false,
           error: null,
           actions: [
-            { type: 'offer_recommend', payload: {} },
+            {
+            type: 'offer_recommend',
+            payload: {
+              mode: 'view_recommendations',
+              label: '查看推薦方案',
+              path: '/app/recommendations'
+            }
+          },
             { type: 'ask_report', payload: {} },
             {
               type: 'choose_option',
@@ -2052,7 +2078,14 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           adaptor: 'fake',
           degraded: false,
           error: null,
-          actions: [{ type: 'offer_recommend', payload: {} }]
+          actions: [{
+            type: 'offer_recommend',
+            payload: {
+              mode: 'view_recommendations',
+              label: '查看推薦方案',
+              path: '/app/recommendations'
+            }
+          }]
         }
       }
     }
@@ -2583,11 +2616,24 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           confirmed_at: placedOrder.payment_status === 'paid' ? placedOrder.created_at : null,
           payments: [],
           refund_request_status: refundRequestStatus,
+          refund_status: refundRequestStatus,
           refund_request_display: refundRequestStatus === 'requested' ? '退款申請中' : null,
-          can_request_refund: placedOrder.package_plan_name?.includes('專家')
-            && placedOrder.payment_status === 'paid'
-            && refundRequestStatus == null,
+          refund_blocked_reason: (() => {
+            if (refundRequestStatus === 'requested') {
+              return 'refund_request_exists'
+            }
+            if (refundRequestStatus === 'rejected') {
+              return 'refund_rejected'
+            }
+            if (!placedOrder.package_plan_name?.includes('專家')
+              || placedOrder.payment_status !== 'paid') {
+              return null
+            }
+            return null
+          })(),
+          expert_case_id: placedOrder.package_plan_name?.includes('專家') ? expertReviewId : null,
           expert_case_status: placedOrder.package_plan_name?.includes('專家') ? 'reviewed' : null,
+          expert_case_phase: placedOrder.package_plan_name?.includes('專家') ? 'finalized' : null,
           expert_case_review: placedOrder.package_plan_name?.includes('專家')
             ? {
                 id: expertReviewId,
@@ -2595,7 +2641,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                 conversation_id: conversationId
               }
             : null,
-          refund_reject_reason: refundRequestStatus === 'rejected' ? '不符合退款條件' : null,
+          refund_rejection_reason: refundRequestStatus === 'rejected' ? '不符合退款條件' : null,
           shipment_status: placedOrder.package_plan_name?.includes('專家') ? 'pending' : 'picking'
         }
       })

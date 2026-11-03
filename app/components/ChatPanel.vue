@@ -3117,7 +3117,7 @@ async function goViewRecommend() {
   const conversationId = journey.conversationId?.trim()
   if (conversationId && !isStandardFlow.value) {
     void Promise.race([
-      candor.recordCompletionChoice(conversationId, { choice: 'view_recommend' }),
+      candor.recordCompletionChoice(conversationId),
       new Promise<void>((resolve) => {
         setTimeout(resolve, 2000)
       })

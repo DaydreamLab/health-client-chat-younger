@@ -151,7 +151,14 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
         adaptor: 'llm',
         degraded: false,
         error: null,
-        actions: [{ type: 'offer_recommend' }]
+        actions: [{
+          type: 'offer_recommend',
+          payload: {
+            mode: 'view_recommendations',
+            label: '查看推薦方案',
+            path: '/app/recommendations'
+          }
+        }]
       }
     })
     const ctx = baseCtx({
@@ -181,7 +188,14 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
         adaptor: 'llm',
         degraded: false,
         error: null,
-        actions: [{ type: 'offer_recommend' }]
+        actions: [{
+          type: 'offer_recommend',
+          payload: {
+            mode: 'view_recommendations',
+            label: '查看推薦方案',
+            path: '/app/recommendations'
+          }
+        }]
       }
     })
     const ctx = baseCtx({ hasReportAnalysis: true, lastAssistantId: 'latest' })
@@ -205,7 +219,14 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
         adaptor: 'llm',
         degraded: false,
         error: null,
-        actions: [{ type: 'offer_recommend' }]
+        actions: [{
+          type: 'offer_recommend',
+          payload: {
+            mode: 'view_recommendations',
+            label: '查看推薦方案',
+            path: '/app/recommendations'
+          }
+        }]
       }
     })
     const ctx = baseCtx({ hasReportAnalysis: true, lastAssistantId: 'latest' })
@@ -298,7 +319,14 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
         adaptor: 'llm',
         degraded: false,
         error: null,
-        actions: [{ type: 'offer_recommend' }]
+        actions: [{
+          type: 'offer_recommend',
+          payload: {
+            mode: 'view_recommendations',
+            label: '查看推薦方案',
+            path: '/app/recommendations'
+          }
+        }]
       }
     })
     const ctx = baseCtx({ pending: true, lastAssistantId: 'latest' })
@@ -453,7 +481,14 @@ describe('path contract — completion CTA gates (no FE 硬保)', () => {
     adaptor: 'llm',
     degraded: false,
     error: null,
-    actions: [{ type: 'offer_recommend' as const }]
+    actions: [{
+      type: 'offer_recommend' as const,
+      payload: {
+        mode: 'view_recommendations' as const,
+        label: '查看推薦方案',
+        path: '/app/recommendations'
+      }
+    }]
   }
 
   const noneRa = {
@@ -532,7 +567,14 @@ describe('path contract — completion CTA gates (no FE 硬保)', () => {
         degraded: false,
         error: null,
         actions: [
-          { type: 'offer_recommend' as const },
+          {
+            type: 'offer_recommend' as const,
+            payload: {
+              mode: 'view_recommendations' as const,
+              label: '查看推薦方案',
+              path: '/app/recommendations'
+            }
+          },
           {
             type: 'choose_option' as const,
             payload: {

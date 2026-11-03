@@ -19,7 +19,14 @@ const usableReplyActions = {
   degraded: false,
   error: null,
   actions: [
-    { type: 'offer_recommend', payload: {} },
+    {
+      type: 'offer_recommend',
+      payload: {
+        mode: 'view_recommendations',
+        label: '查看推薦方案',
+        path: '/app/recommendations'
+      }
+    },
     { type: 'ask_report', payload: {} }
   ]
 }

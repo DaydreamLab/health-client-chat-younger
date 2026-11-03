@@ -1,4 +1,8 @@
-import type { OrderDetail, RefundRequestStatus } from './candor-api'
+import type {
+  OrderDetail,
+  RefundBlockedReason,
+  RefundRequestStatus
+} from './candor-api'
 
 /** True when order lines include an expert_plan kind. */
 export function orderHasExpertPlanLine(detail: Pick<OrderDetail, 'lines'> | null | undefined): boolean {
@@ -25,20 +29,40 @@ export function orderShipmentStatus(
   return null
 }
 
-/** Expert case status on order (spec 33 assumption; may arrive nested). */
-export type ExpertCasePhase = 'awaiting_review' | 'reviewed' | 'none'
+export type OrderExpertCaseStatus = 'awaiting_review' | 'reviewed' | null
 
-export function orderExpertCasePhase(detail: Pick<OrderDetail, 'expert_case_status' | 'expert_case_review'> | null | undefined): ExpertCasePhase {
+export type ExpertCaseLifecyclePhase = 'processing' | 'finalized' | null
+
+export function orderExpertCaseStatus(
+  detail: Pick<OrderDetail, 'expert_case_status' | 'expert_case_review'> | null | undefined
+): OrderExpertCaseStatus {
   const raw = detail?.expert_case_status
     ?? detail?.expert_case_review?.status
     ?? null
   if (raw === 'reviewed' || raw === 'awaiting_review') {
     return raw
   }
-  return 'none'
+  return null
 }
 
-export type RefundBlockReason = 'before_reviewed' | 'picking' | 'shipped'
+export function orderExpertCasePhase(
+  detail: Pick<OrderDetail, 'expert_case_phase'> | null | undefined
+): ExpertCaseLifecyclePhase {
+  const raw = detail?.expert_case_phase ?? null
+  if (raw === 'processing' || raw === 'finalized') {
+    return raw
+  }
+  return null
+}
+
+export function orderRefundStatus(
+  detail: Pick<OrderDetail, 'refund_status' | 'refund_request_status'> | null | undefined
+): RefundRequestStatus | null {
+  if (!detail) {
+    return null
+  }
+  return detail.refund_status ?? detail.refund_request_status ?? null
+}
 
 export interface RefundRequestUi {
   /** Expert-plan paid order that may show refund UI at all. */
@@ -46,20 +70,23 @@ export interface RefundRequestUi {
   /** Show「申請退款」button (enabled or disabled). Hidden after requested／rejected／refunded. */
   showButton: boolean
   enabled: boolean
-  blockReason: RefundBlockReason | null
+  blockReason: RefundBlockedReason | null
 }
 
+const HIDE_REFUND_BUTTON: ReadonlySet<RefundBlockedReason> = new Set([
+  'refund_request_exists',
+  'refund_rejected'
+])
+
 /**
- * v4／主卡：定稿後、開始理貨前才可申請；不能退時按鈕灰掉＋原因（不隱藏）。
- * `picking` 起不可退（C15）。`can_request_refund === false` 仍可信，但需搭配本地 reason。
+ * v4／主卡：定稿後、開始理貨前才可申請；core `refund_blocked_reason` 為準。
  */
 export function refundRequestUi(input: {
-  canRequestRefund?: boolean | null
+  refundBlockedReason?: RefundBlockedReason | null
+  refundStatus?: RefundRequestStatus | null
   refundRequestStatus?: RefundRequestStatus | null
   paymentStatus?: string | null
   hasExpertPlanLine?: boolean
-  shipmentStatus?: string | null
-  expertCasePhase?: ExpertCasePhase | null
 }): RefundRequestUi {
   const none: RefundRequestUi = {
     applicable: false,
@@ -73,7 +100,8 @@ export function refundRequestUi(input: {
   if (input.paymentStatus !== 'paid' && input.paymentStatus !== 'refunded') {
     return none
   }
-  const status = input.refundRequestStatus
+
+  const status = input.refundStatus ?? input.refundRequestStatus ?? null
   if (status === 'requested' || status === 'rejected' || status === 'refunded') {
     return {
       applicable: true,
@@ -83,51 +111,35 @@ export function refundRequestUi(input: {
     }
   }
 
-  const phase = input.expertCasePhase ?? 'none'
-  const shipment = (input.shipmentStatus ?? '').trim()
-  const isPicking = shipment === 'picking'
-  const isShipped = shipment !== '' && shipment !== 'picking' && shipment !== 'pending'
-
-  let blockReason: RefundBlockReason | null = null
-  if (phase !== 'reviewed') {
-    blockReason = 'before_reviewed'
-  } else if (isPicking) {
-    blockReason = 'picking'
-  } else if (isShipped) {
-    blockReason = 'shipped'
+  const blocked = input.refundBlockedReason ?? null
+  if (blocked && HIDE_REFUND_BUTTON.has(blocked)) {
+    return {
+      applicable: true,
+      showButton: false,
+      enabled: false,
+      blockReason: blocked
+    }
   }
 
-  if (input.canRequestRefund === true && !blockReason) {
+  if (blocked) {
     return {
       applicable: true,
       showButton: true,
-      enabled: true,
-      blockReason: null
+      enabled: false,
+      blockReason: blocked
     }
   }
-  if (input.canRequestRefund === false && !blockReason) {
-    // Core denied without a local gate — treat as before_reviewed fallback.
-    blockReason = 'before_reviewed'
-  }
 
-  const enabled = blockReason == null && input.canRequestRefund !== false
   return {
     applicable: true,
     showButton: true,
-    enabled,
-    blockReason
+    enabled: true,
+    blockReason: null
   }
 }
 
 /** @deprecated Prefer refundRequestUi — kept for transitional callers. */
-export function canShowRefundRequest(input: {
-  canRequestRefund?: boolean | null
-  refundRequestStatus?: RefundRequestStatus | null
-  paymentStatus?: string | null
-  hasExpertPlanLine?: boolean
-  shipmentStatus?: string | null
-  expertCasePhase?: ExpertCasePhase | null
-}): boolean {
+export function canShowRefundRequest(input: Parameters<typeof refundRequestUi>[0]): boolean {
   return refundRequestUi(input).enabled
 }
 
@@ -147,7 +159,8 @@ export function refundRequestDisplayText(input: {
 export function isExpertProcessing(input: {
   hasExpertPlanLine?: boolean
   paymentStatus?: string | null
-  expertCasePhase?: ExpertCasePhase | null
+  expertCasePhase?: ExpertCaseLifecyclePhase | null
+  expertCaseStatus?: OrderExpertCaseStatus | null
 }): boolean {
   if (!input.hasExpertPlanLine) {
     return false
@@ -155,5 +168,8 @@ export function isExpertProcessing(input: {
   if (input.paymentStatus !== 'paid') {
     return false
   }
-  return (input.expertCasePhase ?? 'none') === 'awaiting_review'
+  if (input.expertCasePhase === 'processing') {
+    return true
+  }
+  return input.expertCaseStatus === 'awaiting_review'
 }

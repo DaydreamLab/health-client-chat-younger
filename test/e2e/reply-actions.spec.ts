@@ -887,7 +887,14 @@ test.describe('reply_actions v0.1 CTAs', () => {
                   adaptor: 'fake',
                   degraded: false,
                   error: null,
-                  actions: [{ type: 'offer_recommend', payload: {} }]
+                  actions: [{
+                    type: 'offer_recommend',
+                    payload: {
+                      mode: 'view_recommendations',
+                      label: '查看推薦方案',
+                      path: '/app/recommendations'
+                    }
+                  }]
                 }
               }
             ]

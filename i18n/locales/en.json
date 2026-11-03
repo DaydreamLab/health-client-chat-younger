@@ -892,6 +892,7 @@
     "refundBlockBeforeReviewed": "You can request a refund after the expert finalizes your plan.",
     "refundBlockPicking": "Picking has started, so refunds are no longer available. Contact support if you need help.",
     "refundBlockShipped": "This order has shipped, so refunds are no longer available. Contact support if you need help.",
+    "refundBlockGenericTodo": "TODO: refund blocked (design copy pending)",
     "expertProcessingTitle": "Expert review in progress",
     "expertProcessingBody": "Your expert will finalize your plan within about one business day.",
     "refundRejectedTitle": "Refund request declined",

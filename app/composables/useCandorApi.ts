@@ -13,10 +13,11 @@ import type {
   ConversationPathAck,
   ConversationPathUpdate,
   CompletionChoiceAck,
-  CompletionChoiceRequest,
+  CheckoutPreview,
   ExpertCaseReviewList,
   ExpertCaseReviewStatus,
   ExpertPlanList,
+  FinalizedPlan,
   HealthReport,
   HealthReportList,
   HealthReportPatchResultRequest,
@@ -617,13 +618,34 @@ export function useCandorApi() {
       request<ExpertPlanList>('/expert-plans', { method: 'GET' }),
 
     /**
-     * Click log only — assumed POST /conversations/{id}/completion-choice.
-     * Caller should swallow errors / timeout; must not block navigation.
+     * First completion CTA press — body `{}`; failures must not block navigation.
      */
-    recordCompletionChoice: (conversationId: string, body: CompletionChoiceRequest) =>
+    recordCompletionChoice: (conversationId: string) =>
       request<CompletionChoiceAck>(
         `/conversations/${encodeURIComponent(conversationId)}/completion-choice`,
-        { method: 'POST', body: { ...body } }
+        { method: 'POST', body: {} }
+      ),
+
+    getCheckoutPreview: (params: {
+      conversationId: string
+      mode: 'ai' | 'expert'
+      packagePlanCode?: string
+    }) =>
+      request<CheckoutPreview>('/checkout/preview', {
+        method: 'GET',
+        query: {
+          conversation_id: params.conversationId,
+          mode: params.mode,
+          ...(params.packagePlanCode
+            ? { package_plan_code: params.packagePlanCode }
+            : {})
+        }
+      }),
+
+    getFinalizedPlan: (orderId: string) =>
+      request<FinalizedPlan>(
+        `/order/${encodeURIComponent(orderId)}/finalized-plan`,
+        { method: 'GET' }
       ),
 
     getOrderMessages: (id: string) =>

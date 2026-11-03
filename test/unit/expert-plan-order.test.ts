@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   canShowRefundRequest,
+  isExpertProcessing,
   orderHasExpertPlanLine,
+  orderRefundStatus,
   orderShipmentStatus,
   refundRequestDisplayText,
   refundRequestUi
@@ -21,69 +23,46 @@ describe('expert-plan-order helpers', () => {
     expect(orderShipmentStatus({})).toBe(null)
   })
 
-  it('blocks refund during picking even when core allows', () => {
-    expect(canShowRefundRequest({
-      canRequestRefund: true,
-      refundRequestStatus: null,
-      paymentStatus: 'paid',
-      hasExpertPlanLine: true,
-      shipmentStatus: 'picking',
-      expertCasePhase: 'reviewed'
-    })).toBe(false)
+  it('prefers refund_status over refund_request_status', () => {
+    expect(orderRefundStatus({
+      refund_status: 'requested',
+      refund_request_status: 'rejected'
+    })).toBe('requested')
+  })
 
+  it('uses core refund_blocked_reason for disabled button', () => {
     expect(refundRequestUi({
-      canRequestRefund: true,
-      refundRequestStatus: null,
-      paymentStatus: 'paid',
-      hasExpertPlanLine: true,
-      shipmentStatus: 'picking',
-      expertCasePhase: 'reviewed'
-    }).blockReason).toBe('picking')
-  })
-
-  it('requires reviewed phase before refund is enabled', () => {
-    expect(canShowRefundRequest({
-      canRequestRefund: true,
-      refundRequestStatus: null,
-      paymentStatus: 'paid',
-      hasExpertPlanLine: true,
-      shipmentStatus: 'pending',
-      expertCasePhase: 'awaiting_review'
-    })).toBe(false)
-
-    expect(canShowRefundRequest({
-      canRequestRefund: true,
-      refundRequestStatus: null,
-      paymentStatus: 'paid',
-      hasExpertPlanLine: true,
-      shipmentStatus: 'pending',
-      expertCasePhase: 'reviewed'
-    })).toBe(true)
-  })
-
-  it('shows 申請退款 only when gates pass; rejected never again', () => {
-    expect(canShowRefundRequest({
-      canRequestRefund: true,
-      refundRequestStatus: 'rejected',
+      refundBlockedReason: 'picking_started',
       paymentStatus: 'paid',
       hasExpertPlanLine: true
-    })).toBe(false)
+    })).toMatchObject({
+      showButton: true,
+      enabled: false,
+      blockReason: 'picking_started'
+    })
+  })
 
-    expect(canShowRefundRequest({
-      refundRequestStatus: null,
+  it('hides button for refund_request_exists and refund_rejected', () => {
+    expect(refundRequestUi({
+      refundBlockedReason: 'refund_request_exists',
       paymentStatus: 'paid',
-      hasExpertPlanLine: true,
-      shipmentStatus: 'shipped',
-      expertCasePhase: 'reviewed'
-    })).toBe(false)
+      hasExpertPlanLine: true
+    }).showButton).toBe(false)
 
-    expect(canShowRefundRequest({
-      canRequestRefund: false,
-      refundRequestStatus: null,
+    expect(refundRequestUi({
+      refundBlockedReason: 'refund_rejected',
       paymentStatus: 'paid',
-      hasExpertPlanLine: true,
-      expertCasePhase: 'reviewed'
-    })).toBe(false)
+      hasExpertPlanLine: true
+    }).showButton).toBe(false)
+  })
+
+  it('enables when refund_blocked_reason is null and no terminal status', () => {
+    expect(canShowRefundRequest({
+      refundBlockedReason: null,
+      refundStatus: null,
+      paymentStatus: 'paid',
+      hasExpertPlanLine: true
+    })).toBe(true)
   })
 
   it('uses core refund_request_display for requested', () => {
@@ -92,5 +71,28 @@ describe('expert-plan-order helpers', () => {
       display: '退款申請中'
     })).toBe('退款申請中')
     expect(refundRequestDisplayText({ status: 'rejected', display: null })).toBe(null)
+  })
+
+  it('isExpertProcessing when phase processing or awaiting_review while paid', () => {
+    expect(isExpertProcessing({
+      hasExpertPlanLine: true,
+      paymentStatus: 'paid',
+      expertCasePhase: 'processing',
+      expertCaseStatus: null
+    })).toBe(true)
+
+    expect(isExpertProcessing({
+      hasExpertPlanLine: true,
+      paymentStatus: 'paid',
+      expertCasePhase: null,
+      expertCaseStatus: 'awaiting_review'
+    })).toBe(true)
+
+    expect(isExpertProcessing({
+      hasExpertPlanLine: true,
+      paymentStatus: 'paid',
+      expertCasePhase: 'finalized',
+      expertCaseStatus: 'reviewed'
+    })).toBe(false)
   })
 })

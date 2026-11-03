@@ -82,7 +82,7 @@
         {{ $t('orders.refundRejectedTitle') }}
       </p>
       <p class="mt-2 text-sm text-highlighted">
-        {{ $t('orders.refundRejectedReasonLabel') }}{{ order.refundRejectReason || '—' }}
+        {{ $t('orders.refundRejectedReasonLabel') }}{{ order.refundRejectionReason || order.refundRejectReason || '—' }}
       </p>
       <p class="mt-2 text-sm text-muted">
         {{ $t('orders.refundRejectedNoRetry') }}
@@ -458,12 +458,11 @@ const refundUi = computed(() => {
     }
   }
   return refundRequestUi({
-    canRequestRefund: order.value.canRequestRefund,
+    refundBlockedReason: order.value.refundBlockedReason,
+    refundStatus: order.value.refundStatus ?? order.value.refundRequestStatus,
     refundRequestStatus: order.value.refundRequestStatus,
     paymentStatus: order.value.paymentStatus,
-    hasExpertPlanLine: order.value.hasExpertPlanLine,
-    shipmentStatus: order.value.shipmentStatus,
-    expertCasePhase: order.value.expertCasePhase
+    hasExpertPlanLine: order.value.hasExpertPlanLine
   })
 })
 
@@ -474,23 +473,29 @@ const expertProcessingBanner = computed(() => {
   return isExpertProcessing({
     hasExpertPlanLine: order.value.hasExpertPlanLine,
     paymentStatus: order.value.paymentStatus,
-    expertCasePhase: order.value.expertCasePhase
+    expertCasePhase: order.value.expertCasePhase,
+    expertCaseStatus: order.value.expertCaseStatus
   })
 })
 
 const refundRejectedBanner = computed(() =>
-  Boolean(order.value?.hasExpertPlanLine && order.value.refundRequestStatus === 'rejected')
+  Boolean(
+    order.value?.hasExpertPlanLine
+    && (order.value.refundStatus === 'rejected'
+      || order.value.refundRequestStatus === 'rejected')
+  )
 )
 
 const refundExtraLine = computed(() => {
   if (!order.value) {
     return null
   }
-  if (order.value.refundRequestStatus === 'refunded') {
+  if (order.value.refundRequestStatus === 'refunded'
+    || order.value.refundStatus === 'refunded') {
     return t('orders.refundCompleted')
   }
   return refundRequestDisplayText({
-    status: order.value.refundRequestStatus,
+    status: order.value.refundStatus ?? order.value.refundRequestStatus,
     display: order.value.refundRequestDisplay
   })
 })
@@ -504,13 +509,16 @@ const refundBlockHint = computed(() => {
   if (!reason) {
     return ''
   }
-  if (reason === 'before_reviewed') {
+  if (reason === 'not_yet_reviewed') {
     return t('orders.refundBlockBeforeReviewed')
   }
-  if (reason === 'picking') {
+  if (reason === 'picking_started') {
     return t('orders.refundBlockPicking')
   }
-  return t('orders.refundBlockShipped')
+  if (reason === 'already_shipped') {
+    return t('orders.refundBlockShipped')
+  }
+  return t('orders.refundBlockGenericTodo')
 })
 
 const paymentStatusLabel = computed(() => {
@@ -600,13 +608,16 @@ async function onRefundConfirm() {
   refundActionError.value = ''
   try {
     const created = await candor.createRefundRequest(order.value.id)
-    const status = created.refund_request_status ?? created.status
+    const status = created.refund_status
+      ?? created.refund_request_status
+      ?? created.status
     order.value = {
       ...order.value,
       refundRequestStatus: status,
+      refundStatus: status,
       refundRequestDisplay: created.refund_request_display
         ?? (status === 'requested' ? '退款申請中' : null),
-      canRequestRefund: false
+      refundBlockedReason: 'refund_request_exists'
     }
     refundConfirmOpen.value = false
   } catch {

@@ -2,14 +2,18 @@ import type {
   OrderCreated,
   OrderDetail,
   OrderSummary,
+  RefundBlockedReason,
   RefundRequestStatus
 } from './candor-api'
 import type { ReplyActions } from './reply-actions'
 import {
   orderExpertCasePhase,
+  orderExpertCaseStatus,
   orderHasExpertPlanLine,
+  orderRefundStatus,
   orderShipmentStatus,
-  type ExpertCasePhase
+  type ExpertCaseLifecyclePhase,
+  type OrderExpertCaseStatus
 } from './expert-plan-order'
 
 /** Demo catalog codes (not live API identifiers). */
@@ -262,12 +266,18 @@ export interface OrderRecord {
   timeline: ShipmentStep[]
   /** Spec 33 refund-request fields from order detail. */
   refundRequestStatus?: RefundRequestStatus | null
+  refundStatus?: RefundRequestStatus | null
   refundRequestDisplay?: string | null
-  canRequestRefund?: boolean | null
+  refundBlockedReason?: RefundBlockedReason | null
   hasExpertPlanLine?: boolean
   shipmentStatus?: string | null
-  expertCasePhase?: ExpertCasePhase
+  expertCaseId?: string | null
+  expertCaseStatus?: OrderExpertCaseStatus
+  expertCasePhase?: ExpertCaseLifecyclePhase
+  refundRejectionReason?: string | null
+  /** @deprecated Use refundRejectionReason. */
   refundRejectReason?: string | null
+  completionChoiceAt?: string | null
   /** From expert_case_review — link to recommendations after refund. */
   conversationId?: string | null
 }
@@ -654,13 +664,18 @@ export function orderRecordFromCandorDetail(
     messages: fallback.messages ? cloneMessages(fallback.messages) : [],
     timeline: timelineFromOrderStatus(detail.status, createdAt, detail.confirmed_at),
     refundRequestStatus: detail.refund_request_status ?? null,
+    refundStatus: orderRefundStatus(detail),
     refundRequestDisplay: detail.refund_request_display ?? null,
-    canRequestRefund: detail.can_request_refund ?? null,
+    refundBlockedReason: detail.refund_blocked_reason ?? null,
     hasExpertPlanLine: hasExpertPlan,
     shipmentStatus: orderShipmentStatus(detail),
+    expertCaseId: detail.expert_case_id ?? null,
+    expertCaseStatus: orderExpertCaseStatus(detail),
     expertCasePhase: orderExpertCasePhase(detail),
-    refundRejectReason: detail.refund_reject_reason ?? null,
-    conversationId: detail.expert_case_review?.conversation_id ?? null
+    refundRejectionReason: detail.refund_rejection_reason ?? detail.refund_reject_reason ?? null,
+    refundRejectReason: detail.refund_rejection_reason ?? detail.refund_reject_reason ?? null,
+    completionChoiceAt: detail.completion_choice?.chosen_at ?? null,
+    conversationId: detail.conversation_id ?? detail.expert_case_review?.conversation_id ?? null
   }
 }
 
