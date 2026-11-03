@@ -1512,8 +1512,14 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
 
     // Path B entry / Path C post-attach ack: first stream carries consultation_goals
     // (create greeting has no goals; FE must not paint goals from GET next).
+    // Only steal when the user message is an entry／attach ack — do not intercept
+    // replyActions／profileQuiz follow-ups (e.g. lab_report=none →「無」+ after_answer).
     // Old-report attach may instead echo lab_followup_stale on the ack stream.
-    if ((mockEntryPath === 'b' || mockEntryPath === 'c') && !goalsSet) {
+    const isEntryOrUploadAck = streamText === '我想聊聊'
+      || streamText === '我想諮詢健康方案'
+      || streamText === '幫我看報告'
+      || streamText === '我的報告已上傳'
+    if ((mockEntryPath === 'b' || mockEntryPath === 'c') && !goalsSet && isEntryOrUploadAck) {
       if (mockEntryPath === 'c' && options.attachFlowPromptRa === 'lab_followup_stale') {
         const content = '這份報告日期較舊，您可以上傳新報告、繼續諮詢，或安排血檢。'
         const donePayload = {

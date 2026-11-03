@@ -327,6 +327,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
   test('ask_vitals age picker → int profile/answers; then height numpad sequential', async ({ page, goto }) => {
     test.setTimeout(90_000)
     await mockCandorAuth(page, { asMember: true, replyActions: 'ask_vitals' })
+    await seedNoExpertCase(page)
     await page.setViewportSize({ width: 1280, height: 800 })
     await goto('/chat', { waitUntil: 'hydration' })
     await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
@@ -504,6 +505,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
   }) => {
     // P0 regression: continueAfterSavedAnswer used to skip stream because hydrate
     // still carried answered choose_option(lab_report) → hasUsableGapCta true.
+    // Also asserts candor-core #134: echo stream body { content, intent: "after_answer" }.
     test.setTimeout(90_000)
     // Must match mockCandorAuth conversationId so /messages/stream is mocked.
     const conversationId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
@@ -627,8 +629,108 @@ test.describe('reply_actions v0.1 CTAs', () => {
       req.url().includes('/messages/stream') && req.method() === 'POST'
     )
     await last.getByTestId('chat-quiz-option-none').click()
-    await streamReq
+    const afterAnswerStream = await streamReq
+    // Exact body shape per candor-core #134 (intent sibling of content).
+    expect(afterAnswerStream.postDataJSON()).toEqual({
+      content: '無',
+      intent: 'after_answer'
+    })
     await expect(page.getByTestId('chat-last-reply')).toContainText('基礎保養', { timeout: 15_000 })
+  })
+
+  test('typed composer stream omits after_answer intent', async ({ page, goto }) => {
+    // Free-typed sendText → streamPending with pendingIntent left null (not after_answer).
+    test.setTimeout(90_000)
+    // Match mockCandorAuth default so /messages/stream is already mocked.
+    const conversationId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+    await mockCandorAuth(page, {
+      asMember: true,
+      replyActions: 'offer_recommend',
+      conversationPath: 'A'
+    })
+    await seedNoExpertCase(page)
+    await page.setViewportSize({ width: 1280, height: 800 })
+
+    await page.route(`**/api/v1/conversation/${conversationId}/messages`, async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback()
+        return
+      }
+      if (route.request().url().includes('/messages/stream')) {
+        await route.fallback()
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            conversation_id: conversationId,
+            messages: [
+              { id: 'u-free', role: 'user', content: '開始' },
+              {
+                id: 'a-free',
+                role: 'assistant',
+                content: '好的，想聊什麼都可以。',
+                reply_actions: {
+                  schema_version: '0.1',
+                  source: 'engine',
+                  adaptor: 'fake',
+                  degraded: false,
+                  error: null,
+                  actions: [{ type: 'none' }]
+                }
+              }
+            ]
+          }
+        })
+      })
+    })
+
+    await page.addInitScript((journey) => {
+      localStorage.setItem('candor.unpaid.journey', JSON.stringify(journey))
+    }, {
+      conversationId,
+      messages: [{
+        id: 'stale',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'stale' }]
+      }],
+      hasAnalysis: false,
+      selectedPackageCode: null,
+      reportId: null,
+      reportDockOpen: false,
+      reportDockCollapsed: true,
+      reportInterpretSent: false,
+      selectedPackage: null,
+      packageConfirmed: false,
+      goalSelectActive: false,
+      goalOptions: [],
+      selectedCodes: [],
+      quizActive: false,
+      activeQuestion: null,
+      postQuizGuided: false,
+      profileGaps: [],
+      clarifyingGoals: [],
+      expertReviewStatus: 'none',
+      conversationPath: 'A'
+    })
+
+    await goto('/chat', { waitUntil: 'hydration' })
+    await expect(page.getByTestId('chat-last-reply')).toContainText('想聊什麼都可以', {
+      timeout: 15_000
+    })
+
+    const typed = '我想了解維生素D'
+    const streamReq = page.waitForRequest(req =>
+      req.url().includes('/messages/stream')
+      && req.method() === 'POST'
+      && (req.postData() || '').includes(typed)
+    )
+    await sendChatLine(page, typed)
+    // Free-typed: content only — no intent key (not after_answer).
+    expect((await streamReq).postDataJSON()).toEqual({ content: typed })
   })
 
   test('solo path_switch empty label → chip shows i18n「我想諮詢健康方案」not code b', async ({
