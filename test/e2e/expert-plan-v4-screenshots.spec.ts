@@ -89,6 +89,7 @@ test.describe('expert-plan v4 screenshots', () => {
       expertReview: 'none',
       expertPlansCatalog: 'single'
     })
+    await seedJourneyConversation(page)
     await goto('/app/checkout?kind=expert_plan', { waitUntil: 'hydration' })
     await expect(page.getByTestId('expert-plan-checkout-submit')).toBeVisible({ timeout: 25000 })
     await shot(page, 'F-04-checkout-expert')
@@ -100,6 +101,7 @@ test.describe('expert-plan v4 screenshots', () => {
       expertReview: 'none',
       expertPlansCatalog: 'single'
     })
+    await seedJourneyConversation(page)
     await goto('/app/checkout?kind=expert_plan', { waitUntil: 'hydration' })
     await expect(page.getByTestId('checkout-name')).toBeVisible({ timeout: 25000 })
     await page.getByTestId('checkout-name').fill('')
@@ -111,6 +113,7 @@ test.describe('expert-plan v4 screenshots', () => {
 
   test('F-06 checkout AI package', async ({ page, goto }) => {
     await mockCandorAuth(page, { asMember: true, expertReview: 'none' })
+    await seedJourneyConversation(page)
     await goto('/app/checkout?kind=package&package_plan_code=basic&composition_hash=demo-hash', {
       waitUntil: 'hydration'
     })
@@ -135,6 +138,7 @@ test.describe('expert-plan v4 screenshots', () => {
       expertReview: 'none',
       expertPlansCatalog: 'empty'
     })
+    await seedJourneyConversation(page)
     await goto('/app/checkout?kind=expert_plan', { waitUntil: 'hydration' })
     await expect(page.getByTestId('checkout-empty-catalog')).toBeVisible({ timeout: 25000 })
     await shot(page, 'F-08-checkout-expert-plans-empty')
