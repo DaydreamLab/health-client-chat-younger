@@ -20,6 +20,7 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 | `/app/wearables/:deviceId` | `user` + `auth` | 單一裝置趨勢（7／30 天） | 無 API |
 | `/app/renewals` | `user` + `auth` | 待續約即將上線佔位（列表與續約對話暫不從這頁進入） | 無（殼）；client 仍保留 `GET /renewals/due`、`renewal_of_order_id` |
 | `/app/recommendations` | `user` + `auth` | 建議與結帳；付費專家方案（案件有 `order_id`）定稿後為唯讀結果（不可另選 plan／結帳） | `POST /recommendations`、`GET /package-plans`、`GET /conversation/{id}/expert-review`、`POST /orders`、`PATCH /users/me`；唯讀時另 `GET /order/{id}` |
+| `/app/checkout` | `user` + `auth` | AI／專家共用結帳（`?kind=package`｜`?kind=expert_plan`）；同頁預覽、按「確認付款」建單 | `GET /expert-plans`、`GET /conversation/{id}/expert-review`、`POST /recommendations`、`POST /orders`、`PATCH /users/me` |
 | `/app/orders` | `user` + `auth` | 訂單列表 | `GET /orders` |
 | `/app/orders/[id]` | `user` + `auth` | 訂單詳情、出貨時間線、對話 modal；專家方案可「申請退款」／顯示「退款申請中」 | `GET /order/{id}`；`GET /order/{id}/message`；`POST /order/{id}/refund-request` |
 | `/app/notifications` | `user` + `auth` | 通知中心列表（篩選全部／未讀、點列標已讀＋deep link）；guest 顯示 dashed AuthGate；空／錯誤態 | `GET /notifications`、`GET /notifications/unread-count`、`POST /notifications/{id}/read`（member；guest 403） |
@@ -52,7 +53,7 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 - 選項與確認在助理氣泡底部：確認鈕靠右。仍在選改善方向、report 必問、或最新一則仍是 profile／open gap 時，不畫完成 CTA 的 recommend 槽。gap／必問 CTA 掛在**最新**助理泡泡（含自舊 bank 抬升）；free chips 可與 open gap 並存於最新。
 - 開場只問改善方向。選方向時，輸入框不提示「有沒有報告」。
 - 氣泡內上傳鈕只出現在最新一則且該則 usable `ask_report`（或 lab_followup→upload）。輸入列的上傳入口仍在（guest 點了導向登入）。
-| 建議／結帳 | `pages/app/recommendations.vue`、`composables/useFirstOrderApi.ts` |
+| 建議／結帳 | `pages/app/recommendations.vue`、`pages/app/checkout.vue`、`composables/useFirstOrderApi.ts` |
 | 個人資料 | `pages/app/me.vue`、側欄／`AccountUser` |
 | 訂單 | `pages/app/orders/*`、`stores/orders.ts`、`components/ShipmentTimeline.vue`、`OrderChatModal.vue` |
 | 通知中心 | `pages/app/notifications.vue`、`stores/notifications.ts`、`components/notifications/*`、`utils/notifications*.ts`、`useCandorApi` inbox 方法；rail 未讀 badge 經 `useMemberNavExtension`＋`unread-count` |

@@ -777,7 +777,8 @@
     "shippingFee": "運費",
     "shippingFree": "免運",
     "total": "總金額",
-    "submit": "前往付款",
+    "submit": "確認付款",
+    "paymentComingSoon": "即將開放",
     "processing": "建立訂單中…",
     "successTitle": "訂單已建立",
     "successBody": "請完成金流付款；成功後可在訂單頁查看出貨進度。",
@@ -878,8 +879,26 @@
     "refundRequestError": "TODO(Irice): 無法申請退款，請稍後再試。"
   },
   "expertPlans": {
-    "resultReadonlyHint": "TODO(Irice): 定稿結果僅供查看，無法另選方案或結帳。",
-    "openOrder": "TODO(Irice): 查看訂單"
+    "title": "結帳",
+    "lead": "選擇專家方案並填寫收件資料，確認付款後由專家檢視您的健康資料。",
+    "pickSection": "選擇專家方案",
+    "planHint": "專家一對一檢視您的健康資料，定稿後依方案出貨",
+    "recipientPrefillHint": "已帶入上次的收件資料，可直接修改",
+    "loading": "載入專家方案中…",
+    "empty": "目前沒有可購買的專家方案",
+    "loadError": "無法載入專家方案，請稍後再試。",
+    "conversationRequired": "請先完成諮詢對話後再結帳。",
+    "caseExists": "您已經有一筆專家諮詢案件正在進行中，請回到對話查看進度。",
+    "checkoutLocked": "這筆訂單已經送出，無法再修改內容。",
+    "backToChat": "回到對話",
+    "delistedTitle": "此方案已下架",
+    "delistedBody": "這個專家方案目前已下架，請重新選擇其他方案。",
+    "delistedReselect": "重新選擇方案",
+    "changePackage": "更換方案",
+    "packageSection": "方案",
+    "paidAwaitingBody": "付款完成後，專家將於約一個工作天內完成您的方案；進度請至訂單頁查看。",
+    "resultReadonlyHint": "定稿結果僅供查看，無法另選方案或結帳。",
+    "openOrder": "查看訂單"
   },
   "privacy": {
     "metaTitle": "隱私權政策",

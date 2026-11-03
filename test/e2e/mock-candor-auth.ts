@@ -402,6 +402,42 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     })
   })
 
+  await page.route('**/api/v1/expert-plans', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: {
+          expert_plans: [
+            {
+              id: 'ep-basic',
+              code: 'basic',
+              package_plan_id: 'pp-basic',
+              name_zh: '基本方案',
+              price: 6000,
+              sort_order: 1,
+              active: true
+            },
+            {
+              id: 'ep-advance',
+              code: 'advance',
+              package_plan_id: 'pp-advance',
+              name_zh: '進階方案',
+              price: 9000,
+              sort_order: 2,
+              active: true
+            }
+          ]
+        }
+      })
+    })
+  })
+
   await page.route('**/api/v1/recommendations', async (route) => {
     if (route.request().method() !== 'POST') {
       await route.fallback()

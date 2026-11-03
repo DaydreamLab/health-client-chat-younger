@@ -777,7 +777,8 @@
     "shippingFee": "Shipping",
     "shippingFree": "Free",
     "total": "Total",
-    "submit": "Continue to payment",
+    "submit": "Confirm payment",
+    "paymentComingSoon": "Coming soon",
     "processing": "Creating order…",
     "successTitle": "Order created",
     "successBody": "Complete payment with the gateway. Track shipment on the orders page after it succeeds.",
@@ -878,8 +879,26 @@
     "refundRequestError": "TODO(Irice): Could not request a refund. Please try again."
   },
   "expertPlans": {
-    "resultReadonlyHint": "TODO(Irice): Finalized result is view-only. You cannot pick another plan or check out.",
-    "openOrder": "TODO(Irice): View order"
+    "title": "Checkout",
+    "lead": "Pick an expert plan and enter shipping details. Payment starts your expert review.",
+    "pickSection": "Expert plan",
+    "planHint": "An expert reviews your health data one-on-one; items ship after finalize.",
+    "recipientPrefillHint": "We prefilled your last shipping details. You can edit them.",
+    "loading": "Loading expert plans…",
+    "empty": "No expert plans available to purchase",
+    "loadError": "Could not load expert plans. Try again later.",
+    "conversationRequired": "Start a consult conversation before checkout.",
+    "caseExists": "You already have an expert case in progress. Return to chat for status.",
+    "checkoutLocked": "This order was already submitted and cannot be changed.",
+    "backToChat": "Back to chat",
+    "delistedTitle": "This plan is no longer available",
+    "delistedBody": "This expert plan has been delisted. Please choose another plan.",
+    "delistedReselect": "Choose again",
+    "changePackage": "Change plan",
+    "packageSection": "Plan",
+    "paidAwaitingBody": "After payment, your expert will finalize within about one business day. Track progress on the order page.",
+    "resultReadonlyHint": "Finalized result is view-only. You cannot pick another plan or check out.",
+    "openOrder": "View order"
   },
   "privacy": {
     "metaTitle": "Privacy policy",

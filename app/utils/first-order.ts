@@ -283,6 +283,18 @@ export interface CreateOrderInput {
   recommendationRunId?: string | null
 }
 
+/** Spec 33 — paid expert_plan opening order (conversation required). */
+export interface CreateExpertPlanOrderInput {
+  expertPlanCode: string
+  expertPlanName?: string
+  amount: number
+  paymentMethod: PaymentMethod
+  invoice: InvoiceType
+  invoiceCarrier: string
+  recipient: OrderRecipient
+  conversationId: string
+}
+
 export const demoSellableItems: Record<DemoSellableItemId, DemoSellableItem> = {
   vitaminD: {
     id: 'vitaminD',
