@@ -1482,7 +1482,7 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     expect(visibility.showCheckup).toBe(false)
     expect(visibility.choices.map(choice => choice.code)).toEqual(['a', 'b'])
     expect(detectPathRuleCopyKind(msg.replyActions)).toBe('path_c_await_upload')
-    expect(pathSwitchChipI18nKey('path_c_await_upload')).toBe('chat.pathEntryB')
+    expect(pathSwitchChipI18nKey('path_c_await_upload')).toBe('chat.pathSwitchToConsult')
   })
 
   describe('resolvePathSwitchChoiceLabels — empty BE label → i18n, not code', () => {
@@ -1638,6 +1638,60 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       expect(localized).toEqual([
         { code: 'a', label: '我想聊聊' },
         { code: 'b', label: '我想諮詢健康方案' }
+      ])
+    })
+
+    it('empty path_switch label via real zh-TW locale never shows key string', async () => {
+      const locale = (await import('../../i18n/locales/zh-TW.json')).default as {
+        chat: Record<string, string>
+      }
+      const translate = (key: string) => {
+        const short = key.startsWith('chat.') ? key.slice('chat.'.length) : key
+        return locale.chat[short] ?? key
+      }
+      // Guard: pathEntry* must exist so missing-key fallback cannot leak.
+      expect(locale.chat.pathEntryA).toBeTruthy()
+      expect(locale.chat.pathEntryB).toBeTruthy()
+      expect(locale.chat.pathEntryC).toBeTruthy()
+      expect(locale.chat.pathSwitchToConsult).toBeTruthy()
+
+      const replyActions = ra({
+        adaptor: 'rule',
+        actions: [
+          { type: 'ask_report', payload: { option_codes: ['upload'] } },
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'path_switch',
+              mode: 'single',
+              confirm: false,
+              options: [
+                { code: 'a', label: '' },
+                { code: 'b', label: '' },
+                { code: 'c', label: '' }
+              ]
+            }
+          }
+        ]
+      })
+      const localized = resolvePathSwitchChoiceLabels(
+        replyActions,
+        [
+          { code: 'a', label: '' },
+          { code: 'b', label: '' },
+          { code: 'c', label: '' }
+        ],
+        translate
+      )
+      for (const choice of localized) {
+        expect(choice.label).not.toMatch(/^chat\./)
+        expect(choice.label).not.toBe(choice.code)
+        expect(choice.label.length).toBeGreaterThan(0)
+      }
+      expect(localized.map(c => c.label)).toEqual([
+        locale.chat.pathEntryA,
+        locale.chat.pathEntryB,
+        locale.chat.pathEntryC
       ])
     })
 

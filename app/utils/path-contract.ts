@@ -224,14 +224,13 @@ export function shouldOpenGoalsFromCachedOptions(input: {
   return input.goalOptionsCount >= 2
 }
 
+/**
+ * @deprecated Entry chips come from core greeting RA (candor-core #133).
+ * Local PATH_ENTRY_OPTIONS fallback removed; pathEntry* i18n keys remain for
+ * path_switch empty-label fallback via pathSwitchOptionI18nKey.
+ */
 export interface PathEntryOption {
   code: PathEntryCode
-  /** i18n key under `chat.pathEntry*` */
+  /** @deprecated Was i18n key under chat.pathEntry*; entry labels now from core. */
   labelKey: string
 }
-
-export const PATH_ENTRY_OPTIONS: readonly PathEntryOption[] = [
-  { code: 'A', labelKey: 'chat.pathEntryA' },
-  { code: 'B', labelKey: 'chat.pathEntryB' },
-  { code: 'C', labelKey: 'chat.pathEntryC' }
-] as const

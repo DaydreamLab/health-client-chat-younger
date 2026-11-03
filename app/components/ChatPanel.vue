@@ -408,7 +408,6 @@ import {
 import {
   isRequiredBasicGapCode,
   normalizeConversationPath,
-  PATH_ENTRY_OPTIONS,
   pathAfterReportUpload,
   shouldOpenGoalsFromCachedOptions,
   toApiConversationPath,
@@ -711,20 +710,14 @@ function turnActionsFor(message: ChatMessage) {
 }
 
 /**
- * Prefer core greeting.reply_actions path_switch (codes a／b／c).
- * Fallback to local PATH_ENTRY_OPTIONS only if greeting lacked RA.
+ * Entry three-choice chips come only from core greeting.reply_actions path_switch
+ * (candor-core #133). No local PATH_ENTRY_OPTIONS fallback.
  */
 function pathEntryChoices(message?: ChatMessage): GreetingOption[] {
-  if (message) {
-    const fromRa = localizePathSwitchChoices(message, turnActionsFor(message).choices)
-    if (fromRa.length > 0) {
-      return fromRa
-    }
+  if (!message) {
+    return []
   }
-  return PATH_ENTRY_OPTIONS.map(option => ({
-    code: option.code.toLowerCase(),
-    label: t(option.labelKey)
-  }))
+  return localizePathSwitchChoices(message, turnActionsFor(message).choices)
 }
 
 function isPathSwitchChoice(option: GreetingOption): boolean {

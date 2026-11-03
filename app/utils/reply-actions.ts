@@ -327,11 +327,11 @@ export function pathRuleBubbleI18nKey(kind: PathRuleCopyKind): string {
     : 'chat.pathACap'
 }
 
-/** path_switch chip label fallback when BE omits option label (A→B guide). */
+/** path_switch chip label fallback when BE omits option label (A→B guide／C await). */
 export function pathSwitchChipI18nKey(kind: PathRuleCopyKind): string {
-  return kind === 'path_c_await_upload'
-    ? 'chat.pathEntryB'
-    : 'chat.pathSwitchToConsult'
+  // Reuse pathSwitchToConsult — same zh／en as former pathEntryB; entry chips use core labels.
+  void kind
+  return 'chat.pathSwitchToConsult'
 }
 
 /**
