@@ -798,6 +798,8 @@
     "conversationAlreadyOrderedCtaChat": "Back to conversation",
     "existingOrderRepay": "This conversation already has an order. Let's finish the payment.",
     "existingOrderRepayCta": "Finish payment",
+    "conversationOrderClosed": "The order for this conversation was cancelled or refunded. Please start a new conversation.",
+    "conversationOrderClosedCta": "New conversation",
     "processing": "Creating order…",
     "successTitle": "Order created",
     "successBody": "Complete payment with the gateway. Track shipment on the orders page after it succeeds.",

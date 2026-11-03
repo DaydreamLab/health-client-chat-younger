@@ -798,6 +798,8 @@
     "conversationAlreadyOrderedCtaChat": "回到對話",
     "existingOrderRepay": "這段對話已經有一張訂單，帶您去完成付款。",
     "existingOrderRepayCta": "去完成付款",
+    "conversationOrderClosed": "這段對話的訂單已取消或退款，請開啟新對話重新諮詢。",
+    "conversationOrderClosedCta": "開新對話",
     "processing": "建立訂單中…",
     "successTitle": "訂單已建立",
     "successBody": "請完成金流付款；成功後可在訂單頁查看出貨進度。",

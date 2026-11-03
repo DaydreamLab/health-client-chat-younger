@@ -20,7 +20,7 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 | `/app/wearables/:deviceId` | `user` + `auth` | 單一裝置趨勢（7／30 天） | 無 API |
 | `/app/renewals` | `user` + `auth` | 待續約即將上線佔位（列表與續約對話暫不從這頁進入） | 無（殼）；client 仍保留 `GET /renewals/due`、`renewal_of_order_id` |
 | `/app/recommendations` | `user` + `auth` | 建議與結帳；付費專家方案（案件有 `order_id`）定稿後為唯讀結果（不可另選 plan／結帳） | `POST /recommendations`、`GET /package-plans`、`GET /conversation/{id}/expert-review`、`POST /orders`、`PATCH /users/me`；唯讀時另 `GET /order/{id}` |
-| `/app/checkout` | `user` + `auth` | AI／專家共用結帳（`?kind=package`｜`?kind=expert_plan`）；同頁預覽、按「確認付款」建單；缺 `conversation_id` 時 AI 顯示諮詢紀錄錯誤＋回對話；`questionnaire_incomplete`／`conversation_already_ordered`／`existing_order` repay gate；方案鎖定於無 order_id 的 existing_order | `GET /checkout/preview`（AI 品項用 `ai.items`）、`POST /orders`、`PATCH /users/me` |
+| `/app/checkout` | `user` + `auth` | AI／專家共用結帳（`?kind=package`｜`?kind=expert_plan`）；同頁預覽、按「確認付款」建單；缺 `conversation_id` 時 AI 顯示諮詢紀錄錯誤＋回對話；`questionnaire_incomplete`／`conversation_already_ordered`／`existing_order` repay／`conversation_order_closed`（開新對話）gate | `GET /checkout/preview`（AI 品項用 `ai.items`）、`POST /orders`、`PATCH /users/me` |
 | `/app/orders` | `user` + `auth` | 訂單列表 | `GET /orders` |
 | `/app/orders/[id]` | `user` + `auth` | 訂單詳情、出貨時間線、對話 modal；專家方案可「申請退款」／顯示「退款申請中」 | `GET /order/{id}`；`GET /order/{id}/message`；`POST /order/{id}/refund-request` |
 | `/app/notifications` | `user` + `auth` | 通知中心列表（篩選全部／未讀、點列標已讀＋deep link）；guest 顯示 dashed AuthGate；空／錯誤態 | `GET /notifications`、`GET /notifications/unread-count`、`POST /notifications/{id}/read`（member；guest 403） |
