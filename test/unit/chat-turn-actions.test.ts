@@ -151,7 +151,14 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
         adaptor: 'llm',
         degraded: false,
         error: null,
-        actions: [{ type: 'offer_recommend' }]
+        actions: [{
+          type: 'offer_recommend',
+          payload: {
+            mode: 'view_recommendations',
+            label: '查看推薦方案',
+            path: '/app/recommendations'
+          }
+        }]
       }
     })
     const ctx = baseCtx({
@@ -162,8 +169,8 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
       messages: [interpret],
       expertReviewStatus: 'none'
     })
-    expect(submit.showSubmitReview).toBe(true)
-    expect(submit.showViewRecommend).toBe(false)
+    expect(submit.showSubmitReview).toBe(false)
+    expect(submit.showViewRecommend).toBe(true)
 
     const viewed = visibility(interpret, ctx, {
       messages: [interpret],
@@ -181,7 +188,14 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
         adaptor: 'llm',
         degraded: false,
         error: null,
-        actions: [{ type: 'offer_recommend' }]
+        actions: [{
+          type: 'offer_recommend',
+          payload: {
+            mode: 'view_recommendations',
+            label: '查看推薦方案',
+            path: '/app/recommendations'
+          }
+        }]
       }
     })
     const ctx = baseCtx({ hasReportAnalysis: true, lastAssistantId: 'latest' })
@@ -197,7 +211,7 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
     }
   })
 
-  it('awaiting_review hides both recommend CTAs even with usable offer_recommend', () => {
+  it('awaiting_review still shows view recommend with usable offer_recommend (v4)', () => {
     const interpret = assistant('latest', {
       replyActions: {
         schema_version: '0.1',
@@ -205,7 +219,14 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
         adaptor: 'llm',
         degraded: false,
         error: null,
-        actions: [{ type: 'offer_recommend' }]
+        actions: [{
+          type: 'offer_recommend',
+          payload: {
+            mode: 'view_recommendations',
+            label: '查看推薦方案',
+            path: '/app/recommendations'
+          }
+        }]
       }
     })
     const ctx = baseCtx({ hasReportAnalysis: true, lastAssistantId: 'latest' })
@@ -214,8 +235,8 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
       expertReviewStatus: 'awaiting_review'
     })
     expect(onLatest.showSubmitReview).toBe(false)
-    expect(onLatest.showViewRecommend).toBe(false)
-    expect(onLatest.showRecommend).toBe(false)
+    expect(onLatest.showViewRecommend).toBe(true)
+    expect(onLatest.showRecommend).toBe(true)
   })
 
   it('legacy wantMoreTestsOffer never paints bubble want-more (RA-only)', () => {
@@ -298,7 +319,14 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
         adaptor: 'llm',
         degraded: false,
         error: null,
-        actions: [{ type: 'offer_recommend' }]
+        actions: [{
+          type: 'offer_recommend',
+          payload: {
+            mode: 'view_recommendations',
+            label: '查看推薦方案',
+            path: '/app/recommendations'
+          }
+        }]
       }
     })
     const ctx = baseCtx({ pending: true, lastAssistantId: 'latest' })
@@ -453,7 +481,14 @@ describe('path contract — completion CTA gates (no FE 硬保)', () => {
     adaptor: 'llm',
     degraded: false,
     error: null,
-    actions: [{ type: 'offer_recommend' as const }]
+    actions: [{
+      type: 'offer_recommend' as const,
+      payload: {
+        mode: 'view_recommendations' as const,
+        label: '查看推薦方案',
+        path: '/app/recommendations'
+      }
+    }]
   }
 
   const noneRa = {
@@ -472,8 +507,8 @@ describe('path contract — completion CTA gates (no FE 硬保)', () => {
       conversationPath: 'A',
       openProfileGaps: []
     }), { messages: [msg], expertReviewStatus: 'none' })
-    expect(v.showSubmitReview).toBe(true)
-    expect(v.showViewRecommend).toBe(false)
+    expect(v.showSubmitReview).toBe(false)
+    expect(v.showViewRecommend).toBe(true)
   })
 
   it('path B + basic complete + usable offer_recommend → submit', () => {
@@ -485,7 +520,8 @@ describe('path contract — completion CTA gates (no FE 硬保)', () => {
       goalSelectActive: true
     }), { messages: [msg], expertReviewStatus: 'none', goalSelectActive: true })
     // goals 不挡
-    expect(v.showSubmitReview).toBe(true)
+    expect(v.showSubmitReview).toBe(false)
+    expect(v.showViewRecommend).toBe(true)
   })
 
   it('path B + basic incomplete still shows offer_recommend when RA includes it (core completion_cta_ready)', () => {
@@ -495,7 +531,8 @@ describe('path contract — completion CTA gates (no FE 硬保)', () => {
       conversationPath: 'B',
       openProfileGaps: ['sex', 'age']
     }), { messages: [msg], expertReviewStatus: 'none' })
-    expect(v.showSubmitReview).toBe(true)
+    expect(v.showSubmitReview).toBe(false)
+    expect(v.showViewRecommend).toBe(true)
   })
 
   it('path B + basic complete + RA none → still no completion CTA (不硬保)', () => {
@@ -517,7 +554,8 @@ describe('path contract — completion CTA gates (no FE 硬保)', () => {
       conversationPath: 'B',
       openProfileGaps: ['diet']
     }), { messages: [msg], expertReviewStatus: 'none' })
-    expect(v.showSubmitReview).toBe(true)
+    expect(v.showSubmitReview).toBe(false)
+    expect(v.showViewRecommend).toBe(true)
   })
 
   it('path B + open_question_reply fallback + offer_recommend shows submit', () => {
@@ -529,7 +567,14 @@ describe('path contract — completion CTA gates (no FE 硬保)', () => {
         degraded: false,
         error: null,
         actions: [
-          { type: 'offer_recommend' as const },
+          {
+            type: 'offer_recommend' as const,
+            payload: {
+              mode: 'view_recommendations' as const,
+              label: '查看推薦方案',
+              path: '/app/recommendations'
+            }
+          },
           {
             type: 'choose_option' as const,
             payload: {
@@ -546,7 +591,8 @@ describe('path contract — completion CTA gates (no FE 硬保)', () => {
       conversationPath: 'B',
       openProfileGaps: []
     }), { messages: [msg], expertReviewStatus: 'none' })
-    expect(v.showSubmitReview).toBe(true)
+    expect(v.showSubmitReview).toBe(false)
+    expect(v.showViewRecommend).toBe(true)
     expect(v.choices.map(c => c.code)).toEqual(['continue'])
   })
 

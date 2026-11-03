@@ -62,6 +62,13 @@ export type CandorMockOptions = {
   /** GET /package-plans payload shape (default legacy = pre-catalog API). */
   packagePlans?: PackagePlansMockMode
   /**
+   * Expert-review GET for checkout gates.
+   * `none` → 404 (allow expert checkout). Default keeps legacy awaiting/reviewed mock.
+   */
+  expertReview?: 'none' | 'awaiting' | 'reviewed' | 'reviewed_with_order'
+  /** Expert plans catalog: empty → F-08; single → preselect. */
+  expertPlansCatalog?: 'default' | 'empty' | 'single'
+  /**
    * Seed `candor.privacy.consent.version` before each navigation.
    * Default matches the mocked privacy-policy version so the cookie banner
    * does not cover other e2e flows. Pass `false` to leave storage empty
@@ -398,6 +405,54 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         data: {
           package_plans: packagePlansForMode(options.packagePlans)
         }
+      })
+    })
+  })
+
+  await page.route('**/api/v1/expert-plans', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback()
+      return
+    }
+    const catalog = options.expertPlansCatalog ?? 'default'
+    const expertPlans = catalog === 'empty'
+      ? []
+      : catalog === 'single'
+        ? [{
+            id: 'ep-basic',
+            code: 'basic',
+            package_plan_id: 'pp-basic',
+            name_zh: '基本方案',
+            price: 6000,
+            sort_order: 1,
+            active: true
+          }]
+        : [
+            {
+              id: 'ep-basic',
+              code: 'basic',
+              package_plan_id: 'pp-basic',
+              name_zh: '基本方案',
+              price: 6000,
+              sort_order: 1,
+              active: true
+            },
+            {
+              id: 'ep-advance',
+              code: 'advance',
+              package_plan_id: 'pp-advance',
+              name_zh: '進階方案',
+              price: 9000,
+              sort_order: 2,
+              active: true
+            }
+          ]
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: { expert_plans: expertPlans }
       })
     })
   })
@@ -862,12 +917,30 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       })
       return
     }
+    const reviewMode = options.expertReview
+    if (reviewMode === 'none') {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'error',
+          error: { code: 'not_found', message: 'expert review not found' }
+        })
+      })
+      return
+    }
+    const withOrder = reviewMode === 'reviewed_with_order'
+    const status = reviewMode === 'awaiting'
+      ? 'awaiting_review'
+      : (reviewMode === 'reviewed' || withOrder || memberExpertReviewStatus === 'reviewed'
+          ? 'reviewed'
+          : memberExpertReviewStatus)
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data: memberExpertReviewStatus === 'reviewed'
+        data: status === 'reviewed'
           ? {
               id: expertReviewId,
               conversation_id: conversationId,
@@ -885,7 +958,10 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                 profile_gaps: [],
                 strategy_code: 'focus_abnormal',
                 message: null
-              }
+              },
+              ...(withOrder
+                ? { order_id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', expert_plan_id: 'ep-basic' }
+                : {})
             }
           : {
               id: expertReviewId,
@@ -896,6 +972,219 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
               created_at: '2026-01-01T00:00:00Z',
               updated_at: '2026-01-01T00:00:00Z'
             }
+      })
+    })
+  })
+
+  await page.route('**/api/v1/conversations/*/completion-choice', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback()
+      return
+    }
+    const convId = route.request().url().match(/conversations\/([^/]+)/)?.[1]
+      ?? '00000000-0000-4000-8000-000000000001'
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: {
+          conversation_id: convId,
+          chosen_at: new Date().toISOString()
+        }
+      })
+    })
+  })
+
+  await page.route('**/api/v1/checkout/preview**', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback()
+      return
+    }
+    const url = new URL(route.request().url())
+    const mode = url.searchParams.get('mode') === 'ai' ? 'ai' : 'expert'
+    const conversationIdParam = url.searchParams.get('conversation_id')?.trim() ?? ''
+    // core #143 f2795e9c: AI preview without conversation_id → 422 invalid_request
+    if (mode === 'ai' && !conversationIdParam) {
+      await route.fulfill({
+        status: 422,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'failed',
+          error_message: 'conversation_id is required',
+          error_code: 'invalid_request',
+          error_data: null
+        })
+      })
+      return
+    }
+    const packagePlanCode = url.searchParams.get('package_plan_code') || 'basic'
+    const catalog = options.expertPlansCatalog ?? 'default'
+    const expertPlans = catalog === 'empty'
+      ? []
+      : catalog === 'single'
+        ? [{
+            id: 'ep-basic',
+            code: 'basic',
+            package_plan_id: 'pp-basic',
+            name_zh: '基本方案',
+            price: 6000,
+            sort_order: 1,
+            active: true
+          }]
+        : [
+            {
+              id: 'ep-basic',
+              code: 'basic',
+              package_plan_id: 'pp-basic',
+              name_zh: '基本方案',
+              price: 6000,
+              sort_order: 1,
+              active: true
+            },
+            {
+              id: 'ep-advance',
+              code: 'advance',
+              package_plan_id: 'pp-advance',
+              name_zh: '進階方案',
+              price: 9000,
+              sort_order: 2,
+              active: true
+            }
+          ]
+
+    const reviewMode = options.expertReview
+    let block: { code: string } | null = null
+    let checkoutLocked = false
+    let checkoutLockReason: string | null = null
+    if (mode === 'expert') {
+      if (reviewMode === 'reviewed_with_order') {
+        checkoutLocked = true
+        checkoutLockReason = 'order_submitted'
+      } else if (reviewMode === 'awaiting' || reviewMode === 'reviewed') {
+        block = { code: 'expert_case_exists' }
+      } else if (catalog === 'empty') {
+        block = { code: 'no_expert_plans' }
+      }
+    }
+
+    const aiItems = [
+      {
+        rank: 1,
+        sellable_item_id: sellableVitD,
+        code: 'vitamin_d',
+        name: '維生素 D',
+        unit_price: 9,
+        daily_dose: 1,
+        daily_servings_max: 2,
+        daily_price: 9,
+        monthly_cost: 280,
+        score_raw: 1,
+        is_core: true,
+        image_url: null
+      },
+      {
+        rank: 2,
+        sellable_item_id: sellableIron,
+        code: 'iron',
+        name: '鐵蛋白調理',
+        unit_price: 17,
+        daily_dose: 1,
+        daily_servings_max: 1,
+        daily_price: 17,
+        monthly_cost: 520,
+        score_raw: 0.8,
+        is_core: false,
+        image_url: null
+      }
+    ]
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: {
+          conversation_id: conversationId,
+          mode,
+          block,
+          checkout_locked: checkoutLocked,
+          checkout_lock_reason: checkoutLockReason,
+          recipient: {
+            name: '林晏婷',
+            phone: '0912345678',
+            address: '台北市大安區復興南路一段 100 號',
+            address_city: '台北市',
+            address_district: '大安區',
+            address_detail: '復興南路一段 100 號',
+            email: 'guest@example.com'
+          },
+          shipping: { fee: 0, free: true },
+          invoice: {},
+          payment_methods: [
+            { code: 'card', available: true, status: null },
+            { code: 'linepay', available: false, status: 'coming_soon' },
+            { code: 'atm', available: false, status: 'coming_soon' }
+          ],
+          expert_plans: mode === 'expert' ? expertPlans : [],
+          preselect_expert_plan_code: mode === 'expert' && expertPlans.length === 1
+            ? expertPlans[0]?.code ?? null
+            : null,
+          ai: mode === 'ai'
+            ? {
+                package_plan_code: packagePlanCode,
+                package_plan_name: packagePlanCode === 'advance' ? '完整調理' : '基礎保養',
+                name_zh: packagePlanCode === 'advance' ? '完整調理' : '基礎保養',
+                price: packagePlanCode === 'advance' ? 2980 : 1980,
+                period_days: 30,
+                item_count: aiItems.length,
+                used_amount: 800,
+                remaining: packagePlanCode === 'advance' ? 2180 : 1180,
+                composition_hash: `sha256:${packagePlanCode}`,
+                items: aiItems
+              }
+            : null,
+          completion_choice: null
+        }
+      })
+    })
+  })
+
+  await page.route('**/api/v1/order/*/finalized-plan', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: {
+          order_id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+          expert_case_id: expertReviewId,
+          reviewed_at: '2026-01-01T01:00:00Z',
+          packages: [
+            {
+              package_plan_code: 'basic',
+              name_zh: '基礎保養',
+              items: [
+                {
+                  sellable_item_code: 'vitamin_d',
+                  name_zh: '維生素 D',
+                  daily_dose: 1,
+                  unit: '顆'
+                },
+                {
+                  sellable_item_code: 'iron',
+                  name_zh: '鐵蛋白調理',
+                  daily_dose: 1,
+                  unit: '顆'
+                }
+              ]
+            }
+          ]
+        }
       })
     })
   })
@@ -1320,7 +1609,14 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         degraded: false,
         error: null,
         actions: [
-          { type: 'offer_recommend', payload: {} }
+          {
+            type: 'offer_recommend',
+            payload: {
+              mode: 'view_recommendations',
+              label: '查看推薦方案',
+              path: '/app/recommendations'
+            }
+          }
         ]
       }
     }
@@ -1665,7 +1961,14 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       degraded: false,
       error: null,
       actions: [
-        { type: 'offer_recommend', payload: {} },
+        {
+          type: 'offer_recommend',
+          payload: {
+            mode: 'view_recommendations',
+            label: '查看推薦方案',
+            path: '/app/recommendations'
+          }
+        },
         {
           type: 'choose_option',
           payload: {
@@ -1862,7 +2165,14 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           degraded: false,
           error: null,
           actions: [
-            { type: 'offer_recommend', payload: {} },
+            {
+              type: 'offer_recommend',
+              payload: {
+                mode: 'view_recommendations',
+                label: '查看推薦方案',
+                path: '/app/recommendations'
+              }
+            },
             { type: 'ask_report', payload: {} },
             {
               type: 'choose_option',
@@ -1961,7 +2271,14 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           adaptor: 'fake',
           degraded: false,
           error: null,
-          actions: [{ type: 'offer_recommend', payload: {} }]
+          actions: [{
+            type: 'offer_recommend',
+            payload: {
+              mode: 'view_recommendations',
+              label: '查看推薦方案',
+              path: '/app/recommendations'
+            }
+          }]
         }
       }
     }
@@ -2401,6 +2718,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     await route.fallback()
   })
 
+  let refundRequestStatus: 'requested' | 'refunded' | 'rejected' | null = null
+
   await page.route('**/api/v1/order/**', async (route) => {
     const url = route.request().url()
     if (url.includes('/message')) {
@@ -2415,6 +2734,24 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
               { id: 'om-1', role: 'assistant', content: '已依你的目標組成一個月方案。', seq: 1 },
               { id: 'om-2', role: 'user', content: '好，幫我下單。', seq: 2 }
             ]
+          }
+        })
+      })
+      return
+    }
+    if (url.includes('/refund-request') && route.request().method() === 'POST') {
+      refundRequestStatus = 'requested'
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            id: 'rr-1',
+            order_id: placedOrder?.id ?? 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+            status: 'requested',
+            refund_request_status: 'requested',
+            refund_request_display: '退款申請中'
           }
         })
       })
@@ -2463,12 +2800,43 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
               { id: 'c3', sellable_item_id: sellableVitC, sellable_item_code: 'vitamin_c', sellable_item_name: '維生素 C', unit_price: 16, daily_dose: 1, monthly_cost: 480, rank: 3, is_core: false }
             ]
           },
-          lines: [],
+          lines: placedOrder.package_plan_name?.includes('專家')
+            ? [{ kind: 'expert_plan', expert_plan_code: 'basic', expert_plan_name: placedOrder.package_plan_name }]
+            : [],
           recipient: { name: '林晏婷', phone: '0912345678', address: '台北市大安區', email: 'guest@example.com' },
           invoice_type: 'member',
           created_at: placedOrder.created_at,
           confirmed_at: placedOrder.payment_status === 'paid' ? placedOrder.created_at : null,
-          payments: []
+          payments: [],
+          refund_request_status: refundRequestStatus,
+          refund_status: refundRequestStatus,
+          refund_request_display: refundRequestStatus === 'requested' ? '退款申請中' : null,
+          refund_blocked_reason: (() => {
+            if (refundRequestStatus === 'requested') {
+              return 'refund_request_exists'
+            }
+            if (refundRequestStatus === 'rejected') {
+              return 'refund_rejected'
+            }
+            if (!placedOrder.package_plan_name?.includes('專家')
+              || placedOrder.payment_status !== 'paid') {
+              return null
+            }
+            return null
+          })(),
+          expert_case_id: placedOrder.package_plan_name?.includes('專家') ? expertReviewId : null,
+          expert_case_status: placedOrder.package_plan_name?.includes('專家') ? 'reviewed' : null,
+          expert_case_phase: placedOrder.package_plan_name?.includes('專家') ? 'finalized' : null,
+          expert_case_review: placedOrder.package_plan_name?.includes('專家')
+            ? {
+                id: expertReviewId,
+                status: 'reviewed',
+                conversation_id: conversationId
+              }
+            : null,
+          refund_rejection_reason: refundRequestStatus === 'rejected' ? '不符合退款條件' : null,
+          // Expert refund window: no shipment yet after finalize; AI demo keeps picking.
+          shipment_status: placedOrder.package_plan_name?.includes('專家') ? null : 'picking'
         }
       })
     })

@@ -99,7 +99,7 @@ test.describe('path contract (A／B／C)', () => {
     // 開場白在上、三鈕在下
     const text = await transcript.innerText()
     expect(text.indexOf(FLOW_V2_GREETING_CONSULT)).toBeLessThan(text.indexOf('我想聊聊'))
-    await expect(page.getByTestId('chat-submit-expert-review')).toHaveCount(0)
+    await expect(page.getByTestId('chat-view-recommend')).toHaveCount(0)
   })
 
   const removedLocalOpeners = [
@@ -210,7 +210,7 @@ test.describe('path contract (A／B／C)', () => {
 
     const last = page.getByTestId('chat-last-reply')
     await expect(last).toBeVisible({ timeout: 15_000 })
-    await expect(last.getByTestId('chat-submit-expert-review')).toHaveCount(0)
+    await expect(last.getByTestId('chat-view-recommend')).toHaveCount(0)
   })
 
   test('path B：goals 後才問 sex；完成 CTA 依 RA', async ({ page, goto }) => {
@@ -227,7 +227,7 @@ test.describe('path contract (A／B／C)', () => {
 
     await finishGoalSelect(page)
     await expect(page.getByTestId('chat-quiz-option-F')).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByTestId('chat-submit-expert-review')).toHaveCount(0)
+    await expect(page.getByTestId('chat-view-recommend')).toHaveCount(0)
   })
 
   test('path B：基本齊 + usable offer_recommend → 完成 CTA；文案不改壞', async ({ page, goto }) => {
@@ -246,11 +246,8 @@ test.describe('path contract (A／B／C)', () => {
     await sendChatLine(page, '請給方案')
 
     const last = page.getByTestId('chat-last-reply')
-    await expect(last.getByTestId('chat-submit-expert-review')).toBeVisible({ timeout: 15_000 })
-    await expect(last.getByTestId('chat-submit-expert-review')).toHaveText('取得專屬保健品方案')
-    await expect(last.getByTestId('chat-submit-expert-review-hint')).toHaveText(
-      '以上為 AI 對話資訊，專人將於 24 小時內為您處理'
-    )
+    await expect(last.getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
+    await expect(last.getByTestId('chat-view-recommend')).toHaveText('查看推薦方案')
   })
 
   test('path B：基本齊 + RA none → 不硬掛完成 CTA', async ({ page, goto }) => {
@@ -270,7 +267,7 @@ test.describe('path contract (A／B／C)', () => {
 
     const last = page.getByTestId('chat-last-reply')
     await expect(last).toBeVisible({ timeout: 15_000 })
-    await expect(last.getByTestId('chat-submit-expert-review')).toHaveCount(0)
+    await expect(last.getByTestId('chat-view-recommend')).toHaveCount(0)
   })
 
   test('path C：flow_prompt 上傳引導＋A／B 兩鈕（無 checkup）', async ({ page, goto }) => {

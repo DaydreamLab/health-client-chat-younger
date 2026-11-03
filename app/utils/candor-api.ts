@@ -115,7 +115,9 @@ export interface RecommendationPackageItem {
   unit_price: number
   daily_dose: number
   daily_servings_max?: number | null
+  daily_price?: number | null
   monthly_cost: number
+  score_raw?: number | null
   /** 是否基礎（核心）品；來自主檔，false／缺省視為功能型 */
   is_core?: boolean
   image_url?: string | null
@@ -194,7 +196,127 @@ export interface RecommendationResponse {
   excluded?: Array<{ sellable_item_id: string, reason_code: string }> | null
 }
 
-/** Member expert-case-review status / reviewed packages (spec 32). */
+export type RefundRequestStatus = 'requested' | 'refunded' | 'rejected'
+
+/** `offer_recommend` completion CTA payload (spec 33 / core #143). */
+export interface OfferRecommendPayload {
+  mode: 'view_recommendations'
+  label: string
+  path: string
+}
+
+/** Public expert_plans catalog row (spec 33). */
+export interface ExpertPlan {
+  id: string
+  code: string
+  package_plan_id: string
+  package_plan_code?: string | null
+  package_plan_name_zh?: string | null
+  name_zh: string
+  name_en?: string | null
+  /** Opening amount TWD integer. */
+  price: number
+  active?: boolean
+  /** Checkout list order (asc). */
+  sort_order?: number
+}
+
+export interface ExpertPlanList {
+  expert_plans: ExpertPlan[]
+}
+
+/** POST /conversations/{id}/completion-choice — first press time only. */
+export interface CompletionChoiceAck {
+  conversation_id: string
+  chosen_at: string
+}
+
+export interface ConversationCompletionChoice {
+  chosen_at: string
+}
+
+export type CheckoutPreviewMode = 'ai' | 'expert'
+
+export type CheckoutPreviewBlockCode = 'expert_case_exists' | 'no_expert_plans'
+
+export interface CheckoutPreviewBlock {
+  code: CheckoutPreviewBlockCode
+  message_key?: string | null
+}
+
+export type CheckoutLockReason = 'order_submitted' | 'case_finalized'
+
+export interface CheckoutPreviewShipping {
+  fee: number
+  free: boolean
+}
+
+export type CheckoutPaymentMethodCode = CandorPaymentMethod
+
+export interface CheckoutPreviewPaymentMethod {
+  code: CheckoutPaymentMethodCode
+  available: boolean
+  status: 'coming_soon' | null
+}
+
+/** mode=ai package preview; same composition source as POST /recommendations. */
+export interface CheckoutPreviewAiPackage {
+  package_plan_code: string
+  package_plan_name: string
+  name_zh: string
+  price: number
+  period_days: number
+  item_count: number
+  used_amount?: number
+  remaining?: number
+  composition_hash?: string
+  items: RecommendationPackageItem[]
+}
+
+export interface CheckoutPreview {
+  conversation_id: string
+  mode: CheckoutPreviewMode
+  block: CheckoutPreviewBlock | null
+  checkout_locked: boolean
+  checkout_lock_reason?: CheckoutLockReason | null
+  recipient?: Record<string, unknown> | null
+  shipping: CheckoutPreviewShipping
+  invoice?: Record<string, unknown> | null
+  payment_methods: CheckoutPreviewPaymentMethod[]
+  expert_plans: ExpertPlan[]
+  preselect_expert_plan_code?: string | null
+  ai: CheckoutPreviewAiPackage | null
+  completion_choice?: ConversationCompletionChoice | null
+}
+
+export interface FinalizedPlanItem {
+  sellable_item_code?: string | null
+  name_zh?: string | null
+  daily_dose?: number | null
+  unit?: string | null
+}
+
+export interface FinalizedPlanPackage {
+  package_plan_code?: string | null
+  name_zh?: string | null
+  items: FinalizedPlanItem[]
+}
+
+export interface FinalizedPlan {
+  order_id: string
+  expert_case_id: string
+  reviewed_at?: string | null
+  packages: FinalizedPlanPackage[]
+}
+
+export type RefundBlockedReason
+  = 'not_yet_reviewed'
+    | 'picking_started'
+    | 'already_shipped'
+    | 'refund_rejected'
+    | 'refund_request_exists'
+
+/** Member expert-case-review status / reviewed packages (spec 32／33). */
 export interface ExpertCaseReviewStatus {
   id: string
   conversation_id: string
@@ -207,6 +329,18 @@ export interface ExpertCaseReviewStatus {
   packages?: RecommendationPackage[]
   summary?: RecommendationResponse['summary'] | null
   weight_set?: { id: string, version?: string } | null
+  /** Paid expert_plan case — null for legacy free cases (spec 33). */
+  order_id?: string | null
+  expert_plan_id?: string | null
+  refund_request_status?: RefundRequestStatus | null
+  refund_status?: RefundRequestStatus | null
+  /** Only when status=requested: core copy「退款申請中」. */
+  refund_request_display?: string | null
+  refund_blocked_reason?: RefundBlockedReason | null
+  refund_rejection_reason?: string | null
+  completion_choice?: ConversationCompletionChoice | null
+  /** @deprecated Prefer refund_blocked_reason === null on orders. */
+  can_request_refund?: boolean | null
 }
 
 /** Member list row — never includes packages (GET /expert-case-reviews). */
@@ -218,6 +352,13 @@ export interface ExpertCaseReviewListItem {
   created_at: string
   updated_at?: string | null
   reviewed_at?: string | null
+  order_id?: string | null
+  expert_plan_id?: string | null
+  refund_request_status?: RefundRequestStatus | null
+  refund_status?: RefundRequestStatus | null
+  refund_request_display?: string | null
+  refund_blocked_reason?: RefundBlockedReason | null
+  refund_rejection_reason?: string | null
 }
 
 export interface ExpertCaseReviewList {
@@ -331,7 +472,7 @@ export interface ConversationPackageConfirm {
 export type CandorPaymentMethod = 'card' | 'linepay' | 'atm'
 export type CandorInvoiceType = 'member' | 'cloud' | 'company' | 'donate'
 
-export type OrderLineKind = 'package' | 'lab_service' | 'day_supply'
+export type OrderLineKind = 'package' | 'lab_service' | 'day_supply' | 'expert_plan'
 
 export interface OrderLineInput {
   kind: OrderLineKind
@@ -341,6 +482,8 @@ export interface OrderLineInput {
   lab_service_code?: string
   sellable_item_code?: string
   days?: number
+  /** Spec 33 — expert_plan line (mutually exclusive with package／lab／day_supply). */
+  expert_plan_code?: string
 }
 
 export interface OrderCreateRequest {
@@ -443,6 +586,37 @@ export interface OrderDetail {
   created_at?: string
   confirmed_at?: string | null
   payments?: CandorPayment[] | null
+  conversation_id?: string | null
+  /** Spec 33 — member refund-request fields. */
+  refund_request_status?: RefundRequestStatus | null
+  refund_status?: RefundRequestStatus | null
+  /** Only when status=requested: core copy「退款申請中」. */
+  refund_request_display?: string | null
+  refund_blocked_reason?: RefundBlockedReason | null
+  refund_rejection_reason?: string | null
+  completion_choice?: ConversationCompletionChoice | null
+  /** Shipment status when present (`picking`｜`shipped`｜…). */
+  shipment_status?: string | null
+  shipment?: { status?: string | null } | null
+  expert_case_id?: string | null
+  expert_case_status?: 'awaiting_review' | 'reviewed' | null
+  expert_case_phase?: 'processing' | 'finalized' | null
+  expert_case_review?: {
+    id?: string
+    status?: 'awaiting_review' | 'reviewed' | null
+    conversation_id?: string | null
+  } | null
+  /** @deprecated Use refund_rejection_reason. */
+  refund_reject_reason?: string | null
+}
+
+export interface RefundRequestCreated {
+  id?: string
+  order_id?: string
+  status?: RefundRequestStatus
+  refund_request_status?: RefundRequestStatus
+  refund_status?: RefundRequestStatus
+  refund_request_display?: string | null
 }
 
 export interface OrderList {

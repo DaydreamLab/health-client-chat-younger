@@ -12,8 +12,12 @@ import type {
   ConversationPackageConfirm,
   ConversationPathAck,
   ConversationPathUpdate,
+  CompletionChoiceAck,
+  CheckoutPreview,
   ExpertCaseReviewList,
   ExpertCaseReviewStatus,
+  ExpertPlanList,
+  FinalizedPlan,
   HealthReport,
   HealthReportList,
   HealthReportPatchResultRequest,
@@ -36,6 +40,7 @@ import type {
   ProfileAnswerResult,
   ProfileNext,
   RecommendationResponse,
+  RefundRequestCreated,
   RenewalsDueList,
   StreamMessageResult,
   UserHealthProfile,
@@ -600,6 +605,48 @@ export function useCandorApi() {
         method: 'POST',
         body
       }),
+
+    /** Spec 33 — member refund request (定稿後、理貨前). */
+    createRefundRequest: (orderId: string) =>
+      request<RefundRequestCreated>(
+        `/order/${encodeURIComponent(orderId)}/refund-request`,
+        { method: 'POST' }
+      ),
+
+    /** Spec 33 — active expert_plans catalog (sorted by sort_order on FE). */
+    listExpertPlans: () =>
+      request<ExpertPlanList>('/expert-plans', { method: 'GET' }),
+
+    /**
+     * First completion CTA press — body `{}`; failures must not block navigation.
+     */
+    recordCompletionChoice: (conversationId: string) =>
+      request<CompletionChoiceAck>(
+        `/conversations/${encodeURIComponent(conversationId)}/completion-choice`,
+        { method: 'POST', body: {} }
+      ),
+
+    getCheckoutPreview: (params: {
+      conversationId: string
+      mode: 'ai' | 'expert'
+      packagePlanCode?: string
+    }) =>
+      request<CheckoutPreview>('/checkout/preview', {
+        method: 'GET',
+        query: {
+          conversation_id: params.conversationId,
+          mode: params.mode,
+          ...(params.packagePlanCode
+            ? { package_plan_code: params.packagePlanCode }
+            : {})
+        }
+      }),
+
+    getFinalizedPlan: (orderId: string) =>
+      request<FinalizedPlan>(
+        `/order/${encodeURIComponent(orderId)}/finalized-plan`,
+        { method: 'GET' }
+      ),
 
     getOrderMessages: (id: string) =>
       request<OrderMessages>(`/order/${encodeURIComponent(id)}/message`, { method: 'GET' }),

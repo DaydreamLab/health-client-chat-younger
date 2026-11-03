@@ -15,13 +15,14 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 | `/login` | default | 登入／註冊 | `POST /auth/login`、`/auth/register` |
 | `/chat` | `user` + `chat-layout` | 對話 SSE、目標／價格帶；上傳報告僅 member（guest 導向登入）。推薦槽在尚未建案時為「提交專家判讀」 | guest 可對話；`POST /health-reports` 需 member；會員「提交專家判讀」為 `POST /conversation/{id}/expert-review` |
 | `/chat-ai` | `user` + `chat-layout` | 與 `/chat` 共用對話。標準流程（畫面「標準」）推薦槽為「查看推薦方案」，進入 `/app/recommendations?flow=standard` | 同 `/chat` 對話；建議只打 `POST /recommendations` 後結帳，不呼叫 expert-review |
-| `/app` | `user` + `auth` | 我的健康：profile 摘要卡＋報告列表（最新一筆展開判讀表）；guest 顯示登入門檻 | `GET /profile`；`GET /health-reports`；展開時 `GET /health-reports/{id}`（member） |
+| `/app` | `user` + `auth` | 我的健康：profile 摘要卡＋報告列表＋專家案件列（付費專家案可連訂單／申請退款） | `GET /profile`；`GET /health-reports`；`GET /expert-case-reviews`；`POST /order/{id}/refund-request` |
 | `/app/wearables` | `user` + `auth` | 穿戴裝置範例（假資料、`?demo=` 切狀態） | 無 API |
 | `/app/wearables/:deviceId` | `user` + `auth` | 單一裝置趨勢（7／30 天） | 無 API |
 | `/app/renewals` | `user` + `auth` | 待續約即將上線佔位（列表與續約對話暫不從這頁進入） | 無（殼）；client 仍保留 `GET /renewals/due`、`renewal_of_order_id` |
-| `/app/recommendations` | `user` + `auth` | 建議與結帳 | `POST /recommendations`、`GET /package-plans`、`POST /orders`、`PATCH /users/me` |
+| `/app/recommendations` | `user` + `auth` | 建議與結帳；付費專家方案（案件有 `order_id`）定稿後為唯讀結果（不可另選 plan／結帳） | `POST /recommendations`、`GET /package-plans`、`GET /conversation/{id}/expert-review`、`POST /orders`、`PATCH /users/me`；唯讀時另 `GET /order/{id}` |
+| `/app/checkout` | `user` + `auth` | AI／專家共用結帳（`?kind=package`｜`?kind=expert_plan`）；同頁預覽、按「確認付款」建單；缺 `conversation_id` 時 AI 顯示諮詢紀錄錯誤＋回對話 | `GET /checkout/preview`（AI 品項用 `ai.items`）、`POST /orders`、`PATCH /users/me` |
 | `/app/orders` | `user` + `auth` | 訂單列表 | `GET /orders` |
-| `/app/orders/[id]` | `user` + `auth` | 訂單詳情、出貨時間線、對話 modal | `GET /order/{id}`；`GET /order/{id}/message`（已接） |
+| `/app/orders/[id]` | `user` + `auth` | 訂單詳情、出貨時間線、對話 modal；專家方案可「申請退款」／顯示「退款申請中」 | `GET /order/{id}`；`GET /order/{id}/message`；`POST /order/{id}/refund-request` |
 | `/app/notifications` | `user` + `auth` | 通知中心列表（篩選全部／未讀、點列標已讀＋deep link）；guest 顯示 dashed AuthGate；空／錯誤態 | `GET /notifications`、`GET /notifications/unread-count`、`POST /notifications/{id}/read`（member；guest 403） |
 | `/app/me` | `user` + `auth` | 個人資料：顯示名稱、密碼、常用收件（email 唯讀）；guest 顯示登入門檻 | `GET`／`PATCH /users/me`（member） |
 | `/app/handoff` | `user` + `auth` | 舊 FigJam「交給顧問」殼 | 非 core 主路徑；勿新增假 API |
@@ -52,7 +53,7 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 - 選項與確認在助理氣泡底部：確認鈕靠右。仍在選改善方向、report 必問、或最新一則仍是 profile／open gap 時，不畫完成 CTA 的 recommend 槽。gap／必問 CTA 掛在**最新**助理泡泡（含自舊 bank 抬升）；free chips 可與 open gap 並存於最新。
 - 開場只問改善方向。選方向時，輸入框不提示「有沒有報告」。
 - 氣泡內上傳鈕只出現在最新一則且該則 usable `ask_report`（或 lab_followup→upload）。輸入列的上傳入口仍在（guest 點了導向登入）。
-| 建議／結帳 | `pages/app/recommendations.vue`、`composables/useFirstOrderApi.ts` |
+| 建議／結帳 | `pages/app/recommendations.vue`、`pages/app/checkout.vue`、`composables/useFirstOrderApi.ts` |
 | 個人資料 | `pages/app/me.vue`、側欄／`AccountUser` |
 | 訂單 | `pages/app/orders/*`、`stores/orders.ts`、`components/ShipmentTimeline.vue`、`OrderChatModal.vue` |
 | 通知中心 | `pages/app/notifications.vue`、`stores/notifications.ts`、`components/notifications/*`、`utils/notifications*.ts`、`useCandorApi` inbox 方法；rail 未讀 badge 經 `useMemberNavExtension`＋`unread-count` |

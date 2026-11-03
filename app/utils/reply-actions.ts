@@ -3,6 +3,7 @@
  * Contract: https://app.notion.com/p/3f2bb4588e818142be28c92e84ee39c5
  */
 
+import type { OfferRecommendPayload } from './candor-api'
 import type { ChatMessageOption } from './first-order'
 
 export const REPLY_ACTIONS_SCHEMA_VERSION = '0.1'
@@ -619,6 +620,28 @@ export function offerCheckupPayload(action: ReplyAction): OfferCheckupPayload {
   }
 }
 
+/** Parse spec 33 `offer_recommend` payload; ignores unknown modes (e.g. legacy dual_choice). */
+export function offerRecommendPayload(action: ReplyAction): Partial<OfferRecommendPayload> {
+  const p = isRecord(action.payload) ? action.payload : {}
+  const mode = p.mode === 'view_recommendations' ? 'view_recommendations' as const : undefined
+  return {
+    ...(mode ? { mode } : {}),
+    ...(typeof p.label === 'string' ? { label: p.label } : {}),
+    ...(typeof p.path === 'string' ? { path: p.path } : {})
+  }
+}
+
+export function isViewRecommendationsOfferAction(action: ReplyAction): boolean {
+  if (action.type !== 'offer_recommend') {
+    return false
+  }
+  const payload = isRecord(action.payload) ? action.payload : {}
+  if (payload.mode === 'dual_choice') {
+    return false
+  }
+  return payload.mode === 'view_recommendations'
+}
+
 function goalOptionsFromAskGoal(payload: AskGoalPayload): ChatMessageOption[] {
   const codes = payload.goal_codes
   if (!codes || codes.length === 0) {
@@ -691,7 +714,7 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
 
   const chooseActions = actions.filter(a => a.type === 'choose_option')
   const askGoalAction = actions.find(a => a.type === 'ask_goal')
-  const hasRecommend = actions.some(a => a.type === 'offer_recommend')
+  const hasRecommend = actions.some(isViewRecommendationsOfferAction)
   const hasReport = actions.some(a => a.type === 'ask_report')
   const vitalsAction = actions.find(a => a.type === 'ask_vitals')
   const checkupAction = actions.find(a => a.type === 'offer_checkup')
@@ -780,14 +803,8 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
     }
   }
 
-  const standardFlow = input.flow === 'standard'
-  const showSubmitReview = hasRecommend
-    && input.canShowRecommendSlot
-    && !standardFlow
-    && input.expertReviewStatus === 'none'
-  const showViewRecommend = hasRecommend
-    && input.canShowRecommendSlot
-    && (standardFlow || input.expertReviewStatus === 'reviewed')
+  const showSubmitReview = false
+  const showViewRecommend = hasRecommend && input.canShowRecommendSlot
 
   const vitals = vitalsAction ? askVitalsPayload(vitalsAction) : null
   const vitalsFields = input.canShowVitals && vitals
@@ -831,9 +848,9 @@ function stampContinueConsultationMapsTo(
   })
 }
 
-/** offer_recommend button copy by route (same backend type). */
-export function offerRecommendLabelKey(flow?: 'standard'): 'chat.submitExpertReview' | 'chat.viewRecommend' {
-  return flow === 'standard' ? 'chat.viewRecommend' : 'chat.submitExpertReview'
+/** offer_recommend bubble CTA copy (v4: always view recommendations). */
+export function offerRecommendLabelKey(_flow?: 'standard'): 'chat.viewRecommend' {
+  return 'chat.viewRecommend'
 }
 
 /**

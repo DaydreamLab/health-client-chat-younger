@@ -1,71 +1,89 @@
 <template>
-  <div
-    v-if="payPhase === 'paying'"
-    class="flex min-h-[calc(100dvh-8rem)] flex-col items-center justify-center px-4 text-center"
-    data-testid="checkout-processing"
-  >
-    <span
-      class="size-10 animate-spin rounded-full border-2 border-muted border-t-primary"
-      aria-hidden="true"
-    />
-    <h1 class="mt-6 text-xl font-semibold text-highlighted">
-      {{ $t('checkout.processing') }}
-    </h1>
-  </div>
-
-  <div
-    v-else-if="payPhase === 'success'"
-    class="mx-auto flex min-h-[calc(100dvh-8rem)] w-full max-w-sm flex-col items-center justify-center px-4 text-center"
-    data-testid="checkout-success"
-  >
-    <span class="flex size-14 items-center justify-center rounded-full bg-success/10 text-success">
-      <UIcon
-        name="i-lucide-circle-check"
-        class="size-8"
-      />
-    </span>
-    <h1 class="mt-6 text-xl font-semibold text-highlighted">
-      {{ $t('checkout.successTitle') }}
-    </h1>
-    <p class="mt-2 text-sm text-muted">
-      {{ $t('checkout.successBody') }}
-    </p>
-    <AppButton
-      class="mt-8 w-full"
-      :to="localePath('/app/orders')"
-      data-testid="checkout-view-orders"
-    >
-      {{ $t('checkout.viewOrders') }}
-    </AppButton>
-  </div>
-
-  <div
-    v-else
-    class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]"
-  >
+  <div class="space-y-6 pb-24">
     <div class="space-y-6">
       <section
-        v-if="reviewPhase === 'gate'"
+        v-if="showPathChoice"
         class="rounded-2xl border border-default bg-elevated p-5"
-        data-testid="expert-review-gate"
+        data-testid="recommendation-path-choice"
+      >
+        <p
+          v-if="!pathChoice"
+          class="text-sm text-muted"
+          data-testid="recommendation-path-prompt"
+        >
+          {{ $t('recommendation.pathChoicePrompt') }}
+        </p>
+        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+          <label
+            class="app-path-card"
+            :class="{ 'app-path-card-selected': pathChoice === 'ai' }"
+            data-testid="recommendation-path-ai"
+          >
+            <input
+              v-model="pathChoice"
+              type="radio"
+              class="sr-only"
+              name="recommendation-path"
+              value="ai"
+            >
+            <p class="font-medium text-highlighted">
+              {{ $t('recommendation.pathAiTitle') }}
+            </p>
+            <p class="mt-2 text-sm text-muted">
+              {{ $t('recommendation.pathAiBody') }}
+            </p>
+          </label>
+          <label
+            class="app-path-card"
+            :class="{ 'app-path-card-selected': pathChoice === 'expert' }"
+            data-testid="recommendation-path-expert"
+          >
+            <input
+              v-model="pathChoice"
+              type="radio"
+              class="sr-only"
+              name="recommendation-path"
+              value="expert"
+            >
+            <p class="font-medium text-highlighted">
+              {{ $t('recommendation.pathExpertTitle') }}
+            </p>
+            <p class="mt-2 text-lg font-semibold text-primary">
+              {{ $t('recommendation.pathExpertPrice') }}
+            </p>
+            <p class="mt-1 text-sm text-muted">
+              {{ $t('recommendation.pathExpertBody') }}
+            </p>
+          </label>
+        </div>
+      </section>
+
+      <section
+        v-if="expertPlanReadonly"
+        class="rounded-2xl border border-default bg-elevated p-5"
+        data-testid="expert-plan-result"
       >
         <h2 class="text-xl font-semibold text-highlighted">
-          {{ $t('recommendation.gateNotReviewed') }}
+          {{ $t('recommendation.readyTitle') }}
         </h2>
-        <p class="mt-3 text-sm text-muted">
-          {{ $t('recommendation.awaitingBody') }}
+        <p
+          class="mt-2 text-sm text-muted"
+          data-testid="expert-plan-result-readonly-hint"
+        >
+          {{ $t('expertPlans.resultReadonlyHint') }}
         </p>
         <AppButton
+          v-if="expertPlanOrderId"
           class="mt-6"
-          :to="localePath('/app')"
-          data-testid="expert-review-gate-back"
+          :to="localePath(`/app/orders/${expertPlanOrderId}`)"
+          data-testid="expert-plan-view-order"
         >
-          {{ $t('recommendation.gateBackHealth') }}
+          {{ $t('expertPlans.openOrder') }}
         </AppButton>
       </section>
 
       <section
-        v-else
+        v-if="showPackagePick"
         class="rounded-2xl border border-default bg-elevated p-5"
       >
         <h2 class="text-xl font-semibold text-highlighted">
@@ -93,7 +111,10 @@
             v-for="pkg in packages"
             :key="pkg.package_plan_code"
             class="app-path-card"
-            :class="{ 'app-path-card-selected': selectedPackageCode === pkg.package_plan_code }"
+            :class="{
+              'app-path-card-selected': selectedPackageCode === pkg.package_plan_code,
+              'pointer-events-none': expertPlanReadonly
+            }"
             :data-testid="`package-plan-${pkg.package_plan_code}`"
           >
             <input
@@ -102,13 +123,24 @@
               class="sr-only"
               name="recommendation-package-plan"
               :value="pkg.package_plan_code"
+              :disabled="expertPlanReadonly"
             >
             <div class="flex items-start justify-between gap-2">
               <p class="font-medium text-highlighted">
                 {{ pkg.package_plan_name }}
               </p>
             </div>
-            <p class="mt-2 text-lg font-semibold text-primary">
+            <p
+              v-if="expertPlanReadonly && expertPlanOpeningAmount != null"
+              class="mt-2 text-lg font-semibold text-primary"
+              data-testid="expert-plan-result-total"
+            >
+              {{ formatTwd(expertPlanOpeningAmount) }}
+            </p>
+            <p
+              v-else
+              class="mt-2 text-lg font-semibold text-primary"
+            >
               {{ $t('recommendation.perMonth', { price: formatTwd(pkg.price) }) }}
             </p>
             <p class="mt-1 text-sm text-muted">
@@ -156,7 +188,7 @@
       </section>
 
       <section
-        v-if="(reviewPhase === 'viewing' || reviewPhase === 'legacy') && selectedRationale"
+        v-if="(reviewPhase === 'viewing' || reviewPhase === 'legacy' || expertPlanReadonly) && selectedRationale"
         class="overflow-hidden rounded-2xl border border-default bg-elevated"
         data-testid="package-rationale"
       >
@@ -252,7 +284,7 @@
       </section>
 
       <section
-        v-if="reviewPhase === 'viewing' || reviewPhase === 'legacy'"
+        v-if="(reviewPhase === 'viewing' || reviewPhase === 'legacy' || expertPlanReadonly) && selectedPackage"
         class="overflow-hidden rounded-2xl border border-default bg-elevated"
         data-testid="package-items"
       >
@@ -328,7 +360,10 @@
                 >
                   {{ doseLabel(item) }}
                 </span>
-                <span class="text-sm tabular-nums text-muted">
+                <span
+                  v-if="!expertPlanReadonly"
+                  class="text-sm tabular-nums text-muted"
+                >
                   {{ formatTwd(item.monthly_cost) }}
                 </span>
               </span>
@@ -338,283 +373,25 @@
       </section>
     </div>
 
-    <aside
-      v-if="reviewPhase === 'viewing' || reviewPhase === 'legacy'"
-      class="relative h-fit max-h-none rounded-2xl border border-default bg-elevated p-5 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto"
-      data-testid="checkout-card"
+    <div
+      v-if="showAiCheckoutBar"
+      class="fixed inset-x-0 bottom-0 z-20 border-t border-default bg-elevated/95 px-4 py-3 backdrop-blur-sm"
+      data-testid="recommendation-checkout-bar"
     >
-      <div
-        v-if="auth.ready && !auth.isMember"
-        class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-2xl bg-elevated/80 px-6 text-center backdrop-blur-sm"
-        data-testid="checkout-auth-gate"
-      >
-        <p class="text-sm font-medium text-highlighted">
-          {{ $t('checkout.memberRequired') }}
+      <div class="mx-auto flex max-w-lg items-center gap-3">
+        <p class="min-w-0 flex-1 text-sm text-muted">
+          {{ selectedPackage?.package_plan_name }}
         </p>
-        <p class="text-xs text-muted">
-          {{ $t('checkout.memberRequiredHint') }}
-        </p>
-        <div class="mt-2 flex w-full flex-col gap-2">
-          <AppButton
-            class="w-full"
-            :to="loginRedirect"
-            data-testid="checkout-login"
-          >
-            {{ $t('checkout.login') }}
-          </AppButton>
-          <AppButton
-            class="w-full"
-            variant="outline"
-            :to="registerRedirect"
-            data-testid="checkout-register"
-          >
-            {{ $t('checkout.register') }}
-          </AppButton>
-        </div>
-      </div>
-
-      <h2 class="font-semibold text-highlighted">
-        {{ $t('checkout.title') }}
-      </h2>
-      <dl class="mt-4 space-y-2 text-sm">
-        <div class="flex justify-between gap-3">
-          <dt class="text-muted">
-            {{ $t('checkout.subtotal') }}
-          </dt>
-          <dd class="tabular-nums text-highlighted">
-            {{ formatTwd(checkoutPrice) }}
-          </dd>
-        </div>
-        <div class="flex justify-between gap-3">
-          <dt class="text-muted">
-            {{ $t('checkout.shippingFee') }}
-          </dt>
-          <dd class="text-highlighted">
-            {{ $t('checkout.shippingFree') }}
-          </dd>
-        </div>
-        <div class="flex justify-between gap-3 border-t border-default pt-2 font-medium">
-          <dt class="text-highlighted">
-            {{ $t('checkout.total') }}
-          </dt>
-          <dd
-            class="tabular-nums text-primary"
-            data-testid="checkout-total"
-          >
-            {{ formatTwd(checkoutPrice) }}
-          </dd>
-        </div>
-      </dl>
-
-      <form
-        class="mt-5 space-y-4"
-        @submit.prevent="onPay"
-      >
-        <label class="block">
-          <span class="mb-1.5 block text-sm text-highlighted">{{ $t('checkout.name') }}</span>
-          <input
-            v-model="name"
-            name="name"
-            required
-            autocomplete="name"
-            class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            data-testid="checkout-name"
-          >
-        </label>
-        <label class="block">
-          <span class="mb-1.5 block text-sm text-highlighted">{{ $t('checkout.phone') }}</span>
-          <input
-            v-model="phone"
-            name="phone"
-            required
-            type="tel"
-            autocomplete="tel"
-            class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            data-testid="checkout-phone"
-          >
-        </label>
-        <div class="block space-y-1.5">
-          <span class="block text-sm text-highlighted">{{ $t('checkout.addressRegion') }}</span>
-          <div class="grid grid-cols-2 gap-2">
-            <label class="block min-w-0">
-              <span class="sr-only">{{ $t('checkout.addressCity') }}</span>
-              <select
-                v-model="addressCity"
-                name="address_city"
-                required
-                autocomplete="address-level1"
-                class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                data-testid="checkout-address-city"
-              >
-                <option
-                  value=""
-                  disabled
-                >
-                  {{ $t('checkout.addressCity') }}
-                </option>
-                <option
-                  v-for="city in taiwanCities"
-                  :key="city"
-                  :value="city"
-                >
-                  {{ city }}
-                </option>
-              </select>
-            </label>
-            <label class="block min-w-0">
-              <span class="sr-only">{{ $t('checkout.addressDistrict') }}</span>
-              <select
-                v-model="addressDistrict"
-                name="address_district"
-                required
-                :disabled="!addressCity"
-                autocomplete="address-level2"
-                class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50"
-                data-testid="checkout-address-district"
-              >
-                <option
-                  value=""
-                  disabled
-                >
-                  {{ $t('checkout.addressDistrict') }}
-                </option>
-                <option
-                  v-for="district in addressDistricts"
-                  :key="district"
-                  :value="district"
-                >
-                  {{ district }}
-                </option>
-              </select>
-            </label>
-          </div>
-        </div>
-        <label class="block">
-          <span class="mb-1.5 block text-sm text-highlighted">{{ $t('checkout.addressDetail') }}</span>
-          <input
-            v-model="addressDetail"
-            name="address_detail"
-            required
-            autocomplete="street-address"
-            :placeholder="$t('checkout.addressDetailPlaceholder')"
-            class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            data-testid="checkout-address"
-          >
-        </label>
-        <label
-          v-if="auth.isMember"
-          class="flex items-center gap-2 text-sm text-highlighted"
-        >
-          <input
-            v-model="saveAsDefaultAddress"
-            type="checkbox"
-            name="save_default_address"
-            class="accent-primary"
-            data-testid="checkout-save-default-address"
-          >
-          {{ $t('checkout.saveDefaultAddress') }}
-        </label>
-
-        <fieldset class="space-y-1.5">
-          <legend class="mb-1.5 text-sm font-medium text-highlighted">
-            {{ $t('checkout.delivery') }}
-          </legend>
-          <label class="flex items-center gap-2 text-sm text-highlighted">
-            <input
-              v-model="delivery"
-              type="radio"
-              name="delivery"
-              value="home"
-              class="accent-primary"
-            >
-            {{ $t('checkout.deliveryHome') }}
-          </label>
-          <p class="text-xs text-dimmed">
-            {{ $t('checkout.deliveryHint') }}
-          </p>
-        </fieldset>
-
-        <fieldset class="space-y-1.5">
-          <legend class="mb-1.5 text-sm font-medium text-highlighted">
-            {{ $t('checkout.payment') }}
-          </legend>
-          <label
-            v-for="method in paymentMethods"
-            :key="method"
-            class="flex items-center gap-2 text-sm text-highlighted"
-          >
-            <input
-              v-model="paymentMethod"
-              type="radio"
-              class="accent-primary"
-              name="payment"
-              :value="method"
-            >
-            {{ $t(`checkout.${method}`) }}
-          </label>
-        </fieldset>
-
-        <fieldset class="space-y-1.5">
-          <legend class="mb-1.5 text-sm font-medium text-highlighted">
-            {{ $t('checkout.invoice') }}
-          </legend>
-          <label
-            v-for="option in invoiceOptions"
-            :key="option"
-            class="flex items-center gap-2 text-sm text-highlighted"
-          >
-            <input
-              v-model="invoice"
-              type="radio"
-              class="accent-primary"
-              name="invoice"
-              :value="option"
-            >
-            {{ $t(`checkout.${option}`) }}
-          </label>
-          <p
-            v-if="invoice === 'member'"
-            class="text-xs text-muted"
-            data-testid="checkout-invoice-member-email"
-          >
-            {{ auth.user?.email || $t('checkout.memberCarrierHint') }}
-          </p>
-          <label
-            v-else
-            class="block"
-          >
-            <span class="mb-1.5 block text-sm text-highlighted">
-              {{ $t(`checkout.carrier_${invoice}`) }}
-            </span>
-            <input
-              v-model="invoiceCarrier"
-              name="invoice_carrier"
-              required
-              class="h-10 w-full rounded-md border border-default bg-default px-3 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-              :placeholder="$t(`checkout.carrierPlaceholder_${invoice}`)"
-              data-testid="checkout-invoice-carrier"
-            >
-          </label>
-        </fieldset>
-
-        <p
-          v-if="error"
-          class="text-sm text-error"
-          data-testid="checkout-error"
-        >
-          {{ error }}
-        </p>
-
         <AppButton
-          type="submit"
-          class="w-full"
-          :disabled="!canCheckout"
-          data-testid="checkout-submit"
+          class="shrink-0"
+          :disabled="!canGoPackageCheckout"
+          data-testid="recommendation-go-checkout"
+          @click="goPackageCheckout"
         >
-          {{ $t('checkout.submit') }}
+          {{ $t('recommendation.goCheckout') }}
         </AppButton>
-      </form>
-    </aside>
+      </div>
+    </div>
 
     <Teleport to="body">
       <div
@@ -685,8 +462,8 @@
 </template>
 
 <script setup lang="ts">
-import { checkoutSchema } from '~/utils/checkout-schema'
 import type {
+  FinalizedPlan,
   HealthReportResult,
   RecommendationCopy,
   RecommendationPackage,
@@ -694,17 +471,7 @@ import type {
   RecommendationResponse
 } from '~/utils/candor-api'
 import { CandorApiError } from '~/utils/candor-api'
-import {
-  formatTwd,
-  type ChatMessage,
-  type InvoiceType,
-  type PaymentMethod
-} from '~/utils/first-order'
-import {
-  TAIWAN_CITIES,
-  composeTaiwanAddress,
-  districtsForCity
-} from '~/utils/taiwan-regions'
+import { formatTwd } from '~/utils/first-order'
 import { recommendationRequestFromJourney } from '~/utils/recommendation-request'
 import { recommendationFromExpertReview } from '~/utils/expert-review'
 
@@ -713,135 +480,56 @@ definePageMeta({
   middleware: 'auth'
 })
 
-const PAY_HOLD_MS = 3000
-
 const { t } = useI18n()
 const localePath = useLocalePath()
 const route = useRoute()
 const auth = useAuthStore()
 const journey = useJourneyStore()
-const api = useFirstOrderApi()
 const candor = useCandorApi()
 
-/** viewing = packages+checkout; gate = not reviewed yet; legacy = guest/no conversation. */
-type ReviewPhase = 'loading' | 'gate' | 'viewing' | 'legacy' | 'error'
+type ReviewPhase = 'loading' | 'viewing' | 'legacy' | 'error'
+type PathChoice = 'ai' | 'expert'
+
 const reviewPhase = ref<ReviewPhase>('loading')
+const expertPlanReadonly = ref(false)
+const expertPlanOpeningAmount = ref<number | null>(null)
+const expertPlanOrderId = ref<string | null>(null)
+const pathChoice = ref<PathChoice | null>(null)
 
-const name = ref(auth.displayName)
-const phone = ref('')
-const addressCity = ref('')
-const addressDistrict = ref('')
-const addressDetail = ref('')
-const saveAsDefaultAddress = ref(false)
-const hydratingAddress = ref(false)
-const taiwanCities = TAIWAN_CITIES
-const addressDistricts = computed(() => districtsForCity(addressCity.value))
-const delivery = ref<'home'>('home')
-const paymentMethod = ref<PaymentMethod>('card')
-const invoice = ref<InvoiceType>('member')
-const invoiceCarrier = ref('')
-const payPhase = ref<'form' | 'paying' | 'success'>('form')
-const error = ref('')
 const detail = ref<RecommendationPackageItem | null>(null)
-
-const DEFAULT_PAYMENT_METHODS: PaymentMethod[] = ['card', 'linepay', 'atm']
-const paymentMethods = ref<PaymentMethod[]>([...DEFAULT_PAYMENT_METHODS])
-const invoiceOptions: InvoiceType[] = ['member', 'cloud', 'company', 'donate']
-
-async function loadPaymentMethods() {
-  try {
-    const config = await candor.getClientConfig()
-    const methods = (config.payment_methods ?? [])
-      .filter((m): m is PaymentMethod => m === 'card' || m === 'linepay' || m === 'atm')
-    if (methods.length > 0) {
-      paymentMethods.value = methods
-      if (!methods.includes(paymentMethod.value)) {
-        paymentMethod.value = methods[0] ?? 'card'
-      }
-    }
-  } catch {
-    paymentMethods.value = [...DEFAULT_PAYMENT_METHODS]
-  }
-}
-
-if (import.meta.client) {
-  void loadPaymentMethods()
-}
-
 const reportPending = ref(false)
 const reportResults = ref<HealthReportResult[]>([])
 const recoPending = ref(false)
 const recoError = ref('')
 const recommendation = ref<RecommendationResponse | null>(null)
 const selectedPackageCode = ref('')
+const aiPackagesLoaded = ref(false)
 
-const loginRedirect = computed(() =>
-  `${localePath('/login')}?redirect=${encodeURIComponent(route.fullPath)}&mode=login`
+const showPathChoice = computed(() =>
+  !expertPlanReadonly.value
+  && (reviewPhase.value === 'viewing' || reviewPhase.value === 'legacy')
 )
-const registerRedirect = computed(() =>
-  `${localePath('/login')}?redirect=${encodeURIComponent(route.fullPath)}&mode=register`
+
+const showPackagePick = computed(() =>
+  !expertPlanReadonly.value
+  && pathChoice.value === 'ai'
+  && showPathChoice.value
 )
 
-watch(addressCity, () => {
-  if (hydratingAddress.value) {
-    return
-  }
-  addressDistrict.value = ''
-})
+const showAiCheckoutBar = computed(() =>
+  showPackagePick.value
+  && Boolean(selectedPackage.value)
+)
 
-async function loadDefaultRecipient() {
-  if (!auth.isMember) {
-    return
-  }
-  try {
-    const me = await candor.me()
-    const recipient = me.default_recipient
-    if (!recipient) {
-      return
-    }
-    hydratingAddress.value = true
-    if (recipient.name) {
-      name.value = recipient.name
-    }
-    if (recipient.phone) {
-      phone.value = recipient.phone
-    }
-    if (recipient.address_city) {
-      addressCity.value = recipient.address_city
-    }
-    await nextTick()
-    if (recipient.address_district) {
-      addressDistrict.value = recipient.address_district
-    }
-    if (recipient.address_detail) {
-      addressDetail.value = recipient.address_detail
-    }
-    saveAsDefaultAddress.value = true
-  } catch {
-    // ignore — keep empty form
-  } finally {
-    hydratingAddress.value = false
-  }
-}
-
-watch(invoice, (value) => {
-  if (value === 'member') {
-    invoiceCarrier.value = auth.user?.email ?? ''
-  } else if (invoiceCarrier.value === (auth.user?.email ?? '')) {
-    invoiceCarrier.value = ''
-  }
-})
-
-watch(() => auth.user?.email, (email) => {
-  if (invoice.value === 'member' && email) {
-    invoiceCarrier.value = email
-  }
-}, { immediate: true })
+const canGoPackageCheckout = computed(() =>
+  Boolean(selectedPackage.value?.composition_hash && selectedPackage.value.items.length > 0)
+)
 
 const packages = computed(() => recommendation.value?.packages ?? [])
 const selectedPackage = computed(() =>
   packages.value.find(pkg => pkg.package_plan_code === selectedPackageCode.value) ?? null
 )
+
 const selectedRationale = computed(() => selectedPackage.value?.rationale ?? null)
 const rationaleGroups = computed(() => selectedRationale.value?.groups ?? [])
 const displayReasonByProductCode = computed(() => {
@@ -886,10 +574,6 @@ const orphanDisplayReasons = computed(() => {
   }
   return orphans
 })
-const checkoutPrice = computed(() => selectedPackage.value?.price ?? 0)
-const canCheckout = computed(() =>
-  Boolean(auth.isMember && selectedPackage.value && selectedPackage.value.items.length > 0 && selectedPackage.value.composition_hash)
-)
 
 const copyBySellableItemId = computed(() => {
   const map = new Map<string, RecommendationCopy>()
@@ -937,6 +621,60 @@ async function loadReport() {
   }
 }
 
+function recommendationFromFinalizedPlan(plan: FinalizedPlan): RecommendationResponse {
+  const packages: RecommendationPackage[] = (plan.packages ?? []).map((pkg, index) => {
+    const code = pkg.package_plan_code?.trim() || `plan-${index}`
+    const items: RecommendationPackageItem[] = (pkg.items ?? []).map((item, rank) => ({
+      rank: rank + 1,
+      sellable_item_id: item.sellable_item_code?.trim() || String(rank),
+      code: item.sellable_item_code?.trim() || '',
+      name: item.name_zh?.trim() || item.sellable_item_code?.trim() || '',
+      unit_price: 0,
+      daily_dose: item.daily_dose ?? 1,
+      monthly_cost: 0,
+      is_core: false
+    }))
+    return {
+      package_plan_code: code,
+      package_plan_name: pkg.name_zh?.trim() || code,
+      price: 0,
+      period_days: 30,
+      items,
+      used_amount: 0,
+      remaining: 0,
+      composition_hash: ''
+    }
+  })
+  return {
+    run_id: '',
+    report_id: journey.reportId,
+    weight_set: { id: '', version: '' },
+    generated_at: new Date().toISOString(),
+    copy_mode: '',
+    summary: {
+      top_domains: [],
+      data_gaps: [],
+      profile_gaps: [],
+      strategy_code: ''
+    },
+    items: [],
+    packages
+  }
+}
+
+async function loadPaidExpertFinalizedPlan(orderId: string) {
+  try {
+    const finalized = await candor.getFinalizedPlan(orderId)
+    if (!finalized.packages?.length) {
+      return false
+    }
+    applyReviewedPackages(recommendationFromFinalizedPlan(finalized))
+    return true
+  } catch {
+    return false
+  }
+}
+
 function applyReviewedPackages(result: RecommendationResponse) {
   recommendation.value = result
   const preferred = journey.selectedPackageCode
@@ -947,8 +685,10 @@ function applyReviewedPackages(result: RecommendationResponse) {
   }
 }
 
-async function loadLegacyRecommendation() {
-  reviewPhase.value = 'legacy'
+async function loadAiPackages() {
+  if (aiPackagesLoaded.value && packages.value.length > 0) {
+    return
+  }
   recoPending.value = true
   recoError.value = ''
   try {
@@ -959,19 +699,15 @@ async function loadLegacyRecommendation() {
       })
     )
     applyReviewedPackages(result)
+    aiPackagesLoaded.value = true
   } catch {
     recoError.value = t('recommendation.recoError')
     recommendation.value = null
-    reviewPhase.value = 'error'
   } finally {
     recoPending.value = false
   }
 }
 
-/**
- * Load reviewed packages only. Case creation happens on「提交專家判讀」.
- * Unreviewed members see a gate back to My Health — no create-on-mount / awaiting poll.
- */
 function isStandardFlow(): boolean {
   const raw = route.query.flow
   if (Array.isArray(raw)) {
@@ -980,16 +716,51 @@ function isStandardFlow(): boolean {
   return raw === 'standard'
 }
 
+async function goPackageCheckout() {
+  const pkg = selectedPackage.value
+  if (!pkg?.composition_hash) {
+    return
+  }
+  await navigateTo({
+    path: localePath('/app/checkout'),
+    query: {
+      kind: 'package',
+      package_plan_code: pkg.package_plan_code,
+      composition_hash: pkg.composition_hash
+    }
+  })
+}
+
+watch(pathChoice, async (choice) => {
+  if (choice === 'expert') {
+    await navigateTo({
+      path: localePath('/app/checkout'),
+      query: { kind: 'expert_plan' }
+    })
+    return
+  }
+  if (choice === 'ai') {
+    if (packages.value.length === 0) {
+      await loadAiPackages()
+    }
+  }
+})
+
 async function loadRecommendation() {
-  // Standard (/chat-ai): direct recommendation + checkout. No expert case, no review poll.
+  pathChoice.value = null
+  aiPackagesLoaded.value = false
+  expertPlanReadonly.value = false
+  expertPlanOpeningAmount.value = null
+  expertPlanOrderId.value = null
+
   if (isStandardFlow()) {
-    await loadLegacyRecommendation()
+    reviewPhase.value = 'legacy'
     return
   }
 
   const conversationId = journey.conversationId?.trim() ?? ''
   if (!conversationId || !auth.isMember) {
-    await loadLegacyRecommendation()
+    reviewPhase.value = 'legacy'
     return
   }
 
@@ -1002,31 +773,57 @@ async function loadRecommendation() {
       journey.reportId = review.health_report_id
     }
 
-    if (review.status !== 'reviewed') {
-      recommendation.value = null
-      selectedPackageCode.value = ''
-      reviewPhase.value = 'gate'
+    const paidExpertPlan = Boolean(review.order_id)
+    expertPlanOrderId.value = review.order_id ?? null
+    expertPlanReadonly.value = paidExpertPlan && review.status === 'reviewed'
+
+    if (expertPlanReadonly.value && review.order_id) {
+      const loaded = await loadPaidExpertFinalizedPlan(review.order_id)
+      if (!loaded) {
+        const mapped = recommendationFromExpertReview(review)
+        if (!mapped || mapped.packages.length === 0) {
+          recoError.value = t('recommendation.recoError')
+          recommendation.value = null
+          reviewPhase.value = 'error'
+          return
+        }
+        applyReviewedPackages(mapped)
+      }
+      try {
+        const order = await candor.getOrder(review.order_id)
+        expertPlanOpeningAmount.value = order.amount_total
+      } catch {
+        expertPlanOpeningAmount.value = null
+      }
+      aiPackagesLoaded.value = true
+      reviewPhase.value = 'viewing'
       return
     }
 
-    const mapped = recommendationFromExpertReview(review)
-    if (!mapped || mapped.packages.length === 0) {
-      recoError.value = t('recommendation.recoError')
+    if (review.status === 'reviewed') {
+      const mapped = recommendationFromExpertReview(review)
+      if (!mapped || mapped.packages.length === 0) {
+        recoError.value = t('recommendation.recoError')
+        recommendation.value = null
+        reviewPhase.value = 'error'
+        return
+      }
+      applyReviewedPackages(mapped)
+      aiPackagesLoaded.value = true
+    } else {
       recommendation.value = null
-      reviewPhase.value = 'error'
-      return
+      selectedPackageCode.value = ''
     }
-    applyReviewedPackages(mapped)
     reviewPhase.value = 'viewing'
   } catch (err) {
     if (err instanceof CandorApiError && err.errorCode === 'not_found') {
       journey.expertReviewStatus = 'none'
       recommendation.value = null
-      reviewPhase.value = 'gate'
+      reviewPhase.value = 'viewing'
       return
     }
     if (err instanceof CandorApiError && (err.errorCode === 'member_required' || err.statusCode === 401)) {
-      await loadLegacyRecommendation()
+      reviewPhase.value = 'legacy'
       return
     }
     recoError.value = t('recommendation.recoError')
@@ -1037,142 +834,8 @@ async function loadRecommendation() {
   }
 }
 
-function applyCompositionChanged(pkg: RecommendationPackage) {
-  if (!recommendation.value) {
-    return
-  }
-  recommendation.value = {
-    ...recommendation.value,
-    packages: recommendation.value.packages.map(entry =>
-      entry.package_plan_code === pkg.package_plan_code ? { ...entry, ...pkg } : entry
-    )
-  }
-  selectedPackageCode.value = pkg.package_plan_code
-  error.value = t('checkout.compositionChanged')
-}
-
-async function onPay(event: Event) {
-  if (!auth.isMember) {
-    error.value = t('checkout.memberRequired')
-    return
-  }
-  if (!canCheckout.value || !selectedPackage.value) {
-    error.value = t('checkout.error')
-    return
-  }
-
-  const form = event.target
-  const data = form instanceof HTMLFormElement ? new FormData(form) : null
-  const carrier = invoice.value === 'member'
-    ? (auth.user?.email ?? '')
-    : String(data?.get('invoice_carrier') ?? invoiceCarrier.value)
-  const composedAddress = composeTaiwanAddress(
-    String(data?.get('address_city') ?? addressCity.value),
-    String(data?.get('address_district') ?? addressDistrict.value),
-    String(data?.get('address_detail') ?? addressDetail.value)
-  )
-  const parsed = checkoutSchema.safeParse({
-    name: String(data?.get('name') ?? name.value),
-    phone: String(data?.get('phone') ?? phone.value),
-    address: composedAddress,
-    paymentMethod: 'card',
-    invoice: data?.get('invoice') ?? invoice.value,
-    invoiceCarrier: carrier,
-    packagePlanCode: selectedPackage.value.package_plan_code
-  })
-
-  if (!parsed.success) {
-    const addressIssue = parsed.error.issues.some(issue => issue.path[0] === 'address')
-    error.value = addressIssue ? t('checkout.error') : t('checkout.invalidCarrier')
-    return
-  }
-
-  payPhase.value = 'paying'
-  error.value = ''
-
-  const pkg = selectedPackage.value
-  try {
-    const created = await api.createOrder({
-      packagePlanCode: parsed.data.packagePlanCode,
-      packageName: pkg.package_plan_name,
-      amount: pkg.price,
-      productCodes: pkg.items.map(item => item.code || item.sellable_item_id),
-      productNames: pkg.items.map(item => item.name ?? item.code),
-      paymentMethod: 'card',
-      invoice: parsed.data.invoice,
-      invoiceCarrier: parsed.data.invoiceCarrier,
-      recipient: {
-        name: parsed.data.name,
-        phone: parsed.data.phone,
-        address: parsed.data.address,
-        email: auth.user?.email ?? ''
-      },
-      messages: JSON.parse(JSON.stringify(journey.snapshotMessages())) as ChatMessage[],
-      compositionHash: pkg.composition_hash,
-      reportId: recommendation.value?.report_id ?? journey.reportId,
-      conversationId: journey.conversationId,
-      recommendationRunId: recommendation.value?.run_id
-    })
-
-    if (saveAsDefaultAddress.value && auth.isMember) {
-      try {
-        await candor.patchMe({
-          default_recipient: {
-            name: parsed.data.name,
-            phone: parsed.data.phone,
-            address_city: String(data?.get('address_city') ?? addressCity.value).trim(),
-            address_district: String(data?.get('address_district') ?? addressDistrict.value).trim(),
-            address_detail: String(data?.get('address_detail') ?? addressDetail.value).trim()
-          }
-        })
-      } catch {
-        // order already placed — do not block payment redirect
-      }
-    }
-
-    const redirectUrl = 'payment' in created && created.payment?.redirect_url
-      ? created.payment.redirect_url
-      : null
-    if (redirectUrl) {
-      journey.clearSession()
-      window.location.assign(redirectUrl)
-      return
-    }
-
-    await new Promise(resolve => setTimeout(resolve, PAY_HOLD_MS))
-    payPhase.value = 'success'
-    journey.clearSession()
-  } catch (err) {
-    payPhase.value = 'form'
-    if (err instanceof CandorApiError) {
-      if (err.errorCode === 'composition_changed') {
-        const packageData = (err.errorData as { package?: RecommendationPackage } | null)?.package
-        if (packageData) {
-          applyCompositionChanged(packageData)
-          return
-        }
-      }
-      if (err.errorCode === 'invalid_invoice_carrier') {
-        error.value = t('checkout.invalidCarrier')
-        return
-      }
-      if (err.errorCode === 'report_not_ready') {
-        error.value = t('checkout.reportNotReady')
-        return
-      }
-      error.value = err.message || t('checkout.errorGeneric')
-      return
-    }
-    error.value = t('checkout.errorGeneric')
-  }
-}
-
 onMounted(() => {
-  // Do not set journey.hasAnalysis here — that flag means a ready report is bound
-  // for chat. Visiting recommendations without a report must not hide the empty
-  // report dock bar when the user returns to /chat or /chat-ai.
   void loadReport()
   void loadRecommendation()
-  void loadDefaultRecipient()
 })
 </script>

@@ -19,7 +19,14 @@ const usableReplyActions = {
   degraded: false,
   error: null,
   actions: [
-    { type: 'offer_recommend', payload: {} },
+    {
+      type: 'offer_recommend',
+      payload: {
+        mode: 'view_recommendations',
+        label: '查看推薦方案',
+        path: '/app/recommendations'
+      }
+    },
     { type: 'ask_report', payload: {} }
   ]
 }
@@ -72,7 +79,8 @@ describe('parseConversationMessagesResult / historyMessageToChatMessage', () => 
       expertReviewStatus: 'none'
     })
     expect(visibility.fromReplyActions).toBe(true)
-    expect(visibility.showSubmitReview).toBe(true)
+    expect(visibility.showSubmitReview).toBe(false)
+    expect(visibility.showViewRecommend).toBe(true)
     expect(visibility.showUpload).toBe(true)
     // Dedupe: legacy options / checkup_offer ignored while reply_actions is usable.
     expect(visibility.choices).toEqual([])

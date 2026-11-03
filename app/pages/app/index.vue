@@ -250,6 +250,14 @@
                   >
                     {{ $t('chat.viewRecommend') }}
                   </AppButton>
+                  <AppButton
+                    v-if="review.order_id"
+                    variant="outline"
+                    :to="localePath(`/app/orders/${review.order_id}`)"
+                    data-testid="health-review-open-order"
+                  >
+                    {{ $t('expertPlans.openOrder') }}
+                  </AppButton>
                 </div>
               </div>
             </li>

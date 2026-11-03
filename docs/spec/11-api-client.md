@@ -64,6 +64,18 @@
 - Sandbox：跟隨 `payment.redirect_url` 整頁導轉；callback 只打 core。
 - **不得**實作或呼叫 `POST /payments/{provider}/callback`。
 
+## 專家方案（spec 33 — core #143）
+
+- 完成 CTA：usable `reply_actions.offer_recommend`（`mode=view_recommendations`）；首按 `POST /conversations/{id}/completion-choice` body `{}` → `recordCompletionChoice()`。
+- 結帳預覽：`GET /checkout/preview?conversation_id&mode=ai|expert&package_plan_code?` → `getCheckoutPreview()`。
+  - `mode=ai`：方案組成以回傳 `ai`（含 `items[]`＝`RecommendationPackageItem`）為準；**不得**再沿用 `POST /recommendations`。缺 `conversation_id`（用戶端）或 preview **422** `invalid_request` → 同一錯誤態（回對話）。切換 `package_plan_code` 重打 preview。
+  - `mode=expert`：上架 `expert_plans`、`preselect_expert_plan_code`（僅一筆上架時）；關掉下架提示後的重新載入 `skipPreselect`（規則 31；使用者自行重整仍可依 core 單筆預選）。
+  - `payment_methods[].status=coming_soon` → i18n `checkout.payment.coming_soon`；運費用 `shipping.fee`／`shipping.free`。
+  - `block.code`：`expert_case_exists`／`no_expert_plans`；`checkout_locked`＋`checkout_lock_reason`。
+- 建單：按「確認付款」才 `POST /orders`（expert：`kind=expert_plan`＋`expert_plan_code`）；不下草稿。下架 → `422` `expert_plan_inactive`。
+- 定稿只讀：`GET /order/{id}/finalized-plan` → `getFinalizedPlan()`；案件／訂單詳情顯示處理中／定稿方案。
+- 退款申請：`POST /order/{id}/refund-request` → `createRefundRequest()`；閘門以 `refund_blocked_reason` 為準（`not_yet_reviewed`／`picking_started`／`already_shipped`／`refund_rejected`／`refund_request_exists`）；專家單開始理貨前（shipment null）且定稿後才可申請。
+
 ## 通知 inbox（member）
 
 - `GET /notifications` → `listNotifications()`；`data.notifications[]`（`id`、`type`／`event`、`title`、`body`、`created_at`、`read_at`、`deep_link`）。

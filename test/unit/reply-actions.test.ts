@@ -9,8 +9,10 @@ import {
   isContinueConsultationOption,
   isPathSwitchOptionCode,
   isUsableReplyActions,
+  isViewRecommendationsOfferAction,
   normalizeChooseOptionMapsTo,
   offerRecommendLabelKey,
+  offerRecommendPayload,
   parseReplyActions,
   pathRuleBubbleI18nKey,
   pathSwitchChipI18nKey,
@@ -37,6 +39,15 @@ function ra(partial: Partial<ReplyActions> & { actions: ReplyActions['actions'] 
     degraded: false,
     error: null,
     ...partial
+  }
+}
+
+const VIEW_RECOMMEND_ACTION = {
+  type: 'offer_recommend' as const,
+  payload: {
+    mode: 'view_recommendations' as const,
+    label: '查看推薦方案',
+    path: '/app/recommendations'
   }
 }
 
@@ -95,12 +106,12 @@ describe('parseReplyActions / isUsableReplyActions', () => {
   })
 
   it('hasUsableGapCta requires ask_vitals / profile choose_option (not offer_* / ask_report / ask_goal / lab_report)', () => {
-    expect(hasUsableGapCta(ra({ actions: [{ type: 'offer_recommend' }] }))).toBe(false)
+    expect(hasUsableGapCta(ra({ actions: [VIEW_RECOMMEND_ACTION] }))).toBe(false)
     expect(hasUsableGapCta(ra({ actions: [{ type: 'ask_report' }, { type: 'offer_checkup' }] }))).toBe(false)
     expect(hasUsableGapCta(ra({ actions: [{ type: 'ask_goal', payload: { goal_codes: ['sleep'] } }] }))).toBe(false)
     expect(hasUsableGapCta(ra({
       actions: [
-        { type: 'offer_recommend' },
+        VIEW_RECOMMEND_ACTION,
         { type: 'ask_vitals', payload: { fields: ['height'] } }
       ]
     }))).toBe(true)
@@ -145,7 +156,7 @@ describe('parseReplyActions / isUsableReplyActions', () => {
     expect(hasUsableGapCta(kindLab, ['lab_report'])).toBe(false)
     expect(hasReportRequiredAsk(kindLab)).toBe(true)
     expect(hasReportRequiredAsk(ra({ actions: [{ type: 'ask_report' }] }))).toBe(true)
-    expect(hasReportRequiredAsk(ra({ actions: [{ type: 'offer_recommend' }] }))).toBe(false)
+    expect(hasReportRequiredAsk(ra({ actions: [VIEW_RECOMMEND_ACTION] }))).toBe(false)
 
     const followup = ra({
       actions: [{
@@ -267,7 +278,7 @@ describe('parseReplyActions / isUsableReplyActions', () => {
       })
     })
     const stream = assistant('stream', {
-      replyActions: ra({ actions: [{ type: 'offer_recommend' }] })
+      replyActions: ra({ actions: [VIEW_RECOMMEND_ACTION] })
     })
     expect(findGapCtaHostMessage([bank, stream])?.id).toBe('bank')
     expect(findGapCtaHostMessage([stream])?.id).toBeUndefined()
@@ -440,23 +451,50 @@ describe('projectReplyActionsToCtas', () => {
     expect(withChoose.flags.choices.map(c => c.code)).toEqual(['sleep', 'weight_loss'])
   })
 
+  it('parses view_recommendations offer_recommend; ignores dual_choice', () => {
+    expect(isViewRecommendationsOfferAction(VIEW_RECOMMEND_ACTION)).toBe(true)
+    expect(offerRecommendPayload(VIEW_RECOMMEND_ACTION).mode).toBe('view_recommendations')
+    expect(isViewRecommendationsOfferAction({
+      type: 'offer_recommend',
+      payload: { mode: 'dual_choice' }
+    })).toBe(false)
+    expect(projectReplyActionsToCtas({
+      replyActions: ra({ actions: [VIEW_RECOMMEND_ACTION] }),
+      canShowRecommendSlot: true,
+      canShowUpload: false,
+      canShowCheckup: false,
+      canShowVitals: false,
+      expertReviewStatus: 'none'
+    }).flags.showViewRecommend).toBe(true)
+    expect(projectReplyActionsToCtas({
+      replyActions: ra({
+        actions: [{ type: 'offer_recommend', payload: { mode: 'dual_choice' } }]
+      }),
+      canShowRecommendSlot: true,
+      canShowUpload: false,
+      canShowCheckup: false,
+      canShowVitals: false,
+      expertReviewStatus: 'none'
+    }).flags.showViewRecommend).toBe(false)
+  })
+
   it('offer_recommend copy path differs by flow (submit vs view)', () => {
-    expect(offerRecommendLabelKey(undefined)).toBe('chat.submitExpertReview')
+    expect(offerRecommendLabelKey(undefined)).toBe('chat.viewRecommend')
     expect(offerRecommendLabelKey('standard')).toBe('chat.viewRecommend')
 
     const expert = projectReplyActionsToCtas({
-      replyActions: ra({ actions: [{ type: 'offer_recommend' }] }),
+      replyActions: ra({ actions: [VIEW_RECOMMEND_ACTION] }),
       canShowRecommendSlot: true,
       canShowUpload: false,
       canShowCheckup: false,
       canShowVitals: false,
       expertReviewStatus: 'none'
     })
-    expect(expert.flags.showSubmitReview).toBe(true)
-    expect(expert.flags.showViewRecommend).toBe(false)
+    expect(expert.flags.showSubmitReview).toBe(false)
+    expect(expert.flags.showViewRecommend).toBe(true)
 
     const standard = projectReplyActionsToCtas({
-      replyActions: ra({ actions: [{ type: 'offer_recommend' }] }),
+      replyActions: ra({ actions: [VIEW_RECOMMEND_ACTION] }),
       canShowRecommendSlot: true,
       canShowUpload: false,
       canShowCheckup: false,
@@ -717,7 +755,7 @@ describe('projectReplyActionsToCtas', () => {
     const replyActions = ra({
       adaptor: 'rule',
       actions: [
-        { type: 'offer_recommend', payload: {} },
+        VIEW_RECOMMEND_ACTION,
         { type: 'ask_report', payload: {} },
         {
           type: 'choose_option',
@@ -761,7 +799,8 @@ describe('projectReplyActionsToCtas', () => {
       .toBe('繼續健康諮詢')
     expect(projection.flags.choices.find(c => c.code === 'continue')?.maps_to)
       .toBe('continue_consultation')
-    expect(projection.flags.showSubmitReview).toBe(true)
+    expect(projection.flags.showSubmitReview).toBe(false)
+    expect(projection.flags.showViewRecommend).toBe(true)
     expect(projection.flags.showUpload).toBe(true)
     expect(projection.flags.showConfirm).toBe(false)
     expect(isContinueConsultationOption(replyActions, 'continue')).toBe(true)
@@ -778,7 +817,7 @@ describe('projectReplyActionsToCtas', () => {
       replyActions: ra({
         adaptor: 'rule',
         actions: [
-          { type: 'offer_recommend', payload: {} },
+          VIEW_RECOMMEND_ACTION,
           {
             type: 'choose_option',
             payload: {
@@ -801,7 +840,8 @@ describe('projectReplyActionsToCtas', () => {
     expect(projection.flags.choices).toEqual([
       { code: 'continue', label: '繼續健康諮詢', maps_to: 'continue_consultation' }
     ])
-    expect(projection.flags.showSubmitReview).toBe(true)
+    expect(projection.flags.showSubmitReview).toBe(false)
+    expect(projection.flags.showViewRecommend).toBe(true)
   })
 
   it('path_switch companion still appends when continue_consultation also present', () => {
@@ -985,7 +1025,7 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       replyActions: ra({
         actions: [
           { type: 'ask_report' },
-          { type: 'offer_recommend' }
+          VIEW_RECOMMEND_ACTION
         ]
       })
     })
@@ -1001,8 +1041,8 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     expect(v.showUpload).toBe(true)
     expect(v.showCheckup).toBe(false)
     expect(v.showWantMoreTests).toBe(false)
-    expect(v.showSubmitReview).toBe(true)
-    expect(v.showViewRecommend).toBe(false)
+    expect(v.showSubmitReview).toBe(false)
+    expect(v.showViewRecommend).toBe(true)
   })
 
   it('intentional none / degraded reply_actions paint no CTAs (no legacy fallback)', () => {
@@ -1070,7 +1110,7 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
   it('reportAskActive no longer FE-blocks offer_recommend (core／RA owns completion)', () => {
     const msg = assistant('latest', {
       replyActions: ra({
-        actions: [{ type: 'offer_recommend' }, { type: 'ask_report' }]
+        actions: [VIEW_RECOMMEND_ACTION, { type: 'ask_report' }]
       })
     })
     const withReportAsk = buildTurnActionsVisibility({
@@ -1081,7 +1121,8 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       expertReviewStatus: 'none'
     })
     expect(withReportAsk.showUpload).toBe(true)
-    expect(withReportAsk.showSubmitReview).toBe(true)
+    expect(withReportAsk.showSubmitReview).toBe(false)
+    expect(withReportAsk.showViewRecommend).toBe(true)
 
     const cleared = buildTurnActionsVisibility({
       message: msg,
@@ -1090,12 +1131,13 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       needsMultiConfirm: false,
       expertReviewStatus: 'none'
     })
-    expect(cleared.showSubmitReview).toBe(true)
+    expect(cleared.showSubmitReview).toBe(false)
+    expect(cleared.showViewRecommend).toBe(true)
   })
 
   it('/chat-ai standard flow shows view-recommend for offer_recommend', () => {
     const msg = assistant('latest', {
-      replyActions: ra({ actions: [{ type: 'offer_recommend' }] })
+      replyActions: ra({ actions: [VIEW_RECOMMEND_ACTION] })
     })
     const v = buildTurnActionsVisibility({
       message: msg,
@@ -1113,7 +1155,7 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     const msg = assistant('latest', {
       replyActions: ra({
         actions: [
-          { type: 'offer_recommend' },
+          VIEW_RECOMMEND_ACTION,
           { type: 'ask_vitals', payload: { fields: ['age'] } }
         ]
       })
@@ -1159,7 +1201,7 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       })
     })
     const stream = assistant('stream', {
-      replyActions: ra({ actions: [{ type: 'offer_recommend' }, { type: 'ask_report' }] })
+      replyActions: ra({ actions: [VIEW_RECOMMEND_ACTION, { type: 'ask_report' }] })
     })
     const ctx = baseCtx({
       lastAssistantId: 'stream',
@@ -1243,7 +1285,7 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       })
     })
     const stream = assistant('stream', {
-      replyActions: ra({ actions: [{ type: 'offer_recommend' }] })
+      replyActions: ra({ actions: [VIEW_RECOMMEND_ACTION] })
     })
     const ctx = baseCtx({
       lastAssistantId: 'stream',
@@ -1358,7 +1400,7 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       replyActions: ra({
         adaptor: 'rule',
         actions: [
-          { type: 'offer_recommend', payload: {} },
+          VIEW_RECOMMEND_ACTION,
           {
             type: 'choose_option',
             payload: {
@@ -1395,7 +1437,8 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       'suggest',
       'continue'
     ])
-    expect(visibility.showSubmitReview).toBe(true)
+    expect(visibility.showSubmitReview).toBe(false)
+    expect(visibility.showViewRecommend).toBe(true)
     expect(visibility.showConfirm).toBe(false)
     expect(isContinueConsultationOption(msg.replyActions, 'continue')).toBe(true)
   })

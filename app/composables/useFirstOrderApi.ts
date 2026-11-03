@@ -1,4 +1,9 @@
-import type { CreateOrderInput, OrderRecord, PaymentMethod } from '~/utils/first-order'
+import type {
+  CreateExpertPlanOrderInput,
+  CreateOrderInput,
+  OrderRecord,
+  PaymentMethod
+} from '~/utils/first-order'
 import {
   orderRecordFromCandorCreated,
   orderRecordFromCandorDetail,
@@ -9,6 +14,42 @@ import type { OrderCreated, OrderPaymentCreated } from '~/utils/candor-api'
 export function useFirstOrderApi() {
   const ordersStore = useOrdersStore()
   const candor = useCandorApi()
+
+  async function createExpertPlanOrder(input: CreateExpertPlanOrderInput): Promise<OrderCreated> {
+    const token = candor.readToken()
+    if (!token || !input.conversationId.trim()) {
+      throw new Error('auth_required')
+    }
+    const created = await candor.createOrder({
+      lines: [{
+        kind: 'expert_plan',
+        expert_plan_code: input.expertPlanCode
+      }],
+      payment_method: input.paymentMethod,
+      invoice_type: input.invoice,
+      invoice_carrier: input.invoiceCarrier,
+      recipient: {
+        name: input.recipient.name,
+        phone: input.recipient.phone,
+        address: input.recipient.address,
+        ...(input.recipient.email ? { email: input.recipient.email } : {})
+      },
+      conversation_id: input.conversationId.trim()
+    })
+    const order = orderRecordFromCandorCreated(created, {
+      packagePlanCode: input.expertPlanCode,
+      packageName: input.expertPlanName,
+      amount: input.amount,
+      paymentMethod: input.paymentMethod,
+      invoice: input.invoice,
+      invoiceCarrier: input.invoiceCarrier,
+      recipient: input.recipient,
+      messages: [],
+      conversationId: input.conversationId
+    })
+    ordersStore.add(order)
+    return created
+  }
 
   async function createOrder(input: CreateOrderInput): Promise<OrderCreated> {
     const token = candor.readToken()
@@ -146,6 +187,7 @@ export function useFirstOrderApi() {
   }
 
   return {
+    createExpertPlanOrder,
     createOrder,
     listOrders,
     getOrder,
