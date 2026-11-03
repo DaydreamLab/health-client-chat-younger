@@ -181,6 +181,26 @@
       </AppButton>
     </section>
 
+    <section
+      v-else-if="pageGate === 'conversation_order_closed'"
+      class="mx-auto max-w-lg rounded-2xl border border-default bg-elevated p-8 text-center"
+      data-testid="checkout-conversation-order-closed"
+    >
+      <p class="text-3xl text-warning">
+        !
+      </p>
+      <p class="mt-4 text-sm leading-relaxed text-muted">
+        {{ $t('checkout.conversationOrderClosed') }}
+      </p>
+      <AppButton
+        class="mt-6 w-full"
+        data-testid="checkout-conversation-order-closed-cta"
+        @click="onConversationOrderClosedNewChat"
+      >
+        {{ $t('checkout.conversationOrderClosedCta') }}
+      </AppButton>
+    </section>
+
     <div
       v-else
       class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]"
@@ -644,6 +664,11 @@ import {
   type ConversationAlreadyOrderedData
 } from '~/utils/conversation-already-ordered'
 import {
+  isConversationOrderClosedError,
+  parseConversationOrderClosedData,
+  type ConversationOrderClosedData
+} from '~/utils/conversation-order-closed'
+import {
   isQuestionnaireIncompleteError,
   parseQuestionnaireIncompleteData
 } from '~/utils/questionnaire-incomplete'
@@ -678,6 +703,7 @@ type PageGate
     | 'questionnaire_incomplete'
     | 'conversation_already_ordered'
     | 'existing_order_repay'
+    | 'conversation_order_closed'
 
 const checkoutKind = computed<CheckoutKind>(() => {
   const raw = route.query.kind
@@ -694,6 +720,7 @@ const questionnaireMissing = ref<string[]>([])
 const questionnaireConversationId = ref<string | null>(null)
 const alreadyOrdered = ref<ConversationAlreadyOrderedData | null>(null)
 const existingOrder = ref<CheckoutExistingOrder | null>(null)
+const orderClosed = ref<ConversationOrderClosedData | null>(null)
 /** When existing_order lacks order_id but has expert_plan_code — lock plan radios. */
 const planSelectionLocked = ref(false)
 const plans = ref<ExpertPlan[]>([])
@@ -1056,6 +1083,27 @@ async function onExistingOrderRepayCta() {
   await navigateTo(localePath('/chat'))
 }
 
+function applyConversationOrderClosedGate(err: CandorApiError) {
+  const parsed = parseConversationOrderClosedData(err)
+  orderClosed.value = {
+    ...parsed,
+    conversationId: parsed.conversationId || journey.conversationId?.trim() || null
+  }
+  pageGate.value = 'conversation_order_closed'
+  recommendation.value = null
+  plans.value = []
+  planSelectionLocked.value = false
+}
+
+/**
+ * Same core as ChatPanel.resetConversation: clear journey then open /chat
+ * so ensureConversation creates a fresh conversation (no confirm dialog).
+ */
+async function onConversationOrderClosedNewChat() {
+  journey.clearSession()
+  await navigateTo(localePath('/chat'))
+}
+
 function applyExistingOrderPlanLock(data: CheckoutExistingOrder) {
   existingOrder.value = data
   const code = data.expertPlanCode?.trim() || ''
@@ -1074,6 +1122,7 @@ async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
   questionnaireConversationId.value = null
   alreadyOrdered.value = null
   existingOrder.value = null
+  orderClosed.value = null
   planSelectionLocked.value = false
   listError.value = ''
   packageError.value = ''
@@ -1147,6 +1196,8 @@ async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
   } catch (err) {
     if (isConversationAlreadyOrderedError(err)) {
       applyConversationAlreadyOrderedGate(err)
+    } else if (isConversationOrderClosedError(err)) {
+      applyConversationOrderClosedGate(err)
     } else if (isQuestionnaireIncompleteError(err)) {
       applyQuestionnaireIncompleteGate(err)
     } else if (
@@ -1333,6 +1384,10 @@ async function onPay(event: Event) {
     payPhase.value = 'form'
     if (isConversationAlreadyOrderedError(err)) {
       applyConversationAlreadyOrderedGate(err)
+      return
+    }
+    if (isConversationOrderClosedError(err)) {
+      applyConversationOrderClosedGate(err)
       return
     }
     if (isQuestionnaireIncompleteError(err)) {

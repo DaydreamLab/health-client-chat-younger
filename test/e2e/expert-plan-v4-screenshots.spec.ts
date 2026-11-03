@@ -261,6 +261,26 @@ test.describe('expert-plan v4 screenshots', () => {
     await shot(page, 'order-repay-pending')
   })
 
+  test('checkout conversation_order_closed shows new-conversation CTA', async ({ page, goto }) => {
+    await mockCandorAuth(page, {
+      asMember: true,
+      expertReview: 'none',
+      expertPlansCatalog: 'single',
+      conversationOrderClosed: true
+    })
+    await seedJourneyConversation(page)
+    await goto('/app/checkout?kind=expert_plan', { waitUntil: 'hydration' })
+    await expect(page.getByTestId('checkout-conversation-order-closed')).toBeVisible({ timeout: 25000 })
+    await expect(page.getByTestId('checkout-conversation-order-closed')).toContainText(
+      '這段對話的訂單已取消或退款，請開啟新對話重新諮詢。'
+    )
+    const cta = page.getByTestId('checkout-conversation-order-closed-cta')
+    await expect(cta).toContainText('開新對話')
+    await shot(page, 'checkout-conversation-order-closed')
+    await cta.click()
+    await expect(page).toHaveURL(/\/chat/)
+  })
+
   test('F-07 checkout case exists', async ({ page, goto }) => {
     await mockCandorAuth(page, {
       asMember: true,

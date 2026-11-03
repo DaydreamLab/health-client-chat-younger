@@ -87,6 +87,11 @@ export type CandorMockOptions = {
    */
   existingUnpaidOrder?: boolean
   /**
+   * Irice 06:27：已取消／已退款 → preview 與 POST /orders 回 409
+   * `conversation_order_closed`（reason 預設 cancelled；可傳 'refunded'）。
+   */
+  conversationOrderClosed?: boolean | 'cancelled' | 'refunded'
+  /**
    * Seed `candor.privacy.consent.version` before each navigation.
    * Default matches the mocked privacy-policy version so the cookie banner
    * does not cover other e2e flows. Pass `false` to leave storage empty
@@ -1087,6 +1092,26 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           error_message: 'Conversation already has a valid expert-plan order.',
           error_code: 'conversation_already_ordered',
           error_data: errorData
+        })
+      })
+      return
+    }
+    // Irice 06:27：已取消／已退款 → 409 conversation_order_closed
+    if (options.conversationOrderClosed) {
+      const reason = options.conversationOrderClosed === 'refunded' ? 'refunded' : 'cancelled'
+      await route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'failed',
+          error_message: 'Conversation order is closed.',
+          error_code: 'conversation_order_closed',
+          error_data: {
+            conversation_id: conversationIdParam || conversationId,
+            order_id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+            order_no: 'ORD-260101-000001',
+            reason
+          }
         })
       })
       return
@@ -2782,6 +2807,25 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
             error_message: 'Conversation already has a valid expert-plan order.',
             error_code: 'conversation_already_ordered',
             error_data: errorData
+          })
+        })
+        return
+      }
+      if (options.conversationOrderClosed) {
+        const reason = options.conversationOrderClosed === 'refunded' ? 'refunded' : 'cancelled'
+        await route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            status: 'failed',
+            error_message: 'Conversation order is closed.',
+            error_code: 'conversation_order_closed',
+            error_data: {
+              conversation_id: conversationId,
+              order_id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+              order_no: 'ORD-260101-000001',
+              reason
+            }
           })
         })
         return
