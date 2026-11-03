@@ -72,7 +72,8 @@ describe('parseConversationMessagesResult / historyMessageToChatMessage', () => 
       expertReviewStatus: 'none'
     })
     expect(visibility.fromReplyActions).toBe(true)
-    expect(visibility.showSubmitReview).toBe(true)
+    expect(visibility.showSubmitReview).toBe(false)
+    expect(visibility.showViewRecommend).toBe(true)
     expect(visibility.showUpload).toBe(true)
     // Dedupe: legacy options / checkup_offer ignored while reply_actions is usable.
     expect(visibility.choices).toEqual([])

@@ -16,7 +16,6 @@ const props = defineProps<{
   checkupUrl: string
   showWantMoreTests: boolean
   wantMoreTestsUrl: string
-  showSubmitReview: boolean
   showViewRecommend: boolean
   showRetry: boolean
   pending: boolean
@@ -31,7 +30,6 @@ const emit = defineEmits<{
   choice: [option: GreetingOption]
   confirm: []
   upload: []
-  submitReview: []
   recommend: []
   retry: []
   /** FE-appended checkup CTA: stream continue-health copy as a normal user message. */
@@ -78,7 +76,6 @@ const hasActions = computed(() =>
   || props.showUpload
   || props.showCheckup
   || props.showWantMoreTests
-  || props.showSubmitReview
   || props.showViewRecommend
   || props.showRetry
   || showContinueConsult.value
@@ -141,17 +138,10 @@ const hasActions = computed(() =>
       @submit="onVitalsFieldSubmit"
     />
     <div
-      v-if="showSubmitReview || showViewRecommend || showUpload || (showCheckup && checkupUrl) || (showWantMoreTests && wantMoreTestsUrl) || showRetry || continueConsultInCtaRow"
+      v-if="showViewRecommend || showUpload || (showCheckup && checkupUrl) || (showWantMoreTests && wantMoreTestsUrl) || showRetry || continueConsultInCtaRow"
       class="turn-actions-cta"
     >
       <div class="turn-actions-row">
-        <AppButton
-          v-if="showSubmitReview && flow !== 'standard'"
-          data-testid="chat-submit-expert-review"
-          @click="emit('submitReview')"
-        >
-          {{ $t('chat.submitExpertReview') }}
-        </AppButton>
         <AppButton
           v-if="showViewRecommend"
           data-testid="chat-view-recommend"
@@ -207,13 +197,6 @@ const hasActions = computed(() =>
           {{ $t('chat.reportRetry') }}
         </AppButton>
       </div>
-      <p
-        v-if="showSubmitReview && flow !== 'standard'"
-        class="turn-actions-hint"
-        data-testid="chat-submit-expert-review-hint"
-      >
-        {{ $t('chat.submitExpertReviewHint') }}
-      </p>
     </div>
   </div>
 </template>

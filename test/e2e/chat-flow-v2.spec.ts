@@ -96,7 +96,7 @@ test.describe('chat flow v2 — 四條主流程', () => {
     // path_switch empty label must show i18n, never raw code "b"
     await expect(last.getByTestId('chat-quiz-option-b')).toHaveText('我想諮詢健康方案')
     await expect(last.getByTestId('chat-message-checkup')).toBeVisible()
-    await expect(last.getByTestId('chat-submit-expert-review')).toHaveCount(0)
+    await expect(last.getByTestId('chat-view-recommend')).toHaveCount(0)
   })
 
   test('A→B：goals 已答過 → 切換後不再開 goals 選單', async ({ page, goto }) => {
@@ -170,7 +170,7 @@ test.describe('chat flow v2 — 四條主流程', () => {
     await sendChatLine(page, '請給方案')
 
     const last = page.getByTestId('chat-last-reply')
-    await expect(last.getByTestId('chat-submit-expert-review')).toBeVisible({ timeout: 15_000 })
+    await expect(last.getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
     await expect(last.getByTestId('chat-quiz-option-continue')).toHaveText('繼續健康諮詢')
     await expect(last.getByTestId('chat-message-checkup')).toBeVisible()
   })
@@ -193,7 +193,7 @@ test.describe('chat flow v2 — 四條主流程', () => {
     await sendChatLine(page, '請給方案')
 
     const last = page.getByTestId('chat-last-reply')
-    await expect(last.getByTestId('chat-submit-expert-review')).toBeVisible({ timeout: 15_000 })
+    await expect(last.getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
     await expect(last.getByTestId('chat-quiz-option-no_more')).toHaveText('我沒有問題了')
     await expect(last.getByTestId('chat-quiz-option-suggest')).toHaveText('你有什麼建議')
     await expect(last.getByTestId('chat-quiz-option-continue')).toHaveText('繼續健康諮詢')
@@ -234,7 +234,7 @@ test.describe('chat flow v2 — 四條主流程', () => {
     await sendChatLine(page, '請依報告建議')
 
     const last = page.getByTestId('chat-last-reply')
-    await expect(last.getByTestId('chat-submit-expert-review')).toBeVisible({ timeout: 20_000 })
+    await expect(last.getByTestId('chat-view-recommend')).toBeVisible({ timeout: 20_000 })
     await expect(last.getByTestId('chat-quiz-option-continue')).toBeVisible()
     await expect(last.getByTestId('chat-message-checkup')).toHaveCount(0)
   })
@@ -292,7 +292,7 @@ test.describe('chat flow v2 — 四條主流程', () => {
 
     const last = page.getByTestId('chat-last-reply')
     await expect(last).toContainText('這個對話已到上限', { timeout: 15_000 })
-    await expect(last.getByTestId('chat-submit-expert-review')).toBeVisible()
+    await expect(last.getByTestId('chat-view-recommend')).toBeVisible()
     await expect(last.getByTestId('chat-quiz-option-continue')).toBeVisible()
   })
 })

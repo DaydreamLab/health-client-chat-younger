@@ -125,13 +125,8 @@ test.describe('reply_actions v0.1 CTAs', () => {
 
     const last = page.getByTestId('chat-last-reply')
     // 完成 CTA：usable offer_recommend → FE 投影取得專屬保健品方案（非 legacy 硬掛）
-    await expect(last.getByTestId('chat-submit-expert-review')).toBeVisible({ timeout: 15_000 })
-    await expect(last.getByTestId('chat-submit-expert-review')).toHaveText('取得專屬保健品方案')
-    await expect(last.getByTestId('chat-submit-expert-review-hint')).toBeVisible()
-    await expect(last.getByTestId('chat-submit-expert-review-hint')).toHaveText(
-      '以上為 AI 對話資訊，專人將於 24 小時內為您處理'
-    )
-    await expect(last.getByTestId('chat-view-recommend')).toHaveCount(0)
+    await expect(last.getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
+    await expect(last.getByTestId('chat-view-recommend')).toHaveText('查看推薦方案')
     await expect(last.getByTestId('chat-message-upload')).toHaveCount(0)
     await expect(last.getByTestId('chat-quiz-option-legacy_chip')).toHaveCount(0)
     await expect(last.getByTestId('chat-message-checkup')).toHaveCount(0)
@@ -150,7 +145,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
 
     const last = page.getByTestId('chat-last-reply')
     await expect(last.getByTestId('chat-message-upload')).toBeVisible({ timeout: 15_000 })
-    await expect(last.getByTestId('chat-submit-expert-review')).toHaveCount(0)
+    await expect(last.getByTestId('chat-view-recommend')).toHaveCount(0)
     await expect(last.getByTestId('chat-quiz-option-legacy_chip')).toHaveCount(0)
     // 僅 ask_report（無 offer_checkup）不算檢查建議 CTA 組 → 不掛繼續健康諮詢
     await expect(last.getByTestId('chat-continue-consult')).toHaveCount(0)
@@ -219,7 +214,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
 
     const last = page.getByTestId('chat-last-reply')
     await expect(last).toBeVisible({ timeout: 15_000 })
-    await expect(last.getByTestId('chat-submit-expert-review')).toHaveCount(0)
+    await expect(last.getByTestId('chat-view-recommend')).toHaveCount(0)
     await expect(last.getByTestId('chat-message-upload')).toHaveCount(0)
     await expect(last.getByTestId('chat-message-checkup')).toHaveCount(0)
     await expect(last.getByTestId('chat-quiz-option-legacy_chip')).toHaveCount(0)
@@ -238,7 +233,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
     const last = page.getByTestId('chat-last-reply')
     await expect(last.getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
     await expect(last.getByTestId('chat-view-recommend')).toHaveText('查看推薦方案')
-    await expect(last.getByTestId('chat-submit-expert-review')).toHaveCount(0)
+    await expect(last.getByTestId('chat-view-recommend')).toHaveCount(0)
   })
 
   test('history hydrate: reload maps reply_actions CTAs; degraded 不回退 legacy', async ({ page, goto }) => {
@@ -296,8 +291,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
 
     const last = page.getByTestId('chat-last-reply')
     await expect(last).toContainText('依報告來看', { timeout: 15_000 })
-    await expect(last.getByTestId('chat-submit-expert-review')).toBeVisible({ timeout: 15_000 })
-    await expect(last.getByTestId('chat-submit-expert-review-hint')).toBeVisible()
+    await expect(last.getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
     await expect(last.getByTestId('chat-message-upload')).toHaveCount(0)
     await expect(last.getByTestId('chat-quiz-option-legacy_chip')).toHaveCount(0)
     await expect(last.getByTestId('chat-message-checkup')).toHaveCount(0)
@@ -321,8 +315,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
     const degradedLast = page.getByTestId('chat-last-reply')
     await expect(degradedLast).toBeVisible({ timeout: 15_000 })
     await expect(degradedLast.getByTestId('chat-message-upload')).toHaveCount(0)
-    await expect(degradedLast.getByTestId('chat-submit-expert-review')).toHaveCount(0)
-    await expect(degradedLast.getByTestId('chat-submit-expert-review-hint')).toHaveCount(0)
+    await expect(degradedLast.getByTestId('chat-view-recommend')).toHaveCount(0)
     await expect(degradedLast.getByTestId('chat-message-checkup')).toHaveCount(0)
     await expect(degradedLast.getByTestId('chat-message-want-more-tests')).toHaveCount(0)
     await expect(page.getByTestId('chat-vitals-card')).toHaveCount(0)
@@ -390,7 +383,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
     const last = page.getByTestId('chat-last-reply')
     await expect(last).toBeVisible({ timeout: 15_000 })
     await expect(last.getByTestId('chat-message-upload')).toHaveCount(0)
-    await expect(last.getByTestId('chat-submit-expert-review')).toHaveCount(0)
+    await expect(last.getByTestId('chat-view-recommend')).toHaveCount(0)
     await expect(page.getByTestId('chat-vitals-card')).toHaveCount(0)
   })
 
@@ -938,6 +931,6 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await expect(page.getByTestId('chat-vitals-numpad')).toBeVisible()
     await expect(page.getByTestId('chat-vitals-height')).toBeVisible()
     // Covering offer_recommend must not paint recommend while gap is open.
-    await expect(page.getByTestId('chat-submit-expert-review')).toHaveCount(0)
+    await expect(page.getByTestId('chat-view-recommend')).toHaveCount(0)
   })
 })

@@ -441,7 +441,7 @@ describe('projectReplyActionsToCtas', () => {
   })
 
   it('offer_recommend copy path differs by flow (submit vs view)', () => {
-    expect(offerRecommendLabelKey(undefined)).toBe('chat.submitExpertReview')
+    expect(offerRecommendLabelKey(undefined)).toBe('chat.viewRecommend')
     expect(offerRecommendLabelKey('standard')).toBe('chat.viewRecommend')
 
     const expert = projectReplyActionsToCtas({
@@ -452,8 +452,8 @@ describe('projectReplyActionsToCtas', () => {
       canShowVitals: false,
       expertReviewStatus: 'none'
     })
-    expect(expert.flags.showSubmitReview).toBe(true)
-    expect(expert.flags.showViewRecommend).toBe(false)
+    expect(expert.flags.showSubmitReview).toBe(false)
+    expect(expert.flags.showViewRecommend).toBe(true)
 
     const standard = projectReplyActionsToCtas({
       replyActions: ra({ actions: [{ type: 'offer_recommend' }] }),
@@ -761,7 +761,8 @@ describe('projectReplyActionsToCtas', () => {
       .toBe('繼續健康諮詢')
     expect(projection.flags.choices.find(c => c.code === 'continue')?.maps_to)
       .toBe('continue_consultation')
-    expect(projection.flags.showSubmitReview).toBe(true)
+    expect(projection.flags.showSubmitReview).toBe(false)
+    expect(projection.flags.showViewRecommend).toBe(true)
     expect(projection.flags.showUpload).toBe(true)
     expect(projection.flags.showConfirm).toBe(false)
     expect(isContinueConsultationOption(replyActions, 'continue')).toBe(true)
@@ -801,7 +802,8 @@ describe('projectReplyActionsToCtas', () => {
     expect(projection.flags.choices).toEqual([
       { code: 'continue', label: '繼續健康諮詢', maps_to: 'continue_consultation' }
     ])
-    expect(projection.flags.showSubmitReview).toBe(true)
+    expect(projection.flags.showSubmitReview).toBe(false)
+    expect(projection.flags.showViewRecommend).toBe(true)
   })
 
   it('path_switch companion still appends when continue_consultation also present', () => {
@@ -1001,8 +1003,8 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     expect(v.showUpload).toBe(true)
     expect(v.showCheckup).toBe(false)
     expect(v.showWantMoreTests).toBe(false)
-    expect(v.showSubmitReview).toBe(true)
-    expect(v.showViewRecommend).toBe(false)
+    expect(v.showSubmitReview).toBe(false)
+    expect(v.showViewRecommend).toBe(true)
   })
 
   it('intentional none / degraded reply_actions paint no CTAs (no legacy fallback)', () => {
@@ -1081,7 +1083,8 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       expertReviewStatus: 'none'
     })
     expect(withReportAsk.showUpload).toBe(true)
-    expect(withReportAsk.showSubmitReview).toBe(true)
+    expect(withReportAsk.showSubmitReview).toBe(false)
+    expect(withReportAsk.showViewRecommend).toBe(true)
 
     const cleared = buildTurnActionsVisibility({
       message: msg,
@@ -1090,7 +1093,8 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       needsMultiConfirm: false,
       expertReviewStatus: 'none'
     })
-    expect(cleared.showSubmitReview).toBe(true)
+    expect(cleared.showSubmitReview).toBe(false)
+    expect(cleared.showViewRecommend).toBe(true)
   })
 
   it('/chat-ai standard flow shows view-recommend for offer_recommend', () => {
@@ -1395,7 +1399,8 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       'suggest',
       'continue'
     ])
-    expect(visibility.showSubmitReview).toBe(true)
+    expect(visibility.showSubmitReview).toBe(false)
+    expect(visibility.showViewRecommend).toBe(true)
     expect(visibility.showConfirm).toBe(false)
     expect(isContinueConsultationOption(msg.replyActions, 'continue')).toBe(true)
   })

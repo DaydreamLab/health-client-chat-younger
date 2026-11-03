@@ -780,14 +780,8 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
     }
   }
 
-  const standardFlow = input.flow === 'standard'
-  const showSubmitReview = hasRecommend
-    && input.canShowRecommendSlot
-    && !standardFlow
-    && input.expertReviewStatus === 'none'
-  const showViewRecommend = hasRecommend
-    && input.canShowRecommendSlot
-    && (standardFlow || input.expertReviewStatus === 'reviewed')
+  const showSubmitReview = false
+  const showViewRecommend = hasRecommend && input.canShowRecommendSlot
 
   const vitals = vitalsAction ? askVitalsPayload(vitalsAction) : null
   const vitalsFields = input.canShowVitals && vitals
@@ -831,9 +825,9 @@ function stampContinueConsultationMapsTo(
   })
 }
 
-/** offer_recommend button copy by route (same backend type). */
-export function offerRecommendLabelKey(flow?: 'standard'): 'chat.submitExpertReview' | 'chat.viewRecommend' {
-  return flow === 'standard' ? 'chat.viewRecommend' : 'chat.submitExpertReview'
+/** offer_recommend bubble CTA copy (v4: always view recommendations). */
+export function offerRecommendLabelKey(_flow?: 'standard'): 'chat.viewRecommend' {
+  return 'chat.viewRecommend'
 }
 
 /**

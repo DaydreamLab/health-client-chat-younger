@@ -12,8 +12,11 @@ import type {
   ConversationPackageConfirm,
   ConversationPathAck,
   ConversationPathUpdate,
+  CompletionChoiceAck,
+  CompletionChoiceRequest,
   ExpertCaseReviewList,
   ExpertCaseReviewStatus,
+  ExpertPlanList,
   HealthReport,
   HealthReportList,
   HealthReportPatchResultRequest,
@@ -602,11 +605,25 @@ export function useCandorApi() {
         body
       }),
 
-    /** Spec 33 — member refund request (定稿後、出貨前). */
+    /** Spec 33 — member refund request (定稿後、理貨前). */
     createRefundRequest: (orderId: string) =>
       request<RefundRequestCreated>(
         `/order/${encodeURIComponent(orderId)}/refund-request`,
         { method: 'POST' }
+      ),
+
+    /** Spec 33 — active expert_plans catalog (sorted by sort_order on FE). */
+    listExpertPlans: () =>
+      request<ExpertPlanList>('/expert-plans', { method: 'GET' }),
+
+    /**
+     * Click log only — assumed POST /conversations/{id}/completion-choice.
+     * Caller should swallow errors / timeout; must not block navigation.
+     */
+    recordCompletionChoice: (conversationId: string, body: CompletionChoiceRequest) =>
+      request<CompletionChoiceAck>(
+        `/conversations/${encodeURIComponent(conversationId)}/completion-choice`,
+        { method: 'POST', body: { ...body } }
       ),
 
     getOrderMessages: (id: string) =>

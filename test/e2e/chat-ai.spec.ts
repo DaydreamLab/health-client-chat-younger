@@ -58,13 +58,13 @@ test.describe('standard /chat-ai vs expert /chat', () => {
     await seedNoExpertCase(page)
   })
 
-  test('/chat still submits expert review', async ({ page, goto }) => {
+  test('/chat completion CTA opens recommendations (v4 view_recommend)', async ({ page, goto }) => {
     test.setTimeout(90_000)
     await page.setViewportSize({ width: 1280, height: 800 })
-    const expertPosts: string[] = []
+    const completionPosts: string[] = []
     page.on('request', (request) => {
-      if (request.method() === 'POST' && request.url().includes('/expert-review')) {
-        expertPosts.push(request.url())
+      if (request.method() === 'POST' && request.url().includes('/completion-choice')) {
+        completionPosts.push(request.url())
       }
     })
 
@@ -76,19 +76,15 @@ test.describe('standard /chat-ai vs expert /chat', () => {
     await page.getByTestId('chat-report-interpret').click()
 
     const last = page.getByTestId('chat-last-reply')
-    const submit = last.getByTestId('chat-submit-expert-review')
-    await expect(submit).toBeVisible({ timeout: 15_000 })
-    await expect(submit).toHaveText('取得專屬保健品方案')
-    await expect(last.getByTestId('chat-submit-expert-review-hint')).toBeVisible()
-    await expect(last.getByTestId('chat-submit-expert-review-hint')).toHaveText(
-      '以上為 AI 對話資訊，專人將於 24 小時內為您處理'
-    )
-    await expect(page.getByTestId('chat-view-recommend')).toHaveCount(0)
+    const viewRecommend = last.getByTestId('chat-view-recommend')
+    await expect(viewRecommend).toBeVisible({ timeout: 15_000 })
+    await expect(viewRecommend).toHaveText('查看推薦方案')
     await page.getByTestId('chat-report-dock-toggle').click()
 
-    await submit.click()
-    await expect(page).toHaveURL(/\/app\/?$/)
-    expect(expertPosts.length).toBeGreaterThan(0)
+    await viewRecommend.click()
+    await expect(page).toHaveURL(/\/app\/recommendations\/?$/)
+    await expect(page.getByTestId('recommendation-path-choice')).toBeVisible({ timeout: 15_000 })
+    expect(completionPosts.length).toBeGreaterThan(0)
   })
 
   test('/chat-ai opens direct recommendations without expert review', async ({ page, goto }) => {
@@ -115,15 +111,11 @@ test.describe('standard /chat-ai vs expert /chat', () => {
     await expect(view).toBeVisible({ timeout: 15_000 })
     await expect(view).toHaveText('查看推薦方案')
     await expect(view).toHaveAttribute('data-flow', 'standard')
-    await expect(page.getByTestId('chat-submit-expert-review')).toHaveCount(0)
-    await expect(page.getByTestId('chat-submit-expert-review-hint')).toHaveCount(0)
     await page.getByTestId('chat-report-dock-toggle').click()
 
     await view.click()
     await expect(page).toHaveURL(/\/app\/recommendations\?flow=standard/)
-    await expect(page.getByTestId('package-plan-basic')).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByTestId('checkout-card')).toBeVisible()
-    await expect(page.getByTestId('expert-review-gate')).toHaveCount(0)
+    await expect(page.getByTestId('recommendation-path-choice')).toBeVisible({ timeout: 15_000 })
     expect(expertPosts).toEqual([])
   })
 })

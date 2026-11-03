@@ -936,6 +936,21 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     })
   })
 
+  await page.route('**/api/v1/conversations/*/completion-choice', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: { recorded: true, choice: 'view_recommend' }
+      })
+    })
+  })
+
   await page.route('**/api/v1/auth/guest', async (route) => {
     await route.fulfill({
       status: 201,

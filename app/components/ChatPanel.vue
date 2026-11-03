@@ -211,7 +211,6 @@
                 :checkup-url="checkupUrlFor(message)"
                 :show-want-more-tests="showWantMoreTestsCta(message)"
                 :want-more-tests-url="checkupLinkUrl"
-                :show-submit-review="showSubmitReviewCta(message)"
                 :show-view-recommend="showViewRecommendCta(message)"
                 :show-retry="showRetryCta(message)"
                 :pending="pending"
@@ -221,7 +220,6 @@
                 @choice="onChoice"
                 @confirm="confirmMultiSelection"
                 @upload="openAttachMenu"
-                @submit-review="submitExpertReview"
                 @recommend="goViewRecommend"
                 @retry="retryReport"
                 @continue-consult="onContinueConsult"
@@ -983,10 +981,6 @@ function displayMessageText(message: ChatMessage) {
     return stripFinishedQuizGuide(text)
   }
   return text
-}
-
-function showSubmitReviewCta(message: ChatMessage) {
-  return turnActionsFor(message).showSubmitReview
 }
 
 function showViewRecommendCta(message: ChatMessage) {
@@ -3107,51 +3101,7 @@ async function syncExpertReviewStatusOnce() {
   }
 }
 
-/** Submit for expert review → create case → 我的健康. Standard flow never calls this. */
-async function submitExpertReview() {
-  if (isStandardFlow.value || readonly.value || escalated.value) {
-    return
-  }
-
-  const healthPath = localePath('/app')
-  const redirected = await ensureMemberForReview(healthPath)
-  if (redirected) {
-    return redirected
-  }
-
-  const conversationId = journey.conversationId?.trim() ?? ''
-  if (!conversationId || !auth.isMember) {
-    // Guest / no conversation: keep them on health; do not create a case.
-    return navigateTo(healthPath)
-  }
-
-  try {
-    const review = await candor.createExpertReview(conversationId)
-    journey.expertReviewStatus = expertReviewUiStatusFromRow(review.status)
-    if (review.health_report_id) {
-      journey.reportId = review.health_report_id
-    }
-  } catch (err) {
-    if (err instanceof CandorApiError && err.errorCode === 'expert_review_exists') {
-      try {
-        const existing = await candor.getExpertReview(conversationId)
-        journey.expertReviewStatus = expertReviewUiStatusFromRow(existing.status)
-        if (existing.health_report_id) {
-          journey.reportId = existing.health_report_id
-        }
-      } catch {
-        journey.expertReviewStatus = 'awaiting_review'
-      }
-    } else {
-      // Surface via navigation to health; list will show empty / user can retry.
-      console.warn('submitExpertReview failed', err)
-    }
-  }
-
-  return navigateTo(healthPath)
-}
-
-/** 「查看推薦方案」. Standard flow skips expert review and keeps `flow=standard` on the URL. */
+/** 「查看推薦方案」. Standard flow keeps `flow=standard` on the URL. */
 async function goViewRecommend() {
   if (readonly.value || escalated.value) {
     return
@@ -3162,6 +3112,16 @@ async function goViewRecommend() {
   const redirected = await ensureMemberForReview(target)
   if (redirected) {
     return redirected
+  }
+
+  const conversationId = journey.conversationId?.trim()
+  if (conversationId && !isStandardFlow.value) {
+    void Promise.race([
+      candor.recordCompletionChoice(conversationId, { choice: 'view_recommend' }),
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, 2000)
+      })
+    ]).catch(() => {})
   }
 
   if (isStandardFlow.value) {

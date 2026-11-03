@@ -196,6 +196,41 @@ export interface RecommendationResponse {
 
 export type RefundRequestStatus = 'requested' | 'refunded' | 'rejected'
 
+/** Public expert_plans catalog row (spec 33 — assumed until core #143 OpenAPI lands). */
+export interface ExpertPlan {
+  id: string
+  code: string
+  package_plan_id: string
+  package_plan_code?: string | null
+  package_plan_name_zh?: string | null
+  name_zh: string
+  name_en?: string | null
+  /** Opening amount TWD integer. */
+  price: number
+  active?: boolean
+  /** Checkout list order (asc). */
+  sort_order?: number
+}
+
+export interface ExpertPlanList {
+  expert_plans: ExpertPlan[]
+}
+
+/**
+ * POST /conversations/{id}/completion-choice — click log only (assumed).
+ * Failures must not block navigation.
+ */
+export interface CompletionChoiceRequest {
+  /** e.g. view_recommend */
+  choice: string
+}
+
+export interface CompletionChoiceAck {
+  conversation_id?: string
+  choice?: string
+  recorded?: boolean
+}
+
 /** Member expert-case-review status / reviewed packages (spec 32／33). */
 export interface ExpertCaseReviewStatus {
   id: string
@@ -468,6 +503,18 @@ export interface OrderDetail {
   /** Shipment status when present (`picking`｜`shipped`｜…). */
   shipment_status?: string | null
   shipment?: { status?: string | null } | null
+  /**
+   * Paid expert_plan case phase (assumed field until OpenAPI final).
+   * awaiting_review →「專家處理中」; reviewed → 定稿唯讀／可申請退款.
+   */
+  expert_case_status?: 'awaiting_review' | 'reviewed' | null
+  expert_case_review?: {
+    id?: string
+    status?: 'awaiting_review' | 'reviewed' | null
+    conversation_id?: string | null
+  } | null
+  /** Rejection reason shown on order when refund_request_status=rejected. */
+  refund_reject_reason?: string | null
 }
 
 export interface RefundRequestCreated {

@@ -9,15 +9,10 @@ const companyCarrier = z.string().trim().regex(/^\d{8}$/, 'invalid company carri
 const donateCarrier = z.string().trim().regex(/^\d{3,7}$/, 'invalid donate carrier')
 const memberCarrier = z.string().trim().email('invalid member carrier')
 
-export const checkoutSchema = z.object({
-  name: z.string().trim().min(1),
-  phone: z.string().trim().min(8),
-  address: z.string().trim().min(1),
-  paymentMethod: z.literal('card'),
-  invoice: invoiceTypeSchema,
-  invoiceCarrier: z.string().trim().min(1),
-  packagePlanCode: packagePlanCodeSchema
-}).superRefine((data, ctx) => {
+const invoiceCarrierRefine = (data: {
+  invoice: z.infer<typeof invoiceTypeSchema>
+  invoiceCarrier: string
+}, ctx: z.RefinementCtx) => {
   const carrier = data.invoiceCarrier
   if (data.invoice === 'cloud') {
     if (!cloudCarrier.safeParse(carrier).success) {
@@ -36,7 +31,28 @@ export const checkoutSchema = z.object({
       ctx.addIssue({ code: 'custom', path: ['invoiceCarrier'], message: 'invalid member carrier' })
     }
   }
-})
+}
+
+export const checkoutSchema = z.object({
+  name: z.string().trim().min(1),
+  phone: z.string().trim().min(8),
+  address: z.string().trim().min(1),
+  paymentMethod: z.literal('card'),
+  invoice: invoiceTypeSchema,
+  invoiceCarrier: z.string().trim().min(1),
+  packagePlanCode: packagePlanCodeSchema
+}).superRefine(invoiceCarrierRefine)
+
+/** Spec 33 — expert_plan checkout (same recipient／invoice rules). */
+export const expertPlanCheckoutSchema = z.object({
+  name: z.string().trim().min(1),
+  phone: z.string().trim().min(8),
+  address: z.string().trim().min(1),
+  paymentMethod: z.literal('card'),
+  invoice: invoiceTypeSchema,
+  invoiceCarrier: z.string().trim().min(1),
+  expertPlanCode: z.string().trim().min(1)
+}).superRefine(invoiceCarrierRefine)
 
 export const recipientSchema = z.object({
   name: z.string().trim().min(1),
