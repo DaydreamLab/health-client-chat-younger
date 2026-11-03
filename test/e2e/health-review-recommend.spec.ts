@@ -264,6 +264,8 @@ test.describe('health review → recommendations (focus case conversation)', () 
 
     await expect(page).toHaveURL(/\/app\/recommendations/)
     await expect(page.getByTestId('expert-review-gate')).toHaveCount(0)
+    await expect(page.getByTestId('recommendation-path-choice')).toBeVisible({ timeout: 15_000 })
+    await page.getByTestId('recommendation-path-ai').click()
     await expect(page.getByTestId('package-plan-basic')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('package-plan-basic')).toContainText('基礎保養')
   })

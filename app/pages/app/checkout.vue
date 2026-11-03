@@ -126,10 +126,10 @@
             :title="$t('checkout.memberRequired')"
             :hint="$t('checkout.memberRequiredHint')"
             icon="i-lucide-clipboard-list"
-            test-id="expert-plans-auth-gate"
-            login-test-id="expert-plans-login"
-            register-test-id="expert-plans-register"
-            back-to-chat-test-id="expert-plans-back-chat"
+            test-id="checkout-auth-gate"
+            login-test-id="checkout-login"
+            register-test-id="checkout-register"
+            back-to-chat-test-id="checkout-back-chat"
           />
 
           <template v-else-if="isExpertPlan">

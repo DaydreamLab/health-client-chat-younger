@@ -62,6 +62,13 @@ export type CandorMockOptions = {
   /** GET /package-plans payload shape (default legacy = pre-catalog API). */
   packagePlans?: PackagePlansMockMode
   /**
+   * Expert-review GET for checkout gates.
+   * `none` → 404 (allow expert checkout). Default keeps legacy awaiting/reviewed mock.
+   */
+  expertReview?: 'none' | 'awaiting' | 'reviewed' | 'reviewed_with_order'
+  /** Expert plans catalog: empty → F-08; single → preselect. */
+  expertPlansCatalog?: 'default' | 'empty' | 'single'
+  /**
    * Seed `candor.privacy.consent.version` before each navigation.
    * Default matches the mocked privacy-policy version so the cookie banner
    * does not cover other e2e flows. Pass `false` to leave storage empty
@@ -407,13 +414,20 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       await route.fallback()
       return
     }
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        status: 'success',
-        data: {
-          expert_plans: [
+    const catalog = options.expertPlansCatalog ?? 'default'
+    const expertPlans = catalog === 'empty'
+      ? []
+      : catalog === 'single'
+        ? [{
+            id: 'ep-basic',
+            code: 'basic',
+            package_plan_id: 'pp-basic',
+            name_zh: '基本方案',
+            price: 6000,
+            sort_order: 1,
+            active: true
+          }]
+        : [
             {
               id: 'ep-basic',
               code: 'basic',
@@ -433,7 +447,12 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
               active: true
             }
           ]
-        }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: { expert_plans: expertPlans }
       })
     })
   })
@@ -898,12 +917,30 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       })
       return
     }
+    const reviewMode = options.expertReview
+    if (reviewMode === 'none') {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'error',
+          error: { code: 'not_found', message: 'expert review not found' }
+        })
+      })
+      return
+    }
+    const withOrder = reviewMode === 'reviewed_with_order'
+    const status = reviewMode === 'awaiting'
+      ? 'awaiting_review'
+      : (reviewMode === 'reviewed' || withOrder || memberExpertReviewStatus === 'reviewed'
+          ? 'reviewed'
+          : memberExpertReviewStatus)
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         status: 'success',
-        data: memberExpertReviewStatus === 'reviewed'
+        data: status === 'reviewed'
           ? {
               id: expertReviewId,
               conversation_id: conversationId,
@@ -921,7 +958,10 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                 profile_gaps: [],
                 strategy_code: 'focus_abnormal',
                 message: null
-              }
+              },
+              ...(withOrder
+                ? { order_id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', expert_plan_id: 'ep-basic' }
+                : {})
             }
           : {
               id: expertReviewId,

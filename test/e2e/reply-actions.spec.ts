@@ -233,7 +233,9 @@ test.describe('reply_actions v0.1 CTAs', () => {
     const last = page.getByTestId('chat-last-reply')
     await expect(last.getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
     await expect(last.getByTestId('chat-view-recommend')).toHaveText('查看推薦方案')
-    await expect(last.getByTestId('chat-view-recommend')).toHaveCount(0)
+    // v4：完成 CTA 一律「查看推薦方案」，不再出現提交專家判讀／雙選。
+    await expect(last.getByTestId('chat-submit-expert-review')).toHaveCount(0)
+    await expect(page.locator('[data-testid^="chat-dual-choice-"]')).toHaveCount(0)
   })
 
   test('history hydrate: reload maps reply_actions CTAs; degraded 不回退 legacy', async ({ page, goto }) => {
