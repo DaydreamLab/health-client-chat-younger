@@ -1,0 +1,79 @@
+name: deploy-prod
+
+# Candor 正式站：打 v* tag → GitHub Environment prod 人工核准 → OIDC 部署至 S3 + CloudFront。
+# 勿加 branch push／pull_request／workflow_dispatch。
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: prod
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Install node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Generate static site
+        run: pnpm generate
+        env:
+          NUXT_APP_BASE_URL: /
+          NUXT_PUBLIC_API_BASE: https://api.my-candor.com/api/v1
+          NUXT_PUBLIC_APP_VERSION: ${{ github.ref_name }}
+          NUXT_PUBLIC_FE_SHA: ${{ github.sha }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Sync to S3
+        env:
+          BUCKET: ${{ vars.S3_BUCKET }}
+        run: |
+          set -euo pipefail
+          ROOT=".output/public"
+          # HTML 與其他：no-cache；先 sync + --delete 對齊物件集合
+          aws s3 sync "$ROOT" "s3://${BUCKET}" --delete \
+            --cache-control "no-cache" \
+            --exclude "_nuxt/*" \
+            --exclude "_fonts/*"
+          # 雜湊資產：一年 immutable
+          aws s3 sync "${ROOT}/_nuxt" "s3://${BUCKET}/_nuxt" --delete \
+            --cache-control "public, max-age=31536000, immutable"
+          if [ -d "${ROOT}/_fonts" ]; then
+            aws s3 sync "${ROOT}/_fonts" "s3://${BUCKET}/_fonts" --delete \
+              --cache-control "public, max-age=31536000, immutable"
+          fi
+
+      - name: Invalidate CloudFront
+        env:
+          DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "$DISTRIBUTION_ID" \
+            --paths "/*"

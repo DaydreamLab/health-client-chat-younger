@@ -2,9 +2,14 @@
   <p
     class="font-mono text-[10px] leading-tight"
     data-testid="build-version"
-    :aria-label="`Agent: dev (${feLabel}) | Core Engine: beta (${coreLabel})`"
+    :aria-label="ariaLabel"
   >
-    Agent: dev ({{ feLabel }}) | Core Engine: beta ({{ coreLabel }})
+    <template v-if="appVersion">
+      {{ appVersion }}
+    </template>
+    <template v-else>
+      Agent: dev ({{ feLabel }}) | Core Engine: beta ({{ coreLabel }})
+    </template>
   </p>
 </template>
 
@@ -15,11 +20,22 @@ function shortSha(raw: string): string {
 }
 
 const config = useRuntimeConfig()
+const appVersion = String(config.public.appVersion || '')
 const feRaw = String(config.public.feSha || '')
 const feLabel = feRaw ? shortSha(feRaw) : 'dev'
 const coreLabel = ref('—')
 
+const ariaLabel = computed(() => {
+  if (appVersion) {
+    return appVersion
+  }
+  return `Agent: dev (${feLabel}) | Core Engine: beta (${coreLabel.value})`
+})
+
 onMounted(async () => {
+  if (appVersion) {
+    return
+  }
   try {
     const apiBase = String(config.public.apiBase || '').replace(/\/$/, '')
     const origin = apiBase.replace(/\/api\/v1$/, '')

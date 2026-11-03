@@ -28,6 +28,8 @@ export default defineNuxtConfig({
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8080/api/v1',
       feSha: process.env.NUXT_PUBLIC_FE_SHA || '',
+      /** Prod deploy tag（例如 v1.2.3）；未設定時頁尾顯示 dev。 */
+      appVersion: process.env.NUXT_PUBLIC_APP_VERSION || '',
       individualTestsUrl: process.env.NUXT_PUBLIC_INDIVIDUAL_TESTS_URL
         || 'https://www.younger.tw/collections/individual-tests',
       /**
