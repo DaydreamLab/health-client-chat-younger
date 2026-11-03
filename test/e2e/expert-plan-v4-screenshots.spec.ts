@@ -121,6 +121,44 @@ test.describe('expert-plan v4 screenshots', () => {
     await shot(page, 'F-06-checkout-ai-package')
   })
 
+  test('checkout AI missing conversation shows back-to-chat gate', async ({ page, goto }) => {
+    await mockCandorAuth(page, { asMember: true, expertReview: 'none' })
+    await page.addInitScript(() => {
+      localStorage.removeItem('candor.unpaid.journey')
+    })
+    await goto('/app/checkout?kind=package&package_plan_code=basic', { waitUntil: 'hydration' })
+    await expect(page.getByTestId('checkout-conversation-missing')).toBeVisible({ timeout: 25000 })
+    await expect(page.getByTestId('checkout-conversation-missing')).toContainText(
+      '找不到您的諮詢紀錄，請先回到對話完成健康諮詢。'
+    )
+    await expect(page.getByTestId('checkout-conversation-missing-back')).toBeVisible()
+    await shot(page, 'checkout-conversation-missing')
+  })
+
+  test('checkout AI preview 422 invalid_request shows same gate', async ({ page, goto }) => {
+    await mockCandorAuth(page, { asMember: true, expertReview: 'none' })
+    await seedJourneyConversation(page)
+    await page.route('**/api/v1/checkout/preview**', async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback()
+        return
+      }
+      await route.fulfill({
+        status: 422,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'failed',
+          error_message: 'conversation_id is required',
+          error_code: 'invalid_request',
+          error_data: null
+        })
+      })
+    })
+    await goto('/app/checkout?kind=package&package_plan_code=basic', { waitUntil: 'hydration' })
+    await expect(page.getByTestId('checkout-conversation-missing')).toBeVisible({ timeout: 25000 })
+    await expect(page.getByTestId('checkout-conversation-missing-back')).toBeVisible()
+  })
+
   test('F-07 checkout case exists', async ({ page, goto }) => {
     await mockCandorAuth(page, {
       asMember: true,

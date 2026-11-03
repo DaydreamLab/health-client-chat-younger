@@ -791,6 +791,7 @@
     "paymentComingSoon": "Coming soon",
     "expert_plan_inactive": "This plan is no longer available",
     "expert_plan_inactive_body": "This expert plan has been delisted. Please choose another plan.",
+    "conversationMissing": "TODO: checkout.conversationMissing",
     "processing": "Creating order…",
     "successTitle": "Order created",
     "successBody": "Complete payment with the gateway. Track shipment on the orders page after it succeeds.",
@@ -902,9 +903,9 @@
       "picking_started": "Picking has started, so refunds are no longer available. Contact support if you need help.",
       "already_shipped": "This order has shipped, so refunds are no longer available. Contact support if you need help.",
       "refund_rejected": "You cannot request a refund again for this order.",
-      "refund_request_exists": "A refund request is already in progress."
+      "refund_request_exists": "TODO: orders.refund_blocked.refund_request_exists"
     },
-    "refundBlockGenericTodo": "TODO: refund blocked (design copy pending)",
+    "refundBlockGeneric": "TODO: orders.refundBlockGeneric",
     "expert_processing": {
       "title": "Expert review in progress",
       "body": "Your expert will finalize your plan within about one business day."
@@ -928,15 +929,15 @@
     "conversationRequired": "Start a consult conversation before checkout.",
     "caseExists": "You already have an expert case in progress. Return to chat for status.",
     "checkoutLocked": "This order was already submitted and cannot be changed.",
-    "checkoutLockedOrderSubmitted": "You already submitted an expert plan order. Check your order for status.",
-    "checkoutLockedCaseFinalized": "Your expert plan is finalized; checkout is no longer available here.",
+    "checkoutLockedOrderSubmitted": "TODO: expertPlans.checkoutLockedOrderSubmitted",
+    "checkoutLockedCaseFinalized": "TODO: expertPlans.checkoutLockedCaseFinalized",
     "backToChat": "Back to chat",
     "delistedTitle": "This plan is no longer available",
     "delistedBody": "This expert plan has been delisted. Please choose another plan.",
     "delistedReselect": "Choose again",
     "changePackage": "Change plan",
     "packageSection": "Plan",
-    "paidAwaitingBody": "After payment, your expert will finalize within about one business day. Track progress on the order page.",
+    "paidAwaitingBody": "TODO: expertPlans.paidAwaitingBody",
     "resultReadonlyHint": "專家已完成您的方案，內容無法再修改。",
     "openOrder": "View order"
   },

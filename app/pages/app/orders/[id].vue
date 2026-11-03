@@ -526,7 +526,7 @@ const refundBlockHint = computed(() => {
   if (reason === 'already_shipped') {
     return t('orders.refundBlockShipped')
   }
-  return t('orders.refundBlockGenericTodo')
+  return t('orders.refundBlockGeneric')
 })
 
 const paymentStatusLabel = computed(() => {

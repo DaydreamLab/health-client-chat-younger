@@ -791,6 +791,7 @@
     "paymentComingSoon": "即將開放",
     "expert_plan_inactive": "此方案已下架",
     "expert_plan_inactive_body": "這個專家方案目前已下架，請重新選擇其他方案。",
+    "conversationMissing": "找不到您的諮詢紀錄，請先回到對話完成健康諮詢。",
     "processing": "建立訂單中…",
     "successTitle": "訂單已建立",
     "successBody": "請完成金流付款；成功後可在訂單頁查看出貨進度。",
@@ -902,9 +903,9 @@
       "picking_started": "商品已開始理貨，無法申請退款，如有問題請聯絡客服。",
       "already_shipped": "商品已出貨，無法申請退款，如有問題請聯絡客服。",
       "refund_rejected": "此訂單無法再次申請退款",
-      "refund_request_exists": "退款申請處理中，無法再次申請"
+      "refund_request_exists": "退款申請處理中，無法再次申請。"
     },
-    "refundBlockGenericTodo": "TODO: refund blocked (design copy pending)",
+    "refundBlockGeneric": "目前無法申請退款，如有問題請聯絡客服。",
     "expert_processing": {
       "title": "專家處理中",
       "body": "專家將於約一個工作天內完成您的方案。"
@@ -928,15 +929,15 @@
     "conversationRequired": "請先完成諮詢對話後再結帳。",
     "caseExists": "您已經有一筆專家諮詢案件正在進行中，請回到對話查看進度。",
     "checkoutLocked": "這筆訂單已經送出，無法再修改內容。",
-    "checkoutLockedOrderSubmitted": "您已送出專家方案訂單，請至訂單頁查看進度。",
-    "checkoutLockedCaseFinalized": "專家已完成定稿，無法再從此頁結帳。",
+    "checkoutLockedOrderSubmitted": "這筆訂單已送出，請到訂單頁查看。",
+    "checkoutLockedCaseFinalized": "專家已完成定稿，這筆訂單無法再修改。",
     "backToChat": "回到對話",
     "delistedTitle": "此方案已下架",
     "delistedBody": "這個專家方案目前已下架，請重新選擇其他方案。",
     "delistedReselect": "重新選擇方案",
     "changePackage": "更換方案",
     "packageSection": "方案",
-    "paidAwaitingBody": "付款完成後，專家將於約一個工作天內完成您的方案；進度請至訂單頁查看。",
+    "paidAwaitingBody": "付款成功，專家將於約一個工作天內完成您的方案，完成後會通知您。",
     "resultReadonlyHint": "專家已完成您的方案，內容無法再修改。",
     "openOrder": "查看訂單"
   },

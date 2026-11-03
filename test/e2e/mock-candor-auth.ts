@@ -1003,6 +1003,21 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     }
     const url = new URL(route.request().url())
     const mode = url.searchParams.get('mode') === 'ai' ? 'ai' : 'expert'
+    const conversationIdParam = url.searchParams.get('conversation_id')?.trim() ?? ''
+    // core #143 f2795e9c: AI preview without conversation_id → 422 invalid_request
+    if (mode === 'ai' && !conversationIdParam) {
+      await route.fulfill({
+        status: 422,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'failed',
+          error_message: 'conversation_id is required',
+          error_code: 'invalid_request',
+          error_data: null
+        })
+      })
+      return
+    }
     const packagePlanCode = url.searchParams.get('package_plan_code') || 'basic'
     const catalog = options.expertPlansCatalog ?? 'default'
     const expertPlans = catalog === 'empty'

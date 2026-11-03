@@ -100,6 +100,26 @@
       </AppButton>
     </section>
 
+    <section
+      v-else-if="pageGate === 'conversation_missing'"
+      class="mx-auto max-w-lg rounded-2xl border border-default bg-elevated p-8 text-center"
+      data-testid="checkout-conversation-missing"
+    >
+      <p class="text-3xl text-warning">
+        !
+      </p>
+      <p class="mt-4 text-sm leading-relaxed text-muted">
+        {{ $t('checkout.conversationMissing') }}
+      </p>
+      <AppButton
+        class="mt-6 w-full"
+        :to="chatBackPath"
+        data-testid="checkout-conversation-missing-back"
+      >
+        {{ $t('expertPlans.backToChat') }}
+      </AppButton>
+    </section>
+
     <div
       v-else
       class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]"
@@ -552,7 +572,6 @@ import {
   composeTaiwanAddress,
   districtsForCity
 } from '~/utils/taiwan-regions'
-import { recommendationRequestFromJourney } from '~/utils/recommendation-request'
 
 definePageMeta({
   layout: 'user',
@@ -570,7 +589,7 @@ const api = useFirstOrderApi()
 const candor = useCandorApi()
 
 type CheckoutKind = 'expert_plan' | 'package'
-type PageGate = 'none' | 'case_exists' | 'checkout_locked' | 'empty_catalog'
+type PageGate = 'none' | 'case_exists' | 'checkout_locked' | 'empty_catalog' | 'conversation_missing'
 
 const checkoutKind = computed<CheckoutKind>(() => {
   const raw = route.query.kind
@@ -724,28 +743,6 @@ watch(() => auth.user?.email, (email) => {
   }
 }, { immediate: true })
 
-async function loadLegacyPackageRecommendation() {
-  packagePending.value = true
-  packageError.value = ''
-  try {
-    const result = await candor.createRecommendation(
-      recommendationRequestFromJourney({
-        conversationId: journey.conversationId,
-        reportId: journey.reportId
-      })
-    )
-    recommendation.value = result
-    const preferred = resolvePackagePlanCode() || journey.selectedPackageCode
-    const match = result.packages.find(pkg => pkg.package_plan_code === preferred)
-    selectedPackageCode.value = match?.package_plan_code ?? result.packages[0]?.package_plan_code ?? ''
-  } catch {
-    packageError.value = t('recommendation.recoError')
-    recommendation.value = null
-  } finally {
-    packagePending.value = false
-  }
-}
-
 function resolvePackagePlanCode(): string {
   const raw = route.query.package_plan_code ?? route.query.code
   const value = Array.isArray(raw) ? raw[0] : raw
@@ -894,10 +891,12 @@ async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
   if (!conversationId) {
     if (isExpertPlan.value) {
       listError.value = t('expertPlans.conversationRequired')
-    } else {
-      // No conversation → cannot call checkout/preview; last-resort legacy path.
-      await loadLegacyPackageRecommendation()
+    } else if (auth.isMember) {
+      // AI checkout without conversation — same screen as core 422 invalid_request.
+      pageGate.value = 'conversation_missing'
+      recommendation.value = null
     }
+    // Guest without conversation still falls through to MemberAuthGate.
     listPending.value = false
     packagePending.value = false
     return
@@ -943,8 +942,16 @@ async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
     } else if (pageGate.value === 'none') {
       applyAiPreviewPackage(preview)
     }
-  } catch {
-    if (isExpertPlan.value) {
+  } catch (err) {
+    if (
+      !isExpertPlan.value
+      && err instanceof CandorApiError
+      && err.statusCode === 422
+      && err.errorCode === 'invalid_request'
+    ) {
+      pageGate.value = 'conversation_missing'
+      recommendation.value = null
+    } else if (isExpertPlan.value) {
       listError.value = t('expertPlans.loadError')
       plans.value = []
     } else {
