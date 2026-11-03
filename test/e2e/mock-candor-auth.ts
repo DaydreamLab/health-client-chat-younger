@@ -81,15 +81,11 @@ export type CandorMockOptions = {
    */
   conversationAlreadyOrdered?: boolean | 'no_case' | 'missing_order'
   /**
-   * core #146：未付款舊單 — preview 200 帶 `existing_order:{order_id,order_no}`；
-   * POST /orders 仍 201（同方案 reuse）。
+   * core #146：未付款／pending 舊單 — preview 200 帶
+   * `existing_order:{order_id,order_no,expert_plan_code,payment_status}`；
+   * POST /orders 仍 201（reuse 同一張單）。
    */
   existingUnpaidOrder?: boolean
-  /**
-   * core #146：POST /orders 409 `expert_plan_reuse_mismatch`（方案與未付款舊單不同）。
-   * preview 仍 200 並帶 `existing_order`。
-   */
-  expertPlanReuseMismatch?: boolean
   /**
    * Seed `candor.privacy.consent.version` before each navigation.
    * Default matches the mocked privacy-policy version so the cookie banner
@@ -382,7 +378,17 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         package_plan_name: '基礎保養',
         created_at: '2026-01-01T12:00:00Z'
       }
-    : null
+    : options.existingUnpaidOrder
+      ? {
+          id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+          order_no: 'ORD-260101-000001',
+          status: 'created',
+          payment_status: 'pending',
+          amount_total: 6000,
+          package_plan_name: '專家基本方案',
+          created_at: '2026-01-01T12:00:00Z'
+        }
+      : null
 
   await page.route('**/api/v1/client-config', async (route) => {
     await route.fulfill({
@@ -1214,10 +1220,12 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           completion_choice: null,
           existing_order: mode === 'ai'
             ? null
-            : (options.existingUnpaidOrder || options.expertPlanReuseMismatch
+            : (options.existingUnpaidOrder
                 ? {
                     order_id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
-                    order_no: 'ORD-260101-000001'
+                    order_no: 'ORD-260101-000001',
+                    expert_plan_code: 'basic',
+                    payment_status: 'pending'
                   }
                 : null)
         }
@@ -2774,35 +2782,6 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
             error_message: 'Conversation already has a valid expert-plan order.',
             error_code: 'conversation_already_ordered',
             error_data: errorData
-          })
-        })
-        return
-      }
-      if (options.expertPlanReuseMismatch) {
-        let requestedCode = 'advance'
-        try {
-          const body = route.request().postDataJSON() as { expert_plan_code?: string } | null
-          if (typeof body?.expert_plan_code === 'string' && body.expert_plan_code.trim()) {
-            requestedCode = body.expert_plan_code.trim()
-          }
-        } catch {
-          // ignore parse errors — keep default requested code
-        }
-        await route.fulfill({
-          status: 409,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            status: 'failed',
-            error_message: 'Requested expert plan does not match the unpaid order.',
-            error_code: 'expert_plan_reuse_mismatch',
-            error_data: {
-              conversation_id: conversationId,
-              order_id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
-              order_no: 'ORD-260101-000001',
-              existing_expert_plan_code: 'basic',
-              existing_expert_plan_price: 6000,
-              requested_expert_plan_code: requestedCode
-            }
           })
         })
         return

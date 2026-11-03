@@ -86,6 +86,8 @@ describe('checkout preview ai.items (spec 33 / core #143)', () => {
       existing_order: {
         order_id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
         order_no: 'ORD-260101-000001',
+        expert_plan_code: 'basic',
+        payment_status: 'pending',
         extra: true
       }
     }
