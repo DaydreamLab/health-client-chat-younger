@@ -3,7 +3,8 @@ import {
   canShowRefundRequest,
   orderHasExpertPlanLine,
   orderShipmentStatus,
-  refundRequestDisplayText
+  refundRequestDisplayText,
+  refundRequestUi
 } from '../../app/utils/expert-plan-order'
 
 describe('expert-plan-order helpers', () => {
@@ -20,15 +21,47 @@ describe('expert-plan-order helpers', () => {
     expect(orderShipmentStatus({})).toBe(null)
   })
 
-  it('shows 申請退款 only when gates pass; rejected never again', () => {
+  it('blocks refund during picking even when core allows', () => {
     expect(canShowRefundRequest({
       canRequestRefund: true,
       refundRequestStatus: null,
       paymentStatus: 'paid',
       hasExpertPlanLine: true,
-      shipmentStatus: 'picking'
-    })).toBe(true)
+      shipmentStatus: 'picking',
+      expertCasePhase: 'reviewed'
+    })).toBe(false)
 
+    expect(refundRequestUi({
+      canRequestRefund: true,
+      refundRequestStatus: null,
+      paymentStatus: 'paid',
+      hasExpertPlanLine: true,
+      shipmentStatus: 'picking',
+      expertCasePhase: 'reviewed'
+    }).blockReason).toBe('picking')
+  })
+
+  it('requires reviewed phase before refund is enabled', () => {
+    expect(canShowRefundRequest({
+      canRequestRefund: true,
+      refundRequestStatus: null,
+      paymentStatus: 'paid',
+      hasExpertPlanLine: true,
+      shipmentStatus: 'pending',
+      expertCasePhase: 'awaiting_review'
+    })).toBe(false)
+
+    expect(canShowRefundRequest({
+      canRequestRefund: true,
+      refundRequestStatus: null,
+      paymentStatus: 'paid',
+      hasExpertPlanLine: true,
+      shipmentStatus: 'pending',
+      expertCasePhase: 'reviewed'
+    })).toBe(true)
+  })
+
+  it('shows 申請退款 only when gates pass; rejected never again', () => {
     expect(canShowRefundRequest({
       canRequestRefund: true,
       refundRequestStatus: 'rejected',
@@ -40,14 +73,16 @@ describe('expert-plan-order helpers', () => {
       refundRequestStatus: null,
       paymentStatus: 'paid',
       hasExpertPlanLine: true,
-      shipmentStatus: 'shipped'
+      shipmentStatus: 'shipped',
+      expertCasePhase: 'reviewed'
     })).toBe(false)
 
     expect(canShowRefundRequest({
       canRequestRefund: false,
       refundRequestStatus: null,
       paymentStatus: 'paid',
-      hasExpertPlanLine: true
+      hasExpertPlanLine: true,
+      expertCasePhase: 'reviewed'
     })).toBe(false)
   })
 

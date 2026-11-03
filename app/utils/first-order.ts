@@ -6,8 +6,10 @@ import type {
 } from './candor-api'
 import type { ReplyActions } from './reply-actions'
 import {
+  orderExpertCasePhase,
   orderHasExpertPlanLine,
-  orderShipmentStatus
+  orderShipmentStatus,
+  type ExpertCasePhase
 } from './expert-plan-order'
 
 /** Demo catalog codes (not live API identifiers). */
@@ -264,6 +266,10 @@ export interface OrderRecord {
   canRequestRefund?: boolean | null
   hasExpertPlanLine?: boolean
   shipmentStatus?: string | null
+  expertCasePhase?: ExpertCasePhase
+  refundRejectReason?: string | null
+  /** From expert_case_review — link to recommendations after refund. */
+  conversationId?: string | null
 }
 
 export interface CreateOrderInput {
@@ -651,7 +657,10 @@ export function orderRecordFromCandorDetail(
     refundRequestDisplay: detail.refund_request_display ?? null,
     canRequestRefund: detail.can_request_refund ?? null,
     hasExpertPlanLine: hasExpertPlan,
-    shipmentStatus: orderShipmentStatus(detail)
+    shipmentStatus: orderShipmentStatus(detail),
+    expertCasePhase: orderExpertCasePhase(detail),
+    refundRejectReason: detail.refund_reject_reason ?? null,
+    conversationId: detail.expert_case_review?.conversation_id ?? null
   }
 }
 

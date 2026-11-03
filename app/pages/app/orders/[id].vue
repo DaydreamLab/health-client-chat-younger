@@ -60,6 +60,35 @@
       </div>
     </div>
 
+    <div
+      v-if="expertProcessingBanner"
+      class="rounded-2xl border border-primary/30 bg-primary/5 p-5"
+      data-testid="order-expert-processing-banner"
+    >
+      <p class="font-semibold text-highlighted">
+        {{ $t('orders.expertProcessingTitle') }}
+      </p>
+      <p class="mt-1 text-sm text-muted">
+        {{ $t('orders.expertProcessingBody') }}
+      </p>
+    </div>
+
+    <div
+      v-if="refundRejectedBanner"
+      class="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5"
+      data-testid="order-refund-rejected-banner"
+    >
+      <p class="font-semibold text-highlighted">
+        {{ $t('orders.refundRejectedTitle') }}
+      </p>
+      <p class="mt-2 text-sm text-highlighted">
+        {{ $t('orders.refundRejectedReasonLabel') }}{{ order.refundRejectReason || '—' }}
+      </p>
+      <p class="mt-2 text-sm text-muted">
+        {{ $t('orders.refundRejectedNoRetry') }}
+      </p>
+    </div>
+
     <section
       class="rounded-2xl border border-default bg-elevated p-5"
       data-testid="order-package-items"
@@ -115,53 +144,79 @@
         {{ $t('orders.sectionPayment') }}
       </h2>
       <div class="mt-3 flex flex-wrap items-start justify-between gap-3">
-        <p
-          class="text-highlighted"
-          data-testid="order-payment-status"
-        >
-          {{ paymentProviderLabel }} / {{ paymentLabel(order) }}
-        </p>
+        <div class="min-w-0">
+          <p
+            class="text-highlighted"
+            data-testid="order-payment-status"
+          >
+            {{ paymentProviderLabel }} / {{ paymentStatusLabel }}
+          </p>
+          <p
+            v-if="refundExtraLine"
+            class="mt-1 text-sm font-medium text-highlighted"
+            data-testid="order-refund-status-line"
+          >
+            {{ refundExtraLine }}
+          </p>
+        </div>
         <p class="text-base font-semibold tabular-nums text-highlighted">
           {{ formatTwd(order.amount) }}
         </p>
       </div>
 
       <div
-        v-if="showRepay || showCancel || showRefundRequest || refundDisplay"
-        class="mt-5 flex flex-wrap items-center gap-3"
+        v-if="showRepay || showCancel || refundUi.showButton || showViewFinalPlan"
+        class="mt-5 flex flex-col gap-2"
       >
-        <AppButton
-          v-if="showRepay"
-          data-testid="order-repay"
-          :disabled="actionPending"
-          @click="onRepay"
-        >
-          {{ $t('orders.repay') }}
-        </AppButton>
-        <AppButton
-          v-if="showCancel && !cancelOpen"
-          variant="outline"
-          data-testid="order-cancel"
-          :disabled="actionPending"
-          @click="cancelOpen = true"
-        >
-          {{ $t('orders.cancel') }}
-        </AppButton>
-        <AppButton
-          v-if="showRefundRequest"
-          variant="outline"
-          data-testid="order-refund-request"
-          :disabled="actionPending || usingDemo"
-          @click="onRefundRequest"
-        >
-          {{ $t('orders.refundRequest') }}
-        </AppButton>
+        <div class="flex flex-wrap items-center gap-3">
+          <AppButton
+            v-if="showRepay"
+            data-testid="order-repay"
+            :disabled="actionPending"
+            @click="onRepay"
+          >
+            {{ $t('orders.repay') }}
+          </AppButton>
+          <AppButton
+            v-if="showCancel && !cancelOpen"
+            variant="outline"
+            data-testid="order-cancel"
+            :disabled="actionPending"
+            @click="cancelOpen = true"
+          >
+            {{ $t('orders.cancel') }}
+          </AppButton>
+          <AppButton
+            v-if="refundUi.showButton"
+            variant="outline"
+            data-testid="order-refund-request"
+            :disabled="actionPending || usingDemo || !refundUi.enabled"
+            @click="refundConfirmOpen = true"
+          >
+            {{ $t('orders.refundRequest') }}
+          </AppButton>
+          <AppButton
+            v-if="showViewFinalPlan"
+            variant="outline"
+            data-testid="order-view-final-plan"
+            @click="onViewFinalPlan"
+          >
+            {{ $t('orders.viewFinalPlan') }}
+          </AppButton>
+        </div>
         <p
-          v-if="refundDisplay"
-          class="text-sm font-medium text-highlighted"
-          data-testid="order-refund-request-status"
+          v-if="refundBlockHint"
+          class="text-sm text-muted"
+          data-testid="order-refund-block-hint"
         >
-          {{ refundDisplay }}
+          {{ refundBlockHint }}
+        </p>
+        <p
+          v-if="refundActionError"
+          class="text-sm text-red-600 dark:text-red-400"
+          data-testid="order-refund-action-error"
+        >
+          {{ refundActionError }}
         </p>
       </div>
       <div
@@ -296,6 +351,42 @@
       :order-number="order.number"
       @close="chatOpen = false"
     />
+
+    <Teleport to="body">
+      <div
+        v-if="refundConfirmOpen"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        data-testid="order-refund-confirm-modal"
+        role="dialog"
+        aria-modal="true"
+      >
+        <article class="w-full max-w-sm rounded-2xl border border-default bg-elevated p-5 shadow-xl">
+          <h2 class="text-lg font-semibold text-highlighted">
+            {{ $t('orders.refundConfirmTitle') }}
+          </h2>
+          <p class="mt-2 text-sm text-muted">
+            {{ $t('orders.refundConfirmBody') }}
+          </p>
+          <div class="mt-6 flex flex-wrap gap-2">
+            <AppButton
+              variant="ghost"
+              data-testid="order-refund-confirm-dismiss"
+              :disabled="actionPending"
+              @click="refundConfirmOpen = false"
+            >
+              {{ $t('orders.refundConfirmDismiss') }}
+            </AppButton>
+            <AppButton
+              data-testid="order-refund-confirm-submit"
+              :disabled="actionPending"
+              @click="onRefundConfirm"
+            >
+              {{ $t('orders.refundConfirmSubmit') }}
+            </AppButton>
+          </div>
+        </article>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -305,10 +396,10 @@ import { orderProductSummary } from '~/utils/order-display'
 import { getDemoOrder, isDemoOrderId } from '~/utils/orders-mock'
 import { canCancelOrder, canRepayOrder } from '~/utils/order-actions'
 import {
-  canShowRefundRequest,
-  refundRequestDisplayText
+  isExpertProcessing,
+  refundRequestDisplayText,
+  refundRequestUi
 } from '~/utils/expert-plan-order'
-import { CandorApiError } from '~/utils/candor-api'
 
 definePageMeta({
   layout: 'user',
@@ -320,6 +411,7 @@ const localePath = useLocalePath()
 const nuxtApp = useNuxtApp()
 const { t } = useI18n()
 const auth = useAuthStore()
+const journey = useJourneyStore()
 const api = useFirstOrderApi()
 const candor = useCandorApi()
 const order = ref<OrderRecord | null>(null)
@@ -331,6 +423,8 @@ const cancelOpen = ref(false)
 const cancelReason = ref('')
 const actionPending = ref(false)
 const actionError = ref('')
+const refundActionError = ref('')
+const refundConfirmOpen = ref(false)
 const gateLocked = ref(nuxtApp.isHydrating || !auth.isMember)
 
 function syncGate() {
@@ -354,27 +448,83 @@ const orderItems = computed<OrderItemLine[]>(() => {
 const showRepay = computed(() => order.value ? canRepayOrder(order.value) : false)
 const showCancel = computed(() => order.value ? canCancelOrder(order.value) : false)
 
-const showRefundRequest = computed(() => {
+const refundUi = computed(() => {
   if (!order.value || usingDemo.value) {
-    return false
+    return {
+      applicable: false,
+      showButton: false,
+      enabled: false,
+      blockReason: null
+    }
   }
-  return canShowRefundRequest({
+  return refundRequestUi({
     canRequestRefund: order.value.canRequestRefund,
     refundRequestStatus: order.value.refundRequestStatus,
     paymentStatus: order.value.paymentStatus,
     hasExpertPlanLine: order.value.hasExpertPlanLine,
-    shipmentStatus: order.value.shipmentStatus
+    shipmentStatus: order.value.shipmentStatus,
+    expertCasePhase: order.value.expertCasePhase
   })
 })
 
-const refundDisplay = computed(() => {
+const expertProcessingBanner = computed(() => {
+  if (!order.value) {
+    return false
+  }
+  return isExpertProcessing({
+    hasExpertPlanLine: order.value.hasExpertPlanLine,
+    paymentStatus: order.value.paymentStatus,
+    expertCasePhase: order.value.expertCasePhase
+  })
+})
+
+const refundRejectedBanner = computed(() =>
+  Boolean(order.value?.hasExpertPlanLine && order.value.refundRequestStatus === 'rejected')
+)
+
+const refundExtraLine = computed(() => {
   if (!order.value) {
     return null
+  }
+  if (order.value.refundRequestStatus === 'refunded') {
+    return t('orders.refundCompleted')
   }
   return refundRequestDisplayText({
     status: order.value.refundRequestStatus,
     display: order.value.refundRequestDisplay
   })
+})
+
+const showViewFinalPlan = computed(() =>
+  Boolean(order.value?.hasExpertPlanLine && order.value.refundRequestStatus === 'refunded')
+)
+
+const refundBlockHint = computed(() => {
+  const reason = refundUi.value.blockReason
+  if (!reason) {
+    return ''
+  }
+  if (reason === 'before_reviewed') {
+    return t('orders.refundBlockBeforeReviewed')
+  }
+  if (reason === 'picking') {
+    return t('orders.refundBlockPicking')
+  }
+  return t('orders.refundBlockShipped')
+})
+
+const paymentStatusLabel = computed(() => {
+  if (!order.value) {
+    return ''
+  }
+  const status = order.value.paymentStatus || 'unpaid'
+  if (
+    order.value.refundRequestStatus === 'requested'
+    && (status === 'paid' || status === 'refunded')
+  ) {
+    return t('orders.paymentPaid')
+  }
+  return paymentLabel(order.value)
 })
 
 const paymentProviderLabel = computed(() => {
@@ -442,12 +592,12 @@ async function onCancelConfirm() {
   }
 }
 
-async function onRefundRequest() {
-  if (!order.value || actionPending.value || usingDemo.value || !showRefundRequest.value) {
+async function onRefundConfirm() {
+  if (!order.value || actionPending.value || usingDemo.value || !refundUi.value.enabled) {
     return
   }
   actionPending.value = true
-  actionError.value = ''
+  refundActionError.value = ''
   try {
     const created = await candor.createRefundRequest(order.value.id)
     const status = created.refund_request_status ?? created.status
@@ -458,15 +608,26 @@ async function onRefundRequest() {
         ?? (status === 'requested' ? '退款申請中' : null),
       canRequestRefund: false
     }
-  } catch (err) {
-    if (err instanceof CandorApiError) {
-      actionError.value = err.message || t('orders.refundRequestError')
-    } else {
-      actionError.value = t('orders.refundRequestError')
-    }
+    refundConfirmOpen.value = false
+  } catch {
+    refundActionError.value = t('orders.refundRequestError')
   } finally {
     actionPending.value = false
   }
+}
+
+function onViewFinalPlan() {
+  if (!order.value) {
+    return
+  }
+  const conversationId = order.value.conversationId?.trim()
+  if (conversationId) {
+    journey.focusExpertReviewCase({
+      conversationId,
+      expertReviewStatus: 'reviewed'
+    })
+  }
+  void navigateTo(localePath('/app/recommendations'))
 }
 
 async function loadOrder() {

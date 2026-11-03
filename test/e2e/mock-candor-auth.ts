@@ -2532,7 +2532,16 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           can_request_refund: placedOrder.package_plan_name?.includes('專家')
             && placedOrder.payment_status === 'paid'
             && refundRequestStatus == null,
-          shipment_status: 'picking'
+          expert_case_status: placedOrder.package_plan_name?.includes('專家') ? 'reviewed' : null,
+          expert_case_review: placedOrder.package_plan_name?.includes('專家')
+            ? {
+                id: expertReviewId,
+                status: 'reviewed',
+                conversation_id: conversationId
+              }
+            : null,
+          refund_reject_reason: refundRequestStatus === 'rejected' ? '不符合退款條件' : null,
+          shipment_status: placedOrder.package_plan_name?.includes('專家') ? 'pending' : 'picking'
         }
       })
     })
