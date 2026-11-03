@@ -262,9 +262,10 @@ export interface ConversationPathUpdate {
 export interface ConversationPathAck {
   id: string
   path: 'a' | 'b' | 'c' | 'A' | 'B' | 'C'
+  report_id?: string | null
   /**
-   * Path B opening／A→B guide: core #140 may attach goals／next-ask
-   * `reply_actions` on this flow turn (same shape as create.flow_prompt).
+   * Entry C without report, or Path B opening／A→B guide (core #133／#140):
+   * flow turn with `reply_actions` (same shape as create.flow_prompt).
    */
   flow_prompt?: ConversationGreeting | null
 }

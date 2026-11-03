@@ -1,6 +1,6 @@
 # 對話路徑契約（client）
 
-對齊 Irice 定案與 candor-core [`docs/spec/30-path-frontend-contract.md`](https://github.com/DaydreamLab/candor-core/pull/139)（core #139，draft）。本檔為 FE 行為。
+對齊 Irice 定案、candor-core draft #133（開場三選）與 [`docs/spec/30-path-frontend-contract.md`](https://github.com/DaydreamLab/candor-core/pull/139)（core #139／#140）。本檔為 FE 行為。
 
 ## 進站三選
 
@@ -10,7 +10,7 @@
 | B | 我想諮詢健康方案 | 必填四欄→可問 optional／goals→完成 CTA（信 RA） |
 | C | 幫我看報告 | 先上傳；取消→B；已有報告則補基本→完成 CTA（信 RA） |
 
-選後才 `POST /conversations` 並帶 `path=a|b|c`（建立當下定稿）；`journey.conversationPath` 由回應 hydrate。`POST …/path` 只用於之後的 A→B 引導與 C 取消→B。
+進頁即 `POST /conversations`（**不帶 path**）→ core 寫入開場白並附 `reply_actions` `path_switch` a／b／c；前台顯示開場白，三鈕在其下（以 core label 為準；缺 RA 時才 fallback `PATH_ENTRY_OPTIONS`）。點鈕呼叫 `POST …/path` 首次選路徑（不再建對話）。`journey.conversationPath` 由 path 回應 hydrate。帶 `report_id` 建對話仍強制 path=c、不出三鈕。未選路徑直接打字：FE 不禁輸入，照常送出；core 當 A 處理。
 
 ## `path` hydrate
 
@@ -39,7 +39,7 @@ Path B／C 出題只信後端 `reply_actions`／`flow_prompt`／`POST /profile/a
 - C 不傳／取消→退 B。
 - lab_report 問卷進行中：對話區**不預掛** upload／checkup（Dock 空列兩顆仍可點；#35 explainHighlights 常駐不改壞）。
 - Path A 引導由 core 計數後寫入 `reply_actions`：≥10／≥20 皆為 `offer_checkup`＋`path_switch`（≥20 短路 LLM、空 `content`，氣泡／chip 文案 FE i18n）。FE 渲染該決策，不計回合、不自造引導鈕。
-- A→B（`path_switch`／`guide_switch`）：`POST …/path` 後清掉引導 CTA；接續 stream 帶下一則 RA，避免只留確認句就停住。
+- A→B（`path_switch`／`guide_switch`）：`POST …/path` 後清掉引導 CTA；接續 stream／flow_prompt RA，避免只留確認句就停住。
 - Path C 待上傳短路：空 `content`＋`ask_report`＋`offer_checkup`＋`path_switch`；文案 FE i18n。
 
 ## Feature flag

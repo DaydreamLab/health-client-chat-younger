@@ -17,19 +17,45 @@ async function seedNoExpertCase(page: Page) {
       })
     })
   })
+  // Must 404 conversation expert-review — mockCandorAuth otherwise returns a
+  // reviewed case with health_report_id; syncExpertReview＋restoreReport would
+  // attach the report and steal null-path entry before 進站三選.
+  await page.route('**/api/v1/conversation/*/expert-review', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'failed',
+          error_message: 'Expert review not found.',
+          error_code: 'not_found'
+        })
+      })
+      return
+    }
+    await route.fallback()
+  })
 }
 
 async function openFreshChat(page: Page, goto: (path: string, opts?: { waitUntil?: 'hydration' }) => Promise<unknown>) {
   await page.setViewportSize({ width: 1280, height: 800 })
-  await goto('/chat', { waitUntil: 'hydration' })
-  await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
+  // Clear journey BEFORE first /chat mount — entry now POSTs /conversations on
+  // mount; a leftover reportId would attach＋stream and steal path before 進站三選.
+  await goto('/', { waitUntil: 'hydration' })
+  await page.evaluate(() => {
+    localStorage.removeItem('candor.unpaid.journey')
+  })
   await goto('/chat', { waitUntil: 'hydration' })
   await expect(page.getByTestId('chat-transcript')).toBeVisible({ timeout: 20_000 })
 }
 
 async function selectEntryPath(page: Page, path: 'A' | 'B' | 'C') {
-  await expect(page.getByTestId(`chat-quiz-option-${path}`)).toBeVisible({ timeout: 15_000 })
-  await page.getByTestId(`chat-quiz-option-${path}`).click()
+  const code = path.toLowerCase()
+  const chip = page.getByTestId(`chat-quiz-option-${code}`)
+  await expect(chip).toBeVisible({ timeout: 15_000 })
+  await chip.click()
+  // Wait for POST …/path to finish. Entry `c` chip clears; C flow_prompt may keep a／b.
+  await expect(page.getByTestId('chat-quiz-option-c')).toHaveCount(0, { timeout: 15_000 })
 }
 
 async function finishGoalSelect(page: Page) {

@@ -99,7 +99,7 @@ export type CandorMockOptions = {
   /**
    * Path contract A／B／C on POST /conversations.
    * Default `B` so existing e2e skip 進站三選 and keep goal chips.
-   * Pass `null` to force entry three-choice UI (path-contract specs).
+   * Pass `null` for core #133 entry: create without path → greeting + path_switch a／b／c.
    */
   conversationPath?: 'A' | 'B' | 'C' | null
   /**
@@ -1002,7 +1002,62 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       ? null
       : String(options.conversationPath).toLowerCase() as 'a' | 'b' | 'c'
   let resolvedBasicProfileComplete = options.basicProfileComplete ?? true
+  /** Track null-path entry until POST …/path (core #133). */
+  let mockEntryPathSelected: 'a' | 'b' | 'c' | null = resolvedConversationPath
   mockEntryPath = (resolvedConversationPath ?? 'b') as 'a' | 'b' | 'c'
+
+  const entryPathSwitchReplyActions = {
+    schema_version: '0.1',
+    source: 'semantic_judgment',
+    adaptor: 'rule',
+    degraded: false,
+    error: null,
+    actions: [{
+      type: 'choose_option',
+      payload: {
+        kind: 'path_switch',
+        mode: 'single',
+        confirm: false,
+        options: [
+          { code: 'a', label: '我想聊聊' },
+          { code: 'b', label: '我想諮詢健康方案' },
+          { code: 'c', label: '幫我看報告' }
+        ],
+        selected: [],
+        gap_code: null,
+        answer_type: null,
+        exclusive_codes: []
+      }
+    }]
+  }
+
+  const pathCAwaitUploadReplyActions = {
+    schema_version: '0.1',
+    source: 'rule',
+    adaptor: 'rule',
+    degraded: false,
+    error: null,
+    actions: [
+      { type: 'ask_report', payload: { option_codes: ['upload'] } },
+      {
+        type: 'choose_option',
+        payload: {
+          kind: 'path_switch',
+          mode: 'single',
+          confirm: false,
+          // Empty labels: FE fills pathEntryA／B i18n (core omits copy).
+          options: [
+            { code: 'a', label: '' },
+            { code: 'b', label: '' }
+          ],
+          selected: [],
+          gap_code: null,
+          answer_type: null,
+          exclusive_codes: []
+        }
+      }
+    ]
+  }
 
   await page.route('**/api/v1/conversations', async (route) => {
     if (route.request().method() !== 'POST') {
@@ -1012,15 +1067,31 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     const postData = route.request().postDataJSON() as {
       package_plan_code?: string
       path?: string
+      report_id?: string
     } | null
     const includePackage = options.withPackage || Boolean(postData?.package_plan_code)
     const bodyPath = typeof postData?.path === 'string'
       ? postData.path.trim().toLowerCase()
       : null
-    const path = bodyPath === 'a' || bodyPath === 'b' || bodyPath === 'c'
-      ? bodyPath
-      : (resolvedConversationPath ?? 'b')
-    mockEntryPath = path
+    const hasReport = Boolean(postData?.report_id)
+    // Explicit path or report → forced path; else honor resolvedConversationPath
+    // (null = entry without path per core #133).
+    let path: 'a' | 'b' | 'c' | null
+    if (hasReport) {
+      path = 'c'
+    } else if (bodyPath === 'a' || bodyPath === 'b' || bodyPath === 'c') {
+      path = bodyPath
+    } else if (resolvedConversationPath === null) {
+      path = null
+    } else {
+      path = resolvedConversationPath ?? 'b'
+    }
+    mockEntryPathSelected = path
+    mockEntryPath = (path ?? 'b') as 'a' | 'b' | 'c'
+    const entryGreeting = path === null
+    const greetingContent = entryGreeting
+      ? `${FLOW_V2_GREETING_CONSULT}\n\n想先從哪裡開始？`
+      : FLOW_V2_GREETING_CONSULT
     await route.fulfill({
       status: 201,
       contentType: 'application/json',
@@ -1028,7 +1099,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         status: 'success',
         data: {
           id: conversationId,
-          report_id: null,
+          report_id: hasReport ? postData?.report_id : null,
           path,
           ...(includePackage
             ? {
@@ -1043,13 +1114,14 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           greeting: {
             message_id: 'greet-e2e',
             role: 'assistant',
-            content: FLOW_V2_GREETING_CONSULT,
-            // Create only returns greeting; path B goals may also arrive on
-            // flow_prompt.reply_actions (core opening bank) and／or first stream.
+            content: greetingContent,
             options: [],
-            selected: []
+            selected: [],
+            ...(entryGreeting
+              ? { reply_actions: entryPathSwitchReplyActions }
+              : {})
           },
-          ...(path === 'c'
+          ...(path === 'c' && !hasReport
             ? {
                 flow_prompt: {
                   message_id: 'flow-c-await-e2e',
@@ -1057,33 +1129,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   content: FLOW_V2_PATH_C_AWAIT_UPLOAD,
                   options: [],
                   selected: [],
-                  reply_actions: {
-                    schema_version: '0.1',
-                    source: 'rule',
-                    adaptor: 'rule',
-                    degraded: false,
-                    error: null,
-                    actions: [
-                      { type: 'ask_report', payload: { option_codes: ['upload'] } },
-                      {
-                        type: 'choose_option',
-                        payload: {
-                          kind: 'path_switch',
-                          mode: 'single',
-                          confirm: false,
-                          // Empty labels: FE fills pathEntryA／B i18n (core omits copy).
-                          options: [
-                            { code: 'a', label: '' },
-                            { code: 'b', label: '' }
-                          ],
-                          selected: [],
-                          gap_code: null,
-                          answer_type: null,
-                          exclusive_codes: []
-                        }
-                      }
-                    ]
-                  }
+                  reply_actions: pathCAwaitUploadReplyActions
                 }
               }
             : {}),
@@ -1112,6 +1158,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     const body = route.request().postDataJSON() as { path?: string } | null
     const raw = typeof body?.path === 'string' ? body.path.trim().toLowerCase() : ''
     const nextPath = raw === 'a' || raw === 'b' || raw === 'c' ? raw : 'b'
+    mockEntryPathSelected = nextPath
     mockEntryPath = nextPath
     await route.fulfill({
       status: 200,
@@ -1121,6 +1168,19 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         data: {
           id: conversationId,
           path: nextPath,
+          // Entry C without report: await-upload flow_prompt (core #133).
+          ...(nextPath === 'c'
+            ? {
+                flow_prompt: {
+                  message_id: 'flow-c-await-path-e2e',
+                  role: 'assistant',
+                  content: FLOW_V2_PATH_C_AWAIT_UPLOAD,
+                  options: [],
+                  selected: [],
+                  reply_actions: pathCAwaitUploadReplyActions
+                }
+              }
+            : {}),
           // core #140: A→B path ack may include opening flow_prompt＋goals RA.
           ...(nextPath === 'b' && !goalsSet
             ? {
@@ -1405,6 +1465,31 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     const url = route.request().url()
     if (url.includes('/messages/stream')) {
       await route.fallback()
+      return
+    }
+    // Unselected-path entry: hydrate greeting + path_switch a／b／c (core #133).
+    if (mockEntryPathSelected == null) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            conversation_id: conversationId,
+            path: null,
+            messages: [{
+              id: 'greet-e2e',
+              role: 'assistant',
+              content: `${FLOW_V2_GREETING_CONSULT}\n\n想先從哪裡開始？`,
+              options: [],
+              turn: { type: 'message' },
+              profile_question: null,
+              profile_gaps: [],
+              reply_actions: entryPathSwitchReplyActions
+            }]
+          }
+        })
+      })
       return
     }
     if (!options.replyActions) {
