@@ -6,10 +6,10 @@ import {
   parseConversationAlreadyOrderedData
 } from '../../app/utils/conversation-already-ordered'
 
-describe('conversation_already_ordered (對話綁一張訂單)', () => {
+describe('conversation_already_ordered (core #146)', () => {
   it('parses error_data conversation_id / order_id / order_no / expert_case_id', () => {
     const err = new CandorApiError(
-      'This conversation already has an order.',
+      'Conversation already has a valid expert-plan order.',
       409,
       'conversation_already_ordered',
       {
@@ -28,7 +28,7 @@ describe('conversation_already_ordered (對話綁一張訂單)', () => {
     })
   })
 
-  it('routes to order when both order_id and expert_case_id are present', () => {
+  it('routes to order when order_id is present (expert_case_id optional)', () => {
     expect(conversationAlreadyOrderedAction({
       conversationId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
       orderId: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
@@ -38,13 +38,22 @@ describe('conversation_already_ordered (對話綁一張訂單)', () => {
       kind: 'order',
       orderId: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
     })
-  })
-
-  it('routes to chat when expert_case_id is missing (even with order_id)', () => {
     expect(conversationAlreadyOrderedAction({
       conversationId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
       orderId: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
       orderNo: 'ORD-260101-000001',
+      expertCaseId: null
+    })).toEqual({
+      kind: 'order',
+      orderId: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
+    })
+  })
+
+  it('routes to chat only when order_id is missing', () => {
+    expect(conversationAlreadyOrderedAction({
+      conversationId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      orderId: null,
+      orderNo: null,
       expertCaseId: null
     })).toEqual({
       kind: 'chat',

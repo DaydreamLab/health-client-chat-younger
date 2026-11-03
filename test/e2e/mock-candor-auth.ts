@@ -74,10 +74,22 @@ export type CandorMockOptions = {
    */
   questionnaireIncomplete?: boolean | string[]
   /**
-   * GET /checkout/preview 與 POST /orders 回 409 conversation_already_ordered。
-   * `true` → 帶 expert_case_id；`unpaid` → expert_case_id null（CTA 回對話）。
+   * core #146：已付款專家單 → GET /checkout/preview 與 POST /orders 回 409
+   * `conversation_already_ordered`。
+   * `true` → 帶 expert_case_id；`no_case` → 已付但無案件（仍有 order_id）；
+   * `missing_order` → 缺 order_id（CTA 回對話，容錯）。
    */
-  conversationAlreadyOrdered?: boolean | 'unpaid'
+  conversationAlreadyOrdered?: boolean | 'no_case' | 'missing_order'
+  /**
+   * core #146：未付款舊單 — preview 200 帶 `existing_order:{order_id,order_no}`；
+   * POST /orders 仍 201（同方案 reuse）。
+   */
+  existingUnpaidOrder?: boolean
+  /**
+   * core #146：POST /orders 409 `expert_plan_reuse_mismatch`（方案與未付款舊單不同）。
+   * preview 仍 200 並帶 `existing_order`。
+   */
+  expertPlanReuseMismatch?: boolean
   /**
    * Seed `candor.privacy.consent.version` before each navigation.
    * Default matches the mocked privacy-policy version so the cookie banner
@@ -1048,22 +1060,27 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       })
       return
     }
-    // 對話綁一張訂單：已有有效訂單 → 409 conversation_already_ordered
+    // core #146：已付款專家單 → 409 conversation_already_ordered
     if (options.conversationAlreadyOrdered) {
-      const withCase = options.conversationAlreadyOrdered !== 'unpaid'
+      const mode409 = options.conversationAlreadyOrdered
+      const errorData: Record<string, unknown> = {
+        conversation_id: conversationIdParam || conversationId,
+        order_no: 'ORD-260101-000001'
+      }
+      if (mode409 !== 'missing_order') {
+        errorData.order_id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
+      }
+      if (mode409 === true) {
+        errorData.expert_case_id = expertReviewId
+      }
       await route.fulfill({
         status: 409,
         contentType: 'application/json',
         body: JSON.stringify({
           status: 'failed',
-          error_message: 'This conversation already has an order.',
+          error_message: 'Conversation already has a valid expert-plan order.',
           error_code: 'conversation_already_ordered',
-          error_data: {
-            conversation_id: conversationIdParam || conversationId,
-            order_id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
-            order_no: 'ORD-260101-000001',
-            expert_case_id: withCase ? expertReviewId : null
-          }
+          error_data: errorData
         })
       })
       return
@@ -1194,7 +1211,15 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                 items: aiItems
               }
             : null,
-          completion_choice: null
+          completion_choice: null,
+          existing_order: mode === 'ai'
+            ? null
+            : (options.existingUnpaidOrder || options.expertPlanReuseMismatch
+                ? {
+                    order_id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+                    order_no: 'ORD-260101-000001'
+                  }
+                : null)
         }
       })
     })
@@ -2730,19 +2755,53 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         return
       }
       if (options.conversationAlreadyOrdered) {
-        const withCase = options.conversationAlreadyOrdered !== 'unpaid'
+        const mode409 = options.conversationAlreadyOrdered
+        const errorData: Record<string, unknown> = {
+          conversation_id: conversationId,
+          order_no: 'ORD-260101-000001'
+        }
+        if (mode409 !== 'missing_order') {
+          errorData.order_id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
+        }
+        if (mode409 === true) {
+          errorData.expert_case_id = expertReviewId
+        }
         await route.fulfill({
           status: 409,
           contentType: 'application/json',
           body: JSON.stringify({
             status: 'failed',
-            error_message: 'This conversation already has an order.',
+            error_message: 'Conversation already has a valid expert-plan order.',
             error_code: 'conversation_already_ordered',
+            error_data: errorData
+          })
+        })
+        return
+      }
+      if (options.expertPlanReuseMismatch) {
+        let requestedCode = 'advance'
+        try {
+          const body = route.request().postDataJSON() as { expert_plan_code?: string } | null
+          if (typeof body?.expert_plan_code === 'string' && body.expert_plan_code.trim()) {
+            requestedCode = body.expert_plan_code.trim()
+          }
+        } catch {
+          // ignore parse errors — keep default requested code
+        }
+        await route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            status: 'failed',
+            error_message: 'Requested expert plan does not match the unpaid order.',
+            error_code: 'expert_plan_reuse_mismatch',
             error_data: {
               conversation_id: conversationId,
               order_id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
               order_no: 'ORD-260101-000001',
-              expert_case_id: withCase ? expertReviewId : null
+              existing_expert_plan_code: 'basic',
+              existing_expert_plan_price: 6000,
+              requested_expert_plan_code: requestedCode
             }
           })
         })

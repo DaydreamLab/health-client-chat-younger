@@ -287,6 +287,16 @@ export interface CheckoutPreview {
   preselect_expert_plan_code?: string | null
   ai: CheckoutPreviewAiPackage | null
   completion_choice?: ConversationCompletionChoice | null
+  /**
+   * core #146 unpaid reuse hint on 200 preview (`mode=expert`).
+   * Shape `{ order_id, order_no }` or `null`; `mode=ai` fixed `null`.
+   * FE ignores for UX for now (pending Irice); typed so extra fields never break.
+   */
+  existing_order?: {
+    order_id?: string
+    order_no?: string
+    [key: string]: unknown
+  } | null
 }
 
 export interface FinalizedPlanItem {

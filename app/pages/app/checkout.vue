@@ -161,6 +161,26 @@
       </AppButton>
     </section>
 
+    <section
+      v-else-if="pageGate === 'expert_plan_reuse_mismatch'"
+      class="mx-auto max-w-lg rounded-2xl border border-default bg-elevated p-8 text-center"
+      data-testid="checkout-expert-plan-reuse-mismatch"
+    >
+      <p class="text-3xl text-warning">
+        !
+      </p>
+      <p class="mt-4 text-sm leading-relaxed text-muted">
+        {{ $t('checkout.expertPlanReuseMismatch') }}
+      </p>
+      <AppButton
+        class="mt-6 w-full"
+        data-testid="checkout-expert-plan-reuse-mismatch-cta"
+        @click="onExpertPlanReuseMismatchCta"
+      >
+        {{ $t('checkout.conversationAlreadyOrderedCtaOrder') }}
+      </AppButton>
+    </section>
+
     <div
       v-else
       class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]"
@@ -615,6 +635,11 @@ import {
   type ConversationAlreadyOrderedData
 } from '~/utils/conversation-already-ordered'
 import {
+  isExpertPlanReuseMismatchError,
+  parseExpertPlanReuseMismatchData,
+  type ExpertPlanReuseMismatchData
+} from '~/utils/expert-plan-reuse-mismatch'
+import {
   isQuestionnaireIncompleteError,
   parseQuestionnaireIncompleteData
 } from '~/utils/questionnaire-incomplete'
@@ -648,6 +673,7 @@ type PageGate
     | 'conversation_missing'
     | 'questionnaire_incomplete'
     | 'conversation_already_ordered'
+    | 'expert_plan_reuse_mismatch'
 
 const checkoutKind = computed<CheckoutKind>(() => {
   const raw = route.query.kind
@@ -663,6 +689,7 @@ const questionnaireMissing = ref<string[]>([])
 /** Prefer error_data.conversation_id when returning to chat. */
 const questionnaireConversationId = ref<string | null>(null)
 const alreadyOrdered = ref<ConversationAlreadyOrderedData | null>(null)
+const reuseMismatch = ref<ExpertPlanReuseMismatchData | null>(null)
 const plans = ref<ExpertPlan[]>([])
 const listPending = ref(true)
 const listError = ref('')
@@ -1005,12 +1032,39 @@ async function onConversationAlreadyOrderedCta() {
   await navigateTo(localePath('/chat'))
 }
 
+function applyExpertPlanReuseMismatchGate(err: CandorApiError) {
+  const parsed = parseExpertPlanReuseMismatchData(err)
+  reuseMismatch.value = {
+    ...parsed,
+    conversationId: parsed.conversationId || journey.conversationId?.trim() || null
+  }
+  pageGate.value = 'expert_plan_reuse_mismatch'
+  recommendation.value = null
+  plans.value = []
+}
+
+async function onExpertPlanReuseMismatchCta() {
+  const orderId = reuseMismatch.value?.orderId?.trim() || ''
+  if (orderId) {
+    await navigateTo(localePath(`/app/orders/${orderId}`))
+    return
+  }
+  const id = reuseMismatch.value?.conversationId?.trim()
+    || journey.conversationId?.trim()
+    || ''
+  if (id) {
+    journey.conversationId = id
+  }
+  await navigateTo(localePath('/chat'))
+}
+
 async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
   pageGate.value = 'none'
   checkoutLockReason.value = null
   questionnaireMissing.value = []
   questionnaireConversationId.value = null
   alreadyOrdered.value = null
+  reuseMismatch.value = null
   listError.value = ''
   packageError.value = ''
 
@@ -1258,6 +1312,10 @@ async function onPay(event: Event) {
     payPhase.value = 'form'
     if (isConversationAlreadyOrderedError(err)) {
       applyConversationAlreadyOrderedGate(err)
+      return
+    }
+    if (isExpertPlanReuseMismatchError(err)) {
+      applyExpertPlanReuseMismatchGate(err)
       return
     }
     if (isQuestionnaireIncompleteError(err)) {

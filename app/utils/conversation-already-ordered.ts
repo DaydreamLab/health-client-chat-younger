@@ -1,16 +1,17 @@
 import { CandorApiError } from './candor-api'
 
-/** Anticipated core envelope for 409 `conversation_already_ordered`. */
+/** core #146 envelope for 409 `conversation_already_ordered` (paid expert-plan order). */
 export interface ConversationAlreadyOrderedData {
   conversationId: string | null
   orderId: string | null
   orderNo: string | null
+  /** Present only when an expert case already exists. */
   expertCaseId: string | null
 }
 
 /**
  * True when checkout preview / expert_plan create returns
- * 409 `conversation_already_ordered` (對話綁一張訂單).
+ * 409 `conversation_already_ordered` (對話已有已付款專家方案單).
  */
 export function isConversationAlreadyOrderedError(err: unknown): err is CandorApiError {
   return err instanceof CandorApiError
@@ -53,13 +54,13 @@ export function parseConversationAlreadyOrderedData(
 }
 
 /**
- * With expert_case_id (+ order_id) → open order detail.
- * Otherwise → return to chat (caller supplies conversation fallback).
+ * Paid order (core #146): any `order_id` → order detail.
+ * Missing `order_id` → chat (caller supplies conversation fallback).
  */
 export function conversationAlreadyOrderedAction(
   data: ConversationAlreadyOrderedData
 ): { kind: 'order', orderId: string } | { kind: 'chat', conversationId: string | null } {
-  if (data.orderId && data.expertCaseId) {
+  if (data.orderId) {
     return { kind: 'order', orderId: data.orderId }
   }
   return { kind: 'chat', conversationId: data.conversationId }
