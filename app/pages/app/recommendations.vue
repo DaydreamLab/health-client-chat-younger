@@ -463,8 +463,10 @@
 
 <script setup lang="ts">
 import type {
+  FinalizedPlan,
   HealthReportResult,
   RecommendationCopy,
+  RecommendationPackage,
   RecommendationPackageItem,
   RecommendationResponse
 } from '~/utils/candor-api'
@@ -619,6 +621,60 @@ async function loadReport() {
   }
 }
 
+function recommendationFromFinalizedPlan(plan: FinalizedPlan): RecommendationResponse {
+  const packages: RecommendationPackage[] = (plan.packages ?? []).map((pkg, index) => {
+    const code = pkg.package_plan_code?.trim() || `plan-${index}`
+    const items: RecommendationPackageItem[] = (pkg.items ?? []).map((item, rank) => ({
+      rank: rank + 1,
+      sellable_item_id: item.sellable_item_code?.trim() || String(rank),
+      code: item.sellable_item_code?.trim() || '',
+      name: item.name_zh?.trim() || item.sellable_item_code?.trim() || '',
+      unit_price: 0,
+      daily_dose: item.daily_dose ?? 1,
+      monthly_cost: 0,
+      is_core: false
+    }))
+    return {
+      package_plan_code: code,
+      package_plan_name: pkg.name_zh?.trim() || code,
+      price: 0,
+      period_days: 30,
+      items,
+      used_amount: 0,
+      remaining: 0,
+      composition_hash: ''
+    }
+  })
+  return {
+    run_id: '',
+    report_id: journey.reportId,
+    weight_set: { id: '', version: '' },
+    generated_at: new Date().toISOString(),
+    copy_mode: '',
+    summary: {
+      top_domains: [],
+      data_gaps: [],
+      profile_gaps: [],
+      strategy_code: ''
+    },
+    items: [],
+    packages
+  }
+}
+
+async function loadPaidExpertFinalizedPlan(orderId: string) {
+  try {
+    const finalized = await candor.getFinalizedPlan(orderId)
+    if (!finalized.packages?.length) {
+      return false
+    }
+    applyReviewedPackages(recommendationFromFinalizedPlan(finalized))
+    return true
+  } catch {
+    return false
+  }
+}
+
 function applyReviewedPackages(result: RecommendationResponse) {
   recommendation.value = result
   const preferred = journey.selectedPackageCode
@@ -722,12 +778,26 @@ async function loadRecommendation() {
     expertPlanReadonly.value = paidExpertPlan && review.status === 'reviewed'
 
     if (expertPlanReadonly.value && review.order_id) {
+      const loaded = await loadPaidExpertFinalizedPlan(review.order_id)
+      if (!loaded) {
+        const mapped = recommendationFromExpertReview(review)
+        if (!mapped || mapped.packages.length === 0) {
+          recoError.value = t('recommendation.recoError')
+          recommendation.value = null
+          reviewPhase.value = 'error'
+          return
+        }
+        applyReviewedPackages(mapped)
+      }
       try {
         const order = await candor.getOrder(review.order_id)
         expertPlanOpeningAmount.value = order.amount_total
       } catch {
         expertPlanOpeningAmount.value = null
       }
+      aiPackagesLoaded.value = true
+      reviewPhase.value = 'viewing'
+      return
     }
 
     if (review.status === 'reviewed') {

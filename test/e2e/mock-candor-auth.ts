@@ -1973,13 +1973,13 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           error: null,
           actions: [
             {
-            type: 'offer_recommend',
-            payload: {
-              mode: 'view_recommendations',
-              label: '查看推薦方案',
-              path: '/app/recommendations'
-            }
-          },
+              type: 'offer_recommend',
+              payload: {
+                mode: 'view_recommendations',
+                label: '查看推薦方案',
+                path: '/app/recommendations'
+              }
+            },
             { type: 'ask_report', payload: {} },
             {
               type: 'choose_option',

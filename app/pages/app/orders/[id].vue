@@ -501,13 +501,21 @@ const refundExtraLine = computed(() => {
 })
 
 const showViewFinalPlan = computed(() =>
-  Boolean(order.value?.hasExpertPlanLine && order.value.refundRequestStatus === 'refunded')
+  Boolean(
+    order.value?.hasExpertPlanLine
+    && order.value.expertCasePhase === 'finalized'
+  )
 )
 
 const refundBlockHint = computed(() => {
   const reason = refundUi.value.blockReason
   if (!reason) {
     return ''
+  }
+  const key = `orders.refund_blocked.${reason}`
+  const label = t(key)
+  if (label !== key) {
+    return label
   }
   if (reason === 'not_yet_reviewed') {
     return t('orders.refundBlockBeforeReviewed')
@@ -527,7 +535,8 @@ const paymentStatusLabel = computed(() => {
   }
   const status = order.value.paymentStatus || 'unpaid'
   if (
-    order.value.refundRequestStatus === 'requested'
+    (order.value.refundRequestStatus === 'requested'
+      || order.value.refundStatus === 'requested')
     && (status === 'paid' || status === 'refunded')
   ) {
     return t('orders.paymentPaid')

@@ -69,7 +69,7 @@
         !
       </p>
       <p class="mt-4 text-sm leading-relaxed text-muted">
-        {{ $t('expertPlans.checkoutLocked') }}
+        {{ checkoutLockedMessage }}
       </p>
       <AppButton
         class="mt-6 w-full"
@@ -260,7 +260,7 @@
               class="text-highlighted"
               data-testid="checkout-shipping-free"
             >
-              {{ $t('checkout.shippingFree') }}
+              {{ shippingFree ? $t('checkout.shippingFree') : formatTwd(shippingFee) }}
             </dd>
           </div>
           <div class="flex justify-between gap-3 border-t border-default pt-2 font-medium">
@@ -414,24 +414,24 @@
               {{ $t('checkout.payment') }}
             </legend>
             <label
-              v-for="method in paymentMethods"
-              :key="method"
+              v-for="method in paymentMethodRows"
+              :key="method.code"
               class="flex flex-wrap items-center gap-2 text-sm text-highlighted"
-              :class="{ 'opacity-60': method !== 'card' }"
+              :class="{ 'opacity-60': !method.available }"
             >
               <input
                 v-model="paymentMethod"
                 type="radio"
                 class="accent-primary"
                 name="payment"
-                :value="method"
-                :disabled="method !== 'card'"
+                :value="method.code"
+                :disabled="!method.available"
               >
-              {{ $t(`checkout.${method}`) }}
+              {{ $t(`checkout.${method.code}`) }}
               <span
-                v-if="method !== 'card'"
+                v-if="method.comingSoon"
                 class="text-xs text-muted"
-                :data-testid="`checkout-payment-${method}-coming-soon`"
+                :data-testid="`checkout-payment-${method.code}-coming-soon`"
               >
                 {{ $t('checkout.paymentComingSoon') }}
               </span>
@@ -511,10 +511,10 @@
       >
         <article class="w-full max-w-sm rounded-2xl border border-default bg-elevated p-5 shadow-xl">
           <h2 class="text-lg font-semibold text-highlighted">
-            {{ $t('expertPlans.delistedTitle') }}
+            {{ $t('checkout.expert_plan_inactive') }}
           </h2>
           <p class="mt-2 text-sm text-muted">
-            {{ $t('expertPlans.delistedBody') }}
+            {{ $t('checkout.expert_plan_inactive_body') }}
           </p>
           <AppButton
             class="mt-6 w-full"
@@ -532,6 +532,10 @@
 <script setup lang="ts">
 import { checkoutSchema, expertPlanCheckoutSchema } from '~/utils/checkout-schema'
 import type {
+  CheckoutLockReason,
+  CheckoutPreview,
+  CheckoutPreviewAiPackage,
+  CheckoutPreviewPaymentMethod,
   ExpertPlan,
   RecommendationPackage,
   RecommendationResponse
@@ -549,7 +553,6 @@ import {
   districtsForCity
 } from '~/utils/taiwan-regions'
 import { recommendationRequestFromJourney } from '~/utils/recommendation-request'
-import { recommendationFromExpertReview } from '~/utils/expert-review'
 
 definePageMeta({
   layout: 'user',
@@ -577,6 +580,7 @@ const checkoutKind = computed<CheckoutKind>(() => {
 const isExpertPlan = computed(() => checkoutKind.value === 'expert_plan')
 
 const pageGate = ref<PageGate>('none')
+const checkoutLockReason = ref<CheckoutLockReason | null>(null)
 const plans = ref<ExpertPlan[]>([])
 const listPending = ref(true)
 const listError = ref('')
@@ -587,6 +591,8 @@ const recommendation = ref<RecommendationResponse | null>(null)
 const selectedPackageCode = ref('')
 const showDelistedModal = ref(false)
 const showRecipientPrefillHint = ref(false)
+const shippingFree = ref(true)
+const shippingFee = ref(0)
 
 const name = ref(auth.displayName)
 const phone = ref('')
@@ -606,8 +612,18 @@ const payPhase = ref<'form' | 'paying' | 'success'>('form')
 const error = ref('')
 const createdOrderId = ref('')
 
-const DEFAULT_PAYMENT_METHODS: PaymentMethod[] = ['card', 'linepay', 'atm']
-const paymentMethods = ref<PaymentMethod[]>([...DEFAULT_PAYMENT_METHODS])
+interface PaymentMethodRow {
+  code: PaymentMethod
+  available: boolean
+  comingSoon: boolean
+}
+
+const DEFAULT_PAYMENT_METHODS: PaymentMethodRow[] = [
+  { code: 'card', available: true, comingSoon: false },
+  { code: 'linepay', available: false, comingSoon: true },
+  { code: 'atm', available: false, comingSoon: true }
+]
+const paymentMethodRows = ref<PaymentMethodRow[]>([...DEFAULT_PAYMENT_METHODS])
 
 const chatBackPath = computed(() => localePath('/chat'))
 const recommendationsPath = computed(() => {
@@ -666,6 +682,16 @@ const successOrderPath = computed(() =>
     : '/app/orders'
 )
 
+const checkoutLockedMessage = computed(() => {
+  if (checkoutLockReason.value === 'case_finalized') {
+    return t('expertPlans.checkoutLockedCaseFinalized')
+  }
+  if (checkoutLockReason.value === 'order_submitted') {
+    return t('expertPlans.checkoutLockedOrderSubmitted')
+  }
+  return t('expertPlans.checkoutLocked')
+})
+
 function sortExpertPlans(rows: ExpertPlan[]): ExpertPlan[] {
   return [...rows].sort((left, right) => {
     const leftOrder = left.sort_order ?? 0
@@ -706,114 +732,6 @@ watch(() => auth.user?.email, (email) => {
   }
 }, { immediate: true })
 
-async function loadPaymentMethods() {
-  try {
-    const config = await candor.getClientConfig()
-    const methods = (config.payment_methods ?? [])
-      .filter((m): m is PaymentMethod => m === 'card' || m === 'linepay' || m === 'atm')
-    if (methods.length > 0) {
-      paymentMethods.value = methods
-      if (!methods.includes(paymentMethod.value)) {
-        paymentMethod.value = methods[0] ?? 'card'
-      }
-    }
-  } catch {
-    paymentMethods.value = [...DEFAULT_PAYMENT_METHODS]
-  }
-}
-
-async function loadDefaultRecipient() {
-  if (!auth.isMember) {
-    return
-  }
-  try {
-    const me = await candor.me()
-    const recipient = me.default_recipient
-    if (!recipient) {
-      return
-    }
-    hydratingAddress.value = true
-    if (recipient.name) {
-      name.value = recipient.name
-    }
-    if (recipient.phone) {
-      phone.value = recipient.phone
-    }
-    if (recipient.address_city) {
-      addressCity.value = recipient.address_city
-    }
-    await nextTick()
-    if (recipient.address_district) {
-      addressDistrict.value = recipient.address_district
-    }
-    if (recipient.address_detail) {
-      addressDetail.value = recipient.address_detail
-    }
-    saveAsDefaultAddress.value = true
-    showRecipientPrefillHint.value = true
-  } catch {
-    // keep empty form
-  } finally {
-    hydratingAddress.value = false
-  }
-}
-
-async function loadExpertGate() {
-  pageGate.value = 'none'
-  if (!isExpertPlan.value) {
-    return
-  }
-  const conversationId = journey.conversationId?.trim() ?? ''
-  if (!conversationId) {
-    return
-  }
-  try {
-    const review = await candor.getExpertReview(conversationId)
-    if (review.order_id) {
-      pageGate.value = 'checkout_locked'
-      return
-    }
-    pageGate.value = 'case_exists'
-  } catch (err) {
-    if (err instanceof CandorApiError && err.errorCode === 'not_found') {
-      pageGate.value = 'none'
-      return
-    }
-    pageGate.value = 'none'
-  }
-}
-
-async function loadPlans(options: { skipPreselect?: boolean } = {}) {
-  listPending.value = true
-  listError.value = ''
-  try {
-    const payload = await candor.listExpertPlans()
-    const rows = Array.isArray(payload.expert_plans) ? payload.expert_plans : []
-    plans.value = sortExpertPlans(rows.filter(plan => plan.active !== false))
-    if (options.skipPreselect) {
-      selectedCode.value = ''
-    } else {
-      const preferred = typeof route.query.code === 'string' ? route.query.code : ''
-      const match = plans.value.find(plan => plan.code === preferred)
-      if (match) {
-        selectedCode.value = match.code
-      } else if (plans.value.length === 1) {
-        selectedCode.value = plans.value[0]?.code ?? ''
-      } else {
-        selectedCode.value = ''
-      }
-    }
-    if (plans.value.length === 0 && pageGate.value === 'none') {
-      pageGate.value = 'empty_catalog'
-    }
-  } catch {
-    plans.value = []
-    listError.value = t('expertPlans.loadError')
-  } finally {
-    listPending.value = false
-  }
-}
-
 async function loadLegacyPackageRecommendation() {
   packagePending.value = true
   packageError.value = ''
@@ -825,7 +743,7 @@ async function loadLegacyPackageRecommendation() {
       })
     )
     recommendation.value = result
-    const preferred = journey.selectedPackageCode
+    const preferred = resolvePackagePlanCode() || journey.selectedPackageCode
     const match = result.packages.find(pkg => pkg.package_plan_code === preferred)
     selectedPackageCode.value = match?.package_plan_code ?? result.packages[0]?.package_plan_code ?? ''
   } catch {
@@ -836,43 +754,238 @@ async function loadLegacyPackageRecommendation() {
   }
 }
 
-async function loadPackageRecommendation() {
-  if (isStandardFlow()) {
-    await loadLegacyPackageRecommendation()
+function resolvePackagePlanCode(): string {
+  const raw = route.query.package_plan_code ?? route.query.code
+  const value = Array.isArray(raw) ? raw[0] : raw
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim()
+  }
+  return journey.selectedPackageCode?.trim() ?? ''
+}
+
+function aiPackageFromPreview(ai: CheckoutPreviewAiPackage): RecommendationPackage {
+  return {
+    package_plan_code: ai.package_plan_code,
+    package_plan_name: ai.package_plan_name,
+    price: ai.price,
+    period_days: ai.period_days ?? 30,
+    items: Array.isArray(ai.items) ? ai.items : [],
+    used_amount: ai.used_amount ?? 0,
+    remaining: ai.remaining ?? 0,
+    composition_hash: ai.composition_hash ?? ''
+  }
+}
+
+function recommendationShell(packages: RecommendationPackage[]): RecommendationResponse {
+  return {
+    run_id: '',
+    report_id: journey.reportId,
+    weight_set: { id: '', version: '' },
+    generated_at: new Date().toISOString(),
+    copy_mode: '',
+    summary: {
+      top_domains: [],
+      data_gaps: [],
+      profile_gaps: [],
+      strategy_code: ''
+    },
+    items: [],
+    packages
+  }
+}
+
+function applyPaymentMethodsFromPreview(methods: CheckoutPreviewPaymentMethod[]) {
+  const rows = methods
+    .filter(m => m.code === 'card' || m.code === 'linepay' || m.code === 'atm')
+    .map(m => ({
+      code: m.code as PaymentMethod,
+      available: m.available,
+      comingSoon: m.status === 'coming_soon' || !m.available
+    }))
+  if (rows.length > 0) {
+    paymentMethodRows.value = rows
+    const firstAvailable = rows.find(row => row.available)
+    paymentMethod.value = firstAvailable?.code ?? 'card'
+  } else {
+    paymentMethodRows.value = [...DEFAULT_PAYMENT_METHODS]
+    paymentMethod.value = 'card'
+  }
+}
+
+function applyRecipientFromPreview(recipient: CheckoutPreview['recipient']) {
+  if (!recipient || typeof recipient !== 'object') {
     return
   }
-  const conversationId = journey.conversationId?.trim() ?? ''
-  if (!conversationId || !auth.isMember) {
-    await loadLegacyPackageRecommendation()
+  const row = recipient as Record<string, unknown>
+  hydratingAddress.value = true
+  const nameVal = row.name
+  if (typeof nameVal === 'string' && nameVal.trim()) {
+    name.value = nameVal
+  }
+  const phoneVal = row.phone
+  if (typeof phoneVal === 'string' && phoneVal.trim()) {
+    phone.value = phoneVal
+  }
+  const cityVal = row.address_city
+  if (typeof cityVal === 'string' && cityVal.trim()) {
+    addressCity.value = cityVal
+  }
+  void nextTick().then(() => {
+    const districtVal = row.address_district
+    if (typeof districtVal === 'string' && districtVal.trim()) {
+      addressDistrict.value = districtVal
+    }
+    const detailVal = row.address_detail
+    if (typeof detailVal === 'string' && detailVal.trim()) {
+      addressDetail.value = detailVal
+    }
+    saveAsDefaultAddress.value = true
+    showRecipientPrefillHint.value = true
+    hydratingAddress.value = false
+  })
+}
+
+function resolvePageGate(preview: CheckoutPreview): PageGate {
+  if (preview.checkout_locked) {
+    return 'checkout_locked'
+  }
+  if (preview.block?.code === 'expert_case_exists') {
+    return 'case_exists'
+  }
+  if (preview.block?.code === 'no_expert_plans') {
+    return 'empty_catalog'
+  }
+  return 'none'
+}
+
+function applyExpertPlansFromPreview(
+  preview: CheckoutPreview,
+  options: { skipPreselect?: boolean }
+) {
+  plans.value = sortExpertPlans(preview.expert_plans ?? [])
+  if (options.skipPreselect) {
+    selectedCode.value = ''
     return
   }
-  packagePending.value = true
-  packageError.value = ''
-  try {
-    const review = await candor.getExpertReview(conversationId)
-    if (review.status !== 'reviewed') {
-      packageError.value = t('recommendation.recoError')
-      recommendation.value = null
-      return
-    }
-    const mapped = recommendationFromExpertReview(review)
-    if (!mapped || mapped.packages.length === 0) {
-      packageError.value = t('recommendation.recoError')
-      recommendation.value = null
-      return
-    }
-    recommendation.value = mapped
-    const preferred = journey.selectedPackageCode
-    const match = mapped.packages.find(pkg => pkg.package_plan_code === preferred)
-    selectedPackageCode.value = match?.package_plan_code ?? mapped.packages[0]?.package_plan_code ?? ''
-  } catch (err) {
-    if (err instanceof CandorApiError && (err.errorCode === 'not_found' || err.errorCode === 'member_required')) {
-      await loadLegacyPackageRecommendation()
-      return
-    }
+  const fromQuery = typeof route.query.code === 'string' ? route.query.code : ''
+  const match = plans.value.find(plan => plan.code === fromQuery)
+  if (match) {
+    selectedCode.value = match.code
+    return
+  }
+  const preselect = preview.preselect_expert_plan_code?.trim()
+  selectedCode.value = preselect && plans.value.some(plan => plan.code === preselect)
+    ? preselect
+    : ''
+}
+
+async function applyAiPreviewPackage(
+  preview: CheckoutPreview,
+  packagePlanCode: string
+) {
+  const ai = preview.ai
+  if (!ai) {
     packageError.value = t('recommendation.recoError')
     recommendation.value = null
+    return
+  }
+  if (!Array.isArray(ai.items) || ai.items.length === 0) {
+    // TODO(Irice): checkout preview ai.items should always be populated; remove fallback when core #143 stable.
+    const fallback = await candor.createRecommendation(
+      recommendationRequestFromJourney({
+        conversationId: journey.conversationId,
+        reportId: journey.reportId
+      })
+    )
+    const match = fallback.packages.find(pkg => pkg.package_plan_code === packagePlanCode)
+    if (match) {
+      recommendation.value = {
+        ...fallback,
+        packages: fallback.packages.filter(pkg => pkg.package_plan_code === packagePlanCode)
+      }
+      selectedPackageCode.value = match.package_plan_code
+      return
+    }
+  }
+  const pkg = aiPackageFromPreview(ai)
+  recommendation.value = recommendationShell([pkg])
+  selectedPackageCode.value = pkg.package_plan_code
+}
+
+async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
+  pageGate.value = 'none'
+  checkoutLockReason.value = null
+  listError.value = ''
+  packageError.value = ''
+
+  if (isStandardFlow() && !isExpertPlan.value) {
+    await loadLegacyPackageRecommendation()
+    listPending.value = false
+    return
+  }
+
+  const conversationId = journey.conversationId?.trim() ?? ''
+  if (!conversationId) {
+    if (isExpertPlan.value) {
+      listError.value = t('expertPlans.conversationRequired')
+    } else {
+      await loadLegacyPackageRecommendation()
+    }
+    listPending.value = false
+    packagePending.value = false
+    return
+  }
+
+  if (!auth.isMember) {
+    listPending.value = false
+    packagePending.value = false
+    return
+  }
+
+  if (isExpertPlan.value) {
+    listPending.value = true
+  } else {
+    packagePending.value = true
+  }
+
+  try {
+    const packagePlanCode = resolvePackagePlanCode()
+    if (!isExpertPlan.value && !packagePlanCode) {
+      packageError.value = t('recommendation.recoError')
+      return
+    }
+
+    const preview = await candor.getCheckoutPreview({
+      conversationId,
+      mode: isExpertPlan.value ? 'expert' : 'ai',
+      packagePlanCode: isExpertPlan.value ? undefined : packagePlanCode
+    })
+
+    pageGate.value = resolvePageGate(preview)
+    checkoutLockReason.value = preview.checkout_lock_reason ?? null
+    shippingFree.value = preview.shipping?.free !== false
+    shippingFee.value = preview.shipping?.fee ?? 0
+    applyPaymentMethodsFromPreview(preview.payment_methods ?? [])
+    applyRecipientFromPreview(preview.recipient)
+
+    if (isExpertPlan.value) {
+      applyExpertPlansFromPreview(preview, options)
+      if (pageGate.value === 'none' && plans.value.length === 0) {
+        pageGate.value = 'empty_catalog'
+      }
+    } else if (pageGate.value === 'none') {
+      await applyAiPreviewPackage(preview, packagePlanCode)
+    }
+  } catch {
+    if (isExpertPlan.value) {
+      listError.value = t('expertPlans.loadError')
+      plans.value = []
+    } else {
+      packageError.value = t('recommendation.recoError')
+      recommendation.value = null
+    }
   } finally {
+    listPending.value = false
     packagePending.value = false
   }
 }
@@ -893,7 +1006,7 @@ function applyCompositionChanged(pkg: RecommendationPackage) {
 
 async function onDelistedDismiss() {
   showDelistedModal.value = false
-  await loadPlans({ skipPreselect: true })
+  await loadCheckoutPreview({ skipPreselect: true })
 }
 
 function isDelistedError(code: string): boolean {
@@ -1045,10 +1158,12 @@ async function onPay(event: Event) {
       }
       if (err.errorCode === 'expert_review_exists') {
         pageGate.value = 'case_exists'
+        checkoutLockReason.value = null
         return
       }
       if (err.errorCode === 'expert_plan_checkout_locked') {
         pageGate.value = 'checkout_locked'
+        checkoutLockReason.value = 'case_finalized'
         return
       }
       if (err.errorCode === 'composition_changed') {
@@ -1097,15 +1212,6 @@ async function maybeSaveDefaultAddress(
 }
 
 onMounted(async () => {
-  void loadPaymentMethods()
-  void loadDefaultRecipient()
-  if (isExpertPlan.value) {
-    await loadExpertGate()
-    if (pageGate.value === 'none') {
-      await loadPlans()
-    }
-  } else {
-    await loadPackageRecommendation()
-  }
+  await loadCheckoutPreview()
 })
 </script>
