@@ -73,6 +73,7 @@
   - `payment_methods[].status=coming_soon` → i18n `checkout.payment.coming_soon`；運費用 `shipping.fee`／`shipping.free`。
   - `block.code`：`expert_case_exists`／`no_expert_plans`；`checkout_locked`＋`checkout_lock_reason`。
   - **422** `questionnaire_incomplete`（core #145 `92e7bbc`；`mode=expert` preview 與 expert_plan 建單）：`error_data.missing_fields`＋`error_data.conversation_id` → 錯誤態（文案 `checkout.questionnaireIncomplete`）；「回到對話」優先用 `error_data.conversation_id`（否則 journey）；`missing_fields` **只存不顯示**（Irice 定案）；不接 `POST /order/{id}/expert-case/retry`。
+  - **409** `conversation_already_ordered`（Irice「對話綁一張訂單」；`mode=expert` preview 與 expert_plan 建單）：`error_data` 容錯讀 `conversation_id`／`order_id`／`order_no`／`expert_case_id` → 錯誤態（TODO 文案 `checkout.conversationAlreadyOrdered`）；有 `order_id`＋`expert_case_id` → CTA 訂單詳情 `/app/orders/{order_id}`（`checkout.conversationAlreadyOrderedCtaOrder`）；否則回對話（優先 `error_data.conversation_id`，否則 journey；`checkout.conversationAlreadyOrderedCtaChat`）。同對話未付款舊單若 core 直接回成功建單 envelope（含 `payment.redirect_url`）→ 照一般付款導轉，不另開 gate。`conversation_case_exists`／retry **先不做**。
 - 建單：按「確認付款」才 `POST /orders`（expert：`kind=expert_plan`＋`expert_plan_code`）；不下草稿。下架 → `422` `expert_plan_inactive`。
 - 定稿只讀：`GET /order/{id}/finalized-plan` → `getFinalizedPlan()`；案件／訂單詳情顯示處理中／定稿方案。
 - 退款申請：`POST /order/{id}/refund-request` → `createRefundRequest()`；閘門以 `refund_blocked_reason` 為準（`not_yet_reviewed`／`picking_started`／`already_shipped`／`refund_rejected`／`refund_request_exists`）；專家單開始理貨前（shipment null）且定稿後才可申請。

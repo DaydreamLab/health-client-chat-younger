@@ -74,6 +74,11 @@ export type CandorMockOptions = {
    */
   questionnaireIncomplete?: boolean | string[]
   /**
+   * GET /checkout/preview 與 POST /orders 回 409 conversation_already_ordered。
+   * `true` → 帶 expert_case_id；`unpaid` → expert_case_id null（CTA 回對話）。
+   */
+  conversationAlreadyOrdered?: boolean | 'unpaid'
+  /**
    * Seed `candor.privacy.consent.version` before each navigation.
    * Default matches the mocked privacy-policy version so the cookie banner
    * does not cover other e2e flows. Pass `false` to leave storage empty
@@ -1038,6 +1043,26 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           error_data: {
             missing_fields: missingFields,
             conversation_id: conversationIdParam || conversationId
+          }
+        })
+      })
+      return
+    }
+    // 對話綁一張訂單：已有有效訂單 → 409 conversation_already_ordered
+    if (options.conversationAlreadyOrdered) {
+      const withCase = options.conversationAlreadyOrdered !== 'unpaid'
+      await route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'failed',
+          error_message: 'This conversation already has an order.',
+          error_code: 'conversation_already_ordered',
+          error_data: {
+            conversation_id: conversationIdParam || conversationId,
+            order_id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+            order_no: 'ORD-260101-000001',
+            expert_case_id: withCase ? expertReviewId : null
           }
         })
       })
@@ -2699,6 +2724,25 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
             error_data: {
               missing_fields: missingFields,
               conversation_id: conversationId
+            }
+          })
+        })
+        return
+      }
+      if (options.conversationAlreadyOrdered) {
+        const withCase = options.conversationAlreadyOrdered !== 'unpaid'
+        await route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            status: 'failed',
+            error_message: 'This conversation already has an order.',
+            error_code: 'conversation_already_ordered',
+            error_data: {
+              conversation_id: conversationId,
+              order_id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+              order_no: 'ORD-260101-000001',
+              expert_case_id: withCase ? expertReviewId : null
             }
           })
         })

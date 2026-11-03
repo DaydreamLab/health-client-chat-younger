@@ -185,6 +185,43 @@ test.describe('expert-plan v4 screenshots', () => {
     await shot(page, 'checkout-questionnaire-incomplete')
   })
 
+  test('checkout conversation_already_ordered with case opens order CTA', async ({ page, goto }) => {
+    await mockCandorAuth(page, {
+      asMember: true,
+      expertReview: 'none',
+      expertPlansCatalog: 'single',
+      conversationAlreadyOrdered: true
+    })
+    await seedJourneyConversation(page)
+    await goto('/app/checkout?kind=expert_plan', { waitUntil: 'hydration' })
+    await expect(page.getByTestId('checkout-conversation-already-ordered')).toBeVisible({ timeout: 25000 })
+    await expect(page.getByTestId('checkout-conversation-already-ordered')).toContainText(
+      'TODO: checkout.conversationAlreadyOrdered'
+    )
+    const cta = page.getByTestId('checkout-conversation-already-ordered-cta')
+    await expect(cta).toContainText('TODO: checkout.conversationAlreadyOrderedCtaOrder')
+    await shot(page, 'checkout-conversation-already-ordered')
+    await cta.click()
+    await expect(page).toHaveURL(/\/app\/orders\/eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee/)
+  })
+
+  test('checkout conversation_already_ordered without case returns to chat', async ({ page, goto }) => {
+    await mockCandorAuth(page, {
+      asMember: true,
+      expertReview: 'none',
+      expertPlansCatalog: 'single',
+      conversationAlreadyOrdered: 'unpaid'
+    })
+    await seedJourneyConversation(page)
+    await goto('/app/checkout?kind=expert_plan', { waitUntil: 'hydration' })
+    await expect(page.getByTestId('checkout-conversation-already-ordered')).toBeVisible({ timeout: 25000 })
+    const cta = page.getByTestId('checkout-conversation-already-ordered-cta')
+    await expect(cta).toContainText('TODO: checkout.conversationAlreadyOrderedCtaChat')
+    await shot(page, 'checkout-conversation-already-ordered-chat')
+    await cta.click()
+    await expect(page).toHaveURL(/\/chat/)
+  })
+
   test('F-07 checkout case exists', async ({ page, goto }) => {
     await mockCandorAuth(page, {
       asMember: true,
