@@ -194,7 +194,9 @@ export interface RecommendationResponse {
   excluded?: Array<{ sellable_item_id: string, reason_code: string }> | null
 }
 
-/** Member expert-case-review status / reviewed packages (spec 32). */
+export type RefundRequestStatus = 'requested' | 'refunded' | 'rejected'
+
+/** Member expert-case-review status / reviewed packages (spec 32／33). */
 export interface ExpertCaseReviewStatus {
   id: string
   conversation_id: string
@@ -207,6 +209,13 @@ export interface ExpertCaseReviewStatus {
   packages?: RecommendationPackage[]
   summary?: RecommendationResponse['summary'] | null
   weight_set?: { id: string, version?: string } | null
+  /** Paid expert_plan case — null for legacy free cases (spec 33). */
+  order_id?: string | null
+  expert_plan_id?: string | null
+  refund_request_status?: RefundRequestStatus | null
+  /** Only when status=requested: core copy「退款申請中」. */
+  refund_request_display?: string | null
+  can_request_refund?: boolean | null
 }
 
 /** Member list row — never includes packages (GET /expert-case-reviews). */
@@ -218,6 +227,11 @@ export interface ExpertCaseReviewListItem {
   created_at: string
   updated_at?: string | null
   reviewed_at?: string | null
+  order_id?: string | null
+  expert_plan_id?: string | null
+  refund_request_status?: RefundRequestStatus | null
+  refund_request_display?: string | null
+  can_request_refund?: boolean | null
 }
 
 export interface ExpertCaseReviewList {
@@ -331,7 +345,7 @@ export interface ConversationPackageConfirm {
 export type CandorPaymentMethod = 'card' | 'linepay' | 'atm'
 export type CandorInvoiceType = 'member' | 'cloud' | 'company' | 'donate'
 
-export type OrderLineKind = 'package' | 'lab_service' | 'day_supply'
+export type OrderLineKind = 'package' | 'lab_service' | 'day_supply' | 'expert_plan'
 
 export interface OrderLineInput {
   kind: OrderLineKind
@@ -341,6 +355,8 @@ export interface OrderLineInput {
   lab_service_code?: string
   sellable_item_code?: string
   days?: number
+  /** Spec 33 — expert_plan line (mutually exclusive with package／lab／day_supply). */
+  expert_plan_code?: string
 }
 
 export interface OrderCreateRequest {
@@ -443,6 +459,23 @@ export interface OrderDetail {
   created_at?: string
   confirmed_at?: string | null
   payments?: CandorPayment[] | null
+  /** Spec 33 — member refund-request fields. */
+  refund_request_status?: RefundRequestStatus | null
+  /** Only when status=requested: core copy「退款申請中」. */
+  refund_request_display?: string | null
+  /** Prefer when present; else FE may derive from shipment／case／lines. */
+  can_request_refund?: boolean | null
+  /** Shipment status when present (`picking`｜`shipped`｜…). */
+  shipment_status?: string | null
+  shipment?: { status?: string | null } | null
+}
+
+export interface RefundRequestCreated {
+  id: string
+  order_id: string
+  status: RefundRequestStatus
+  refund_request_status?: RefundRequestStatus
+  refund_request_display?: string | null
 }
 
 export interface OrderList {

@@ -64,6 +64,12 @@
 - Sandbox：跟隨 `payment.redirect_url` 整頁導轉；callback 只打 core。
 - **不得**實作或呼叫 `POST /payments/{provider}/callback`。
 
+## 專家方案（spec 33 — 本 PR 範圍）
+
+- 定稿只讀：案件有 `order_id` 時，`/app/recommendations` 顯示定稿結果、隱藏結帳；讀 `GET /order/{id}` 開案金額。
+- 退款申請：`POST /order/{id}/refund-request` → `createRefundRequest()`；訂單／案件帶 `refund_request_status`／`refund_request_display`／`can_request_refund`（`requested` → 文案「退款申請中」）；出貨前（`shipment_status` null｜`picking`）且定稿後才可申請；`rejected` 不可再申請。
+- 訂單 line `kind=expert_plan` 供讀取判斷；catalog／雙選導頁／開案結帳頁待 Irice 定案後另做。
+
 ## 通知 inbox（member）
 
 - `GET /notifications` → `listNotifications()`；`data.notifications[]`（`id`、`type`／`event`、`title`、`body`、`created_at`、`read_at`、`deep_link`）。

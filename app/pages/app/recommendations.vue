@@ -67,10 +67,18 @@
       <section
         v-else
         class="rounded-2xl border border-default bg-elevated p-5"
+        :data-testid="expertPlanReadonly ? 'expert-plan-result' : undefined"
       >
         <h2 class="text-xl font-semibold text-highlighted">
-          {{ $t('recommendation.packagePick') }}
+          {{ expertPlanReadonly ? $t('recommendation.readyTitle') : $t('recommendation.packagePick') }}
         </h2>
+        <p
+          v-if="expertPlanReadonly"
+          class="mt-2 text-sm text-muted"
+          data-testid="expert-plan-result-readonly-hint"
+        >
+          {{ $t('expertPlans.resultReadonlyHint') }}
+        </p>
         <p
           v-if="recoPending"
           class="mt-3 text-sm text-muted"
@@ -93,7 +101,10 @@
             v-for="pkg in packages"
             :key="pkg.package_plan_code"
             class="app-path-card"
-            :class="{ 'app-path-card-selected': selectedPackageCode === pkg.package_plan_code }"
+            :class="{
+              'app-path-card-selected': selectedPackageCode === pkg.package_plan_code,
+              'pointer-events-none': expertPlanReadonly
+            }"
             :data-testid="`package-plan-${pkg.package_plan_code}`"
           >
             <input
@@ -102,13 +113,24 @@
               class="sr-only"
               name="recommendation-package-plan"
               :value="pkg.package_plan_code"
+              :disabled="expertPlanReadonly"
             >
             <div class="flex items-start justify-between gap-2">
               <p class="font-medium text-highlighted">
                 {{ pkg.package_plan_name }}
               </p>
             </div>
-            <p class="mt-2 text-lg font-semibold text-primary">
+            <p
+              v-if="expertPlanReadonly && expertPlanOpeningAmount != null"
+              class="mt-2 text-lg font-semibold text-primary"
+              data-testid="expert-plan-result-total"
+            >
+              {{ formatTwd(expertPlanOpeningAmount) }}
+            </p>
+            <p
+              v-else
+              class="mt-2 text-lg font-semibold text-primary"
+            >
               {{ $t('recommendation.perMonth', { price: formatTwd(pkg.price) }) }}
             </p>
             <p class="mt-1 text-sm text-muted">
@@ -328,7 +350,10 @@
                 >
                   {{ doseLabel(item) }}
                 </span>
-                <span class="text-sm tabular-nums text-muted">
+                <span
+                  class="text-sm tabular-nums text-muted"
+                  :data-testid="expertPlanReadonly ? 'expert-plan-item-unit-ref' : undefined"
+                >
                   {{ formatTwd(item.monthly_cost) }}
                 </span>
               </span>
@@ -339,7 +364,7 @@
     </div>
 
     <aside
-      v-if="reviewPhase === 'viewing' || reviewPhase === 'legacy'"
+      v-if="(reviewPhase === 'viewing' || reviewPhase === 'legacy') && !expertPlanReadonly"
       class="relative h-fit max-h-none rounded-2xl border border-default bg-elevated p-5 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto"
       data-testid="checkout-card"
     >
@@ -726,6 +751,10 @@ const candor = useCandorApi()
 /** viewing = packages+checkout; gate = not reviewed yet; legacy = guest/no conversation. */
 type ReviewPhase = 'loading' | 'gate' | 'viewing' | 'legacy' | 'error'
 const reviewPhase = ref<ReviewPhase>('loading')
+/** Spec 33 paid expert_plan case: result is display-only (no accept／checkout). */
+const expertPlanReadonly = ref(false)
+const expertPlanOpeningAmount = ref<number | null>(null)
+const expertPlanOrderId = ref<string | null>(null)
 
 const name = ref(auth.displayName)
 const phone = ref('')
@@ -981,6 +1010,10 @@ function isStandardFlow(): boolean {
 }
 
 async function loadRecommendation() {
+  expertPlanReadonly.value = false
+  expertPlanOpeningAmount.value = null
+  expertPlanOrderId.value = null
+
   // Standard (/chat-ai): direct recommendation + checkout. No expert case, no review poll.
   if (isStandardFlow()) {
     await loadLegacyRecommendation()
@@ -1002,11 +1035,24 @@ async function loadRecommendation() {
       journey.reportId = review.health_report_id
     }
 
+    const paidExpertPlan = Boolean(review.order_id)
+    expertPlanOrderId.value = review.order_id ?? null
+    expertPlanReadonly.value = paidExpertPlan
+
     if (review.status !== 'reviewed') {
       recommendation.value = null
       selectedPackageCode.value = ''
       reviewPhase.value = 'gate'
       return
+    }
+
+    if (paidExpertPlan && review.order_id) {
+      try {
+        const order = await candor.getOrder(review.order_id)
+        expertPlanOpeningAmount.value = order.amount_total
+      } catch {
+        expertPlanOpeningAmount.value = null
+      }
     }
 
     const mapped = recommendationFromExpertReview(review)
@@ -1052,6 +1098,10 @@ function applyCompositionChanged(pkg: RecommendationPackage) {
 }
 
 async function onPay(event: Event) {
+  // Spec 33: paid expert_plan cases cannot checkout again (core 409 expert_plan_checkout_locked).
+  if (expertPlanReadonly.value) {
+    return
+  }
   if (!auth.isMember) {
     error.value = t('checkout.memberRequired')
     return

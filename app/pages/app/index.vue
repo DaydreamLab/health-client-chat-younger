@@ -250,7 +250,31 @@
                   >
                     {{ $t('chat.viewRecommend') }}
                   </AppButton>
+                  <AppButton
+                    v-if="review.order_id"
+                    variant="outline"
+                    :to="localePath(`/app/orders/${review.order_id}`)"
+                    data-testid="health-review-open-order"
+                  >
+                    {{ $t('expertPlans.openOrder') }}
+                  </AppButton>
+                  <AppButton
+                    v-if="canRequestRefundForReview(review)"
+                    variant="outline"
+                    data-testid="health-review-refund-request"
+                    :disabled="refundPendingId === review.id"
+                    @click="onReviewRefundRequest(review)"
+                  >
+                    {{ $t('orders.refundRequest') }}
+                  </AppButton>
                 </div>
+                <p
+                  v-if="refundDisplayForReview(review)"
+                  class="mt-2 text-sm font-medium text-highlighted"
+                  data-testid="health-review-refund-status"
+                >
+                  {{ refundDisplayForReview(review) }}
+                </p>
               </div>
             </li>
           </ul>
@@ -487,10 +511,15 @@ import type {
   HealthReportSummary,
   UserHealthProfile
 } from '~/utils/candor-api'
+import { CandorApiError } from '~/utils/candor-api'
 import {
   expertReviewUiStatusFromList,
   expertReviewUiStatusFromRow
 } from '~/utils/expert-review'
+import {
+  canShowRefundRequest,
+  refundRequestDisplayText
+} from '~/utils/expert-plan-order'
 import { formatLocalDateTime } from '~/utils/format-local-datetime'
 
 definePageMeta({
@@ -524,6 +553,7 @@ const profileError = ref('')
 const reviewRecords = ref<ExpertCaseReviewListItem[]>([])
 const reviewsLoading = ref(false)
 const reviewsError = ref('')
+const refundPendingId = ref<string | null>(null)
 const reports = ref<HealthReportSummary[]>([])
 const reportsLoading = ref(false)
 const reportsError = ref('')
@@ -559,6 +589,60 @@ function focusReviewConversation(review: ExpertCaseReviewListItem) {
 
 function openReportFromReview(reportId: string) {
   openReportSheet(reportId, 'primary')
+}
+
+function canRequestRefundForReview(review: ExpertCaseReviewListItem): boolean {
+  if (!review.order_id || review.status !== 'reviewed') {
+    return false
+  }
+  // Case list may lack shipment — trust core can_request_refund when present.
+  if (review.can_request_refund === true) {
+    return canShowRefundRequest({
+      canRequestRefund: true,
+      refundRequestStatus: review.refund_request_status,
+      paymentStatus: 'paid',
+      hasExpertPlanLine: true
+    })
+  }
+  return false
+}
+
+function refundDisplayForReview(review: ExpertCaseReviewListItem): string | null {
+  return refundRequestDisplayText({
+    status: review.refund_request_status,
+    display: review.refund_request_display
+  })
+}
+
+async function onReviewRefundRequest(review: ExpertCaseReviewListItem) {
+  if (!review.order_id || refundPendingId.value || !canRequestRefundForReview(review)) {
+    return
+  }
+  refundPendingId.value = review.id
+  try {
+    const created = await candor.createRefundRequest(review.order_id)
+    const status = created.refund_request_status ?? created.status
+    reviewRecords.value = reviewRecords.value.map((row) => {
+      if (row.id !== review.id) {
+        return row
+      }
+      return {
+        ...row,
+        refund_request_status: status,
+        refund_request_display: created.refund_request_display
+          ?? (status === 'requested' ? '退款申請中' : null),
+        can_request_refund: false
+      }
+    })
+  } catch (err) {
+    if (err instanceof CandorApiError) {
+      reviewsError.value = err.message || t('orders.refundRequestError')
+    } else {
+      reviewsError.value = t('orders.refundRequestError')
+    }
+  } finally {
+    refundPendingId.value = null
+  }
 }
 
 async function loadReviews() {

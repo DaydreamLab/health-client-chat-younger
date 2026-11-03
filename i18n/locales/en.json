@@ -873,7 +873,13 @@
     "cancelConfirm": "Confirm cancel",
     "cancelDismiss": "Keep order",
     "cancelError": "Could not cancel the order. Please try again.",
-    "invoiceNumber": "Invoice number"
+    "invoiceNumber": "Invoice number",
+    "refundRequest": "申請退款",
+    "refundRequestError": "TODO(Irice): Could not request a refund. Please try again."
+  },
+  "expertPlans": {
+    "resultReadonlyHint": "TODO(Irice): Finalized result is view-only. You cannot pick another plan or check out.",
+    "openOrder": "TODO(Irice): View order"
   },
   "privacy": {
     "metaTitle": "Privacy policy",

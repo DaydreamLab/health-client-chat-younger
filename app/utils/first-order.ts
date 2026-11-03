@@ -1,5 +1,14 @@
-import type { OrderCreated, OrderDetail, OrderSummary } from './candor-api'
+import type {
+  OrderCreated,
+  OrderDetail,
+  OrderSummary,
+  RefundRequestStatus
+} from './candor-api'
 import type { ReplyActions } from './reply-actions'
+import {
+  orderHasExpertPlanLine,
+  orderShipmentStatus
+} from './expert-plan-order'
 
 /** Demo catalog codes (not live API identifiers). */
 export type DemoPackagePlanId = 'basic' | 'advance'
@@ -249,6 +258,12 @@ export interface OrderRecord {
   quantity?: number
   messages: ChatMessage[]
   timeline: ShipmentStep[]
+  /** Spec 33 refund-request fields from order detail. */
+  refundRequestStatus?: RefundRequestStatus | null
+  refundRequestDisplay?: string | null
+  canRequestRefund?: boolean | null
+  hasExpertPlanLine?: boolean
+  shipmentStatus?: string | null
 }
 
 export interface CreateOrderInput {
@@ -575,16 +590,40 @@ export function orderRecordFromCandorDetail(
   const invoice: InvoiceType = invoiceRaw === 'company' || invoiceRaw === 'donate' || invoiceRaw === 'cloud' || invoiceRaw === 'member'
     ? invoiceRaw
     : 'member'
+  const hasExpertPlan = orderHasExpertPlanLine(detail)
+  const expertPlanName = (() => {
+    if (!hasExpertPlan || !Array.isArray(detail.lines)) {
+      return null
+    }
+    for (const line of detail.lines) {
+      if (!line || typeof line !== 'object' || line.kind !== 'expert_plan') {
+        continue
+      }
+      const name = line.expert_plan_name ?? line.name
+      if (typeof name === 'string' && name.trim()) {
+        return name.trim()
+      }
+    }
+    return null
+  })()
+  const displayItems = items.length
+    ? items
+    : (expertPlanName
+        ? [{ code: 'expert_plan', name: expertPlanName, dailyDose: 1 }]
+        : items)
   return {
     id: detail.id,
     number: detail.order_no,
     createdAt,
     packagePlanCode: detail.package?.package_plan_code ?? fallback.packagePlanCode ?? '',
-    packageName: detail.package_plan_name ?? detail.package?.package_plan_name ?? fallback.packageName,
+    packageName: detail.package_plan_name
+      ?? detail.package?.package_plan_name
+      ?? expertPlanName
+      ?? fallback.packageName,
     amount: detail.amount_total,
     productCodes,
     productNames,
-    items,
+    items: displayItems,
     paymentMethod: fallback.paymentMethod ?? 'card',
     paymentStatus: detail.payment_status,
     orderStatus: detail.status,
@@ -595,7 +634,12 @@ export function orderRecordFromCandorDetail(
     invoiceNumber: detail.invoice_number ?? null,
     quantity: 1,
     messages: fallback.messages ? cloneMessages(fallback.messages) : [],
-    timeline: timelineFromOrderStatus(detail.status, createdAt, detail.confirmed_at)
+    timeline: timelineFromOrderStatus(detail.status, createdAt, detail.confirmed_at),
+    refundRequestStatus: detail.refund_request_status ?? null,
+    refundRequestDisplay: detail.refund_request_display ?? null,
+    canRequestRefund: detail.can_request_refund ?? null,
+    hasExpertPlanLine: hasExpertPlan,
+    shipmentStatus: orderShipmentStatus(detail)
   }
 }
 

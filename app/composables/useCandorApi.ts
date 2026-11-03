@@ -36,6 +36,7 @@ import type {
   ProfileAnswerResult,
   ProfileNext,
   RecommendationResponse,
+  RefundRequestCreated,
   RenewalsDueList,
   StreamMessageResult,
   UserHealthProfile,
@@ -600,6 +601,13 @@ export function useCandorApi() {
         method: 'POST',
         body
       }),
+
+    /** Spec 33 — member refund request (定稿後、出貨前). */
+    createRefundRequest: (orderId: string) =>
+      request<RefundRequestCreated>(
+        `/order/${encodeURIComponent(orderId)}/refund-request`,
+        { method: 'POST' }
+      ),
 
     getOrderMessages: (id: string) =>
       request<OrderMessages>(`/order/${encodeURIComponent(id)}/message`, { method: 'GET' }),

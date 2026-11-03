@@ -2401,6 +2401,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     await route.fallback()
   })
 
+  let refundRequestStatus: 'requested' | 'refunded' | 'rejected' | null = null
+
   await page.route('**/api/v1/order/**', async (route) => {
     const url = route.request().url()
     if (url.includes('/message')) {
@@ -2415,6 +2417,24 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
               { id: 'om-1', role: 'assistant', content: '已依你的目標組成一個月方案。', seq: 1 },
               { id: 'om-2', role: 'user', content: '好，幫我下單。', seq: 2 }
             ]
+          }
+        })
+      })
+      return
+    }
+    if (url.includes('/refund-request') && route.request().method() === 'POST') {
+      refundRequestStatus = 'requested'
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            id: 'rr-1',
+            order_id: placedOrder?.id ?? 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+            status: 'requested',
+            refund_request_status: 'requested',
+            refund_request_display: '退款申請中'
           }
         })
       })
@@ -2463,12 +2483,20 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
               { id: 'c3', sellable_item_id: sellableVitC, sellable_item_code: 'vitamin_c', sellable_item_name: '維生素 C', unit_price: 16, daily_dose: 1, monthly_cost: 480, rank: 3, is_core: false }
             ]
           },
-          lines: [],
+          lines: placedOrder.package_plan_name?.includes('專家')
+            ? [{ kind: 'expert_plan', expert_plan_code: 'basic', expert_plan_name: placedOrder.package_plan_name }]
+            : [],
           recipient: { name: '林晏婷', phone: '0912345678', address: '台北市大安區', email: 'guest@example.com' },
           invoice_type: 'member',
           created_at: placedOrder.created_at,
           confirmed_at: placedOrder.payment_status === 'paid' ? placedOrder.created_at : null,
-          payments: []
+          payments: [],
+          refund_request_status: refundRequestStatus,
+          refund_request_display: refundRequestStatus === 'requested' ? '退款申請中' : null,
+          can_request_refund: placedOrder.package_plan_name?.includes('專家')
+            && placedOrder.payment_status === 'paid'
+            && refundRequestStatus == null,
+          shipment_status: 'picking'
         }
       })
     })

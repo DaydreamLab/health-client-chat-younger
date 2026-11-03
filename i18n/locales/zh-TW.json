@@ -873,7 +873,13 @@
     "cancelConfirm": "確認取消",
     "cancelDismiss": "再想想",
     "cancelError": "無法取消訂單，請稍後再試。",
-    "invoiceNumber": "發票號碼"
+    "invoiceNumber": "發票號碼",
+    "refundRequest": "申請退款",
+    "refundRequestError": "TODO(Irice): 無法申請退款，請稍後再試。"
+  },
+  "expertPlans": {
+    "resultReadonlyHint": "TODO(Irice): 定稿結果僅供查看，無法另選方案或結帳。",
+    "openOrder": "TODO(Irice): 查看訂單"
   },
   "privacy": {
     "metaTitle": "隱私權政策",

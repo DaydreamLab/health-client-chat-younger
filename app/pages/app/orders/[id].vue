@@ -127,8 +127,8 @@
       </div>
 
       <div
-        v-if="showRepay || showCancel"
-        class="mt-5 flex flex-wrap gap-3"
+        v-if="showRepay || showCancel || showRefundRequest || refundDisplay"
+        class="mt-5 flex flex-wrap items-center gap-3"
       >
         <AppButton
           v-if="showRepay"
@@ -147,6 +147,22 @@
         >
           {{ $t('orders.cancel') }}
         </AppButton>
+        <AppButton
+          v-if="showRefundRequest"
+          variant="outline"
+          data-testid="order-refund-request"
+          :disabled="actionPending || usingDemo"
+          @click="onRefundRequest"
+        >
+          {{ $t('orders.refundRequest') }}
+        </AppButton>
+        <p
+          v-if="refundDisplay"
+          class="text-sm font-medium text-highlighted"
+          data-testid="order-refund-request-status"
+        >
+          {{ refundDisplay }}
+        </p>
       </div>
       <div
         v-if="cancelOpen"
@@ -288,6 +304,11 @@ import { formatTwd, type OrderItemLine, type OrderRecord } from '~/utils/first-o
 import { orderProductSummary } from '~/utils/order-display'
 import { getDemoOrder, isDemoOrderId } from '~/utils/orders-mock'
 import { canCancelOrder, canRepayOrder } from '~/utils/order-actions'
+import {
+  canShowRefundRequest,
+  refundRequestDisplayText
+} from '~/utils/expert-plan-order'
+import { CandorApiError } from '~/utils/candor-api'
 
 definePageMeta({
   layout: 'user',
@@ -300,6 +321,7 @@ const nuxtApp = useNuxtApp()
 const { t } = useI18n()
 const auth = useAuthStore()
 const api = useFirstOrderApi()
+const candor = useCandorApi()
 const order = ref<OrderRecord | null>(null)
 const loading = ref(true)
 const loadError = ref(false)
@@ -331,6 +353,29 @@ const orderItems = computed<OrderItemLine[]>(() => {
 
 const showRepay = computed(() => order.value ? canRepayOrder(order.value) : false)
 const showCancel = computed(() => order.value ? canCancelOrder(order.value) : false)
+
+const showRefundRequest = computed(() => {
+  if (!order.value || usingDemo.value) {
+    return false
+  }
+  return canShowRefundRequest({
+    canRequestRefund: order.value.canRequestRefund,
+    refundRequestStatus: order.value.refundRequestStatus,
+    paymentStatus: order.value.paymentStatus,
+    hasExpertPlanLine: order.value.hasExpertPlanLine,
+    shipmentStatus: order.value.shipmentStatus
+  })
+})
+
+const refundDisplay = computed(() => {
+  if (!order.value) {
+    return null
+  }
+  return refundRequestDisplayText({
+    status: order.value.refundRequestStatus,
+    display: order.value.refundRequestDisplay
+  })
+})
 
 const paymentProviderLabel = computed(() => {
   if (!order.value) {
@@ -392,6 +437,33 @@ async function onCancelConfirm() {
     cancelReason.value = ''
   } catch {
     actionError.value = t('orders.cancelError')
+  } finally {
+    actionPending.value = false
+  }
+}
+
+async function onRefundRequest() {
+  if (!order.value || actionPending.value || usingDemo.value || !showRefundRequest.value) {
+    return
+  }
+  actionPending.value = true
+  actionError.value = ''
+  try {
+    const created = await candor.createRefundRequest(order.value.id)
+    const status = created.refund_request_status ?? created.status
+    order.value = {
+      ...order.value,
+      refundRequestStatus: status,
+      refundRequestDisplay: created.refund_request_display
+        ?? (status === 'requested' ? '退款申請中' : null),
+      canRequestRefund: false
+    }
+  } catch (err) {
+    if (err instanceof CandorApiError) {
+      actionError.value = err.message || t('orders.refundRequestError')
+    } else {
+      actionError.value = t('orders.refundRequestError')
+    }
   } finally {
     actionPending.value = false
   }
