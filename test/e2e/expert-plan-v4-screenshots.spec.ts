@@ -170,13 +170,13 @@ test.describe('expert-plan v4 screenshots', () => {
     await goto('/app/checkout?kind=expert_plan', { waitUntil: 'hydration' })
     await expect(page.getByTestId('checkout-questionnaire-incomplete')).toBeVisible({ timeout: 25000 })
     await expect(page.getByTestId('checkout-questionnaire-incomplete')).toContainText(
-      'TODO: checkout.questionnaireIncomplete'
+      '請先補填基本資料，才能結帳。'
     )
     await expect(page.getByTestId('checkout-questionnaire-incomplete')).toHaveAttribute(
       'data-missing-count',
       '4'
     )
-    // missing_fields not rendered yet (pending Irice copy／product decision)
+    // Irice 定案：missing_fields 只存不顯示
     await expect(page.getByTestId('checkout-questionnaire-incomplete')).not.toContainText('sex')
     await page.getByTestId('checkout-questionnaire-incomplete-back').click()
     await expect(page).toHaveURL(/\/chat/)

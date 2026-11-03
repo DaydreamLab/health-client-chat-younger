@@ -792,7 +792,7 @@
     "expert_plan_inactive": "This plan is no longer available",
     "expert_plan_inactive_body": "This expert plan has been delisted. Please choose another plan.",
     "conversationMissing": "TODO: checkout.conversationMissing",
-    "questionnaireIncomplete": "TODO: checkout.questionnaireIncomplete",
+    "questionnaireIncomplete": "Please complete your basic information before checkout.",
     "processing": "Creating order…",
     "successTitle": "Order created",
     "successBody": "Complete payment with the gateway. Track shipment on the orders page after it succeeds.",

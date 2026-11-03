@@ -14,7 +14,7 @@ const PROFILE_FIELD_CODES = new Set(['sex', 'age', 'height', 'weight'])
  * core #145 head 92e7bbc: GET /checkout/preview?mode=expert and POST /orders
  * (expert_plan) return 422 `questionnaire_incomplete` with envelope:
  * `{ error_code, error_data: { missing_fields, conversation_id } }`.
- * FE gate does not render missing_fields yet.
+ * FE stores missing_fields but does not list them on screen (Irice 定案).
  */
 export function isQuestionnaireIncompleteError(err: unknown): err is CandorApiError {
   return err instanceof CandorApiError

@@ -631,7 +631,7 @@ const isExpertPlan = computed(() => checkoutKind.value === 'expert_plan')
 
 const pageGate = ref<PageGate>('none')
 const checkoutLockReason = ref<CheckoutLockReason | null>(null)
-/** core #145 `missing_fields`; kept for follow-up UI — not rendered yet. */
+/** core #145 `missing_fields` — stored only; Irice 定案不列出缺項。 */
 const questionnaireMissing = ref<string[]>([])
 /** Prefer error_data.conversation_id when returning to chat. */
 const questionnaireConversationId = ref<string | null>(null)

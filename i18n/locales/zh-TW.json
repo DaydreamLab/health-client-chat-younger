@@ -792,7 +792,7 @@
     "expert_plan_inactive": "此方案已下架",
     "expert_plan_inactive_body": "這個專家方案目前已下架，請重新選擇其他方案。",
     "conversationMissing": "找不到您的諮詢紀錄，請先回到對話完成健康諮詢。",
-    "questionnaireIncomplete": "TODO: checkout.questionnaireIncomplete",
+    "questionnaireIncomplete": "請先補填基本資料，才能結帳。",
     "processing": "建立訂單中…",
     "successTitle": "訂單已建立",
     "successBody": "請完成金流付款；成功後可在訂單頁查看出貨進度。",

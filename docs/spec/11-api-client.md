@@ -72,7 +72,7 @@
   - `mode=expert`：上架 `expert_plans`、`preselect_expert_plan_code`（僅一筆上架時）；關掉下架提示後的重新載入 `skipPreselect`（規則 31；使用者自行重整仍可依 core 單筆預選）。
   - `payment_methods[].status=coming_soon` → i18n `checkout.payment.coming_soon`；運費用 `shipping.fee`／`shipping.free`。
   - `block.code`：`expert_case_exists`／`no_expert_plans`；`checkout_locked`＋`checkout_lock_reason`。
-  - **422** `questionnaire_incomplete`（core #145 `92e7bbc`；`mode=expert` preview 與 expert_plan 建單）：`error_data.missing_fields`＋`error_data.conversation_id` → 錯誤態；「回到對話」優先用 `error_data.conversation_id`（否則 journey）；`missing_fields` 暫不顯示；不接 `POST /order/{id}/expert-case/retry`。
+  - **422** `questionnaire_incomplete`（core #145 `92e7bbc`；`mode=expert` preview 與 expert_plan 建單）：`error_data.missing_fields`＋`error_data.conversation_id` → 錯誤態（文案 `checkout.questionnaireIncomplete`）；「回到對話」優先用 `error_data.conversation_id`（否則 journey）；`missing_fields` **只存不顯示**（Irice 定案）；不接 `POST /order/{id}/expert-case/retry`。
 - 建單：按「確認付款」才 `POST /orders`（expert：`kind=expert_plan`＋`expert_plan_code`）；不下草稿。下架 → `422` `expert_plan_inactive`。
 - 定稿只讀：`GET /order/{id}/finalized-plan` → `getFinalizedPlan()`；案件／訂單詳情顯示處理中／定稿方案。
 - 退款申請：`POST /order/{id}/refund-request` → `createRefundRequest()`；閘門以 `refund_blocked_reason` 為準（`not_yet_reviewed`／`picking_started`／`already_shipped`／`refund_rejected`／`refund_request_exists`）；專家單開始理貨前（shipment null）且定稿後才可申請。
