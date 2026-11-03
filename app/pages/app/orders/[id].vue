@@ -66,10 +66,10 @@
       data-testid="order-expert-processing-banner"
     >
       <p class="font-semibold text-highlighted">
-        {{ $t('orders.expertProcessingTitle') }}
+        {{ $t('orders.expert_processing.title') }}
       </p>
       <p class="mt-1 text-sm text-muted">
-        {{ $t('orders.expertProcessingBody') }}
+        {{ $t('orders.expert_processing.body') }}
       </p>
     </div>
 

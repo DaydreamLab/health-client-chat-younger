@@ -411,7 +411,7 @@
 
           <fieldset class="space-y-1.5">
             <legend class="mb-1.5 text-sm font-medium text-highlighted">
-              {{ $t('checkout.payment') }}
+              {{ $t('checkout.payment.label') }}
             </legend>
             <label
               v-for="method in paymentMethodRows"
@@ -433,7 +433,7 @@
                 class="text-xs text-muted"
                 :data-testid="`checkout-payment-${method.code}-coming-soon`"
               >
-                {{ $t('checkout.paymentComingSoon') }}
+                {{ $t('checkout.payment.coming_soon') }}
               </span>
             </label>
           </fieldset>
@@ -703,14 +703,6 @@ function sortExpertPlans(rows: ExpertPlan[]): ExpertPlan[] {
   })
 }
 
-function isStandardFlow(): boolean {
-  const raw = route.query.flow
-  if (Array.isArray(raw)) {
-    return raw.includes('standard')
-  }
-  return raw === 'standard'
-}
-
 watch(addressCity, () => {
   if (hydratingAddress.value) {
     return
@@ -879,34 +871,14 @@ function applyExpertPlansFromPreview(
     : ''
 }
 
-async function applyAiPreviewPackage(
-  preview: CheckoutPreview,
-  packagePlanCode: string
-) {
+function applyAiPreviewPackage(preview: CheckoutPreview) {
   const ai = preview.ai
-  if (!ai) {
+  if (!ai || !Array.isArray(ai.items)) {
     packageError.value = t('recommendation.recoError')
     recommendation.value = null
     return
   }
-  if (!Array.isArray(ai.items) || ai.items.length === 0) {
-    // TODO(Irice): checkout preview ai.items should always be populated; remove fallback when core #143 stable.
-    const fallback = await candor.createRecommendation(
-      recommendationRequestFromJourney({
-        conversationId: journey.conversationId,
-        reportId: journey.reportId
-      })
-    )
-    const match = fallback.packages.find(pkg => pkg.package_plan_code === packagePlanCode)
-    if (match) {
-      recommendation.value = {
-        ...fallback,
-        packages: fallback.packages.filter(pkg => pkg.package_plan_code === packagePlanCode)
-      }
-      selectedPackageCode.value = match.package_plan_code
-      return
-    }
-  }
+  // Spec 33 / core #143: checkout uses preview.ai.items only — never POST /recommendations cache.
   const pkg = aiPackageFromPreview(ai)
   recommendation.value = recommendationShell([pkg])
   selectedPackageCode.value = pkg.package_plan_code
@@ -918,17 +890,12 @@ async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
   listError.value = ''
   packageError.value = ''
 
-  if (isStandardFlow() && !isExpertPlan.value) {
-    await loadLegacyPackageRecommendation()
-    listPending.value = false
-    return
-  }
-
   const conversationId = journey.conversationId?.trim() ?? ''
   if (!conversationId) {
     if (isExpertPlan.value) {
       listError.value = t('expertPlans.conversationRequired')
     } else {
+      // No conversation → cannot call checkout/preview; last-resort legacy path.
       await loadLegacyPackageRecommendation()
     }
     listPending.value = false
@@ -974,7 +941,7 @@ async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
         pageGate.value = 'empty_catalog'
       }
     } else if (pageGate.value === 'none') {
-      await applyAiPreviewPackage(preview, packagePlanCode)
+      applyAiPreviewPackage(preview)
     }
   } catch {
     if (isExpertPlan.value) {
@@ -1214,4 +1181,21 @@ async function maybeSaveDefaultAddress(
 onMounted(async () => {
   await loadCheckoutPreview()
 })
+
+watch(
+  () => [
+    checkoutKind.value,
+    resolvePackagePlanCode(),
+    journey.conversationId
+  ] as const,
+  async (next, prev) => {
+    if (!prev) {
+      return
+    }
+    if (next[0] === prev[0] && next[1] === prev[1] && next[2] === prev[2]) {
+      return
+    }
+    await loadCheckoutPreview()
+  }
+)
 </script>

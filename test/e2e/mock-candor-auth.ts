@@ -996,6 +996,184 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     })
   })
 
+  await page.route('**/api/v1/checkout/preview**', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback()
+      return
+    }
+    const url = new URL(route.request().url())
+    const mode = url.searchParams.get('mode') === 'ai' ? 'ai' : 'expert'
+    const packagePlanCode = url.searchParams.get('package_plan_code') || 'basic'
+    const catalog = options.expertPlansCatalog ?? 'default'
+    const expertPlans = catalog === 'empty'
+      ? []
+      : catalog === 'single'
+        ? [{
+            id: 'ep-basic',
+            code: 'basic',
+            package_plan_id: 'pp-basic',
+            name_zh: '基本方案',
+            price: 6000,
+            sort_order: 1,
+            active: true
+          }]
+        : [
+            {
+              id: 'ep-basic',
+              code: 'basic',
+              package_plan_id: 'pp-basic',
+              name_zh: '基本方案',
+              price: 6000,
+              sort_order: 1,
+              active: true
+            },
+            {
+              id: 'ep-advance',
+              code: 'advance',
+              package_plan_id: 'pp-advance',
+              name_zh: '進階方案',
+              price: 9000,
+              sort_order: 2,
+              active: true
+            }
+          ]
+
+    const reviewMode = options.expertReview
+    let block: { code: string } | null = null
+    let checkoutLocked = false
+    let checkoutLockReason: string | null = null
+    if (mode === 'expert') {
+      if (reviewMode === 'reviewed_with_order') {
+        checkoutLocked = true
+        checkoutLockReason = 'order_submitted'
+      } else if (reviewMode === 'awaiting' || reviewMode === 'reviewed') {
+        block = { code: 'expert_case_exists' }
+      } else if (catalog === 'empty') {
+        block = { code: 'no_expert_plans' }
+      }
+    }
+
+    const aiItems = [
+      {
+        rank: 1,
+        sellable_item_id: sellableVitD,
+        code: 'vitamin_d',
+        name: '維生素 D',
+        unit_price: 9,
+        daily_dose: 1,
+        daily_servings_max: 2,
+        daily_price: 9,
+        monthly_cost: 280,
+        score_raw: 1,
+        is_core: true,
+        image_url: null
+      },
+      {
+        rank: 2,
+        sellable_item_id: sellableIron,
+        code: 'iron',
+        name: '鐵蛋白調理',
+        unit_price: 17,
+        daily_dose: 1,
+        daily_servings_max: 1,
+        daily_price: 17,
+        monthly_cost: 520,
+        score_raw: 0.8,
+        is_core: false,
+        image_url: null
+      }
+    ]
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: {
+          conversation_id: conversationId,
+          mode,
+          block,
+          checkout_locked: checkoutLocked,
+          checkout_lock_reason: checkoutLockReason,
+          recipient: {
+            name: '林晏婷',
+            phone: '0912345678',
+            address: '台北市大安區復興南路一段 100 號',
+            address_city: '台北市',
+            address_district: '大安區',
+            address_detail: '復興南路一段 100 號',
+            email: 'guest@example.com'
+          },
+          shipping: { fee: 0, free: true },
+          invoice: {},
+          payment_methods: [
+            { code: 'card', available: true, status: null },
+            { code: 'linepay', available: false, status: 'coming_soon' },
+            { code: 'atm', available: false, status: 'coming_soon' }
+          ],
+          expert_plans: mode === 'expert' ? expertPlans : [],
+          preselect_expert_plan_code: mode === 'expert' && expertPlans.length === 1
+            ? expertPlans[0]?.code ?? null
+            : null,
+          ai: mode === 'ai'
+            ? {
+                package_plan_code: packagePlanCode,
+                package_plan_name: packagePlanCode === 'advance' ? '完整調理' : '基礎保養',
+                name_zh: packagePlanCode === 'advance' ? '完整調理' : '基礎保養',
+                price: packagePlanCode === 'advance' ? 2980 : 1980,
+                period_days: 30,
+                item_count: aiItems.length,
+                used_amount: 800,
+                remaining: packagePlanCode === 'advance' ? 2180 : 1180,
+                composition_hash: `sha256:${packagePlanCode}`,
+                items: aiItems
+              }
+            : null,
+          completion_choice: null
+        }
+      })
+    })
+  })
+
+  await page.route('**/api/v1/order/*/finalized-plan', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: {
+          order_id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+          expert_case_id: expertReviewId,
+          reviewed_at: '2026-01-01T01:00:00Z',
+          packages: [
+            {
+              package_plan_code: 'basic',
+              name_zh: '基礎保養',
+              items: [
+                {
+                  sellable_item_code: 'vitamin_d',
+                  name_zh: '維生素 D',
+                  daily_dose: 1,
+                  unit: '顆'
+                },
+                {
+                  sellable_item_code: 'iron',
+                  name_zh: '鐵蛋白調理',
+                  daily_dose: 1,
+                  unit: '顆'
+                }
+              ]
+            }
+          ]
+        }
+      })
+    })
+  })
+
   await page.route('**/api/v1/auth/guest', async (route) => {
     await route.fulfill({
       status: 201,
@@ -2642,7 +2820,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
               }
             : null,
           refund_rejection_reason: refundRequestStatus === 'rejected' ? '不符合退款條件' : null,
-          shipment_status: placedOrder.package_plan_name?.includes('專家') ? 'pending' : 'picking'
+          // Expert refund window: no shipment yet after finalize; AI demo keeps picking.
+          shipment_status: placedOrder.package_plan_name?.includes('專家') ? null : 'picking'
         }
       })
     })

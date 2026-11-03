@@ -764,7 +764,10 @@
     "delivery": "Delivery",
     "deliveryHome": "Home delivery",
     "deliveryHint": "Track shipment on the order page after it goes out.",
-    "payment": "Payment",
+    "payment": {
+      "label": "Payment",
+      "coming_soon": "Coming soon"
+    },
     "card": "Card",
     "linepayComingSoon": "LINE Pay (coming soon)",
     "atmComingSoon": "ATM transfer (coming soon)",
@@ -902,6 +905,10 @@
       "refund_request_exists": "A refund request is already in progress."
     },
     "refundBlockGenericTodo": "TODO: refund blocked (design copy pending)",
+    "expert_processing": {
+      "title": "Expert review in progress",
+      "body": "Your expert will finalize your plan within about one business day."
+    },
     "expertProcessingTitle": "Expert review in progress",
     "expertProcessingBody": "Your expert will finalize your plan within about one business day.",
     "refundRejectedTitle": "Refund request declined",

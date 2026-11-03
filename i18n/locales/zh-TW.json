@@ -764,7 +764,10 @@
     "delivery": "配送方式",
     "deliveryHome": "宅配到府",
     "deliveryHint": "出貨後可在訂單頁查看時間軸。",
-    "payment": "付款方式",
+    "payment": {
+      "label": "付款方式",
+      "coming_soon": "即將開放"
+    },
     "card": "信用卡",
     "linepayComingSoon": "LINE Pay（開發中）",
     "atmComingSoon": "ATM 轉帳（開發中）",
@@ -902,6 +905,10 @@
       "refund_request_exists": "退款申請處理中，無法再次申請"
     },
     "refundBlockGenericTodo": "TODO: refund blocked (design copy pending)",
+    "expert_processing": {
+      "title": "專家處理中",
+      "body": "專家將於約一個工作天內完成您的方案。"
+    },
     "expertProcessingTitle": "專家處理中",
     "expertProcessingBody": "專家將於約一個工作天內完成您的方案。",
     "refundRejectedTitle": "退款申請未通過",

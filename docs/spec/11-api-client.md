@@ -64,11 +64,17 @@
 - Sandbox：跟隨 `payment.redirect_url` 整頁導轉；callback 只打 core。
 - **不得**實作或呼叫 `POST /payments/{provider}/callback`。
 
-## 專家方案（spec 33 — 本 PR 範圍）
+## 專家方案（spec 33 — core #143）
 
-- 定稿只讀：案件有 `order_id` 時，`/app/recommendations` 顯示定稿結果、隱藏結帳；讀 `GET /order/{id}` 開案金額。
-- 退款申請：`POST /order/{id}/refund-request` → `createRefundRequest()`；訂單／案件帶 `refund_request_status`／`refund_request_display`／`can_request_refund`（`requested` → 文案「退款申請中」）；出貨前（`shipment_status` null｜`picking`）且定稿後才可申請；`rejected` 不可再申請。
-- 訂單 line `kind=expert_plan` 供讀取判斷；catalog／雙選導頁／開案結帳頁待 Irice 定案後另做。
+- 完成 CTA：usable `reply_actions.offer_recommend`（`mode=view_recommendations`）；首按 `POST /conversations/{id}/completion-choice` body `{}` → `recordCompletionChoice()`。
+- 結帳預覽：`GET /checkout/preview?conversation_id&mode=ai|expert&package_plan_code?` → `getCheckoutPreview()`。
+  - `mode=ai`：方案組成以回傳 `ai`（含 `items[]`＝`RecommendationPackageItem`）為準；**不得**再沿用 `POST /recommendations` 快取品項。切換 `package_plan_code` 重打 preview。
+  - `mode=expert`：上架 `expert_plans`、`preselect_expert_plan_code`（僅一筆上架時）；下架後重新載入前台 `skipPreselect`（規則 31）。
+  - `payment_methods[].status=coming_soon` → i18n `checkout.payment.coming_soon`；運費用 `shipping.fee`／`shipping.free`。
+  - `block.code`：`expert_case_exists`／`no_expert_plans`；`checkout_locked`＋`checkout_lock_reason`。
+- 建單：按「確認付款」才 `POST /orders`（expert：`kind=expert_plan`＋`expert_plan_code`）；不下草稿。下架 → `422` `expert_plan_inactive`。
+- 定稿只讀：`GET /order/{id}/finalized-plan` → `getFinalizedPlan()`；案件／訂單詳情顯示處理中／定稿方案。
+- 退款申請：`POST /order/{id}/refund-request` → `createRefundRequest()`；閘門以 `refund_blocked_reason` 為準（`not_yet_reviewed`／`picking_started`／`already_shipped`／`refund_rejected`／`refund_request_exists`）；專家單開始理貨前（shipment null）且定稿後才可申請。
 
 ## 通知 inbox（member）
 
