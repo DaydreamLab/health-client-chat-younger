@@ -120,6 +120,27 @@
       </AppButton>
     </section>
 
+    <section
+      v-else-if="pageGate === 'questionnaire_incomplete'"
+      class="mx-auto max-w-lg rounded-2xl border border-default bg-elevated p-8 text-center"
+      data-testid="checkout-questionnaire-incomplete"
+      :data-missing-count="questionnaireMissing.length"
+    >
+      <p class="text-3xl text-warning">
+        !
+      </p>
+      <p class="mt-4 text-sm leading-relaxed text-muted">
+        {{ $t('checkout.questionnaireIncomplete') }}
+      </p>
+      <AppButton
+        class="mt-6 w-full"
+        data-testid="checkout-questionnaire-incomplete-back"
+        @click="onQuestionnaireBackToChat"
+      >
+        {{ $t('expertPlans.backToChat') }}
+      </AppButton>
+    </section>
+
     <div
       v-else
       class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]"
@@ -568,6 +589,10 @@ import {
   type PaymentMethod
 } from '~/utils/first-order'
 import {
+  isQuestionnaireIncompleteError,
+  parseQuestionnaireIncompleteData
+} from '~/utils/questionnaire-incomplete'
+import {
   TAIWAN_CITIES,
   composeTaiwanAddress,
   districtsForCity
@@ -589,7 +614,13 @@ const api = useFirstOrderApi()
 const candor = useCandorApi()
 
 type CheckoutKind = 'expert_plan' | 'package'
-type PageGate = 'none' | 'case_exists' | 'checkout_locked' | 'empty_catalog' | 'conversation_missing'
+type PageGate
+  = 'none'
+    | 'case_exists'
+    | 'checkout_locked'
+    | 'empty_catalog'
+    | 'conversation_missing'
+    | 'questionnaire_incomplete'
 
 const checkoutKind = computed<CheckoutKind>(() => {
   const raw = route.query.kind
@@ -600,6 +631,10 @@ const isExpertPlan = computed(() => checkoutKind.value === 'expert_plan')
 
 const pageGate = ref<PageGate>('none')
 const checkoutLockReason = ref<CheckoutLockReason | null>(null)
+/** core #145 `missing_fields` — stored only; Irice 定案不列出缺項。 */
+const questionnaireMissing = ref<string[]>([])
+/** Prefer error_data.conversation_id when returning to chat. */
+const questionnaireConversationId = ref<string | null>(null)
 const plans = ref<ExpertPlan[]>([])
 const listPending = ref(true)
 const listError = ref('')
@@ -881,9 +916,32 @@ function applyAiPreviewPackage(preview: CheckoutPreview) {
   selectedPackageCode.value = pkg.package_plan_code
 }
 
+function applyQuestionnaireIncompleteGate(err: CandorApiError) {
+  const parsed = parseQuestionnaireIncompleteData(err)
+  questionnaireMissing.value = parsed.missingFields
+  questionnaireConversationId.value = parsed.conversationId
+    || journey.conversationId?.trim()
+    || null
+  pageGate.value = 'questionnaire_incomplete'
+  recommendation.value = null
+  plans.value = []
+}
+
+async function onQuestionnaireBackToChat() {
+  const id = questionnaireConversationId.value?.trim()
+    || journey.conversationId?.trim()
+    || ''
+  if (id) {
+    journey.conversationId = id
+  }
+  await navigateTo(localePath('/chat'))
+}
+
 async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
   pageGate.value = 'none'
   checkoutLockReason.value = null
+  questionnaireMissing.value = []
+  questionnaireConversationId.value = null
   listError.value = ''
   packageError.value = ''
 
@@ -943,7 +1001,9 @@ async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
       applyAiPreviewPackage(preview)
     }
   } catch (err) {
-    if (
+    if (isQuestionnaireIncompleteError(err)) {
+      applyQuestionnaireIncompleteGate(err)
+    } else if (
       !isExpertPlan.value
       && err instanceof CandorApiError
       && err.statusCode === 422
@@ -1125,6 +1185,10 @@ async function onPay(event: Event) {
     journey.clearSession()
   } catch (err) {
     payPhase.value = 'form'
+    if (isQuestionnaireIncompleteError(err)) {
+      applyQuestionnaireIncompleteGate(err)
+      return
+    }
     if (err instanceof CandorApiError) {
       if (isExpertPlan.value && isDelistedError(err.errorCode)) {
         showDelistedModal.value = true

@@ -159,6 +159,32 @@ test.describe('expert-plan v4 screenshots', () => {
     await expect(page.getByTestId('checkout-conversation-missing-back')).toBeVisible()
   })
 
+  test('checkout questionnaire_incomplete shows back-to-chat gate', async ({ page, goto }) => {
+    await mockCandorAuth(page, {
+      asMember: true,
+      expertReview: 'none',
+      expertPlansCatalog: 'single',
+      questionnaireIncomplete: true
+    })
+    await seedJourneyConversation(page)
+    await goto('/app/checkout?kind=expert_plan', { waitUntil: 'hydration' })
+    await expect(page.getByTestId('checkout-questionnaire-incomplete')).toBeVisible({ timeout: 25000 })
+    await expect(page.getByTestId('checkout-questionnaire-incomplete')).toContainText(
+      '請先補填基本資料，才能結帳。'
+    )
+    await expect(page.getByTestId('checkout-questionnaire-incomplete')).toHaveAttribute(
+      'data-missing-count',
+      '4'
+    )
+    // Irice 定案：missing_fields 只存不顯示
+    await expect(page.getByTestId('checkout-questionnaire-incomplete')).not.toContainText('sex')
+    await page.getByTestId('checkout-questionnaire-incomplete-back').click()
+    await expect(page).toHaveURL(/\/chat/)
+    await goto('/app/checkout?kind=expert_plan', { waitUntil: 'hydration' })
+    await expect(page.getByTestId('checkout-questionnaire-incomplete')).toBeVisible({ timeout: 25000 })
+    await shot(page, 'checkout-questionnaire-incomplete')
+  })
+
   test('F-07 checkout case exists', async ({ page, goto }) => {
     await mockCandorAuth(page, {
       asMember: true,

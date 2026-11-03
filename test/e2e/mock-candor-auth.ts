@@ -69,6 +69,11 @@ export type CandorMockOptions = {
   /** Expert plans catalog: empty → F-08; single → preselect. */
   expertPlansCatalog?: 'default' | 'empty' | 'single'
   /**
+   * GET /checkout/preview（與專家建單）回 422 questionnaire_incomplete。
+   * `true` → 預設缺 sex／age／height／weight；或傳字串陣列覆寫 missing_fields。
+   */
+  questionnaireIncomplete?: boolean | string[]
+  /**
    * Seed `candor.privacy.consent.version` before each navigation.
    * Default matches the mocked privacy-policy version so the cookie banner
    * does not cover other e2e flows. Pass `false` to leave storage empty
@@ -1014,6 +1019,26 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           error_message: 'conversation_id is required',
           error_code: 'invalid_request',
           error_data: null
+        })
+      })
+      return
+    }
+    // core #145 92e7bbc: missing sex／age／height／weight → 422 questionnaire_incomplete
+    if (options.questionnaireIncomplete) {
+      const missingFields = Array.isArray(options.questionnaireIncomplete)
+        ? options.questionnaireIncomplete
+        : ['sex', 'age', 'height', 'weight']
+      await route.fulfill({
+        status: 422,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'failed',
+          error_message: 'Basic profile fields are required: sex, age, height, weight.',
+          error_code: 'questionnaire_incomplete',
+          error_data: {
+            missing_fields: missingFields,
+            conversation_id: conversationIdParam || conversationId
+          }
         })
       })
       return
@@ -2660,6 +2685,25 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
 
   await page.route('**/api/v1/orders', async (route) => {
     if (route.request().method() === 'POST') {
+      if (options.questionnaireIncomplete) {
+        const missingFields = Array.isArray(options.questionnaireIncomplete)
+          ? options.questionnaireIncomplete
+          : ['sex', 'age', 'height', 'weight']
+        await route.fulfill({
+          status: 422,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            status: 'failed',
+            error_message: 'Basic profile fields are required: sex, age, height, weight.',
+            error_code: 'questionnaire_incomplete',
+            error_data: {
+              missing_fields: missingFields,
+              conversation_id: conversationId
+            }
+          })
+        })
+        return
+      }
       placedOrder = {
         id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
         order_no: 'ORD-260101-000001',
