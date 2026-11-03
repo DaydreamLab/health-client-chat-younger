@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import type { CheckoutPreviewAiPackage, RecommendationPackageItem } from '~/utils/candor-api'
+import type {
+  CheckoutPreview,
+  CheckoutPreviewAiPackage,
+  RecommendationPackageItem
+} from '~/utils/candor-api'
 
 /** Mirrors checkout.vue aiPackageFromPreview — keep in sync with Spec 33 preview.ai. */
 function aiPackageFromPreview(ai: CheckoutPreviewAiPackage) {
@@ -67,5 +71,36 @@ describe('checkout preview ai.items (spec 33 / core #143)', () => {
       items: []
     }
     expect(aiPackageFromPreview(ai).items).toEqual([])
+  })
+
+  it('tolerates core #146 existing_order object or null on CheckoutPreview', () => {
+    const withOrder: CheckoutPreview = {
+      conversation_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      mode: 'expert',
+      block: null,
+      checkout_locked: false,
+      shipping: { fee: 0, free: true },
+      payment_methods: [],
+      expert_plans: [],
+      ai: null,
+      existing_order: {
+        order_id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+        order_no: 'ORD-260101-000001',
+        extra: true
+      }
+    }
+    expect(withOrder.existing_order?.order_id).toBe('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee')
+    const aiNull: CheckoutPreview = {
+      conversation_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      mode: 'ai',
+      block: null,
+      checkout_locked: false,
+      shipping: { fee: 0, free: true },
+      payment_methods: [],
+      expert_plans: [],
+      ai: null,
+      existing_order: null
+    }
+    expect(aiNull.existing_order).toBeNull()
   })
 })

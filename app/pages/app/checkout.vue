@@ -141,6 +141,46 @@
       </AppButton>
     </section>
 
+    <section
+      v-else-if="pageGate === 'conversation_already_ordered'"
+      class="mx-auto max-w-lg rounded-2xl border border-default bg-elevated p-8 text-center"
+      data-testid="checkout-conversation-already-ordered"
+    >
+      <p class="text-3xl text-warning">
+        !
+      </p>
+      <p class="mt-4 text-sm leading-relaxed text-muted">
+        {{ $t('checkout.conversationAlreadyOrdered') }}
+      </p>
+      <AppButton
+        class="mt-6 w-full"
+        data-testid="checkout-conversation-already-ordered-cta"
+        @click="onConversationAlreadyOrderedCta"
+      >
+        {{ conversationAlreadyOrderedCtaLabel }}
+      </AppButton>
+    </section>
+
+    <section
+      v-else-if="pageGate === 'expert_plan_reuse_mismatch'"
+      class="mx-auto max-w-lg rounded-2xl border border-default bg-elevated p-8 text-center"
+      data-testid="checkout-expert-plan-reuse-mismatch"
+    >
+      <p class="text-3xl text-warning">
+        !
+      </p>
+      <p class="mt-4 text-sm leading-relaxed text-muted">
+        {{ $t('checkout.expertPlanReuseMismatch') }}
+      </p>
+      <AppButton
+        class="mt-6 w-full"
+        data-testid="checkout-expert-plan-reuse-mismatch-cta"
+        @click="onExpertPlanReuseMismatchCta"
+      >
+        {{ $t('checkout.conversationAlreadyOrderedCtaOrder') }}
+      </AppButton>
+    </section>
+
     <div
       v-else
       class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]"
@@ -589,6 +629,17 @@ import {
   type PaymentMethod
 } from '~/utils/first-order'
 import {
+  conversationAlreadyOrderedAction,
+  isConversationAlreadyOrderedError,
+  parseConversationAlreadyOrderedData,
+  type ConversationAlreadyOrderedData
+} from '~/utils/conversation-already-ordered'
+import {
+  isExpertPlanReuseMismatchError,
+  parseExpertPlanReuseMismatchData,
+  type ExpertPlanReuseMismatchData
+} from '~/utils/expert-plan-reuse-mismatch'
+import {
   isQuestionnaireIncompleteError,
   parseQuestionnaireIncompleteData
 } from '~/utils/questionnaire-incomplete'
@@ -621,6 +672,8 @@ type PageGate
     | 'empty_catalog'
     | 'conversation_missing'
     | 'questionnaire_incomplete'
+    | 'conversation_already_ordered'
+    | 'expert_plan_reuse_mismatch'
 
 const checkoutKind = computed<CheckoutKind>(() => {
   const raw = route.query.kind
@@ -635,6 +688,8 @@ const checkoutLockReason = ref<CheckoutLockReason | null>(null)
 const questionnaireMissing = ref<string[]>([])
 /** Prefer error_data.conversation_id when returning to chat. */
 const questionnaireConversationId = ref<string | null>(null)
+const alreadyOrdered = ref<ConversationAlreadyOrderedData | null>(null)
+const reuseMismatch = ref<ExpertPlanReuseMismatchData | null>(null)
 const plans = ref<ExpertPlan[]>([])
 const listPending = ref(true)
 const listError = ref('')
@@ -680,6 +735,16 @@ const DEFAULT_PAYMENT_METHODS: PaymentMethodRow[] = [
 const paymentMethodRows = ref<PaymentMethodRow[]>([...DEFAULT_PAYMENT_METHODS])
 
 const chatBackPath = computed(() => localePath('/chat'))
+const conversationAlreadyOrderedCtaLabel = computed(() => {
+  const data = alreadyOrdered.value
+  if (!data) {
+    return t('checkout.conversationAlreadyOrderedCtaChat')
+  }
+  const action = conversationAlreadyOrderedAction(data)
+  return action.kind === 'order'
+    ? t('checkout.conversationAlreadyOrderedCtaOrder')
+    : t('checkout.conversationAlreadyOrderedCtaChat')
+})
 const recommendationsPath = computed(() => {
   const raw = route.query.flow
   const flow = Array.isArray(raw) ? raw[0] : raw
@@ -937,11 +1002,69 @@ async function onQuestionnaireBackToChat() {
   await navigateTo(localePath('/chat'))
 }
 
+function applyConversationAlreadyOrderedGate(err: CandorApiError) {
+  const parsed = parseConversationAlreadyOrderedData(err)
+  alreadyOrdered.value = {
+    ...parsed,
+    conversationId: parsed.conversationId || journey.conversationId?.trim() || null
+  }
+  pageGate.value = 'conversation_already_ordered'
+  recommendation.value = null
+  plans.value = []
+}
+
+async function onConversationAlreadyOrderedCta() {
+  const data = alreadyOrdered.value ?? {
+    conversationId: journey.conversationId?.trim() || null,
+    orderId: null,
+    orderNo: null,
+    expertCaseId: null
+  }
+  const action = conversationAlreadyOrderedAction(data)
+  if (action.kind === 'order') {
+    await navigateTo(localePath(`/app/orders/${action.orderId}`))
+    return
+  }
+  const id = action.conversationId || journey.conversationId?.trim() || ''
+  if (id) {
+    journey.conversationId = id
+  }
+  await navigateTo(localePath('/chat'))
+}
+
+function applyExpertPlanReuseMismatchGate(err: CandorApiError) {
+  const parsed = parseExpertPlanReuseMismatchData(err)
+  reuseMismatch.value = {
+    ...parsed,
+    conversationId: parsed.conversationId || journey.conversationId?.trim() || null
+  }
+  pageGate.value = 'expert_plan_reuse_mismatch'
+  recommendation.value = null
+  plans.value = []
+}
+
+async function onExpertPlanReuseMismatchCta() {
+  const orderId = reuseMismatch.value?.orderId?.trim() || ''
+  if (orderId) {
+    await navigateTo(localePath(`/app/orders/${orderId}`))
+    return
+  }
+  const id = reuseMismatch.value?.conversationId?.trim()
+    || journey.conversationId?.trim()
+    || ''
+  if (id) {
+    journey.conversationId = id
+  }
+  await navigateTo(localePath('/chat'))
+}
+
 async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
   pageGate.value = 'none'
   checkoutLockReason.value = null
   questionnaireMissing.value = []
   questionnaireConversationId.value = null
+  alreadyOrdered.value = null
+  reuseMismatch.value = null
   listError.value = ''
   packageError.value = ''
 
@@ -1001,7 +1124,9 @@ async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
       applyAiPreviewPackage(preview)
     }
   } catch (err) {
-    if (isQuestionnaireIncompleteError(err)) {
+    if (isConversationAlreadyOrderedError(err)) {
+      applyConversationAlreadyOrderedGate(err)
+    } else if (isQuestionnaireIncompleteError(err)) {
       applyQuestionnaireIncompleteGate(err)
     } else if (
       !isExpertPlan.value
@@ -1185,6 +1310,14 @@ async function onPay(event: Event) {
     journey.clearSession()
   } catch (err) {
     payPhase.value = 'form'
+    if (isConversationAlreadyOrderedError(err)) {
+      applyConversationAlreadyOrderedGate(err)
+      return
+    }
+    if (isExpertPlanReuseMismatchError(err)) {
+      applyExpertPlanReuseMismatchGate(err)
+      return
+    }
     if (isQuestionnaireIncompleteError(err)) {
       applyQuestionnaireIncompleteGate(err)
       return
