@@ -162,22 +162,22 @@
     </section>
 
     <section
-      v-else-if="pageGate === 'expert_plan_reuse_mismatch'"
+      v-else-if="pageGate === 'existing_order_repay'"
       class="mx-auto max-w-lg rounded-2xl border border-default bg-elevated p-8 text-center"
-      data-testid="checkout-expert-plan-reuse-mismatch"
+      data-testid="checkout-existing-order-repay"
     >
       <p class="text-3xl text-warning">
         !
       </p>
       <p class="mt-4 text-sm leading-relaxed text-muted">
-        {{ $t('checkout.expertPlanReuseMismatch') }}
+        {{ $t('checkout.existingOrderRepay') }}
       </p>
       <AppButton
         class="mt-6 w-full"
-        data-testid="checkout-expert-plan-reuse-mismatch-cta"
-        @click="onExpertPlanReuseMismatchCta"
+        data-testid="checkout-existing-order-repay-cta"
+        @click="onExistingOrderRepayCta"
       >
-        {{ $t('checkout.conversationAlreadyOrderedCtaOrder') }}
+        {{ $t('checkout.existingOrderRepayCta') }}
       </AppButton>
     </section>
 
@@ -240,7 +240,10 @@
                 v-for="plan in plans"
                 :key="plan.code"
                 class="app-path-card"
-                :class="{ 'app-path-card-selected': selectedCode === plan.code }"
+                :class="{
+                  'app-path-card-selected': selectedCode === plan.code,
+                  'pointer-events-none opacity-60': planSelectionLocked && selectedCode !== plan.code
+                }"
                 :data-testid="`expert-plan-${plan.code}`"
               >
                 <input
@@ -249,6 +252,7 @@
                   class="sr-only"
                   name="expert-plan"
                   :value="plan.code"
+                  :disabled="planSelectionLocked"
                 >
                 <div class="flex items-start justify-between gap-2">
                   <p class="font-medium text-highlighted">
@@ -629,16 +633,16 @@ import {
   type PaymentMethod
 } from '~/utils/first-order'
 import {
+  parseCheckoutExistingOrder,
+  shouldRedirectExistingOrderToRepay,
+  type CheckoutExistingOrder
+} from '~/utils/checkout-existing-order'
+import {
   conversationAlreadyOrderedAction,
   isConversationAlreadyOrderedError,
   parseConversationAlreadyOrderedData,
   type ConversationAlreadyOrderedData
 } from '~/utils/conversation-already-ordered'
-import {
-  isExpertPlanReuseMismatchError,
-  parseExpertPlanReuseMismatchData,
-  type ExpertPlanReuseMismatchData
-} from '~/utils/expert-plan-reuse-mismatch'
 import {
   isQuestionnaireIncompleteError,
   parseQuestionnaireIncompleteData
@@ -673,7 +677,7 @@ type PageGate
     | 'conversation_missing'
     | 'questionnaire_incomplete'
     | 'conversation_already_ordered'
-    | 'expert_plan_reuse_mismatch'
+    | 'existing_order_repay'
 
 const checkoutKind = computed<CheckoutKind>(() => {
   const raw = route.query.kind
@@ -689,7 +693,9 @@ const questionnaireMissing = ref<string[]>([])
 /** Prefer error_data.conversation_id when returning to chat. */
 const questionnaireConversationId = ref<string | null>(null)
 const alreadyOrdered = ref<ConversationAlreadyOrderedData | null>(null)
-const reuseMismatch = ref<ExpertPlanReuseMismatchData | null>(null)
+const existingOrder = ref<CheckoutExistingOrder | null>(null)
+/** When existing_order lacks order_id but has expert_plan_code — lock plan radios. */
+const planSelectionLocked = ref(false)
 const plans = ref<ExpertPlan[]>([])
 const listPending = ref(true)
 const listError = ref('')
@@ -1032,30 +1038,33 @@ async function onConversationAlreadyOrderedCta() {
   await navigateTo(localePath('/chat'))
 }
 
-function applyExpertPlanReuseMismatchGate(err: CandorApiError) {
-  const parsed = parseExpertPlanReuseMismatchData(err)
-  reuseMismatch.value = {
-    ...parsed,
-    conversationId: parsed.conversationId || journey.conversationId?.trim() || null
-  }
-  pageGate.value = 'expert_plan_reuse_mismatch'
+function applyExistingOrderRepayGate(data: CheckoutExistingOrder) {
+  existingOrder.value = data
+  pageGate.value = 'existing_order_repay'
   recommendation.value = null
   plans.value = []
+  planSelectionLocked.value = false
 }
 
-async function onExpertPlanReuseMismatchCta() {
-  const orderId = reuseMismatch.value?.orderId?.trim() || ''
+async function onExistingOrderRepayCta() {
+  const orderId = existingOrder.value?.orderId?.trim() || ''
   if (orderId) {
+    // Smoothest path: order detail already has repay (incl. pending) + anti-double-click.
     await navigateTo(localePath(`/app/orders/${orderId}`))
     return
   }
-  const id = reuseMismatch.value?.conversationId?.trim()
-    || journey.conversationId?.trim()
-    || ''
-  if (id) {
-    journey.conversationId = id
-  }
   await navigateTo(localePath('/chat'))
+}
+
+function applyExistingOrderPlanLock(data: CheckoutExistingOrder) {
+  existingOrder.value = data
+  const code = data.expertPlanCode?.trim() || ''
+  if (code && plans.value.some(plan => plan.code === code)) {
+    selectedCode.value = code
+    planSelectionLocked.value = true
+  } else {
+    planSelectionLocked.value = false
+  }
 }
 
 async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
@@ -1064,7 +1073,8 @@ async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
   questionnaireMissing.value = []
   questionnaireConversationId.value = null
   alreadyOrdered.value = null
-  reuseMismatch.value = null
+  existingOrder.value = null
+  planSelectionLocked.value = false
   listError.value = ''
   packageError.value = ''
 
@@ -1115,8 +1125,19 @@ async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
     applyPaymentMethodsFromPreview(preview.payment_methods ?? [])
     applyRecipientFromPreview(preview.recipient)
 
+    const parsedExisting = isExpertPlan.value
+      ? parseCheckoutExistingOrder(preview.existing_order)
+      : null
+    if (parsedExisting && shouldRedirectExistingOrderToRepay(parsedExisting)) {
+      applyExistingOrderRepayGate(parsedExisting)
+      return
+    }
+
     if (isExpertPlan.value) {
       applyExpertPlansFromPreview(preview, options)
+      if (parsedExisting) {
+        applyExistingOrderPlanLock(parsedExisting)
+      }
       if (pageGate.value === 'none' && plans.value.length === 0) {
         pageGate.value = 'empty_catalog'
       }
@@ -1314,13 +1335,30 @@ async function onPay(event: Event) {
       applyConversationAlreadyOrderedGate(err)
       return
     }
-    if (isExpertPlanReuseMismatchError(err)) {
-      applyExpertPlanReuseMismatchGate(err)
-      return
-    }
     if (isQuestionnaireIncompleteError(err)) {
       applyQuestionnaireIncompleteGate(err)
       return
+    }
+    // Legacy core may still emit expert_plan_reuse_mismatch — treat like already-ordered order CTA.
+    if (
+      err instanceof CandorApiError
+      && err.statusCode === 409
+      && err.errorCode === 'expert_plan_reuse_mismatch'
+    ) {
+      const data = err.errorData
+      const row = data && typeof data === 'object' ? data as Record<string, unknown> : null
+      const orderId = typeof row?.order_id === 'string' ? row.order_id.trim() : ''
+      if (orderId) {
+        applyExistingOrderRepayGate({
+          orderId,
+          orderNo: typeof row?.order_no === 'string' ? row.order_no : null,
+          expertPlanCode: typeof row?.existing_expert_plan_code === 'string'
+            ? row.existing_expert_plan_code
+            : null,
+          paymentStatus: 'pending'
+        })
+        return
+      }
     }
     if (err instanceof CandorApiError) {
       if (isExpertPlan.value && isDelistedError(err.errorCode)) {

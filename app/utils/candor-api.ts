@@ -288,13 +288,15 @@ export interface CheckoutPreview {
   ai: CheckoutPreviewAiPackage | null
   completion_choice?: ConversationCompletionChoice | null
   /**
-   * core #146 unpaid reuse hint on 200 preview (`mode=expert`).
-   * Shape `{ order_id, order_no }` or `null`; `mode=ai` fixed `null`.
-   * FE ignores for UX for now (pending Irice); typed so extra fields never break.
+   * core #146 unpaid／pending／failed／expired reuse on 200 preview (`mode=expert`).
+   * May include `expert_plan_code`／`payment_status`; `mode=ai` fixed `null`.
+   * FE: with `order_id` → gate to order repay; typed so extra fields never break.
    */
   existing_order?: {
     order_id?: string
     order_no?: string
+    expert_plan_code?: string
+    payment_status?: string
     [key: string]: unknown
   } | null
 }

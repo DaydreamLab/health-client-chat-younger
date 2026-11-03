@@ -238,7 +238,7 @@ test.describe('expert-plan v4 screenshots', () => {
     await expect(page).toHaveURL(/\/chat/)
   })
 
-  test('checkout unpaid existing_order preview still shows checkout form', async ({ page, goto }) => {
+  test('checkout existing_order pending shows repay gate to order page', async ({ page, goto }) => {
     await mockCandorAuth(page, {
       asMember: true,
       expertReview: 'none',
@@ -247,37 +247,18 @@ test.describe('expert-plan v4 screenshots', () => {
     })
     await seedJourneyConversation(page)
     await goto('/app/checkout?kind=expert_plan', { waitUntil: 'hydration' })
-    await expect(page.getByTestId('expert-plans-page')).toBeVisible({ timeout: 25000 })
-    await expect(page.getByTestId('checkout-conversation-already-ordered')).toHaveCount(0)
-    await expect(page.getByTestId('checkout-expert-plan-reuse-mismatch')).toHaveCount(0)
-    await expect(page.getByTestId('expert-plan-checkout-submit')).toBeVisible()
-    await shot(page, 'checkout-existing-unpaid-order')
-  })
-
-  test('checkout expert_plan_reuse_mismatch opens order CTA', async ({ page, goto }) => {
-    await mockCandorAuth(page, {
-      asMember: true,
-      expertReview: 'none',
-      expertPlansCatalog: 'single',
-      expertPlanReuseMismatch: true
-    })
-    await seedJourneyConversation(page)
-    await goto('/app/checkout?kind=expert_plan', { waitUntil: 'hydration' })
-    await expect(page.getByTestId('expert-plans-page')).toBeVisible({ timeout: 25000 })
-    await expect(page.getByTestId('checkout-name')).toHaveValue(/.+/)
-    await expect(page.getByTestId('checkout-phone')).toHaveValue(/.+/)
-    await expect(page.getByTestId('checkout-address')).toHaveValue(/.+/)
-    await expect(page.getByTestId('expert-plan-checkout-submit')).toBeEnabled({ timeout: 10000 })
-    await page.getByTestId('expert-plan-checkout-submit').click()
-    await expect(page.getByTestId('checkout-expert-plan-reuse-mismatch')).toBeVisible({ timeout: 25000 })
-    await expect(page.getByTestId('checkout-expert-plan-reuse-mismatch')).toContainText(
-      '這段對話已經有一張尚未付款的訂單，請到訂單頁完成付款。'
+    await expect(page.getByTestId('checkout-existing-order-repay')).toBeVisible({ timeout: 25000 })
+    await expect(page.getByTestId('checkout-existing-order-repay')).toContainText(
+      '這段對話已經有一張訂單，帶您去完成付款。'
     )
-    const cta = page.getByTestId('checkout-expert-plan-reuse-mismatch-cta')
-    await expect(cta).toContainText('查看訂單')
-    await shot(page, 'checkout-expert-plan-reuse-mismatch')
+    await expect(page.getByTestId('expert-plans-page')).toHaveCount(0)
+    const cta = page.getByTestId('checkout-existing-order-repay-cta')
+    await expect(cta).toContainText('去完成付款')
+    await shot(page, 'checkout-existing-order-repay')
     await cta.click()
     await expect(page).toHaveURL(/\/app\/orders\/eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee/)
+    await expect(page.getByTestId('order-repay')).toBeVisible({ timeout: 25000 })
+    await shot(page, 'order-repay-pending')
   })
 
   test('F-07 checkout case exists', async ({ page, goto }) => {
