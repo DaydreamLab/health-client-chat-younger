@@ -53,7 +53,7 @@ export function packagesForCheckout(packages: RecommendationPackage[]): Recommen
 }
 
 /**
- * Map GET/POST expert-review reviewed payload into the shape recommendations.vue expects.
+ * Map GET/POST expert-review reviewed payload into expert-cases readonly packages.
  */
 export function recommendationFromExpertReview(
   review: ExpertCaseReviewStatus

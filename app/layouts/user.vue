@@ -205,6 +205,7 @@ const isChat = computed(() => route.path.includes('/chat') && !isChatAi.value)
 const isOrders = computed(() => route.path.includes('/orders'))
 const isRenewals = computed(() => route.path.includes('/renewals'))
 const isRecommendations = computed(() => route.path.includes('/recommendations'))
+const isExpertCases = computed(() => route.path.includes('/expert-cases'))
 const isNotifications = computed(() => route.path.includes('/notifications'))
 const isProfile = computed(() => route.path.includes('/app/me'))
 const isWearable = computed(() => route.path.includes('/app/wearables'))
@@ -213,6 +214,7 @@ const isHealth = computed(() => route.path.includes('/app')
   && !isOrders.value
   && !isRenewals.value
   && !isRecommendations.value
+  && !isExpertCases.value
   && !isNotifications.value
   && !isProfile.value
   && !isWearable.value)

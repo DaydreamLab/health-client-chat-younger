@@ -5,8 +5,8 @@
         {{ $t('member.title') }}
       </h1>
       <AppButton
-        v-if="auth.isMember && headerCta === 'view'"
-        :to="localePath('/app/recommendations')"
+        v-if="auth.isMember && headerCta === 'view' && headerCaseConversationId"
+        :to="localePath(`/app/expert-cases/${headerCaseConversationId}`)"
         variant="primary"
         class="ms-auto"
         data-testid="health-view-recommend"
@@ -243,8 +243,8 @@
                     {{ $t('member.reviewOpenReport') }}
                   </AppButton>
                   <AppButton
-                    v-if="review.status === 'reviewed'"
-                    :to="localePath('/app/recommendations')"
+                    v-if="review.status === 'reviewed' && review.conversation_id"
+                    :to="localePath(`/app/expert-cases/${review.conversation_id}`)"
                     data-testid="health-review-view-recommend"
                     @click="focusReviewConversation(review)"
                   >
@@ -547,6 +547,18 @@ const headerCta = computed<'view' | 'submit' | 'none'>(() => {
     return 'none'
   }
   return 'submit'
+})
+
+/** Case conversation id for header「查看推薦方案」→ /app/expert-cases/{id}. */
+const headerCaseConversationId = computed(() => {
+  const fromJourney = journey.conversationId?.trim() ?? ''
+  if (fromJourney) {
+    return fromJourney
+  }
+  const reviewed = reviewRecords.value.find(row =>
+    row.status === 'reviewed' && Boolean(row.conversation_id?.trim())
+  )
+  return reviewed?.conversation_id?.trim() ?? ''
 })
 
 function formatReviewTime(value: string) {

@@ -322,9 +322,9 @@ test.describe('expert-plan v4 screenshots', () => {
       withOrder: true
     })
     await seedJourneyConversation(page)
-    await goto('/app/recommendations', { waitUntil: 'hydration' })
+    await goto('/app/expert-cases/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', { waitUntil: 'hydration' })
     await expect(page.getByTestId('expert-plan-result')).toBeVisible({ timeout: 25000 })
-    await shot(page, 'F-13-recommendations-readonly')
+    await shot(page, 'F-13-expert-case-readonly')
   })
 
   test('copy design shots for remaining F ids', async () => {
