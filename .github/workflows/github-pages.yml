@@ -1,9 +1,12 @@
 name: github-pages
 
+# Beta 預覽站：推固定 tag `beta` → GitHub Pages（與 candor-core／consultant-admin 一致）。
+# 與正式站 deploy-prod（v*）互不觸發；勿加 main branch push。
+
 on:
   push:
-    branches:
-      - main
+    tags:
+      - 'beta'
   workflow_dispatch:
 
 permissions:
@@ -21,6 +24,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # Tag／workflow_dispatch 皆 checkout 觸發 ref（tag 指到的 commit）
+          ref: ${{ github.ref }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v6

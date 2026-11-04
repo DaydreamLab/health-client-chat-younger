@@ -6,7 +6,15 @@ A 平台客人端：健檢報告解讀、對話、建議與下單。評分與交
 
 https://daydreamlab.github.io/health-client-chat-younger/
 
-推到 `main` 後自動發 GitHub Pages（靜態站）。本地 `pnpm dev` 搭配 core（`NUXT_PUBLIC_API_BASE`）走真實 API。
+推固定 tag `beta`（與 candor-core、candor-consultant-admin 相同做法）後才發 GitHub Pages（靜態站）；推／merge 到 `main` 不會自動部署。手動觸發仍可用 Actions 的 `workflow_dispatch`。
+
+```bash
+git tag -f beta <sha>
+git push origin :refs/tags/beta
+git push origin beta
+```
+
+單純 force 移動既有遠端 tag（例如只 `git push -f origin beta`）時，Actions 不一定會再跑；先刪遠端再推較可靠。正式站走 `v*` tag（見 `deploy-prod`），與固定 `beta` 互不觸發。本地 `pnpm dev` 搭配 core（`NUXT_PUBLIC_API_BASE`）走真實 API。
 
 ## 技術棧
 
