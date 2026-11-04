@@ -270,9 +270,8 @@ export function hasReportRequiredAsk(ra: ReplyActions | null | undefined): boole
 /**
  * Profile-gap interactive CTAs (hybrid intake).
  * Required asks `ask_goal` / `ask_report` are **not** profile gaps (goal／report
- * 必問, 對齊 goal 設計). Non-gap usable actions (offer_recommend / offer_checkup)
- * alone must not keep the FE stuck on the latest bubble when an earlier bank turn
- * still carries ask_vitals / profile choose_option.
+ * 必問, 對齊 goal 設計). Used for open-gap discovery (follow-up skip); UI no
+ * longer lifts these CTAs onto a later bubble.
  */
 export const GAP_CTA_ACTION_TYPES = new Set<string>([
   'ask_vitals',
@@ -517,9 +516,8 @@ export type FindGapCtaHostOptions = {
 /**
  * Walk newest→oldest assistant turns; return the first with a usable profile-gap
  * CTA (ask_vitals / profile choose_option; not ask_goal / ask_report / lab_report).
- * When the latest stream turn only has offer_recommend (etc.), this recovers
- * the preceding bank message that still carries the open gap — FE then lifts
- * those CTAs onto the latest bubble.
+ * Used for follow-up-stream skip / vitals host discovery — **not** to lift old
+ * unanswered chips onto the latest bubble (Irice 2026-11-04: latest shows own RA only).
  */
 export function findGapCtaHostMessage<T extends GapCtaHostCandidate>(
   messages: T[],

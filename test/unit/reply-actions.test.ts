@@ -1165,8 +1165,7 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       ctx: baseCtx({
         pending: true,
         hasReportAnalysis: true,
-        lastAssistantId: 'latest',
-        gapCtaHostId: 'latest'
+        lastAssistantId: 'latest'
       }),
       goalOptions: [],
       needsMultiConfirm: false,
@@ -1182,8 +1181,7 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       ctx: baseCtx({
         readonlyMode: true,
         hasReportAnalysis: true,
-        lastAssistantId: 'latest',
-        gapCtaHostId: 'latest'
+        lastAssistantId: 'latest'
       }),
       goalOptions: [],
       needsMultiConfirm: false,
@@ -1194,7 +1192,7 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     expect(readonly.vitalsFields).toEqual([])
   })
 
-  it('gap CTA lift: ask_vitals moves to latest when stream is offer_recommend-only', () => {
+  it('no lift: bank ask_vitals stays off latest; latest shows only own offer_recommend', () => {
     const bank = assistant('bank', {
       replyActions: ra({
         actions: [{ type: 'ask_vitals', payload: { fields: ['height'], gap_code: 'height' } }]
@@ -1205,8 +1203,6 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     })
     const ctx = baseCtx({
       lastAssistantId: 'stream',
-      gapCtaHostId: 'bank',
-      gapCtaHostReplyActions: bank.replyActions,
       hasReportAnalysis: true,
       openProfileGaps: ['height']
     })
@@ -1218,8 +1214,9 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       expertReviewStatus: 'none',
       flow: 'standard'
     })
-    // Bank host behind latest: CTAs lifted away.
+    // Old message: keep no buttons (現行).
     expect(onBank.vitalsFields).toEqual([])
+    expect(onBank.choices).toEqual([])
     expect(onBank.showViewRecommend).toBe(false)
 
     const onStream = buildTurnActionsVisibility({
@@ -1230,14 +1227,14 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       expertReviewStatus: 'none',
       flow: 'standard'
     })
-    expect(onStream.vitalsFields).toEqual(['height'])
-    expect(onStream.vitalsGapCode).toBe('height')
-    // Required basic still open → suppress recommend; upload stays off while gap behind.
-    expect(onStream.showViewRecommend).toBe(false)
+    // Latest: own RA only — do not lift bank height numpad.
+    expect(onStream.vitalsFields).toEqual([])
+    expect(onStream.showViewRecommend).toBe(true)
+    // hasReportAnalysis suppresses upload even when ask_report is present.
     expect(onStream.showUpload).toBe(false)
   })
 
-  it('latest ask_vitals wins over a lifted older gap (age correction)', () => {
+  it('latest ask_vitals shows own fields only (no older bank gap mixed in)', () => {
     const bank = assistant('bank', {
       replyActions: ra({
         actions: [{ type: 'ask_vitals', payload: { fields: ['height'], gap_code: 'height' } }]
@@ -1250,9 +1247,7 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     })
     const ctx = baseCtx({
       lastAssistantId: 'stream',
-      gapCtaHostId: 'bank',
-      gapCtaHostReplyActions: bank.replyActions,
-      openProfileGaps: ['height'],
+      openProfileGaps: ['height', 'age'],
       hasReportAnalysis: true
     })
     const onStream = buildTurnActionsVisibility({
@@ -1264,9 +1259,16 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     })
     expect(onStream.vitalsFields).toEqual(['age'])
     expect(onStream.vitalsGapCode).toBe('age')
+    const onBank = buildTurnActionsVisibility({
+      message: bank,
+      ctx,
+      goalOptions: [],
+      needsMultiConfirm: false
+    })
+    expect(onBank.vitalsFields).toEqual([])
   })
 
-  it('choose_option sex chips lift to latest when stream covers with offer_recommend', () => {
+  it('bank sex chips do not appear on offer_recommend-only latest', () => {
     const bank = assistant('bank', {
       replyActions: ra({
         actions: [{
@@ -1289,8 +1291,6 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     })
     const ctx = baseCtx({
       lastAssistantId: 'stream',
-      gapCtaHostId: 'bank',
-      gapCtaHostReplyActions: bank.replyActions,
       openProfileGaps: ['sex']
     })
     const onBank = buildTurnActionsVisibility({
@@ -1306,26 +1306,11 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       goalOptions: [],
       needsMultiConfirm: false
     })
-    expect(onStream.choices.map(c => c.code)).toEqual(['M', 'F'])
-    expect(onStream.showSubmitReview).toBe(false)
+    expect(onStream.choices).toEqual([])
+    expect(onStream.showViewRecommend).toBe(true)
   })
 
-  it('free chips on latest stay visible while bank gap is lifted', () => {
-    const bank = assistant('bank', {
-      replyActions: ra({
-        actions: [{
-          type: 'choose_option',
-          payload: {
-            kind: 'profile',
-            gap_code: 'diet',
-            options: [
-              { code: 'omnivore', label: '葷' },
-              { code: 'veg', label: '素' }
-            ]
-          }
-        }]
-      })
-    })
+  it('free chips on latest stay visible without bank gap chips mixed in', () => {
     const stream = assistant('stream', {
       replyActions: ra({
         actions: [{
@@ -1343,8 +1328,7 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     })
     const ctx = baseCtx({
       lastAssistantId: 'stream',
-      gapCtaHostId: 'bank',
-      gapCtaHostReplyActions: bank.replyActions
+      openProfileGaps: ['diet']
     })
     const onStream = buildTurnActionsVisibility({
       message: stream,
@@ -1353,11 +1337,94 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
       needsMultiConfirm: false
     })
     expect(onStream.choices.map(c => c.code)).toEqual([
-      'omnivore',
-      'veg',
       'sleep_ok',
       'sleep_bad'
     ])
+  })
+
+  it('consecutive completion CTAs: each latest turn with offer_recommend paints view-recommend', () => {
+    const turn1 = assistant('t1', {
+      replyActions: ra({ actions: [VIEW_RECOMMEND_ACTION] })
+    })
+    const turn2 = assistant('t2', {
+      replyActions: ra({
+        actions: [
+          VIEW_RECOMMEND_ACTION,
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'continue_consultation',
+              mode: 'single',
+              options: [{ code: 'continue', label: '繼續健康諮詢' }]
+            }
+          }
+        ]
+      })
+    })
+    const turn3 = assistant('t3', {
+      replyActions: ra({
+        actions: [
+          VIEW_RECOMMEND_ACTION,
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'open_question_reply',
+              mode: 'single',
+              options: [
+                { code: 'no_more', label: '我沒有問題了' },
+                { code: 'suggest', label: '你有什麼建議' }
+              ]
+            }
+          },
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'continue_consultation',
+              mode: 'single',
+              options: [{ code: 'continue', label: '繼續健康諮詢' }]
+            }
+          }
+        ]
+      })
+    })
+
+    const asLatest = (id: string) => baseCtx({
+      lastAssistantId: id,
+      conversationPath: 'B',
+      openProfileGaps: []
+    })
+
+    expect(buildTurnActionsVisibility({
+      message: turn1,
+      ctx: asLatest('t1'),
+      goalOptions: [],
+      needsMultiConfirm: false
+    }).showViewRecommend).toBe(true)
+
+    expect(buildTurnActionsVisibility({
+      message: turn1,
+      ctx: asLatest('t2'),
+      goalOptions: [],
+      needsMultiConfirm: false
+    }).showViewRecommend).toBe(false)
+
+    const onT2 = buildTurnActionsVisibility({
+      message: turn2,
+      ctx: asLatest('t2'),
+      goalOptions: [],
+      needsMultiConfirm: false
+    })
+    expect(onT2.showViewRecommend).toBe(true)
+    expect(onT2.choices.map(c => c.code)).toEqual(['continue'])
+
+    const onT3 = buildTurnActionsVisibility({
+      message: turn3,
+      ctx: asLatest('t3'),
+      goalOptions: [],
+      needsMultiConfirm: false
+    })
+    expect(onT3.showViewRecommend).toBe(true)
+    expect(onT3.choices.map(c => c.code)).toEqual(['no_more', 'suggest', 'continue'])
   })
 
   it('path A guide renders offer_checkup and path_switch from reply_actions', () => {
@@ -1790,7 +1857,7 @@ describe('buildTurnActionsVisibility — reply_actions dedupe vs legacy', () => 
     })
     const v = buildTurnActionsVisibility({
       message: msg,
-      ctx: baseCtx({ lastAssistantId: 'latest', gapCtaHostId: 'latest' }),
+      ctx: baseCtx({ lastAssistantId: 'latest' }),
       intake: msg,
       goalOptions: [],
       needsMultiConfirm: true

@@ -535,6 +535,42 @@ describe('path contract — completion CTA gates (no FE 硬保)', () => {
     expect(v.showViewRecommend).toBe(true)
   })
 
+  it('older bank open gap does not hide latest offer_recommend (no lift / no cross-turn hide)', () => {
+    const bank = assistant('bank', {
+      replyActions: {
+        schema_version: '0.1',
+        source: 'questionnaire',
+        adaptor: 'fake',
+        degraded: false,
+        error: null,
+        actions: [{
+          type: 'choose_option',
+          payload: {
+            kind: 'profile',
+            gap_code: 'sex',
+            options: [
+              { code: 'M', label: '男' },
+              { code: 'F', label: '女' }
+            ]
+          }
+        }]
+      }
+    })
+    const latest = assistant('latest', { replyActions: offerRecommend })
+    const ctx = baseCtx({
+      lastAssistantId: 'latest',
+      conversationPath: 'B',
+      openProfileGaps: ['sex']
+    })
+    expect(visibility(bank, ctx, { messages: [bank, latest] }).choices).toEqual([])
+    const v = visibility(latest, ctx, {
+      messages: [bank, latest],
+      expertReviewStatus: 'none'
+    })
+    expect(v.choices).toEqual([])
+    expect(v.showViewRecommend).toBe(true)
+  })
+
   it('path B + basic complete + RA none → still no completion CTA (不硬保)', () => {
     const msg = assistant('latest', { replyActions: noneRa })
     const v = visibility(msg, baseCtx({

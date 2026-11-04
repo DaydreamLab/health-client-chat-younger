@@ -45,15 +45,6 @@ export interface ChatTurnUiContext {
   checkupLinkReady: boolean
   lastAssistantId?: string
   /**
-   * Assistant message that **owns** the open profile-gap CTA payload
-   * (ask_vitals / profile choose_option). May be behind lastAssistantId when
-   * the latest stream turn only carries offer_* / free chips / ask_report.
-   * UI paints those gap CTAs on the **latest** bubble (lift), not only on bank.
-   */
-  gapCtaHostId?: string
-  /** reply_actions from the gap host message (for lifting onto latest). */
-  gapCtaHostReplyActions?: ReplyActions | null
-  /**
    * Path contract context. When `path` is null, completion CTA falls back to
    * legacy usable-`offer_recommend` rules.
    */
@@ -434,20 +425,19 @@ function splitProjectionChoices(projection: ReplyActionsCtaProjection): {
  * Journey overlay on RA-projected flags:
  * - trust RA offer_recommend (core strips it on A); FE only applies journey slot
  * - never invent offer_recommend when RA did not project it (no none／degraded 硬保)
+ * - do not hide completion CTA because an older bank turn still has open gaps
  */
 function applyPathCompletionOverlay(
   base: TurnActionsVisibility,
   input: {
     ctx: ChatTurnUiContext
     latest: boolean
-    pendingGapBehindLatest: boolean
     profileQuestionActive: boolean
     requiredProfileQuestionActive: boolean
     basicProfileComplete: boolean
   }
 ): TurnActionsVisibility {
   const { ctx } = input
-  void input.pendingGapBehindLatest
   const slotOk = recommendCtaVisible({
     readonlyMode: ctx.readonlyMode,
     escalated: ctx.escalated,
@@ -504,31 +494,17 @@ export function buildTurnActionsVisibility(input: {
   const standardFlow = input.flow === 'standard'
   const latest = isLatestAssistantMessage(message, ctx.lastAssistantId)
   const basicProfileComplete = isBasicProfileComplete(ctx.openProfileGaps)
-  // When no open profile-gap host is found, the latest assistant still hosts its
-  // own ask_vitals / chips (openProfileGaps may be empty on a covering stream).
-  const gapHostId = ctx.gapCtaHostId ?? ctx.lastAssistantId
-  const isGapHost = gapHostId !== undefined && message.id === gapHostId
-  const pendingGapBehindLatest = Boolean(
-    ctx.gapCtaHostId
-    && ctx.lastAssistantId
-    && ctx.gapCtaHostId !== ctx.lastAssistantId
-  )
-  // Lift open gap CTAs onto the latest bubble so users are not stuck staring at
-  // a covering stream turn while chips/vitals sit on an older bank message.
-  const renderGapOnThis = pendingGapBehindLatest ? latest : isGapHost
   const profileQuestionActive = message.turnType === 'profile' && Boolean(message.profileQuestion)
   const activeGapCode = message.profileQuestion?.gap_code
-  // Only required basics block completion CTA; optional (e.g. diet) do not.
-  const requiredProfileQuestionActive = (
-    profileQuestionActive && isRequiredBasicGapCode(activeGapCode)
-  ) || (pendingGapBehindLatest && latest && !basicProfileComplete)
+  // Only this bubble's required basics block completion CTA; older bank gaps do not.
+  const requiredProfileQuestionActive = profileQuestionActive
+    && isRequiredBasicGapCode(activeGapCode)
   const slotInput = {
     readonlyMode: ctx.readonlyMode,
     escalated: ctx.escalated,
     goalSelectActive: ctx.goalSelectActive,
     reportAskActive: ctx.reportAskActive,
-    // Required basics still open behind latest → journey blocks via requiredProfileQuestionActive.
-    profileQuestionActive: profileQuestionActive || (pendingGapBehindLatest && latest),
+    profileQuestionActive,
     isLatestAssistant: latest,
     reportRetry: ctx.reportRetry,
     pending: ctx.pending,
@@ -544,7 +520,6 @@ export function buildTurnActionsVisibility(input: {
     applyPathCompletionOverlay(base, {
       ctx,
       latest,
-      pendingGapBehindLatest,
       profileQuestionActive: slotInput.profileQuestionActive,
       requiredProfileQuestionActive: slotInput.requiredProfileQuestionActive,
       basicProfileComplete
@@ -559,8 +534,9 @@ export function buildTurnActionsVisibility(input: {
   }
 
   if (isUsableReplyActions(message.replyActions)) {
-    // Bank host behind latest: CTAs are lifted — leave the old bubble empty.
-    if (pendingGapBehindLatest && isGapHost && !latest) {
+    // Irice 2026-11-04：不把舊訊息未答題按鈕搬到最新一則；舊訊息維持不顯示按鈕。
+    // 最新一則只投影自己的 reply_actions（含每輪完成 CTA）。
+    if (!latest) {
       return emptyTurnActions(true)
     }
 
@@ -570,94 +546,35 @@ export function buildTurnActionsVisibility(input: {
     const guidanceSuppressed = shouldSuppressGuidanceCtas({
       labReportQuizActive: Boolean(ctx.labReportQuizActive)
     })
-    const canShowUpload = latest
-      && !pendingGapBehindLatest
-      && !guidanceSuppressed
+    const canShowUpload = !guidanceSuppressed
       && !ctx.readonlyMode
       && !ctx.escalated
       && !ctx.hasReportAnalysis
       && !(ctx.goalSelectActive && !ctx.hasReportAnalysis)
       && !ctx.pathEntryPending
-    const canShowCheckup = latest
-      && !pendingGapBehindLatest
-      && !guidanceSuppressed
+    const canShowCheckup = !guidanceSuppressed
       && !ctx.readonlyMode
       && !ctx.escalated
       && !ctx.pathEntryPending
-    const canShowOwnVitals = renderGapOnThis && !ctx.readonlyMode && !ctx.escalated
-    // Latest turn asking age／height／weight keeps its own card even when an older gap is still open.
-    const replyActions = message.replyActions
-    const ownHasAskVitals = Boolean(
-      replyActions
-      && isUsableReplyActions(replyActions)
-      && replyActions.actions.some(action => action.type === 'ask_vitals')
-    )
+    const replyActions = message.replyActions!
+    const ownHasAskVitals = replyActions.actions.some(action => action.type === 'ask_vitals')
 
     const own = projectGates({
-      replyActions: message.replyActions!,
+      replyActions,
       canShowRecommendSlot,
       canShowUpload,
       canShowCheckup,
-      canShowVitals: !ctx.readonlyMode && !ctx.escalated && (
-        (canShowOwnVitals && isGapHost) || (latest && ownHasAskVitals)
-      ),
+      canShowVitals: !ctx.readonlyMode && !ctx.escalated && ownHasAskVitals,
       expertReviewStatus,
       standardFlow,
       checkupLinkReady: ctx.checkupLinkReady
     })
 
-    let gapChoices: ChatMessageOption[] = []
-    let gapConfirm = false
-    let vitalsFields: VitalsField[] = []
-    let vitalsGapCode: string | null = null
-    let gapExclusive = own.projection.exclusiveCodes
-
-    if (renderGapOnThis) {
-      if (latest && own.projection.vitalsFields.length > 0) {
-        vitalsFields = own.projection.vitalsFields
-        vitalsGapCode = own.projection.vitalsGapCode
-      } else if (pendingGapBehindLatest && ctx.gapCtaHostReplyActions
-        && isUsableReplyActions(ctx.gapCtaHostReplyActions)) {
-        const lifted = projectGates({
-          replyActions: ctx.gapCtaHostReplyActions,
-          canShowRecommendSlot: false,
-          canShowUpload: false,
-          canShowCheckup: false,
-          canShowVitals: !ctx.readonlyMode && !ctx.escalated,
-          expertReviewStatus,
-          standardFlow,
-          checkupLinkReady: ctx.checkupLinkReady
-        })
-        const split = splitProjectionChoices(lifted.projection)
-        gapChoices = split.gapChoices
-        gapConfirm = split.gapConfirm
-        vitalsFields = lifted.projection.vitalsFields
-        vitalsGapCode = lifted.projection.vitalsGapCode
-        if (split.gapChoices.length) {
-          gapExclusive = lifted.projection.exclusiveCodes
-        }
-      } else if (isGapHost) {
-        const split = splitProjectionChoices(own.projection)
-        gapChoices = split.gapChoices
-        gapConfirm = split.gapConfirm
-        vitalsFields = own.projection.vitalsFields
-        vitalsGapCode = own.projection.vitalsGapCode
-      }
-    }
-
     const ownSplit = splitProjectionChoices(own.projection)
-    // Free / lab_followup / ask_goal / lab_report chips stay on the message that
-    // carries them when it is the latest bubble (even if a bank gap is open).
-    const nonGapChoices = latest ? ownSplit.nonGapChoices : []
-    const nonGapConfirm = latest ? ownSplit.nonGapConfirm : false
-
-    // Latest may show lifted gap chips alongside free / required-ask chips.
-    const choices = [...gapChoices, ...nonGapChoices]
-    const showConfirm = (gapChoices.length > 0 && gapConfirm)
-      || (nonGapChoices.length > 0 && nonGapConfirm)
-    const exclusiveCodes = nonGapChoices.length
-      ? own.projection.exclusiveCodes
-      : gapExclusive
+    // Latest bubble: only this turn's gap＋non-gap chips (no lift from older bank).
+    const choices = [...ownSplit.gapChoices, ...ownSplit.nonGapChoices]
+    const showConfirm = (ownSplit.gapChoices.length > 0 && ownSplit.gapConfirm)
+      || (ownSplit.nonGapChoices.length > 0 && ownSplit.nonGapConfirm)
 
     return overlay({
       choices,
@@ -669,17 +586,22 @@ export function buildTurnActionsVisibility(input: {
       showSubmitReview: own.projection.flags.showSubmitReview,
       showViewRecommend: own.projection.flags.showViewRecommend,
       showRetry: false,
-      vitalsFields,
-      vitalsGapCode,
+      vitalsFields: own.projection.vitalsFields,
+      vitalsGapCode: own.projection.vitalsGapCode,
       checkupUrlOverride: own.projection.checkupUrlOverride,
       fromReplyActions: true,
-      exclusiveCodes,
+      exclusiveCodes: own.projection.exclusiveCodes,
       replyProjection: own.projection
     })
   }
 
   // No reply_actions column: greeting / hydrate without RA may still show goal
   // or profile chips. Never invent recommend／upload／checkup from legacy meta.
+  // Non-latest without RA: keep empty (same as pre-lift bank bubbles).
+  if (!latest) {
+    return emptyTurnActions(false)
+  }
+
   const effectiveGoals = resolveEffectiveGoalOptions({
     goalSelectActive: ctx.goalSelectActive && !ctx.pathEntryPending,
     goalOptions,
