@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import { checkoutSchema, createOrderSchema } from '../../app/utils/checkout-schema'
+import type { OrderDetail, OrderSummary } from '../../app/utils/candor-api'
 import {
   buildDemoOrder,
   demoPackagePlans,
+  expertPlanNameFromDetail,
+  expertPlanNameFromSummary,
   formatTwd,
   goalsClarificationOpen,
   inferClarifyingGoalLabels,
   itemsForPackagePlan,
+  omitItemsMatchingPlanName,
+  orderRecordFromCandorDetail,
+  orderRecordFromCandorSummary,
+  resolveOrderPlanName,
   shipmentStepIds,
   shouldPersistChat,
   snapshotChatMessage,
@@ -213,5 +220,164 @@ describe('first-order demo', () => {
     ]
     expect(goalsClarificationOpen(wrappedUp, labels)).toBe(false)
     expect(inferClarifyingGoalLabels(wrappedUp, labels.map(label => ({ label })))).toEqual(labels)
+  })
+})
+
+describe('order plan display name', () => {
+  it('prefers expert_plan_name over package_plan_name when hasExpertPlanLine', () => {
+    expect(resolveOrderPlanName({
+      hasExpertPlanLine: true,
+      expertPlanName: '專家方案（基礎保養）',
+      packagePlanName: '基礎保養'
+    })).toBe('專家方案（基礎保養）')
+    expect(resolveOrderPlanName({
+      hasExpertPlanLine: true,
+      expertPlanName: null,
+      packagePlanName: '基礎保養'
+    })).toBeUndefined()
+    expect(resolveOrderPlanName({
+      hasExpertPlanLine: false,
+      expertPlanName: '專家方案（基礎保養）',
+      packagePlanName: '基礎保養'
+    })).toBe('基礎保養')
+  })
+
+  it('keeps the full expert plan name without stripping the prefix', () => {
+    const detail: OrderDetail = {
+      id: 'o1',
+      order_no: 'ORD-1',
+      status: 'confirmed',
+      payment_status: 'paid',
+      amount_total: 6000,
+      package_plan_name: '基礎保養',
+      lines: [{
+        kind: 'expert_plan',
+        expert_plan_code: 'basic',
+        expert_plan_name: '專家方案（基礎保養）'
+      }]
+    }
+    expect(expertPlanNameFromDetail(detail)).toBe('專家方案（基礎保養）')
+    const order = orderRecordFromCandorDetail(detail)
+    expect(order.hasExpertPlanLine).toBe(true)
+    expect(order.packageName).toBe('專家方案（基礎保養）')
+  })
+
+  it('drops the duplicate expert plan item row before finalize', () => {
+    const detail: OrderDetail = {
+      id: 'o2',
+      order_no: 'ORD-2',
+      status: 'confirmed',
+      payment_status: 'paid',
+      amount_total: 6000,
+      package_plan_name: null,
+      package: null,
+      lines: [{
+        kind: 'expert_plan',
+        expert_plan_code: 'basic',
+        expert_plan_name: '專家方案（基礎保養）'
+      }],
+      expert_case_phase: 'processing'
+    }
+    const order = orderRecordFromCandorDetail(detail, {
+      productCodes: ['expert_plan'],
+      productNames: ['專家方案（基礎保養）']
+    })
+    expect(order.packageName).toBe('專家方案（基礎保養）')
+    expect(order.items).toEqual([])
+    expect(omitItemsMatchingPlanName(
+      [{ code: 'expert_plan', name: '專家方案（基礎保養）', dailyDose: 1 }],
+      '專家方案（基礎保養）'
+    )).toEqual([])
+  })
+
+  it('keeps component items after expert finalize and still uses expert name', () => {
+    const detail: OrderDetail = {
+      id: 'o3',
+      order_no: 'ORD-3',
+      status: 'confirmed',
+      payment_status: 'paid',
+      amount_total: 6000,
+      package_plan_name: '基礎保養',
+      package: {
+        id: 'pkg-1',
+        package_plan_code: 'basic',
+        package_plan_name: '基礎保養',
+        package_plan_price: 4500,
+        period_days: 30,
+        composition_hash: 'sha256:x',
+        used_amount: 6000,
+        remaining: 0,
+        components: [{
+          id: 'c1',
+          sellable_item_id: 's1',
+          sellable_item_code: 'vitamin_d',
+          sellable_item_name: '維生素 D',
+          unit_price: 9,
+          daily_dose: 1,
+          monthly_cost: 280,
+          rank: 1
+        }]
+      },
+      lines: [{
+        kind: 'expert_plan',
+        expert_plan_code: 'basic',
+        expert_plan_name: '專家方案（基礎保養）'
+      }],
+      expert_case_phase: 'finalized'
+    }
+    const order = orderRecordFromCandorDetail(detail)
+    expect(order.packageName).toBe('專家方案（基礎保養）')
+    expect(order.items).toHaveLength(1)
+    expect(order.items[0]?.name).toBe('維生素 D')
+  })
+
+  it('maps list summary with top-level expert_plan_name and falls back safely', () => {
+    const withTop: OrderSummary = {
+      id: 's1',
+      order_no: 'ORD-S1',
+      status: 'confirmed',
+      payment_status: 'paid',
+      amount_total: 6000,
+      package_plan_name: '基礎保養',
+      expert_plan_name: '專家方案（基礎保養）',
+      created_at: '2026-11-04T00:00:00Z'
+    }
+    expect(expertPlanNameFromSummary(withTop)).toBe('專家方案（基礎保養）')
+    expect(orderRecordFromCandorSummary(withTop).packageName).toBe('專家方案（基礎保養）')
+    expect(orderRecordFromCandorSummary(withTop).hasExpertPlanLine).toBe(true)
+
+    const fromLines: OrderSummary = {
+      id: 's2',
+      order_no: 'ORD-S2',
+      status: 'confirmed',
+      payment_status: 'paid',
+      amount_total: 6000,
+      package_plan_name: '基礎保養',
+      lines: [{ kind: 'expert_plan', expert_plan_name: '專家方案（完整調理）' }],
+      created_at: '2026-11-04T00:00:00Z'
+    }
+    expect(orderRecordFromCandorSummary(fromLines).packageName).toBe('專家方案（完整調理）')
+
+    const aiOnly: OrderSummary = {
+      id: 's3',
+      order_no: 'ORD-S3',
+      status: 'confirmed',
+      payment_status: 'paid',
+      amount_total: 4500,
+      package_plan_name: '基礎保養',
+      created_at: '2026-11-04T00:00:00Z'
+    }
+    expect(orderRecordFromCandorSummary(aiOnly).packageName).toBe('基礎保養')
+    expect(orderRecordFromCandorSummary(aiOnly).hasExpertPlanLine).toBe(false)
+
+    const legacy: OrderSummary = {
+      id: 's4',
+      order_no: 'ORD-S4',
+      status: 'confirmed',
+      payment_status: 'paid',
+      amount_total: 1280,
+      created_at: '2026-11-04T00:00:00Z'
+    }
+    expect(orderRecordFromCandorSummary(legacy).packageName).toBeUndefined()
   })
 })

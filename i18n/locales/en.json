@@ -830,6 +830,8 @@
     "amount": "Total",
     "detailTitle": "Order detail {number}",
     "sectionItems": "Items",
+    "planLabelAi": "TODO: orders.planLabelAi",
+    "planLabelExpert": "TODO: orders.planLabelExpert",
     "sectionPayment": "Payment",
     "sectionInvoice": "Invoice",
     "sectionShipping": "Shipping",

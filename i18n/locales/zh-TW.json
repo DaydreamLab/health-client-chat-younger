@@ -830,6 +830,8 @@
     "amount": "訂購總額",
     "detailTitle": "訂單詳情 {number}",
     "sectionItems": "品項清單",
+    "planLabelAi": "AI 建議方案",
+    "planLabelExpert": "專家方案",
     "sectionPayment": "付款資訊",
     "sectionInvoice": "發票",
     "sectionShipping": "收件與物流",

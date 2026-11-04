@@ -548,6 +548,13 @@ export interface OrderSummary {
   payment_status: string
   amount_total: number
   package_plan_name?: string | null
+  /**
+   * Expert-plan display name when core backfills it on list/detail summary.
+   * Absent on older payloads; null when the order is not expert or lookup failed.
+   */
+  expert_plan_name?: string | null
+  /** Optional lines when list payload includes them (safe to omit). */
+  lines?: Array<Record<string, unknown>> | null
   period_end?: string | null
   created_at: string
 }
@@ -584,6 +591,11 @@ export interface OrderDetail {
   payment_status: string
   amount_total: number
   package_plan_name?: string | null
+  /**
+   * Top-level expert plan name (core may backfill from expert_plan_id).
+   * Prefer lines[].expert_plan_name when present.
+   */
+  expert_plan_name?: string | null
   package?: OrderDetailPackage | null
   lines: Array<Record<string, unknown>>
   recipient?: {
