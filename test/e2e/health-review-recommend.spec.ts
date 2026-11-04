@@ -248,6 +248,8 @@ test.describe('health review → expert-cases (focus case conversation)', () => 
     await expect(page.getByTestId(`health-review-card-${expertReviewId}`)).toBeVisible({
       timeout: 15_000
     })
+    // Reviewed entry is the list row only — no standalone page-header「查看推薦方案」.
+    await expect(page.getByTestId('health-view-recommend')).toHaveCount(0)
     await expect(page.getByTestId('health-review-view-recommend')).toBeVisible()
 
     const expertReviewGet = page.waitForRequest((request) => {

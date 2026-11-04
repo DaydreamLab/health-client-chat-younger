@@ -5,16 +5,7 @@
         {{ $t('member.title') }}
       </h1>
       <AppButton
-        v-if="auth.isMember && headerCta === 'view' && headerCaseConversationId"
-        :to="localePath(`/app/expert-cases/${headerCaseConversationId}`)"
-        variant="primary"
-        class="ms-auto"
-        data-testid="health-view-recommend"
-      >
-        {{ $t('chat.viewRecommend') }}
-      </AppButton>
-      <AppButton
-        v-else-if="auth.isMember && headerCta === 'submit'"
+        v-if="auth.isMember && headerCta === 'submit'"
         :to="localePath('/chat')"
         variant="primary"
         class="ms-auto"
@@ -536,29 +527,18 @@ const reports = ref<HealthReportSummary[]>([])
 const reportsLoading = ref(false)
 const reportsError = ref('')
 
-const headerCta = computed<'view' | 'submit' | 'none'>(() => {
+/** Header only keeps「提交專家判讀」; reviewed → expert-cases via list row, not a page header CTA. */
+const headerCta = computed<'submit' | 'none'>(() => {
   if (!auth.isMember) {
     return 'none'
   }
-  if (journey.expertReviewStatus === 'reviewed') {
-    return 'view'
-  }
-  if (journey.expertReviewStatus === 'awaiting_review') {
+  if (
+    journey.expertReviewStatus === 'reviewed'
+    || journey.expertReviewStatus === 'awaiting_review'
+  ) {
     return 'none'
   }
   return 'submit'
-})
-
-/** Case conversation id for header「查看推薦方案」→ /app/expert-cases/{id}. */
-const headerCaseConversationId = computed(() => {
-  const fromJourney = journey.conversationId?.trim() ?? ''
-  if (fromJourney) {
-    return fromJourney
-  }
-  const reviewed = reviewRecords.value.find(row =>
-    row.status === 'reviewed' && Boolean(row.conversation_id?.trim())
-  )
-  return reviewed?.conversation_id?.trim() ?? ''
 })
 
 function formatReviewTime(value: string) {
