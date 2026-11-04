@@ -6,7 +6,14 @@ A 平台客人端：健檢報告解讀、對話、建議與下單。評分與交
 
 https://daydreamlab.github.io/health-client-chat-younger/
 
-推到 `main` 後自動發 GitHub Pages（靜態站）。本地 `pnpm dev` 搭配 core（`NUXT_PUBLIC_API_BASE`）走真實 API。
+推 `beta-*` tag（例如 `beta-20261104-1`）後才發 GitHub Pages（靜態站）；推／merge 到 `main` 不會自動部署。手動觸發仍可用 Actions 的 `workflow_dispatch`。
+
+```bash
+git tag beta-YYYYMMDD-N <sha>
+git push origin beta-YYYYMMDD-N
+```
+
+正式站走 `v*` tag（見 `deploy-prod`），與 `beta-*` 互不觸發。本地 `pnpm dev` 搭配 core（`NUXT_PUBLIC_API_BASE`）走真實 API。
 
 ## 技術棧
 
