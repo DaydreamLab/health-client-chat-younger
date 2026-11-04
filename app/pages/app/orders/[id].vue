@@ -96,6 +96,33 @@
       <h2 class="text-sm font-semibold text-muted">
         {{ $t('orders.sectionItems') }}
       </h2>
+      <div
+        v-if="planDisplayName"
+        class="mt-3"
+        data-testid="order-plan-header"
+      >
+        <span
+          class="app-badge"
+          :class="order.hasExpertPlanLine ? 'app-badge-demo' : 'app-badge-pending'"
+          data-testid="order-plan-label"
+        >
+          {{ order.hasExpertPlanLine ? $t('orders.planLabelExpert') : $t('orders.planLabelAi') }}
+        </span>
+        <div class="mt-2 flex items-start justify-between gap-3">
+          <p
+            class="min-w-0 flex-1 break-words text-base font-semibold text-highlighted"
+            data-testid="order-plan-name"
+          >
+            {{ planDisplayName }}
+          </p>
+          <p
+            class="shrink-0 text-base font-semibold tabular-nums text-primary"
+            data-testid="order-plan-price"
+          >
+            {{ formatTwd(order.amount) }}
+          </p>
+        </div>
+      </div>
       <ul
         v-if="orderItems.length"
         class="mt-3 space-y-3"
@@ -109,22 +136,24 @@
           <span class="min-w-0 font-medium text-highlighted">
             {{ item.name }}
           </span>
-          <span
-            v-if="item.monthlyCost != null"
-            class="shrink-0 text-base font-semibold tabular-nums text-primary"
-          >
-            {{ formatTwd(item.monthlyCost) }}
-          </span>
-          <span
-            v-else
-            class="shrink-0 text-base font-semibold tabular-nums text-primary"
-          >
-            {{ formatTwd(order.amount) }}
-          </span>
+          <template v-if="!planDisplayName">
+            <span
+              v-if="item.monthlyCost != null"
+              class="shrink-0 text-base font-semibold tabular-nums text-primary"
+            >
+              {{ formatTwd(item.monthlyCost) }}
+            </span>
+            <span
+              v-else
+              class="shrink-0 text-base font-semibold tabular-nums text-primary"
+            >
+              {{ formatTwd(order.amount) }}
+            </span>
+          </template>
         </li>
       </ul>
       <div
-        v-else
+        v-else-if="!planDisplayName"
         class="mt-3 flex items-start justify-between gap-3"
       >
         <span class="font-medium text-highlighted">
@@ -391,7 +420,12 @@
 </template>
 
 <script setup lang="ts">
-import { formatTwd, type OrderItemLine, type OrderRecord } from '~/utils/first-order'
+import {
+  formatTwd,
+  normalizePlanDisplayName,
+  type OrderItemLine,
+  type OrderRecord
+} from '~/utils/first-order'
 import { orderProductSummary } from '~/utils/order-display'
 import { getDemoOrder, isDemoOrderId } from '~/utils/orders-mock'
 import { canCancelOrder, canRepayOrder } from '~/utils/order-actions'
@@ -430,6 +464,10 @@ const gateLocked = ref(nuxtApp.isHydrating || !auth.isMember)
 function syncGate() {
   gateLocked.value = !auth.isMember
 }
+
+const planDisplayName = computed(() =>
+  normalizePlanDisplayName(order.value?.packageName) ?? ''
+)
 
 const orderItems = computed<OrderItemLine[]>(() => {
   if (!order.value) {

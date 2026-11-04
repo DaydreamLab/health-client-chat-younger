@@ -63,6 +63,21 @@ describe('order-display', () => {
     expect(formatOrderDate('2026-10-20T15:13:00+08:00')).toBe('2026/10/20')
     expect(orderProductSummary(baseOrder())).toBe('保健品月付方案 x1')
   })
+
+  it('uses resolved packageName for expert and AI list summaries', () => {
+    expect(orderProductSummary(baseOrder({
+      packageName: '專家方案（基礎保養）',
+      hasExpertPlanLine: true
+    }))).toBe('專家方案（基礎保養） x1')
+    expect(orderProductSummary(baseOrder({
+      packageName: '基礎保養',
+      hasExpertPlanLine: false
+    }))).toBe('基礎保養 x1')
+    expect(orderProductSummary(baseOrder({
+      packageName: undefined,
+      packagePlanCode: ''
+    }))).toBe('')
+  })
 })
 
 describe('orders-mock', () => {

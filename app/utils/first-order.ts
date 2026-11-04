@@ -586,6 +586,97 @@ export function orderRecordFromCandorCreated(
   }
 }
 
+/** Trim a plan display name; blank → null. */
+export function normalizePlanDisplayName(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null
+  }
+  const trimmed = value.trim()
+  return trimmed || null
+}
+
+/**
+ * Expert plan name from order lines (full string; do not strip「專家方案」prefix).
+ * Prefers `expert_plan_name`, then line `name`.
+ */
+export function expertPlanNameFromLines(
+  lines: Array<Record<string, unknown>> | null | undefined
+): string | null {
+  if (!Array.isArray(lines)) {
+    return null
+  }
+  for (const line of lines) {
+    if (!line || typeof line !== 'object' || line.kind !== 'expert_plan') {
+      continue
+    }
+    const name = normalizePlanDisplayName(line.expert_plan_name ?? line.name)
+    if (name) {
+      return name
+    }
+  }
+  return null
+}
+
+/**
+ * List/summary expert name: top-level `expert_plan_name`, then lines[].
+ * Missing fields on older payloads are ignored safely.
+ */
+export function expertPlanNameFromSummary(
+  summary: Pick<OrderSummary, 'expert_plan_name' | 'lines'>
+): string | null {
+  return normalizePlanDisplayName(summary.expert_plan_name)
+    ?? expertPlanNameFromLines(summary.lines)
+}
+
+/** Detail expert name: lines[] first, then top-level backfill. */
+export function expertPlanNameFromDetail(
+  detail: Pick<OrderDetail, 'expert_plan_name' | 'lines'>
+): string | null {
+  return expertPlanNameFromLines(detail.lines)
+    ?? normalizePlanDisplayName(detail.expert_plan_name)
+}
+
+/**
+ * True when list/summary looks like an expert-plan order.
+ * Uses lines when present; otherwise a non-empty top-level expert_plan_name.
+ */
+export function orderSummaryHasExpertPlan(
+  summary: Pick<OrderSummary, 'expert_plan_name' | 'lines'>
+): boolean {
+  if (orderHasExpertPlanLine({ lines: summary.lines ?? [] })) {
+    return true
+  }
+  return normalizePlanDisplayName(summary.expert_plan_name) !== null
+}
+
+/**
+ * Shared plan display name for list + detail.
+ * Expert orders: expert name only (never fall back to package_plan_name after finalize).
+ * AI / other: package_plan_name.
+ */
+export function resolveOrderPlanName(input: {
+  hasExpertPlanLine?: boolean
+  expertPlanName?: string | null
+  packagePlanName?: string | null
+}): string | undefined {
+  if (input.hasExpertPlanLine) {
+    return normalizePlanDisplayName(input.expertPlanName) ?? undefined
+  }
+  return normalizePlanDisplayName(input.packagePlanName) ?? undefined
+}
+
+/** Drop item rows that duplicate the plan name (expert pre-finalize placeholder). */
+export function omitItemsMatchingPlanName(
+  items: OrderItemLine[],
+  planName: string | null | undefined
+): OrderItemLine[] {
+  const needle = normalizePlanDisplayName(planName)
+  if (!needle) {
+    return items
+  }
+  return items.filter(item => normalizePlanDisplayName(item.name) !== needle)
+}
+
 export function orderRecordFromCandorDetail(
   detail: OrderDetail,
   fallback: Partial<CreateOrderInput> = {}
@@ -619,35 +710,24 @@ export function orderRecordFromCandorDetail(
     ? invoiceRaw
     : 'member'
   const hasExpertPlan = orderHasExpertPlanLine(detail)
-  const expertPlanName = (() => {
-    if (!hasExpertPlan || !Array.isArray(detail.lines)) {
-      return null
-    }
-    for (const line of detail.lines) {
-      if (!line || typeof line !== 'object' || line.kind !== 'expert_plan') {
-        continue
-      }
-      const name = line.expert_plan_name ?? line.name
-      if (typeof name === 'string' && name.trim()) {
-        return name.trim()
-      }
-    }
-    return null
-  })()
-  const displayItems = items.length
-    ? items
-    : (expertPlanName
-        ? [{ code: 'expert_plan', name: expertPlanName, dailyDose: 1 }]
-        : items)
+  const expertPlanName = expertPlanNameFromDetail(detail)
+  const packageName = resolveOrderPlanName({
+    hasExpertPlanLine: hasExpertPlan,
+    expertPlanName,
+    packagePlanName: detail.package_plan_name
+      ?? detail.package?.package_plan_name
+      ?? fallback.packageName
+  })
+  // Expert pre-finalize used to inject a synthetic line matching the plan name; drop it.
+  const displayItems = hasExpertPlan
+    ? omitItemsMatchingPlanName(items, expertPlanName ?? packageName)
+    : items
   return {
     id: detail.id,
     number: detail.order_no,
     createdAt,
     packagePlanCode: detail.package?.package_plan_code ?? fallback.packagePlanCode ?? '',
-    packageName: detail.package_plan_name
-      ?? detail.package?.package_plan_name
-      ?? expertPlanName
-      ?? fallback.packageName,
+    packageName,
     amount: detail.amount_total,
     productCodes,
     productNames,
@@ -680,12 +760,18 @@ export function orderRecordFromCandorDetail(
 }
 
 export function orderRecordFromCandorSummary(summary: OrderSummary): OrderRecord {
+  const hasExpertPlan = orderSummaryHasExpertPlan(summary)
+  const expertPlanName = expertPlanNameFromSummary(summary)
   return {
     id: summary.id,
     number: summary.order_no,
     createdAt: summary.created_at,
     packagePlanCode: '',
-    packageName: summary.package_plan_name ?? undefined,
+    packageName: resolveOrderPlanName({
+      hasExpertPlanLine: hasExpertPlan,
+      expertPlanName,
+      packagePlanName: summary.package_plan_name
+    }),
     amount: summary.amount_total,
     productCodes: [],
     items: [],
@@ -697,6 +783,7 @@ export function orderRecordFromCandorSummary(summary: OrderSummary): OrderRecord
     invoice: 'member',
     quantity: 1,
     messages: [],
-    timeline: timelineFromOrderStatus(summary.status, summary.created_at)
+    timeline: timelineFromOrderStatus(summary.status, summary.created_at),
+    hasExpertPlanLine: hasExpertPlan
   }
 }
