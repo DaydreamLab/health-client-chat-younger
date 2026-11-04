@@ -71,99 +71,99 @@ const cards = computed(() => props.results.map(row => ({
       data-testid="report-result-cards-scroller"
     >
       <div class="grid grid-cols-1 content-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      <article
-        v-for="card in cards"
-        :key="card.row.id"
-        class="flex min-h-[8.5rem] items-stretch gap-3 rounded-xl border border-default bg-default px-3 py-3"
-        :data-testid="`report-result-card-${card.row.id}`"
-      >
-        <div
-          v-if="position === 'rail' && card.scale"
-          class="relative w-3 shrink-0 self-stretch"
-          :data-testid="`report-result-card-position-${card.row.id}`"
+        <article
+          v-for="card in cards"
+          :key="card.row.id"
+          class="flex min-h-[8.5rem] items-stretch gap-3 rounded-xl border border-default bg-default px-3 py-3"
+          :data-testid="`report-result-card-${card.row.id}`"
         >
-          <div class="absolute inset-y-1 left-1/2 w-1 -translate-x-1/2">
-            <div class="absolute inset-0 overflow-hidden rounded-full">
-              <div
-                v-for="(band, index) in card.scale.bands"
-                :key="`${card.row.id}-${index}`"
-                class="absolute inset-x-0"
-                :class="`yr-band-${band.status}`"
-                :style="{
-                  bottom: `${band.fromPct}%`,
-                  height: `${band.toPct - band.fromPct}%`
-                }"
+          <div
+            v-if="position === 'rail' && card.scale"
+            class="relative w-3 shrink-0 self-stretch"
+            :data-testid="`report-result-card-position-${card.row.id}`"
+          >
+            <div class="absolute inset-y-1 left-1/2 w-1 -translate-x-1/2">
+              <div class="absolute inset-0 overflow-hidden rounded-full">
+                <div
+                  v-for="(band, index) in card.scale.bands"
+                  :key="`${card.row.id}-${index}`"
+                  class="absolute inset-x-0"
+                  :class="`yr-band-${band.status}`"
+                  :style="{
+                    bottom: `${band.fromPct}%`,
+                    height: `${band.toPct - band.fromPct}%`
+                  }"
+                />
+              </div>
+              <span
+                v-if="card.scale.valuePct != null"
+                class="yr-scale-marker absolute left-1/2"
+                :style="{ bottom: `${card.scale.valuePct}%` }"
               />
             </div>
-            <span
-              v-if="card.scale.valuePct != null"
-              class="yr-scale-marker absolute left-1/2"
-              :style="{ bottom: `${card.scale.valuePct}%` }"
-            />
           </div>
-        </div>
-        <div class="flex min-w-0 flex-1 flex-col">
-          <div class="flex items-start gap-2">
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-semibold text-highlighted">
-                {{ displayResultName(card.row) }}
+          <div class="flex min-w-0 flex-1 flex-col">
+            <div class="flex items-start gap-2">
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-semibold text-highlighted">
+                  {{ displayResultName(card.row) }}
+                </p>
+                <p
+                  v-if="displayResultOriginalName(card.row)"
+                  class="truncate text-xs text-muted"
+                  :data-testid="`report-result-raw-name-${card.row.id}`"
+                >
+                  {{ displayResultOriginalName(card.row) }}
+                </p>
+              </div>
+              <ReportResultInterpretationInfo
+                v-if="card.hasInfo"
+                :result="card.row"
+              />
+              <span
+                v-else
+                class="inline-flex size-7 shrink-0"
+                aria-hidden="true"
+              />
+            </div>
+            <div class="mt-2 flex items-center gap-2">
+              <p
+                class="text-xl font-bold leading-none"
+                :class="`yr-val-${card.status}`"
+              >
+                {{ displayResultValue(card.row) }}
+              </p>
+              <div
+                v-if="position === 'gauge' && card.gaugePct != null"
+                class="yr-gauge relative h-2 w-[4.5rem] shrink-0 overflow-visible rounded-full"
+                :data-testid="`report-result-card-position-${card.row.id}`"
+              >
+                <div
+                  class="yr-gauge-marker absolute top-[-3px] h-3.5 -translate-x-1/2 rounded-sm"
+                  :style="{ left: `${card.gaugePct}%` }"
+                />
+              </div>
+            </div>
+            <div class="mt-auto flex items-baseline justify-between gap-2 pt-3">
+              <p class="min-w-0 truncate text-xs text-highlighted">
+                {{ $t('labChart.optimal') }}
+                <span class="text-muted">{{ formatResultRef(card.row) }}</span>
               </p>
               <p
-                v-if="displayResultOriginalName(card.row)"
-                class="truncate text-xs text-muted"
-                :data-testid="`report-result-raw-name-${card.row.id}`"
+                v-if="card.unit"
+                class="shrink-0 text-xs text-muted"
               >
-                {{ displayResultOriginalName(card.row) }}
+                {{ card.unit }}
               </p>
             </div>
-            <ReportResultInterpretationInfo
-              v-if="card.hasInfo"
-              :result="card.row"
-            />
-            <span
-              v-else
-              class="inline-flex size-7 shrink-0"
-              aria-hidden="true"
-            />
           </div>
-          <div class="mt-2 flex items-center gap-2">
-            <p
-              class="text-xl font-bold leading-none"
-              :class="`yr-val-${card.status}`"
-            >
-              {{ displayResultValue(card.row) }}
-            </p>
-            <div
-              v-if="position === 'gauge' && card.gaugePct != null"
-              class="yr-gauge relative h-2 w-[4.5rem] shrink-0 overflow-visible rounded-full"
-              :data-testid="`report-result-card-position-${card.row.id}`"
-            >
-              <div
-                class="yr-gauge-marker absolute top-[-3px] h-3.5 -translate-x-1/2 rounded-sm"
-                :style="{ left: `${card.gaugePct}%` }"
-              />
-            </div>
-          </div>
-          <div class="mt-auto flex items-baseline justify-between gap-2 pt-3">
-            <p class="min-w-0 truncate text-xs text-highlighted">
-              {{ $t('labChart.optimal') }}
-              <span class="text-muted">{{ formatResultRef(card.row) }}</span>
-            </p>
-            <p
-              v-if="card.unit"
-              class="shrink-0 text-xs text-muted"
-            >
-              {{ card.unit }}
-            </p>
-          </div>
-        </div>
-        <span
-          class="sr-only"
-          :data-testid="`report-result-card-status-${card.row.id}`"
-        >
-          {{ statusText(card.status) }}
-        </span>
-      </article>
+          <span
+            class="sr-only"
+            :data-testid="`report-result-card-status-${card.row.id}`"
+          >
+            {{ statusText(card.status) }}
+          </span>
+        </article>
       </div>
     </div>
   </div>
