@@ -15,7 +15,7 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 | `/login` | default | 登入／註冊 | `POST /auth/login`、`/auth/register` |
 | `/chat` | `user` + `chat-layout` | 對話 SSE、目標／價格帶；上傳報告僅 member（guest 導向登入）。推薦槽在尚未建案時為「提交專家判讀」 | guest 可對話；`POST /health-reports` 需 member；會員「提交專家判讀」為 `POST /conversation/{id}/expert-review` |
 | `/chat-ai` | `user` + `chat-layout` | 與 `/chat` 共用對話。標準流程（畫面「標準」）推薦槽為「查看推薦方案」，進入 `/app/recommendations?flow=standard` | 同 `/chat` 對話；建議只打 `POST /recommendations` 後結帳，不呼叫 expert-review |
-| `/app` | `user` + `auth` | 我的健康：profile 摘要卡＋報告列表＋專家案件列（付費專家案可連訂單／申請退款） | `GET /profile`；`GET /health-reports`；`GET /expert-case-reviews`；`POST /order/{id}/refund-request` |
+| `/app` | `user` + `auth` | 我的健康：profile 摘要卡＋報告列表＋專家案件列（reviewed 列「查看推薦方案」導 `/app/expert-cases/{conversation_id}`；**無**頁首單獨「查看推薦方案」CTA；付費專家案可連訂單／申請退款） | `GET /profile`；`GET /health-reports`；`GET /expert-case-reviews`；`POST /order/{id}/refund-request` |
 | `/app/wearables` | `user` + `auth` | 穿戴裝置範例（假資料、`?demo=` 切狀態） | 無 API |
 | `/app/wearables/:deviceId` | `user` + `auth` | 單一裝置趨勢（7／30 天） | 無 API |
 | `/app/renewals` | `user` + `auth` | 待續約即將上線佔位（列表與續約對話暫不從這頁進入） | 無（殼）；client 仍保留 `GET /renewals/due`、`renewal_of_order_id` |
