@@ -414,7 +414,6 @@ import {
 import {
   chooseOptionPayload,
   detectPathRuleCopyKind,
-  findGapCtaHostMessage,
   hasAskReportAction,
   hasReplyActionsColumn,
   hasReportRequiredAsk,
@@ -671,12 +670,6 @@ const confirmDisabled = computed(() =>
   || (goalSelectActive.value && selectedCodes.value.length < 1)
 )
 
-const gapCtaHostMessage = computed(() =>
-  findGapCtaHostMessage(messages.value, { openProfileGaps: profileGaps.value })
-)
-
-const gapCtaHostId = computed(() => gapCtaHostMessage.value?.id)
-
 const turnUiContext = computed((): ChatTurnUiContext => ({
   readonlyMode: readonly.value,
   escalated: escalated.value,
@@ -687,8 +680,6 @@ const turnUiContext = computed((): ChatTurnUiContext => ({
   reportRetry: Boolean(reportRetryId.value),
   checkupLinkReady: checkupLinkUrl.value !== '',
   lastAssistantId: lastAssistantId.value,
-  gapCtaHostId: gapCtaHostId.value,
-  gapCtaHostReplyActions: gapCtaHostMessage.value?.replyActions ?? null,
   conversationPath: pathContractEnabled.value ? conversationPath.value : null,
   openProfileGaps: profileGaps.value,
   labReportQuizActive: labReportQuizActive.value,
@@ -1599,17 +1590,11 @@ async function hydrateConversationHistory(conversationId: string) {
       applyPathRuleCopy(message)
     }
 
-    // Prefer *open* required-gap CTA host (may be behind a stream turn that only
-    // has offer_recommend); ignore answered profile choose_option left on bank.
-    const gapHost = findGapCtaHostMessage(mapped, { openProfileGaps: profileGaps.value })
+    // Latest assistant owns visible CTAs (no lift from older bank gaps).
     const lastAssistant = [...mapped].reverse().find(m => m.role === 'assistant')
-    const ctaHost = gapHost
-      ?? (lastAssistant && isUsableReplyActions(lastAssistant.replyActions)
-        ? lastAssistant
-        : undefined)
-    if (ctaHost?.replyActions) {
-      applyReplyActionsInteraction(ctaHost, ctaHost.replyActions)
-      const override = turnActionsFor(ctaHost).checkupUrlOverride
+    if (lastAssistant?.replyActions && isUsableReplyActions(lastAssistant.replyActions)) {
+      applyReplyActionsInteraction(lastAssistant, lastAssistant.replyActions)
+      const override = turnActionsFor(lastAssistant).checkupUrlOverride
       if (override) {
         resolvedCheckupUrl.value = override
       }
@@ -2056,19 +2041,8 @@ async function onVitalsSubmit(values: Partial<Record<VitalsField, number>>) {
   if (pending.value || readonly.value || escalated.value) {
     return
   }
-  // Prefer the latest bubble when it is the one showing the vitals card
-  // (age correction while an older gap is still open).
-  const latestAssistant = [...journey.messages].reverse().find(m => m.role === 'assistant')
-  const submittedField = (Object.keys(values) as VitalsField[]).find(field => values[field] != null)
-  const latestShowsField = Boolean(
-    latestAssistant
-    && submittedField
-    && turnActionsFor(latestAssistant).vitalsFields.includes(submittedField)
-  )
-  const host = latestShowsField
-    ? latestAssistant
-    : findGapCtaHostMessage(journey.messages, { openProfileGaps: profileGaps.value })
-      ?? latestAssistant
+  // Vitals card only paints on the latest bubble's own ask_vitals (no bank lift).
+  const host = [...journey.messages].reverse().find(m => m.role === 'assistant')
   if (!host) {
     return
   }

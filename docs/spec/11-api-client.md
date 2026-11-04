@@ -66,7 +66,7 @@
 
 ## 專家方案（spec 33 — core #143）
 
-- 完成 CTA：usable `reply_actions.offer_recommend`（`mode=view_recommendations`）；首按 `POST /conversations/{id}/completion-choice` body `{}` → `recordCompletionChoice()`。
+- 完成 CTA：usable `reply_actions.offer_recommend`（`mode=view_recommendations`）；首按 `POST /conversations/{id}/completion-choice` body `{}` → `recordCompletionChoice()`。B／C 必填問完後 core 可每輪回完成 CTA——FE 只投影**最新一則自己的** RA（不合併／去重／因舊訊息未答而隱藏）；舊訊息氣泡不顯示按鈕。
 - 結帳預覽：`GET /checkout/preview?conversation_id&mode=ai|expert&package_plan_code?` → `getCheckoutPreview()`。
   - `mode=ai`：方案組成以回傳 `ai`（含 `items[]`＝`RecommendationPackageItem`）為準；**不得**再沿用 `POST /recommendations`。缺 `conversation_id`（用戶端）或 preview **422** `invalid_request` → 同一錯誤態（回對話）。切換 `package_plan_code` 重打 preview。
   - `mode=expert`：上架 `expert_plans`、`preselect_expert_plan_code`（僅一筆上架時）；關掉下架提示後的重新載入 `skipPreselect`（規則 31；使用者自行重整仍可依 core 單筆預選）。

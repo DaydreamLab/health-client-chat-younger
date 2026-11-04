@@ -27,7 +27,8 @@ Path B／C 出題只信後端 `reply_actions`／`flow_prompt`／`POST /profile/a
 ## 完成 CTA
 
 - 只信 usable `reply_actions.offer_recommend`（core 在 A 已 strip）。
-- FE 不再依 path A／path-null 藏完成鈕；journey 安全門（readonly／latest／pending／required ask）仍在。
+- FE 不再依 path A／path-null 藏完成鈕；journey 安全門（readonly／latest／pending／**本則** required ask）仍在；舊 bank 未答 gap **不**挡最新一則的完成 CTA。
+- B／C 必填問完後每一輪 core 都可回完成 CTA；按「繼續健康諮詢」後按鈕跟著該輪 RA；20 題上限只出提示不出按鈕（core）；詢問保底不變。前台**不**合併／去重／隱藏完成 CTA，也不把舊訊息未答題搬到最新一則。
 - **❌ 不在** intentional none／degraded／缺 RA 時由 FE 強掛完成 CTA。
 - 文案維持「取得專屬保健品方案」／hint「以上為 AI 對話資訊…」（#34）。
 

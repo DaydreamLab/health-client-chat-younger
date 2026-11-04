@@ -830,7 +830,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await expect(last.getByTestId('chat-quiz-option-b')).not.toHaveText('b')
   })
 
-  test('gap CTA fallback: hydrate keeps ask_vitals on bank when latest is offer_recommend-only', async ({
+  test('no lift: latest offer_recommend-only shows completion CTA; bank ask_vitals stays hidden', async ({
     page,
     goto
   }) => {
@@ -880,7 +880,7 @@ test.describe('reply_actions v0.1 CTAs', () => {
               {
                 id: 'stream-cover',
                 role: 'assistant',
-                content: '請問您的身高是多少公分呢？',
+                content: '已整理目前資訊，可查看推薦方案。',
                 reply_actions: {
                   schema_version: '0.1',
                   source: 'semantic_judgment',
@@ -933,13 +933,153 @@ test.describe('reply_actions v0.1 CTAs', () => {
 
     await goto('/chat', { waitUntil: 'hydration' })
 
-    // Latest bubble is the covering stream text; numpad must still render via gap fallback.
     const last = page.getByTestId('chat-last-reply')
-    await expect(last).toContainText('身高是多少公分', { timeout: 15_000 })
-    await expect(page.getByTestId('chat-vitals-card')).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByTestId('chat-vitals-numpad')).toBeVisible()
-    await expect(page.getByTestId('chat-vitals-height')).toBeVisible()
-    // Covering offer_recommend must not paint recommend while gap is open.
-    await expect(page.getByTestId('chat-view-recommend')).toHaveCount(0)
+    await expect(last).toContainText('查看推薦方案', { timeout: 15_000 })
+    // Bank height numpad must NOT lift onto latest.
+    await expect(page.getByTestId('chat-vitals-card')).toHaveCount(0)
+    await expect(page.getByTestId('chat-vitals-numpad')).toHaveCount(0)
+    // Latest own offer_recommend paints completion CTA even if older gap is open.
+    await expect(page.getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
+  })
+
+  test('consecutive completion CTAs: each latest turn keeps view-recommend', async ({
+    page,
+    goto
+  }) => {
+    test.setTimeout(90_000)
+    const conversationId = 'cccccccc-cccc-cccc-cccc-cccccccccccc'
+    await mockCandorAuth(page, { asMember: true, replyActions: 'offer_recommend' })
+    await seedNoExpertCase(page)
+    await page.setViewportSize({ width: 1280, height: 800 })
+
+    await page.route(`**/api/v1/conversation/${conversationId}/messages`, async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback()
+        return
+      }
+      if (route.request().url().includes('/messages/stream')) {
+        await route.fallback()
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            conversation_id: conversationId,
+            path: 'b',
+            messages: [
+              { id: 'u1', role: 'user', content: '繼續' },
+              {
+                id: 'assist-1',
+                role: 'assistant',
+                content: '第一輪摘要',
+                reply_actions: {
+                  schema_version: '0.1',
+                  source: 'semantic_judgment',
+                  adaptor: 'rule',
+                  degraded: false,
+                  error: null,
+                  actions: [{
+                    type: 'offer_recommend',
+                    payload: {
+                      mode: 'view_recommendations',
+                      label: '查看推薦方案',
+                      path: '/app/recommendations'
+                    }
+                  }, {
+                    type: 'choose_option',
+                    payload: {
+                      kind: 'continue_consultation',
+                      mode: 'single',
+                      options: [{ code: 'continue', label: '繼續健康諮詢' }]
+                    }
+                  }]
+                }
+              },
+              { id: 'u2', role: 'user', content: '繼續健康諮詢' },
+              {
+                id: 'assist-2',
+                role: 'assistant',
+                content: '第二輪摘要',
+                reply_actions: {
+                  schema_version: '0.1',
+                  source: 'semantic_judgment',
+                  adaptor: 'rule',
+                  degraded: false,
+                  error: null,
+                  actions: [{
+                    type: 'offer_recommend',
+                    payload: {
+                      mode: 'view_recommendations',
+                      label: '查看推薦方案',
+                      path: '/app/recommendations'
+                    }
+                  }, {
+                    type: 'choose_option',
+                    payload: {
+                      kind: 'open_question_reply',
+                      mode: 'single',
+                      options: [
+                        { code: 'no_more', label: '我沒有問題了' },
+                        { code: 'suggest', label: '你有什麼建議' }
+                      ]
+                    }
+                  }, {
+                    type: 'choose_option',
+                    payload: {
+                      kind: 'continue_consultation',
+                      mode: 'single',
+                      options: [{ code: 'continue', label: '繼續健康諮詢' }]
+                    }
+                  }]
+                }
+              }
+            ]
+          }
+        })
+      })
+    })
+
+    await page.addInitScript((journey) => {
+      localStorage.setItem('candor.unpaid.journey', JSON.stringify(journey))
+    }, {
+      conversationId,
+      conversationPath: 'B',
+      messages: [{
+        id: 'stale',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'stale' }]
+      }],
+      hasAnalysis: false,
+      selectedPackageCode: null,
+      reportId: null,
+      reportDockOpen: false,
+      reportDockCollapsed: true,
+      reportInterpretSent: false,
+      selectedPackage: null,
+      packageConfirmed: false,
+      goalSelectActive: false,
+      goalOptions: [],
+      selectedCodes: [],
+      quizActive: false,
+      activeQuestion: null,
+      postQuizGuided: false,
+      profileGaps: [],
+      clarifyingGoals: [],
+      expertReviewStatus: 'none'
+    })
+
+    await goto('/chat', { waitUntil: 'hydration' })
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last).toContainText('第二輪摘要', { timeout: 15_000 })
+    await expect(page.getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('chat-quiz-option-no_more')).toBeVisible()
+    await expect(page.getByTestId('chat-quiz-option-suggest')).toBeVisible()
+    await expect(page.getByTestId('chat-quiz-option-continue')).toBeVisible()
+    // Only the latest bubble paints CTAs — one view-recommend in the thread.
+    await expect(page.getByTestId('chat-view-recommend')).toHaveCount(1)
   })
 })
