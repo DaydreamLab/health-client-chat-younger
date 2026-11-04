@@ -261,7 +261,7 @@ test.describe('member order detail', () => {
     await goto('/app', { waitUntil: 'hydration' })
     await expect(page.getByRole('heading', { name: '我的健康' })).toBeVisible()
     await expect(page.getByRole('heading', { name: '健康報告' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: '專家判讀記錄' })).toBeVisible()
+    await expect(page.getByTestId('health-review-records')).toHaveCount(0)
     await expect(page.getByTestId('health-stat-goals')).toContainText('睡眠')
     await expect(page.getByTestId('health-stat-goals')).toContainText('免疫提升')
     await expect(page.getByTestId('health-stat-goals')).not.toContainText('sleep')
@@ -311,7 +311,8 @@ test.describe('member order detail', () => {
               id: reportId,
               status: 'needs_review',
               created_at: '2026-10-02T07:39:00Z'
-            }]
+            }],
+            total: 1
           }
         })
       })
@@ -339,17 +340,30 @@ test.describe('member order detail', () => {
     await goto('/app', { waitUntil: 'hydration' })
 
     const card = page.getByTestId(`health-report-${reportId}`)
-    const cards = page.getByTestId(`health-report-cards-${reportId}`)
-    await expect(card.getByText('報告樣式1')).toBeVisible()
-    await expect(card.getByTestId('health-report-view-table')).toHaveAttribute('aria-pressed', 'true')
+    await expect(card.getByText('報告樣式1')).toHaveCount(0)
+    await expect(card.getByText('報告樣式2')).toHaveCount(0)
+    await expect(page.getByTestId(`health-report-cards-${reportId}`)).toHaveCount(0)
+    await expect(card.getByTestId('health-report-view-cards')).toHaveAttribute('aria-pressed', 'true')
     await expect(card.getByTestId('health-report-expand')).toHaveText('展開報告')
     await expect(card.getByTestId('health-report-detail')).toBeVisible()
-    await expect(card.getByTestId('report-result-row-result-e2e-0')).toBeVisible()
-    await expect(card.getByTestId('report-result-row-result-e2e-0')).toContainText('指標 0')
-    await expect(card.getByTestId('report-result-row-result-e2e-1')).toContainText('這是什麼')
-    await expect(card.getByTestId('report-result-row-result-e2e-1')).toContainText('可能風險')
+    await expect(card.getByTestId('report-result-card-result-e2e-0')).toBeVisible()
+    await expect(card.getByTestId('report-result-card-result-e2e-0')).toContainText('指標 0')
+    await expect(card.getByTestId('report-result-card-position-result-e2e-0')).toBeVisible()
+    await expect(card.getByTestId('report-result-card-status-result-e2e-0')).toHaveText('最佳')
+    await expect(card.getByTestId('report-result-card-status-result-e2e-1')).toHaveText('提醒')
+    await expect(card.getByTestId('report-result-card-status-result-e2e-21')).toHaveText('警戒')
+    await expect(card.getByTestId('report-result-info-result-e2e-1')).toBeVisible()
+    await expect(card.getByTestId('report-result-card-result-e2e-1')).not.toContainText('這是什麼')
     await expect(card.getByTestId('report-result-raw-name-result-e2e-1')).toContainText('Marker 1')
-    await expect(card.getByTestId('report-result-row-result-e2e-1')).toContainText('可能原因')
+
+    await card.getByTestId('report-result-info-result-e2e-1').click()
+    const infoDialog = page.getByRole('dialog')
+    await expect(infoDialog).toBeVisible()
+    await expect(infoDialog.getByTestId('report-result-interpretation-result-e2e-1')).toContainText('這是什麼')
+    await expect(infoDialog.getByTestId('report-result-interpretation-result-e2e-1')).toContainText('可能原因')
+    await expect(infoDialog.getByTestId('report-result-interpretation-result-e2e-1')).toContainText('可能風險')
+    await page.keyboard.press('Escape')
+    await expect(infoDialog).toHaveCount(0)
 
     const shell = await page.evaluate(() => {
       const sidebar = document.getElementById('user-sidebar')
@@ -384,30 +398,24 @@ test.describe('member order detail', () => {
     expect(afterScroll.windowScroll).toBe(0)
     expect(afterScroll.sidebarTop).toBe(0)
 
-    await expect(cards.getByText('報告樣式2')).toBeVisible()
-    await expect(cards.getByTestId('health-report-view-table')).toHaveAttribute('aria-pressed', 'true')
-    await expect(cards.getByTestId('report-result-strip-result-e2e-0')).toBeVisible()
-
     const cardMetrics = await card.evaluate((el) => {
-      const scroller = el.querySelector('[data-testid="report-result-table"] .scrollbar-none')
+      const scroller = el.querySelector('[data-testid="report-result-cards-scroller"]')
       const style = getComputedStyle(el)
-      const scrollerStyle = scroller ? getComputedStyle(scroller) : null
       return {
         height: el.getBoundingClientRect().height,
         maxHeight: Number.parseFloat(style.maxHeight),
         scrollHeight: scroller?.scrollHeight ?? 0,
         clientHeight: scroller?.clientHeight ?? 0,
-        scrollbarWidth: scrollerStyle?.scrollbarWidth ?? ''
+        overflowY: scroller ? getComputedStyle(scroller).overflowY : ''
       }
     })
     expect(cardMetrics.maxHeight).toBeGreaterThan(0)
     expect(cardMetrics.height).toBeLessThanOrEqual(cardMetrics.maxHeight + 1)
     expect(cardMetrics.scrollHeight).toBeGreaterThan(cardMetrics.clientHeight)
-    expect(cardMetrics.scrollbarWidth).toBe('none')
+    expect(cardMetrics.overflowY).toMatch(/auto|scroll/)
 
     await card.getByTestId('health-report-toggle').click()
     await expect(card.getByTestId('health-report-detail')).toHaveCount(0)
-    await expect(cards.getByTestId('health-report-detail')).toBeVisible()
     await expect(page.getByRole('dialog')).toHaveCount(0)
 
     await card.getByRole('button', { name: '展開', exact: true }).click()
@@ -415,7 +423,6 @@ test.describe('member order detail', () => {
     await expect(page.getByRole('dialog')).toHaveCount(0)
 
     await card.getByTestId('health-report-expand').click()
-    await expect(card.getByTestId('health-report-detail')).toBeVisible()
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
     await expect(dialog.getByRole('heading', { name: '報告判讀' })).toBeVisible()
@@ -425,26 +432,19 @@ test.describe('member order detail', () => {
     expect(sheetToggle).not.toBeNull()
     expect(sheetClose).not.toBeNull()
     expect((sheetToggle?.x ?? 0) + (sheetToggle?.width ?? 0)).toBeLessThan(sheetClose?.x ?? 0)
-    await expect(dialog.getByTestId('health-report-sheet').getByRole('columnheader')).toHaveText([
-      '狀態',
-      '項目',
-      '數值',
-      '單位',
-      '參考區間',
-      '位置'
-    ])
+    await expect(dialog.getByTestId('health-report-view-cards')).toHaveAttribute('aria-pressed', 'true')
+    await expect(dialog.getByTestId('report-result-card-result-e2e-0')).toBeVisible()
+    await expect(dialog.getByRole('columnheader')).toHaveCount(0)
     await expect(dialog.getByText('數值依參考區間著色')).toBeVisible()
-    await expect(dialog.getByTestId('report-result-row-result-e2e-0')).toBeVisible()
 
     const sheetMetrics = await dialog.evaluate(async (el) => {
       await Promise.all(el.getAnimations().map(animation => animation.finished))
-      const scroller = el.querySelector('[data-testid="report-result-table"] .scrollbar-none')
-      const scrollerStyle = scroller ? getComputedStyle(scroller) : null
+      const scroller = el.querySelector('[data-testid="report-result-cards-scroller"]')
       return {
         height: el.getBoundingClientRect().height,
         scrollHeight: scroller?.scrollHeight ?? 0,
         clientHeight: scroller?.clientHeight ?? 0,
-        scrollbarWidth: scrollerStyle?.scrollbarWidth ?? ''
+        overflowY: scroller ? getComputedStyle(scroller).overflowY : ''
       }
     })
     const viewport = page.viewportSize()
@@ -453,43 +453,31 @@ test.describe('member order detail', () => {
     expect(sheetMetrics.height).toBeGreaterThan(viewportHeight - 48 - 8)
     expect(sheetMetrics.height).toBeLessThan(viewportHeight - 48 + 8)
     expect(sheetMetrics.scrollHeight).toBeGreaterThan(sheetMetrics.clientHeight)
-    expect(sheetMetrics.scrollbarWidth).toBe('none')
+    expect(sheetMetrics.overflowY).toMatch(/auto|scroll/)
 
     await page.keyboard.press('Escape')
     await expect(dialog).toHaveCount(0)
     await expect(card.getByTestId('health-report-detail')).toBeVisible()
 
-    await cards.getByTestId('health-report-view-cards').click()
-    await expect(cards.getByTestId('report-result-card-result-e2e-0')).toBeVisible()
-    await expect(cards.getByTestId('report-result-card-position-result-e2e-0')).toBeVisible()
-    await expect(cards.getByTestId('report-result-card-status-result-e2e-0')).toHaveText('最佳')
-    await expect(cards.getByTestId('report-result-card-status-result-e2e-1')).toHaveText('提醒')
-    await expect(cards.getByTestId('report-result-card-status-result-e2e-21')).toHaveText('警戒')
-    await expect(card.getByTestId('report-result-row-result-e2e-0')).toBeVisible()
+    await card.getByTestId('health-report-view-table').click()
+    await expect(card.getByTestId('report-result-strip-result-e2e-0')).toBeVisible()
+    await expect(card.getByTestId('report-result-strip-position-result-e2e-0')).toBeVisible()
+    await expect(card.getByTestId('report-result-strip-status-result-e2e-0')).toHaveText('最佳')
+    await expect(card.getByTestId('report-result-card-result-e2e-0')).toHaveCount(0)
+    await expect(card.getByTestId('report-result-info-result-e2e-1')).toBeVisible()
 
-    await cards.getByTestId('health-report-view-table').click()
-    await expect(cards.getByTestId('report-result-strip-result-e2e-0')).toBeVisible()
-    await expect(cards.getByTestId('report-result-strip-position-result-e2e-0')).toBeVisible()
-    await expect(cards.getByTestId('report-result-strip-status-result-e2e-0')).toHaveText('最佳')
-    await expect(cards.getByTestId('report-result-row-result-e2e-0')).toHaveCount(0)
-    await expect(cards.getByTestId('report-result-card-result-e2e-0')).toHaveCount(0)
-    await expect(card.getByTestId('report-result-row-result-e2e-0')).toBeVisible()
-
-    await cards.getByTestId('health-report-view-cards').click()
-    await cards.getByTestId('health-report-expand').click()
+    await card.getByTestId('health-report-view-cards').click()
+    await card.getByTestId('health-report-expand').click()
     await expect(dialog).toBeVisible()
-    await expect(dialog).not.toContainText('展開報告')
     await expect(dialog.getByTestId('health-report-view-cards')).toHaveAttribute('aria-pressed', 'true')
     await expect(dialog.getByTestId('report-result-card-result-e2e-0')).toBeVisible()
     await expect(dialog.getByTestId('report-result-card-status-result-e2e-0')).toHaveText('最佳')
     await expect(dialog.getByRole('columnheader')).toHaveCount(0)
-    await expect(dialog.getByText('數值依參考區間著色')).toBeVisible()
 
     await dialog.getByTestId('health-report-view-table').click()
     await expect(dialog.getByTestId('report-result-strip-result-e2e-0')).toBeVisible()
     await expect(dialog.getByRole('columnheader')).toHaveCount(0)
-    await expect(cards.getByTestId('report-result-strip-status-result-e2e-1')).toHaveText('提醒')
-    await expect(card.getByTestId('report-result-row-result-e2e-0')).toBeVisible()
+    await expect(dialog.getByTestId('report-result-strip-status-result-e2e-1')).toHaveText('提醒')
   })
 })
 

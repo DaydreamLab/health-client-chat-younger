@@ -2523,7 +2523,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         contentType: 'application/json',
         body: JSON.stringify({
           status: 'success',
-          data: { reports: [] }
+          data: { reports: [], total: 0 }
         })
       })
       return

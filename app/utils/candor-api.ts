@@ -752,6 +752,8 @@ export interface HealthReportSummary {
 
 export interface HealthReportList {
   reports: HealthReportSummary[]
+  /** Member report count for paging (GET /health-reports). */
+  total: number
 }
 
 export interface UserHealthProfile {

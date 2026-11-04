@@ -15,7 +15,7 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 | `/login` | default | 登入／註冊 | `POST /auth/login`、`/auth/register` |
 | `/chat` | `user` + `chat-layout` | 對話 SSE、目標／價格帶；上傳報告僅 member（guest 導向登入）。推薦槽在尚未建案時為「提交專家判讀」 | guest 可對話；`POST /health-reports` 需 member；會員「提交專家判讀」為 `POST /conversation/{id}/expert-review` |
 | `/chat-ai` | `user` + `chat-layout` | 與 `/chat` 共用對話。標準流程（畫面「標準」）推薦槽為「查看推薦方案」，進入 `/app/recommendations?flow=standard` | 同 `/chat` 對話；建議只打 `POST /recommendations` 後結帳，不呼叫 expert-review |
-| `/app` | `user` + `auth` | 我的健康：profile 摘要卡＋報告列表＋專家案件列（reviewed 列「查看推薦方案」導 `/app/expert-cases/{conversation_id}`；**無**頁首單獨「查看推薦方案」CTA；付費專家案可連訂單／申請退款） | `GET /profile`；`GET /health-reports`；`GET /expert-case-reviews`；`POST /order/{id}/refund-request` |
+| `/app` | `user` + `auth` | 我的健康：profile 摘要卡＋報告列表（`GET /health-reports?limit=5&offset=` 分頁；`total > 5` 顯示上一頁／下一頁；**無**專家判讀記錄列、**無**頁首「查看推薦方案」CTA） | `GET /profile`；`GET /health-reports` |
 | `/app/wearables` | `user` + `auth` | 穿戴裝置範例（假資料、`?demo=` 切狀態） | 無 API |
 | `/app/wearables/:deviceId` | `user` + `auth` | 單一裝置趨勢（7／30 天） | 無 API |
 | `/app/renewals` | `user` + `auth` | 待續約即將上線佔位（列表與續約對話暫不從這頁進入） | 無（殼）；client 仍保留 `GET /renewals/due`、`renewal_of_order_id` |
@@ -23,7 +23,7 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 | `/app/expert-cases/[id]` | `user` + `auth` | 專家案件定稿唯讀（`id`＝案件 conversation id）。付費案可連訂單 | `GET /conversation/{id}/expert-review`；有 `order_id` 時另 `GET /order/{id}/finalized-plan`、`GET /order/{id}` |
 | `/app/checkout` | `user` + `auth` | AI／專家共用結帳（`?kind=package`｜`?kind=expert_plan`）；同頁預覽、按「確認付款」建單；缺 `conversation_id` 時 AI 顯示諮詢紀錄錯誤＋回對話；`questionnaire_incomplete`／`conversation_already_ordered`／`existing_order` repay／`conversation_order_closed`（開新對話）gate | `GET /checkout/preview`（AI 品項用 `ai.items`）、`POST /orders`、`PATCH /users/me` |
 | `/app/orders` | `user` + `auth` | 訂單列表 | `GET /orders` |
-| `/app/orders/[id]` | `user` + `auth` | 訂單詳情、出貨時間線、對話 modal；專家方案可「申請退款」／顯示「退款申請中」；定稿後「查看定稿方案」導 `/app/expert-cases/{conversation_id}` | `GET /order/{id}`；`GET /order/{id}/message`；`POST /order/{id}/refund-request` |
+| `/app/orders/[id]` | `user` + `auth` | 訂單詳情、出貨時間線、對話 modal；專家方案可「申請退款」／顯示「退款申請中」；定稿後「查看定稿方案」導 `/app/expert-cases/{conversation_id}`（定稿方案的主要入口） | `GET /order/{id}`；`GET /order/{id}/message`；`POST /order/{id}/refund-request` |
 | `/app/notifications` | `user` + `auth` | 通知中心列表（篩選全部／未讀、點列標已讀＋deep link）；guest 顯示 dashed AuthGate；空／錯誤態 | `GET /notifications`、`GET /notifications/unread-count`、`POST /notifications/{id}/read`（member；guest 403） |
 | `/app/me` | `user` + `auth` | 個人資料：顯示名稱、密碼、常用收件（email 唯讀）；guest 顯示登入門檻 | `GET`／`PATCH /users/me`（member） |
 | `/app/handoff` | `user` + `auth` | 舊 FigJam「交給顧問」殼 | 非 core 主路徑；勿新增假 API |

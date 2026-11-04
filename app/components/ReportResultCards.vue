@@ -46,14 +46,14 @@ const cards = computed(() => props.results.map(row => ({
   status: cardStatus(row),
   scale: resultScale(row),
   gaugePct: resultGaugePct(row),
-  unit: row.unit || row.raw_unit || ''
+  unit: row.unit || row.raw_unit || '',
+  hasInfo: hasResultInterpretation(row)
 })))
 </script>
 
 <template>
   <div
-    class="flex flex-col"
-    :class="hideScrollbar ? 'min-h-0 flex-1' : undefined"
+    class="flex h-full min-h-0 flex-1 flex-col overflow-hidden"
     data-testid="report-result-cards"
   >
     <p
@@ -66,13 +66,15 @@ const cards = computed(() => props.results.map(row => ({
 
     <div
       v-if="cards.length"
-      class="grid grid-cols-1 gap-3 overflow-auto sm:grid-cols-2 lg:grid-cols-4"
-      :class="hideScrollbar ? 'scrollbar-none min-h-0 flex-1 content-start' : undefined"
+      class="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+      :class="hideScrollbar ? 'scrollbar-none' : undefined"
+      data-testid="report-result-cards-scroller"
     >
+      <div class="grid grid-cols-1 content-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       <article
         v-for="card in cards"
         :key="card.row.id"
-        class="flex items-stretch gap-3 rounded-xl border border-default bg-default px-3 py-3"
+        class="flex min-h-[8.5rem] items-stretch gap-3 rounded-xl border border-default bg-default px-3 py-3"
         :data-testid="`report-result-card-${card.row.id}`"
       >
         <div
@@ -101,19 +103,30 @@ const cards = computed(() => props.results.map(row => ({
           </div>
         </div>
         <div class="flex min-w-0 flex-1 flex-col">
-          <div class="min-w-0">
-            <p class="truncate text-sm font-semibold text-highlighted">
-              {{ displayResultName(card.row) }}
-            </p>
-            <p
-              v-if="displayResultOriginalName(card.row)"
-              class="truncate text-xs text-muted"
-              :data-testid="`report-result-raw-name-${card.row.id}`"
-            >
-              {{ displayResultOriginalName(card.row) }}
-            </p>
+          <div class="flex items-start gap-2">
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-semibold text-highlighted">
+                {{ displayResultName(card.row) }}
+              </p>
+              <p
+                v-if="displayResultOriginalName(card.row)"
+                class="truncate text-xs text-muted"
+                :data-testid="`report-result-raw-name-${card.row.id}`"
+              >
+                {{ displayResultOriginalName(card.row) }}
+              </p>
+            </div>
+            <ReportResultInterpretationInfo
+              v-if="card.hasInfo"
+              :result="card.row"
+            />
+            <span
+              v-else
+              class="inline-flex size-7 shrink-0"
+              aria-hidden="true"
+            />
           </div>
-          <div class="mt-1 flex items-center gap-2">
+          <div class="mt-2 flex items-center gap-2">
             <p
               class="text-xl font-bold leading-none"
               :class="`yr-val-${card.status}`"
@@ -131,32 +144,8 @@ const cards = computed(() => props.results.map(row => ({
               />
             </div>
           </div>
-          <div
-            v-if="hasResultInterpretation(card.row)"
-            class="mt-2 space-y-1 text-xs text-muted"
-            :data-testid="`report-result-interpretation-${card.row.id}`"
-          >
-            <p
-              v-if="card.row.description"
-              class="line-clamp-3"
-            >
-              <span class="font-medium text-highlighted">{{ $t('labChart.description') }}：</span>{{ card.row.description }}
-            </p>
-            <p
-              v-if="card.row.possible_causes"
-              class="line-clamp-3"
-            >
-              <span class="font-medium text-highlighted">{{ $t('labChart.possibleCauses') }}：</span>{{ card.row.possible_causes }}
-            </p>
-            <p
-              v-if="card.row.possible_risks"
-              class="line-clamp-3"
-            >
-              <span class="font-medium text-highlighted">{{ $t('labChart.possibleRisks') }}：</span>{{ card.row.possible_risks }}
-            </p>
-          </div>
-          <div class="mt-auto flex items-baseline justify-between gap-2 pt-2">
-            <p class="min-w-0 text-xs text-highlighted">
+          <div class="mt-auto flex items-baseline justify-between gap-2 pt-3">
+            <p class="min-w-0 truncate text-xs text-highlighted">
               {{ $t('labChart.optimal') }}
               <span class="text-muted">{{ formatResultRef(card.row) }}</span>
             </p>
@@ -175,6 +164,7 @@ const cards = computed(() => props.results.map(row => ({
           {{ statusText(card.status) }}
         </span>
       </article>
+      </div>
     </div>
   </div>
 </template>

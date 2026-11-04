@@ -40,8 +40,7 @@ function statusText(status: StripStatus) {
 
 <template>
   <div
-    class="flex flex-col"
-    :class="hideScrollbar ? 'min-h-0 flex-1' : undefined"
+    class="flex h-full min-h-0 flex-1 flex-col overflow-hidden"
     data-testid="report-result-strips"
   >
     <p
@@ -54,8 +53,9 @@ function statusText(status: StripStatus) {
 
     <div
       v-if="results.length"
-      class="flex flex-col gap-2 overflow-auto"
-      :class="hideScrollbar ? 'scrollbar-none min-h-0 flex-1' : undefined"
+      class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain"
+      :class="hideScrollbar ? 'scrollbar-none' : undefined"
+      data-testid="report-result-strips-scroller"
     >
       <article
         v-for="row in results"
@@ -68,44 +68,26 @@ function statusText(status: StripStatus) {
           :class="`yr-bar-${stripStatus(row)}`"
         />
         <div class="min-w-0 flex-1">
-          <div class="min-w-0">
-            <p class="truncate font-semibold text-highlighted">
-              {{ displayResultName(row) }}
-            </p>
-            <p
-              v-if="displayResultOriginalName(row)"
-              class="truncate text-xs text-muted"
-              :data-testid="`report-result-raw-name-${row.id}`"
-            >
-              {{ displayResultOriginalName(row) }}
-            </p>
-          </div>
-          <p class="mt-0.5 text-xs text-muted">
-            {{ formatResultRef(row) }}
-          </p>
-          <div
-            v-if="hasResultInterpretation(row)"
-            class="mt-1.5 space-y-1 text-xs text-muted"
-            :data-testid="`report-result-interpretation-${row.id}`"
-          >
-            <p
-              v-if="row.description"
-              class="line-clamp-2"
-            >
-              <span class="font-medium text-highlighted">{{ $t('labChart.description') }}：</span>{{ row.description }}
-            </p>
-            <p
-              v-if="row.possible_causes"
-              class="line-clamp-2"
-            >
-              <span class="font-medium text-highlighted">{{ $t('labChart.possibleCauses') }}：</span>{{ row.possible_causes }}
-            </p>
-            <p
-              v-if="row.possible_risks"
-              class="line-clamp-2"
-            >
-              <span class="font-medium text-highlighted">{{ $t('labChart.possibleRisks') }}：</span>{{ row.possible_risks }}
-            </p>
+          <div class="flex items-start gap-2">
+            <div class="min-w-0 flex-1">
+              <p class="truncate font-semibold text-highlighted">
+                {{ displayResultName(row) }}
+              </p>
+              <p
+                v-if="displayResultOriginalName(row)"
+                class="truncate text-xs text-muted"
+                :data-testid="`report-result-raw-name-${row.id}`"
+              >
+                {{ displayResultOriginalName(row) }}
+              </p>
+              <p class="mt-0.5 text-xs text-muted">
+                {{ formatResultRef(row) }}
+              </p>
+            </div>
+            <ReportResultInterpretationInfo
+              v-if="hasResultInterpretation(row)"
+              :result="row"
+            />
           </div>
         </div>
         <div

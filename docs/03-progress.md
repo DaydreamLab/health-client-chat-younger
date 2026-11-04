@@ -83,7 +83,7 @@
 | 對話（建立／綁定／目標／價格帶／SSE） | `/chat` | 可用 | 已接 | 完成 |
 | AI 諮詢（標準建議與結帳） | `/chat-ai` → `/app/recommendations?flow=standard` | 可用 | 已接 | 完成 |
 | 同步訊息（非 SSE） | — | 無 | Mock | Backlog |
-| 建議／價格帶／建單（品項顯示 `image_url`） | `/app/recommendations`（AI／專家二選）／定稿唯讀 `/app/expert-cases/{conversation_id}`（入口：健康 reviewed 列、訂單「查看定稿方案」；無健康頁首 CTA） | 可用 | 已接 | 完成 |
+| 建議／價格帶／建單（品項顯示 `image_url`） | `/app/recommendations`（AI／專家二選）／定稿唯讀 `/app/expert-cases/{conversation_id}`（入口：訂單「查看定稿方案」；健康頁不列案件、無頁首 CTA） | 可用 | 已接 | 完成 |
 | 血檢主檔列表 | — | 無 | 接線中 | Backlog |
 | 訂單列表／詳情／出貨時間線（明細顯示 `image_url`） | `/app/orders`、`/app/orders/[id]` | 可用 | 已接 | 完成 |
 | 訂單反查對話 | 訂單詳情 modal | 可用 | 已接 | 完成 |
@@ -112,7 +112,7 @@
 | 能力 | 端點 | 狀態 |
 |------|------|------|
 | 上傳 | `POST /health-reports`（僅 member） | 已接 |
-| 列表 | `GET /health-reports` | 已接 |
+| 列表 | `GET /health-reports`（`limit`／`offset`／`total`；健康頁每頁 5） | 已接 |
 | 輪詢詳情 | `GET /health-reports/{id}` | 已接 |
 | 重試擷取 | `POST /health-reports/{id}/retry` | 已接 |
 | 擁有者校正 | `PATCH /health-reports/{id}/results/{result_id}` | 不做（會員唯讀；校正走後台） |

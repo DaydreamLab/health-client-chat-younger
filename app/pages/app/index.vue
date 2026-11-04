@@ -166,97 +166,6 @@
       >
         <div
           class="space-y-3"
-          data-testid="health-review-records"
-        >
-          <h2 class="text-lg font-semibold text-highlighted">
-            {{ $t('member.reviewRecordsTitle') }}
-          </h2>
-          <p
-            v-if="reviewsLoading"
-            class="text-sm text-muted"
-            data-testid="health-reviews-loading"
-          >
-            {{ $t('member.reportsLoading') }}
-          </p>
-          <p
-            v-else-if="reviewsError"
-            class="text-sm text-red-600 dark:text-red-400"
-            data-testid="health-reviews-error"
-          >
-            {{ reviewsError }}
-          </p>
-          <p
-            v-else-if="!reviewRecords.length"
-            class="text-sm text-muted"
-            data-testid="health-reviews-empty"
-          >
-            {{ $t('member.reviewRecordsEmpty') }}
-          </p>
-          <ul
-            v-else
-            class="space-y-3"
-          >
-            <li
-              v-for="review in reviewRecords"
-              :key="review.id"
-              class="rounded-2xl border border-default bg-elevated p-4"
-              :data-testid="`health-review-card-${review.id}`"
-              :data-status="review.status"
-            >
-              <div class="flex flex-wrap items-start justify-between gap-2">
-                <div class="min-w-0 space-y-1">
-                  <p class="font-medium text-highlighted">
-                    {{ review.status === 'reviewed'
-                      ? $t('member.reviewStatusReviewed')
-                      : $t('member.reviewStatusAwaiting') }}
-                  </p>
-                  <p class="text-xs text-muted">
-                    {{ review.status === 'reviewed' && review.reviewed_at
-                      ? $t('member.reviewReviewedAt', { time: formatReviewTime(review.reviewed_at) })
-                      : $t('member.reviewSubmittedAt', { time: formatReviewTime(review.created_at) }) }}
-                  </p>
-                </div>
-                <div class="flex flex-wrap gap-2">
-                  <AppButton
-                    variant="outline"
-                    :to="localePath('/chat')"
-                    data-testid="health-review-open-chat"
-                    @click="focusReviewConversation(review)"
-                  >
-                    {{ $t('member.reviewOpenChat') }}
-                  </AppButton>
-                  <AppButton
-                    v-if="review.health_report_id"
-                    variant="ghost"
-                    data-testid="health-review-open-report"
-                    @click="openReportFromReview(review.health_report_id)"
-                  >
-                    {{ $t('member.reviewOpenReport') }}
-                  </AppButton>
-                  <AppButton
-                    v-if="review.status === 'reviewed' && review.conversation_id"
-                    :to="localePath(`/app/expert-cases/${review.conversation_id}`)"
-                    data-testid="health-review-view-recommend"
-                    @click="focusReviewConversation(review)"
-                  >
-                    {{ $t('chat.viewRecommend') }}
-                  </AppButton>
-                  <AppButton
-                    v-if="review.order_id"
-                    variant="outline"
-                    :to="localePath(`/app/orders/${review.order_id}`)"
-                    data-testid="health-review-open-order"
-                  >
-                    {{ $t('expertPlans.openOrder') }}
-                  </AppButton>
-                </div>
-              </div>
-            </li>
-          </ul>
-        </div>
-
-        <div
-          class="space-y-3"
           data-testid="health-reports"
         >
           <h2 class="text-lg font-semibold text-highlighted">
@@ -287,117 +196,133 @@
             v-else
             class="space-y-3"
           >
-            <template
+            <article
               v-for="report in reports"
               :key="report.id"
+              class="flex flex-col overflow-hidden rounded-2xl border border-default bg-elevated"
+              :class="isReportExpanded(report.id)
+                ? 'h-[calc(50dvh+2.75rem)] max-h-[calc(50dvh+2.75rem)]'
+                : undefined"
+              :data-testid="`health-report-${report.id}`"
             >
-              <article
-                v-for="variant in reportVariants"
-                :key="`${report.id}-${variant}`"
-                class="overflow-hidden rounded-2xl border border-default bg-elevated lg:flex lg:max-h-[calc(50dvh+2.75rem)] lg:flex-col"
-                :data-testid="variant === 'primary' ? `health-report-${report.id}` : `health-report-cards-${report.id}`"
-              >
-                <div class="flex shrink-0 items-center gap-3 px-5 py-4">
-                  <button
-                    type="button"
-                    class="min-w-0 flex-1 text-start"
-                    :aria-expanded="isReportExpanded(report.id, variant)"
-                    data-testid="health-report-toggle"
-                    @click="toggleReport(report.id, variant)"
-                  >
-                    <p class="font-medium text-highlighted">
-                      {{ formatReportDate(report.created_at) }}
-                      <span class="ms-2 text-xs font-normal text-muted">
-                        {{ variant === 'primary' ? $t('member.reportStyleTable') : $t('member.reportStyleCards') }}
-                      </span>
-                    </p>
-                    <p class="mt-0.5 text-sm text-muted">
-                      {{ statusLabel(report.status) }}
-                      <span
-                        v-if="report.error"
-                        class="text-red-600 dark:text-red-400"
-                      > · {{ report.error }}</span>
-                    </p>
-                  </button>
-                  <ReportViewToggle
-                    :mode="viewModeByVariant[variant]"
-                    @update:mode="setViewMode(variant, $event)"
-                  />
-                  <AppButton
-                    variant="outline"
-                    class="report-expand-btn shrink-0"
-                    data-testid="health-report-expand"
-                    @click="openReportSheet(report.id, variant)"
-                  >
-                    {{ $t('member.reportExpand') }}
-                  </AppButton>
-                  <button
-                    type="button"
-                    class="inline-flex size-8 shrink-0 items-center justify-center text-muted"
-                    :aria-expanded="isReportExpanded(report.id, variant)"
-                    :aria-label="isReportExpanded(report.id, variant) ? $t('labChart.collapse') : $t('labChart.expand')"
-                    @click="toggleReport(report.id, variant)"
-                  >
-                    <UIcon
-                      :name="isReportExpanded(report.id, variant) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-                      class="size-4"
-                    />
-                  </button>
-                </div>
-                <div
-                  v-if="isReportExpanded(report.id, variant)"
-                  class="flex min-h-0 flex-1 flex-col border-t border-default"
-                  data-testid="health-report-detail"
+              <div class="flex shrink-0 items-center gap-3 px-5 py-4">
+                <button
+                  type="button"
+                  class="min-w-0 flex-1 text-start"
+                  :aria-expanded="isReportExpanded(report.id)"
+                  data-testid="health-report-toggle"
+                  @click="toggleReport(report.id)"
                 >
-                  <p
-                    v-if="detailLoadingId === report.id"
-                    class="px-5 py-4 text-sm text-muted"
-                  >
-                    {{ $t('member.reportDetailLoading') }}
+                  <p class="font-medium text-highlighted">
+                    {{ formatReportDate(report.created_at) }}
                   </p>
-                  <p
-                    v-else-if="detailErrorById[report.id]"
-                    class="px-5 py-4 text-sm text-red-600 dark:text-red-400"
-                  >
-                    {{ detailErrorById[report.id] }}
+                  <p class="mt-0.5 text-sm text-muted">
+                    {{ statusLabel(report.status) }}
+                    <span
+                      v-if="report.error"
+                      class="text-red-600 dark:text-red-400"
+                    > · {{ report.error }}</span>
                   </p>
-                  <p
-                    v-else-if="!(resultsById[report.id] ?? []).length"
-                    class="px-5 py-4 text-sm text-muted"
-                  >
-                    {{ $t('labChart.empty') }}
-                  </p>
-                  <div
-                    v-else
-                    class="flex min-h-0 flex-1 flex-col"
-                  >
-                    <div class="shrink-0 px-5 pt-4">
-                      <ReportResultLegend />
-                    </div>
-                    <ReportResultTable
-                      v-if="variant === 'primary' && viewModeByVariant[variant] === 'table'"
+                </button>
+                <ReportViewToggle
+                  :mode="reportViewMode"
+                  @update:mode="setReportViewMode"
+                />
+                <AppButton
+                  variant="outline"
+                  class="report-expand-btn shrink-0"
+                  data-testid="health-report-expand"
+                  @click="openReportSheet(report.id)"
+                >
+                  {{ $t('member.reportExpand') }}
+                </AppButton>
+                <button
+                  type="button"
+                  class="inline-flex size-8 shrink-0 items-center justify-center text-muted"
+                  :aria-expanded="isReportExpanded(report.id)"
+                  :aria-label="isReportExpanded(report.id) ? $t('labChart.collapse') : $t('labChart.expand')"
+                  @click="toggleReport(report.id)"
+                >
+                  <UIcon
+                    :name="isReportExpanded(report.id) ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                    class="size-4"
+                  />
+                </button>
+              </div>
+              <div
+                v-if="isReportExpanded(report.id)"
+                class="flex min-h-0 flex-1 flex-col overflow-hidden border-t border-default"
+                data-testid="health-report-detail"
+              >
+                <p
+                  v-if="detailLoadingId === report.id"
+                  class="px-5 py-4 text-sm text-muted"
+                >
+                  {{ $t('member.reportDetailLoading') }}
+                </p>
+                <p
+                  v-else-if="detailErrorById[report.id]"
+                  class="px-5 py-4 text-sm text-red-600 dark:text-red-400"
+                >
+                  {{ detailErrorById[report.id] }}
+                </p>
+                <p
+                  v-else-if="!(resultsById[report.id] ?? []).length"
+                  class="px-5 py-4 text-sm text-muted"
+                >
+                  {{ $t('labChart.empty') }}
+                </p>
+                <div
+                  v-else
+                  class="flex min-h-0 flex-1 flex-col overflow-hidden"
+                >
+                  <div class="shrink-0 px-5 pt-4">
+                    <ReportResultLegend />
+                  </div>
+                  <div class="min-h-0 flex-1 overflow-hidden px-5 py-4">
+                    <ReportResultCards
+                      v-if="reportViewMode === 'cards'"
                       :results="resultsById[report.id] ?? []"
-                      :show-legend="false"
-                      hide-scrollbar
-                      class="min-h-0 flex-1 px-5 py-4"
+                      position="rail"
+                      class="h-full min-h-0"
                     />
                     <ReportResultStrips
-                      v-else-if="viewModeByVariant[variant] === 'table'"
-                      :results="resultsById[report.id] ?? []"
-                      hide-scrollbar
-                      class="min-h-0 flex-1 px-5 py-4"
-                    />
-                    <ReportResultCards
                       v-else
                       :results="resultsById[report.id] ?? []"
-                      :position="variant === 'primary' ? 'gauge' : 'rail'"
-                      hide-scrollbar
-                      class="min-h-0 flex-1 px-5 py-4"
+                      class="h-full min-h-0"
                     />
                   </div>
                 </div>
-              </article>
-            </template>
+              </div>
+            </article>
+          </div>
+          <div
+            v-if="showReportsPager"
+            class="flex flex-wrap items-center justify-between gap-3 pt-1"
+            data-testid="health-reports-pager"
+          >
+            <AppButton
+              variant="outline"
+              :disabled="!canReportsPrev || reportsLoading"
+              data-testid="health-reports-prev"
+              @click="goReportsPrev"
+            >
+              {{ $t('member.reportsPrevPage') }}
+            </AppButton>
+            <p
+              class="text-sm text-muted"
+              data-testid="health-reports-page-status"
+            >
+              {{ $t('member.reportsPageStatus', { page: reportsPage }) }}
+            </p>
+            <AppButton
+              variant="outline"
+              :disabled="!canReportsNext || reportsLoading"
+              data-testid="health-reports-next"
+              @click="goReportsNext"
+            >
+              {{ $t('member.reportsNextPage') }}
+            </AppButton>
           </div>
           <UModal
             v-model:open="sheetOpen"
@@ -411,8 +336,8 @@
             <template #actions>
               <ReportViewToggle
                 class="absolute end-14 top-4"
-                :mode="viewModeByVariant[sheetVariant]"
-                @update:mode="setViewMode(sheetVariant, $event)"
+                :mode="reportViewMode"
+                @update:mode="setReportViewMode"
               />
             </template>
             <template #body>
@@ -440,31 +365,24 @@
                 </p>
                 <div
                   v-else
-                  class="flex min-h-0 flex-1 flex-col"
+                  class="flex min-h-0 flex-1 flex-col overflow-hidden"
                 >
                   <div class="shrink-0 border-b border-default px-5 py-2.5">
                     <ReportResultLegend />
                   </div>
-                  <ReportResultTable
-                    v-if="sheetVariant === 'primary' && viewModeByVariant[sheetVariant] === 'table'"
-                    :results="sheetResults"
-                    :show-legend="false"
-                    hide-scrollbar
-                    class="min-h-0 flex-1 px-5 py-4"
-                  />
-                  <ReportResultStrips
-                    v-else-if="viewModeByVariant[sheetVariant] === 'table'"
-                    :results="sheetResults"
-                    hide-scrollbar
-                    class="min-h-0 flex-1 px-5 py-4"
-                  />
-                  <ReportResultCards
-                    v-else
-                    :results="sheetResults"
-                    :position="sheetVariant === 'primary' ? 'gauge' : 'rail'"
-                    hide-scrollbar
-                    class="min-h-0 flex-1 px-5 py-4"
-                  />
+                  <div class="min-h-0 flex-1 overflow-hidden px-5 py-4">
+                    <ReportResultCards
+                      v-if="reportViewMode === 'cards'"
+                      :results="sheetResults"
+                      position="rail"
+                      class="h-full min-h-0"
+                    />
+                    <ReportResultStrips
+                      v-else
+                      :results="sheetResults"
+                      class="h-full min-h-0"
+                    />
+                  </div>
                 </div>
               </div>
             </template>
@@ -481,21 +399,18 @@
 
 <script setup lang="ts">
 import type {
-  ExpertCaseReviewListItem,
   HealthReportResult,
   HealthReportSummary,
   UserHealthProfile
 } from '~/utils/candor-api'
-import {
-  expertReviewUiStatusFromList,
-  expertReviewUiStatusFromRow
-} from '~/utils/expert-review'
 import { formatLocalDateTime } from '~/utils/format-local-datetime'
 
 definePageMeta({
   layout: 'user',
   middleware: 'auth'
 })
+
+const REPORTS_PAGE_SIZE = 5
 
 const localePath = useLocalePath()
 const route = useRoute()
@@ -520,14 +435,20 @@ const candor = useCandorApi()
 
 const profile = ref<UserHealthProfile | null>(null)
 const profileError = ref('')
-const reviewRecords = ref<ExpertCaseReviewListItem[]>([])
-const reviewsLoading = ref(false)
-const reviewsError = ref('')
 const reports = ref<HealthReportSummary[]>([])
+const reportsTotal = ref(0)
+const reportsOffset = ref(0)
 const reportsLoading = ref(false)
 const reportsError = ref('')
 
-/** Header only keeps「提交專家判讀」; reviewed → expert-cases via list row, not a page header CTA. */
+const reportsPage = computed(() => Math.floor(reportsOffset.value / REPORTS_PAGE_SIZE) + 1)
+const showReportsPager = computed(() => reportsTotal.value > REPORTS_PAGE_SIZE)
+const canReportsPrev = computed(() => reportsOffset.value > 0)
+const canReportsNext = computed(
+  () => reportsOffset.value + REPORTS_PAGE_SIZE < reportsTotal.value
+)
+
+/** Header only keeps「提交專家判讀」; reviewed → expert-cases via order detail, not a page header CTA. */
 const headerCta = computed<'submit' | 'none'>(() => {
   if (!auth.isMember) {
     return 'none'
@@ -541,61 +462,11 @@ const headerCta = computed<'submit' | 'none'>(() => {
   return 'submit'
 })
 
-function formatReviewTime(value: string) {
-  return formatLocalDateTime(value, {
-    style: 'intl-short',
-    locale: locale.value || 'zh-TW',
-    empty: value
-  })
-}
-
-function focusReviewConversation(review: ExpertCaseReviewListItem) {
-  journey.focusExpertReviewCase({
-    conversationId: review.conversation_id,
-    healthReportId: review.health_report_id,
-    expertReviewStatus: expertReviewUiStatusFromRow(review.status)
-  })
-}
-
-function openReportFromReview(reportId: string) {
-  openReportSheet(reportId, 'primary')
-}
-
-async function loadReviews() {
-  if (!auth.isMember) {
-    reviewRecords.value = []
-    reviewsLoading.value = false
-    reviewsError.value = ''
-    return
-  }
-  reviewsLoading.value = true
-  reviewsError.value = ''
-  try {
-    const list = await candor.listExpertCaseReviews({ limit: 50 })
-    reviewRecords.value = list.expert_case_reviews ?? []
-    const nextStatus = expertReviewUiStatusFromList(
-      reviewRecords.value,
-      journey.conversationId
-    )
-    if (nextStatus !== null) {
-      journey.expertReviewStatus = nextStatus
-    }
-  } catch {
-    reviewsError.value = t('member.reviewRecordsLoadError')
-  } finally {
-    reviewsLoading.value = false
-  }
-}
-const reportVariants = ['primary', 'secondary'] as const
-type ReportVariant = (typeof reportVariants)[number]
 type ReportViewMode = 'table' | 'cards'
-const viewModeByVariant = ref<Record<ReportVariant, ReportViewMode>>({
-  primary: 'table',
-  secondary: 'table'
-})
+/** Default to former「樣式2」card grid with rail markers. */
+const reportViewMode = ref<ReportViewMode>('cards')
 const expandedKeys = ref<string[]>([])
 const sheetReportId = ref<string | null>(null)
-const sheetVariant = ref<ReportVariant>('primary')
 const detailLoadingId = ref<string | null>(null)
 const resultsById = ref<Record<string, HealthReportResult[]>>({})
 const detailErrorById = ref<Record<string, string>>({})
@@ -765,6 +636,8 @@ async function loadReportDetail(reportId: string) {
 async function loadReports() {
   if (!auth.isMember) {
     reports.value = []
+    reportsTotal.value = 0
+    reportsOffset.value = 0
     reportsLoading.value = false
     reportsError.value = ''
     return
@@ -772,12 +645,18 @@ async function loadReports() {
   reportsLoading.value = true
   reportsError.value = ''
   try {
-    const list = await candor.listHealthReports()
+    const list = await candor.listHealthReports({
+      limit: REPORTS_PAGE_SIZE,
+      offset: reportsOffset.value
+    })
     reports.value = list.reports ?? []
+    reportsTotal.value = typeof list.total === 'number' ? list.total : reports.value.length
     const latest = reports.value[0]
-    if (latest) {
-      expandedKeys.value = reportVariants.map(variant => reportVariantKey(latest.id, variant))
+    if (latest && reportsOffset.value === 0) {
+      expandedKeys.value = [latest.id]
       await loadReportDetail(latest.id)
+    } else {
+      expandedKeys.value = []
     }
   } catch {
     reportsError.value = t('member.reportsLoadError')
@@ -786,34 +665,41 @@ async function loadReports() {
   }
 }
 
-function reportVariantKey(reportId: string, variant: ReportVariant) {
-  return `${reportId}:${variant}`
-}
-
-function isReportExpanded(reportId: string, variant: ReportVariant) {
-  return expandedKeys.value.includes(reportVariantKey(reportId, variant))
-}
-
-function toggleReport(reportId: string, variant: ReportVariant) {
-  const key = reportVariantKey(reportId, variant)
-  if (expandedKeys.value.includes(key)) {
-    expandedKeys.value = expandedKeys.value.filter(item => item !== key)
+function goReportsPrev() {
+  if (!canReportsPrev.value || reportsLoading.value) {
     return
   }
-  expandedKeys.value = [...expandedKeys.value, key]
+  reportsOffset.value = Math.max(0, reportsOffset.value - REPORTS_PAGE_SIZE)
+  void loadReports()
+}
+
+function goReportsNext() {
+  if (!canReportsNext.value || reportsLoading.value) {
+    return
+  }
+  reportsOffset.value += REPORTS_PAGE_SIZE
+  void loadReports()
+}
+
+function isReportExpanded(reportId: string) {
+  return expandedKeys.value.includes(reportId)
+}
+
+function toggleReport(reportId: string) {
+  if (expandedKeys.value.includes(reportId)) {
+    expandedKeys.value = expandedKeys.value.filter(item => item !== reportId)
+    return
+  }
+  expandedKeys.value = [...expandedKeys.value, reportId]
   void loadReportDetail(reportId)
 }
 
-function setViewMode(variant: ReportVariant, mode: ReportViewMode) {
-  viewModeByVariant.value = {
-    ...viewModeByVariant.value,
-    [variant]: mode
-  }
+function setReportViewMode(mode: ReportViewMode) {
+  reportViewMode.value = mode
 }
 
-function openReportSheet(reportId: string, variant: ReportVariant) {
+function openReportSheet(reportId: string) {
   sheetReportId.value = reportId
-  sheetVariant.value = variant
   void loadReportDetail(reportId)
 }
 
@@ -837,8 +723,8 @@ async function onAnonymize() {
 }
 
 function loadHealth() {
+  reportsOffset.value = 0
   void loadProfile()
-  void loadReviews()
   void loadReports()
 }
 

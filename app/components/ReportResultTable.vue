@@ -93,30 +93,23 @@ defineEmits<{
               />{{ resultStatusLabel(resultStatusClass(row)) }}
             </td>
             <td class="border-b border-dashed border-default px-2.5 py-2.5 text-highlighted">
-              <p class="font-semibold">
-                {{ displayResultName(row) }}
-              </p>
-              <p
-                v-if="displayResultOriginalName(row)"
-                class="mt-0.5 text-xs font-normal text-muted"
-                :data-testid="`report-result-raw-name-${row.id}`"
-              >
-                {{ displayResultOriginalName(row) }}
-              </p>
-              <div
-                v-if="hasResultInterpretation(row)"
-                class="mt-1.5 space-y-1 text-xs font-normal text-muted"
-                :data-testid="`report-result-interpretation-${row.id}`"
-              >
-                <p v-if="row.description">
-                  <span class="font-medium text-highlighted">{{ $t('labChart.description') }}：</span>{{ row.description }}
-                </p>
-                <p v-if="row.possible_causes">
-                  <span class="font-medium text-highlighted">{{ $t('labChart.possibleCauses') }}：</span>{{ row.possible_causes }}
-                </p>
-                <p v-if="row.possible_risks">
-                  <span class="font-medium text-highlighted">{{ $t('labChart.possibleRisks') }}：</span>{{ row.possible_risks }}
-                </p>
+              <div class="flex items-start gap-2">
+                <div class="min-w-0 flex-1">
+                  <p class="font-semibold">
+                    {{ displayResultName(row) }}
+                  </p>
+                  <p
+                    v-if="displayResultOriginalName(row)"
+                    class="mt-0.5 text-xs font-normal text-muted"
+                    :data-testid="`report-result-raw-name-${row.id}`"
+                  >
+                    {{ displayResultOriginalName(row) }}
+                  </p>
+                </div>
+                <ReportResultInterpretationInfo
+                  v-if="hasResultInterpretation(row)"
+                  :result="row"
+                />
               </div>
             </td>
             <td

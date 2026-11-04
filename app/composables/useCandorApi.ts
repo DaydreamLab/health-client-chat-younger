@@ -546,8 +546,17 @@ export function useCandorApi() {
       }
       return request<HealthReportUploadAck>('/health-reports', { method: 'POST', body: form })
     },
-    listHealthReports: () =>
-      request<HealthReportList>('/health-reports'),
+    listHealthReports: (params: { limit?: number, offset?: number } = {}) => {
+      const query = new URLSearchParams()
+      if (params.limit != null) {
+        query.set('limit', String(params.limit))
+      }
+      if (params.offset != null) {
+        query.set('offset', String(params.offset))
+      }
+      const qs = query.toString()
+      return request<HealthReportList>(`/health-reports${qs ? `?${qs}` : ''}`)
+    },
     getHealthReport: (id: string) =>
       request<HealthReport>(`/health-reports/${encodeURIComponent(id)}`),
     retryHealthReport: (id: string) =>

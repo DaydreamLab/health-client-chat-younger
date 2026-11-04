@@ -2,10 +2,9 @@ import type { Page, Route } from '@playwright/test'
 import { expect, test } from '@nuxt/test-utils/playwright'
 import { mockCandorAuth } from './mock-candor-auth'
 
-/** Case conversation that has a reviewed expert case (list row). */
+/** Case conversation that has a reviewed expert case. */
 const caseConversationId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
-/** Newer chat the member opened after submitting the case (no expert-review). */
-const latestConversationId = '7b95b98e-7b95-7b95-7b95-7b95b98e7b95'
+const caseOrderId = 'cccccccc-cccc-cccc-cccc-cccccccccccc'
 const caseReportId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
 const expertReviewId = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
 
@@ -42,77 +41,8 @@ const reviewedPackages = [
   }
 ]
 
-async function seedLatestConversationJourney(page: Page) {
-  await page.addInitScript((journey) => {
-    localStorage.setItem('candor.unpaid.journey', JSON.stringify(journey))
-  }, {
-    messages: [],
-    hasAnalysis: true,
-    selectedPackageCode: null,
-    conversationId: latestConversationId,
-    reportId: caseReportId,
-    reportDockOpen: false,
-    reportDockCollapsed: false,
-    reportInterpretSent: true,
-    selectedPackage: null,
-    packageConfirmed: false,
-    goalSelectActive: false,
-    reportAskActive: false,
-    goalOptions: [],
-    selectedCodes: ['sleep'],
-    quizActive: false,
-    activeQuestion: null,
-    postQuizGuided: false,
-    profileGaps: [],
-    clarifyingGoals: [],
-    expertReviewStatus: 'none',
-    conversationPath: 'C'
-  })
-}
-
-async function mockCaseReportReady(page: Page) {
-  await page.route(`**/api/v1/health-reports/${caseReportId}`, async (route: Route) => {
-    if (route.request().method() !== 'GET') {
-      await route.fallback()
-      return
-    }
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        status: 'success',
-        data: {
-          id: caseReportId,
-          status: 'ready',
-          page_count: 1,
-          extraction_confidence: 0.9,
-          results: [
-            {
-              id: 'result-case-1',
-              raw_name: 'Vitamin D3',
-              name_zh: '維生素 D3',
-              name_zh_source: 'dictionary',
-              raw_value: '31.8',
-              value_numeric: 31.8,
-              unit: 'ng/mL',
-              ref_low: 50,
-              ref_high: 80,
-              needs_review: false,
-              range_status: 'low',
-              description: '維生素 D 與骨骼與免疫狀態相關的常見指標。',
-              possible_causes: '偏低可能與日照不足或攝取不足有關。',
-              possible_risks: '偏低時部分人可能需要留意相關健康狀態。'
-            }
-          ]
-        }
-      })
-    })
-  })
-}
-
 /**
- * GET expert-review: 200 only for the reviewed case conversation;
- * latest (post-submit) conversation → 404 not_found (prod bug shape).
+ * GET expert-review: 200 for the reviewed case conversation.
  */
 async function mockExpertReviewByConversation(page: Page) {
   await page.route('**/api/v1/conversation/*/expert-review', async (route: Route) => {
@@ -121,44 +51,22 @@ async function mockExpertReviewByConversation(page: Page) {
       await route.fallback()
       return
     }
-    const url = route.request().url()
-    const match = url.match(/\/conversation\/([^/]+)\/expert-review/)
+    const path = new URL(route.request().url()).pathname
+    const match = path.match(/\/conversation\/([^/]+)\/expert-review\/?$/)
     const conversationId = match?.[1] ?? ''
-
-    if (method === 'POST') {
-      await route.fulfill({
-        status: 201,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          status: 'success',
-          data: {
-            id: expertReviewId,
-            conversation_id: conversationId,
-            health_report_id: caseReportId,
-            status: 'awaiting_review',
-            recommendation_run_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
-            created_at: '2026-01-01T00:00:00Z',
-            updated_at: '2026-01-01T00:00:00Z'
-          }
-        })
-      })
-      return
-    }
-
     if (conversationId !== caseConversationId) {
       await route.fulfill({
         status: 404,
         contentType: 'application/json',
         body: JSON.stringify({
           status: 'failed',
-          error_message: 'Not found',
           error_code: 'not_found',
+          error_message: 'Expert review not found.',
           error_data: null
         })
       })
       return
     }
-
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -169,35 +77,22 @@ async function mockExpertReviewByConversation(page: Page) {
           conversation_id: caseConversationId,
           health_report_id: caseReportId,
           status: 'reviewed',
-          recommendation_run_id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
-          created_at: '2026-01-01T00:00:00Z',
-          updated_at: '2026-01-01T01:00:00Z',
-          reviewed_at: '2026-01-01T01:00:00Z',
+          recommendation_run_id: 'run-case-1',
+          created_at: '2026-10-01T00:00:00+00:00',
+          reviewed_at: '2026-10-02T00:00:00+00:00',
+          order_id: caseOrderId,
           packages: reviewedPackages,
-          weight_set: { id: 'ws-e2e', version: '0.1.0' },
-          summary: {
-            top_domains: [],
-            data_gaps: [],
-            profile_gaps: [],
-            strategy_code: 'focus_abnormal',
-            message: null
-          }
+          summary: null,
+          weight_set: { id: 'ws-1', version: '1.0.0' }
         }
       })
     })
   })
 }
 
-const caseHistoryMarker = '案件對話歷史標記：專家判讀還原'
-
-async function mockCaseConversationMessages(page: Page) {
-  await page.route(`**/api/v1/conversation/${caseConversationId}/messages`, async (route: Route) => {
+async function mockFinalizedExpertOrder(page: Page) {
+  await page.route(`**/api/v1/order/${caseOrderId}`, async (route: Route) => {
     if (route.request().method() !== 'GET') {
-      await route.fallback()
-      return
-    }
-    const url = route.request().url()
-    if (url.includes('/messages/stream')) {
       await route.fallback()
       return
     }
@@ -207,34 +102,66 @@ async function mockCaseConversationMessages(page: Page) {
       body: JSON.stringify({
         status: 'success',
         data: {
-          conversation_id: caseConversationId,
-          messages: [
+          id: caseOrderId,
+          order_no: 'C-EXPERT-1',
+          status: 'confirmed',
+          payment_status: 'paid',
+          amount_total: 3980,
+          package_plan_name: null,
+          expert_plan_name: '專家方案',
+          lines: [
             {
-              id: 'msg-case-user',
-              role: 'user',
-              content: '請依報告給建議'
-            },
-            {
-              id: 'msg-case-assistant',
-              role: 'assistant',
-              content: caseHistoryMarker,
-              options: [],
-              turn: { type: 'message' },
-              profile_question: null,
-              profile_gaps: [],
-              upload_offer: false,
-              checkup_offer: false,
-              reply_actions: null
+              kind: 'expert_plan',
+              expert_plan_code: 'basic',
+              expert_plan_name: '專家方案',
+              expert_plan_price: 3980
             }
-          ]
+          ],
+          package: null,
+          recipient: {
+            name: '林晏婷',
+            phone: '0912345678',
+            address: '台北市大安區',
+            email: 'guest@example.com'
+          },
+          invoice_type: 'member',
+          created_at: '2026-10-01T00:00:00+00:00',
+          confirmed_at: '2026-10-01T00:05:00+00:00',
+          payments: [],
+          conversation_id: caseConversationId,
+          expert_case_id: expertReviewId,
+          expert_case_status: 'reviewed',
+          expert_case_phase: 'finalized',
+          expert_case_review: {
+            id: expertReviewId,
+            status: 'reviewed',
+            conversation_id: caseConversationId
+          },
+          refund_request_status: null,
+          refund_status: null,
+          refund_blocked_reason: null,
+          shipment_status: null
         }
       })
     })
   })
 }
 
-test.describe('health review → expert-cases (focus case conversation)', () => {
-  test('from /app review row, view recommend opens case finalized page', async ({
+test.describe('health page + order → expert-cases', () => {
+  test('/app no longer lists expert review records', async ({ page, goto }) => {
+    test.setTimeout(60_000)
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await mockCandorAuth(page, { asMember: true })
+
+    await goto('/app', { waitUntil: 'hydration' })
+    await expect(page.getByTestId('health-body')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('health-review-records')).toHaveCount(0)
+    await expect(page.getByTestId('health-review-view-recommend')).toHaveCount(0)
+    await expect(page.getByTestId('health-view-recommend')).toHaveCount(0)
+    await expect(page.getByTestId('health-reports')).toBeVisible()
+  })
+
+  test('from order detail, view final plan opens case finalized page', async ({
     page,
     goto
   }) => {
@@ -242,15 +169,11 @@ test.describe('health review → expert-cases (focus case conversation)', () => 
     await page.setViewportSize({ width: 1280, height: 800 })
     await mockCandorAuth(page, { asMember: true })
     await mockExpertReviewByConversation(page)
-    await seedLatestConversationJourney(page)
+    await mockFinalizedExpertOrder(page)
 
-    await goto('/app', { waitUntil: 'hydration' })
-    await expect(page.getByTestId(`health-review-card-${expertReviewId}`)).toBeVisible({
-      timeout: 15_000
-    })
-    // Reviewed entry is the list row only — no standalone page-header「查看推薦方案」.
-    await expect(page.getByTestId('health-view-recommend')).toHaveCount(0)
-    await expect(page.getByTestId('health-review-view-recommend')).toBeVisible()
+    await goto(`/app/orders/${caseOrderId}`, { waitUntil: 'hydration' })
+    await expect(page.getByTestId('order-detail')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('order-view-final-plan')).toBeVisible()
 
     const expertReviewGet = page.waitForRequest((request) => {
       if (request.method() !== 'GET') {
@@ -259,54 +182,14 @@ test.describe('health review → expert-cases (focus case conversation)', () => 
       return request.url().includes(`/conversation/${caseConversationId}/expert-review`)
     })
 
-    await page.getByTestId('health-review-view-recommend').click()
+    await page.getByTestId('order-view-final-plan').click()
     const hit = await expertReviewGet
     expect(hit.url()).toContain(`/conversation/${caseConversationId}/expert-review`)
-    expect(hit.url()).not.toContain(latestConversationId)
 
     await expect(page).toHaveURL(new RegExp(`/app/expert-cases/${caseConversationId}`))
     await expect(page.getByTestId('expert-plan-result')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('package-plan-basic')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('package-plan-basic')).toContainText('基礎保養')
     await expect(page.getByTestId('recommendation-path-choice')).toHaveCount(0)
-  })
-
-  test('from /app review row, open chat loads case conversation messages', async ({
-    page,
-    goto
-  }) => {
-    test.setTimeout(90_000)
-    await page.setViewportSize({ width: 1280, height: 800 })
-    await mockCandorAuth(page, { asMember: true })
-    await mockExpertReviewByConversation(page)
-    await mockCaseConversationMessages(page)
-    await mockCaseReportReady(page)
-    await seedLatestConversationJourney(page)
-
-    await goto('/app', { waitUntil: 'hydration' })
-    await expect(page.getByTestId(`health-review-card-${expertReviewId}`)).toBeVisible({
-      timeout: 15_000
-    })
-    await expect(page.getByTestId('health-review-open-chat')).toBeVisible()
-
-    const messagesGet = page.waitForRequest((request) => {
-      if (request.method() !== 'GET') {
-        return false
-      }
-      const url = request.url()
-      return url.includes(`/conversation/${caseConversationId}/messages`)
-        && !url.includes('/messages/stream')
-    })
-
-    await page.getByTestId('health-review-open-chat').click()
-    const hit = await messagesGet
-    expect(hit.url()).toContain(`/conversation/${caseConversationId}/messages`)
-    expect(hit.url()).not.toContain(latestConversationId)
-
-    await expect(page).toHaveURL(/\/chat\/?/)
-    await expect(page.getByText(caseHistoryMarker)).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByTestId('chat-report-dock')).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByTestId('chat-report-dock-empty-prompt')).toHaveCount(0)
-    await expect(page.getByTestId('chat-report-dock-toggle')).toBeVisible()
   })
 })

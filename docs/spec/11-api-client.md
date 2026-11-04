@@ -77,7 +77,8 @@
   - **未付款／pending／failed／expired 舊單**（core #146；Irice 06:00）：`mode=expert` preview **200** 帶 `existing_order: { order_id, order_no, expert_plan_code?, payment_status? } | null`（無則 `null`；`mode=ai` 固定 `null`）。有 `order_id` → 結帳 gate（`checkout.existingOrderRepay`）CTA 導 `/app/orders/{order_id}` 用訂單頁「重新付款」（`canRepayOrder` 含 `pending`）；缺 `order_id` 但有 `expert_plan_code` → 留在結帳並鎖定方案。同單 `POST /orders` → **201** 一般付款導轉亦可。`expert_plan_reuse_mismatch` **已退役**（legacy 409 若仍出現則 fallback 同 repay gate）。`conversation_case_exists`／retry **先不做**。
   - **409** `conversation_order_closed`（Irice 06:27；對話訂單已取消／退款，不可再開新單）：`error_data` 容錯讀 `conversation_id`／`order_id`／`order_no`／`reason` → 錯誤態（`checkout.conversationOrderClosed`）；CTA「開新對話」（`checkout.conversationOrderClosedCta`）→ `journey.clearSession()`＋導 `/chat`（同 `ChatPanel.resetConversation` 核心，無 confirm）。
 - 建單：按「確認付款」才 `POST /orders`（expert：`kind=expert_plan`＋`expert_plan_code`）；不下草稿。下架 → `422` `expert_plan_inactive`。
-- 定稿只讀：畫面在 `/app/expert-cases/{conversation_id}`；`GET /conversation/{id}/expert-review` → `getExpertReview()`，有 `order_id` 時另 `GET /order/{id}/finalized-plan` → `getFinalizedPlan()`。入口僅兩處：健康頁 reviewed 列「查看推薦方案」、訂單詳情「查看定稿方案」（皆帶該案 `conversation_id`）；**無**健康頁頁首單獨 CTA。
+- 定稿只讀：畫面在 `/app/expert-cases/{conversation_id}`；`GET /conversation/{id}/expert-review` → `getExpertReview()`，有 `order_id` 時另 `GET /order/{id}/finalized-plan` → `getFinalizedPlan()`。入口：訂單詳情「查看定稿方案」（帶該案 `conversation_id`）；健康頁不列專家案件、**無**頁首單獨 CTA。
+- 報告列表：`GET /health-reports?limit=5&offset=` → `listHealthReports({ limit, offset })`；回應 `reports`＋`total`；健康頁每頁 5 份。
 - 退款申請：`POST /order/{id}/refund-request` → `createRefundRequest()`；閘門以 `refund_blocked_reason` 為準（`not_yet_reviewed`／`picking_started`／`already_shipped`／`refund_rejected`／`refund_request_exists`）；專家單開始理貨前（shipment null）且定稿後才可申請。
 
 ## 通知 inbox（member）
