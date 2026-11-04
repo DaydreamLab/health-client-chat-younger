@@ -2,7 +2,6 @@
   <div class="space-y-6 pb-24">
     <div class="space-y-6">
       <section
-        v-if="showPathChoice"
         class="rounded-2xl border border-default bg-elevated p-5"
         data-testid="recommendation-path-choice"
       >
@@ -58,32 +57,17 @@
         </div>
       </section>
 
-      <section
-        v-if="expertPlanReadonly"
-        class="rounded-2xl border border-default bg-elevated p-5"
-        data-testid="expert-plan-result"
+      <!-- Outside path choice so AI load failures stay visible with the 二選. -->
+      <p
+        v-if="recoError"
+        class="rounded-2xl border border-default bg-elevated p-5 text-sm text-error"
+        data-testid="recommendation-error"
       >
-        <h2 class="text-xl font-semibold text-highlighted">
-          {{ $t('recommendation.readyTitle') }}
-        </h2>
-        <p
-          class="mt-2 text-sm text-muted"
-          data-testid="expert-plan-result-readonly-hint"
-        >
-          {{ $t('expertPlans.resultReadonlyHint') }}
-        </p>
-        <AppButton
-          v-if="expertPlanOrderId"
-          class="mt-6"
-          :to="localePath(`/app/orders/${expertPlanOrderId}`)"
-          data-testid="expert-plan-view-order"
-        >
-          {{ $t('expertPlans.openOrder') }}
-        </AppButton>
-      </section>
+        {{ recoError }}
+      </p>
 
       <section
-        v-if="showPackagePick"
+        v-else-if="pathChoice === 'ai'"
         class="rounded-2xl border border-default bg-elevated p-5"
       >
         <h2 class="text-xl font-semibold text-highlighted">
@@ -96,13 +80,6 @@
         >
           {{ $t('recommendation.recoLoading') }}
         </p>
-        <p
-          v-else-if="recoError"
-          class="mt-3 text-sm text-error"
-          data-testid="recommendation-error"
-        >
-          {{ recoError }}
-        </p>
         <div
           v-else
           class="mt-4 grid gap-3 sm:grid-cols-2"
@@ -112,8 +89,7 @@
             :key="pkg.package_plan_code"
             class="app-path-card"
             :class="{
-              'app-path-card-selected': selectedPackageCode === pkg.package_plan_code,
-              'pointer-events-none': expertPlanReadonly
+              'app-path-card-selected': selectedPackageCode === pkg.package_plan_code
             }"
             :data-testid="`package-plan-${pkg.package_plan_code}`"
           >
@@ -123,24 +99,13 @@
               class="sr-only"
               name="recommendation-package-plan"
               :value="pkg.package_plan_code"
-              :disabled="expertPlanReadonly"
             >
             <div class="flex items-start justify-between gap-2">
               <p class="font-medium text-highlighted">
                 {{ pkg.package_plan_name }}
               </p>
             </div>
-            <p
-              v-if="expertPlanReadonly && expertPlanOpeningAmount != null"
-              class="mt-2 text-lg font-semibold text-primary"
-              data-testid="expert-plan-result-total"
-            >
-              {{ formatTwd(expertPlanOpeningAmount) }}
-            </p>
-            <p
-              v-else
-              class="mt-2 text-lg font-semibold text-primary"
-            >
+            <p class="mt-2 text-lg font-semibold text-primary">
               {{ $t('recommendation.perMonth', { price: formatTwd(pkg.price) }) }}
             </p>
             <p class="mt-1 text-sm text-muted">
@@ -188,7 +153,7 @@
       </section>
 
       <section
-        v-if="(reviewPhase === 'viewing' || reviewPhase === 'legacy' || expertPlanReadonly) && selectedRationale"
+        v-if="pathChoice === 'ai' && selectedRationale"
         class="overflow-hidden rounded-2xl border border-default bg-elevated"
         data-testid="package-rationale"
       >
@@ -284,7 +249,7 @@
       </section>
 
       <section
-        v-if="(reviewPhase === 'viewing' || reviewPhase === 'legacy' || expertPlanReadonly) && selectedPackage"
+        v-if="pathChoice === 'ai' && selectedPackage"
         class="overflow-hidden rounded-2xl border border-default bg-elevated"
         data-testid="package-items"
       >
@@ -360,10 +325,7 @@
                 >
                   {{ doseLabel(item) }}
                 </span>
-                <span
-                  v-if="!expertPlanReadonly"
-                  class="text-sm tabular-nums text-muted"
-                >
+                <span class="text-sm tabular-nums text-muted">
                   {{ formatTwd(item.monthly_cost) }}
                 </span>
               </span>
@@ -463,17 +425,13 @@
 
 <script setup lang="ts">
 import type {
-  FinalizedPlan,
   HealthReportResult,
   RecommendationCopy,
-  RecommendationPackage,
   RecommendationPackageItem,
   RecommendationResponse
 } from '~/utils/candor-api'
-import { CandorApiError } from '~/utils/candor-api'
 import { formatTwd } from '~/utils/first-order'
 import { recommendationRequestFromJourney } from '~/utils/recommendation-request'
-import { recommendationFromExpertReview } from '~/utils/expert-review'
 
 definePageMeta({
   layout: 'user',
@@ -482,20 +440,12 @@ definePageMeta({
 
 const { t } = useI18n()
 const localePath = useLocalePath()
-const route = useRoute()
-const auth = useAuthStore()
 const journey = useJourneyStore()
 const candor = useCandorApi()
 
-type ReviewPhase = 'loading' | 'viewing' | 'legacy' | 'error'
 type PathChoice = 'ai' | 'expert'
 
-const reviewPhase = ref<ReviewPhase>('loading')
-const expertPlanReadonly = ref(false)
-const expertPlanOpeningAmount = ref<number | null>(null)
-const expertPlanOrderId = ref<string | null>(null)
 const pathChoice = ref<PathChoice | null>(null)
-
 const detail = ref<RecommendationPackageItem | null>(null)
 const reportPending = ref(false)
 const reportResults = ref<HealthReportResult[]>([])
@@ -505,20 +455,11 @@ const recommendation = ref<RecommendationResponse | null>(null)
 const selectedPackageCode = ref('')
 const aiPackagesLoaded = ref(false)
 
-const showPathChoice = computed(() =>
-  !expertPlanReadonly.value
-  && (reviewPhase.value === 'viewing' || reviewPhase.value === 'legacy')
-)
-
-const showPackagePick = computed(() =>
-  !expertPlanReadonly.value
-  && pathChoice.value === 'ai'
-  && showPathChoice.value
-)
-
 const showAiCheckoutBar = computed(() =>
-  showPackagePick.value
+  pathChoice.value === 'ai'
   && Boolean(selectedPackage.value)
+  && !recoPending.value
+  && !recoError.value
 )
 
 const canGoPackageCheckout = computed(() =>
@@ -621,61 +562,7 @@ async function loadReport() {
   }
 }
 
-function recommendationFromFinalizedPlan(plan: FinalizedPlan): RecommendationResponse {
-  const packages: RecommendationPackage[] = (plan.packages ?? []).map((pkg, index) => {
-    const code = pkg.package_plan_code?.trim() || `plan-${index}`
-    const items: RecommendationPackageItem[] = (pkg.items ?? []).map((item, rank) => ({
-      rank: rank + 1,
-      sellable_item_id: item.sellable_item_code?.trim() || String(rank),
-      code: item.sellable_item_code?.trim() || '',
-      name: item.name_zh?.trim() || item.sellable_item_code?.trim() || '',
-      unit_price: 0,
-      daily_dose: item.daily_dose ?? 1,
-      monthly_cost: 0,
-      is_core: false
-    }))
-    return {
-      package_plan_code: code,
-      package_plan_name: pkg.name_zh?.trim() || code,
-      price: 0,
-      period_days: 30,
-      items,
-      used_amount: 0,
-      remaining: 0,
-      composition_hash: ''
-    }
-  })
-  return {
-    run_id: '',
-    report_id: journey.reportId,
-    weight_set: { id: '', version: '' },
-    generated_at: new Date().toISOString(),
-    copy_mode: '',
-    summary: {
-      top_domains: [],
-      data_gaps: [],
-      profile_gaps: [],
-      strategy_code: ''
-    },
-    items: [],
-    packages
-  }
-}
-
-async function loadPaidExpertFinalizedPlan(orderId: string) {
-  try {
-    const finalized = await candor.getFinalizedPlan(orderId)
-    if (!finalized.packages?.length) {
-      return false
-    }
-    applyReviewedPackages(recommendationFromFinalizedPlan(finalized))
-    return true
-  } catch {
-    return false
-  }
-}
-
-function applyReviewedPackages(result: RecommendationResponse) {
+function applyPackages(result: RecommendationResponse) {
   recommendation.value = result
   const preferred = journey.selectedPackageCode
   const match = result.packages.find(pkg => pkg.package_plan_code === preferred)
@@ -698,7 +585,7 @@ async function loadAiPackages() {
         reportId: journey.reportId
       })
     )
-    applyReviewedPackages(result)
+    applyPackages(result)
     aiPackagesLoaded.value = true
   } catch {
     recoError.value = t('recommendation.recoError')
@@ -706,14 +593,6 @@ async function loadAiPackages() {
   } finally {
     recoPending.value = false
   }
-}
-
-function isStandardFlow(): boolean {
-  const raw = route.query.flow
-  if (Array.isArray(raw)) {
-    return raw.includes('standard')
-  }
-  return raw === 'standard'
 }
 
 async function goPackageCheckout() {
@@ -746,96 +625,7 @@ watch(pathChoice, async (choice) => {
   }
 })
 
-async function loadRecommendation() {
-  pathChoice.value = null
-  aiPackagesLoaded.value = false
-  expertPlanReadonly.value = false
-  expertPlanOpeningAmount.value = null
-  expertPlanOrderId.value = null
-
-  if (isStandardFlow()) {
-    reviewPhase.value = 'legacy'
-    return
-  }
-
-  const conversationId = journey.conversationId?.trim() ?? ''
-  if (!conversationId || !auth.isMember) {
-    reviewPhase.value = 'legacy'
-    return
-  }
-
-  recoPending.value = true
-  recoError.value = ''
-  try {
-    const review = await candor.getExpertReview(conversationId)
-    journey.expertReviewStatus = review.status === 'reviewed' ? 'reviewed' : 'awaiting_review'
-    if (review.health_report_id) {
-      journey.reportId = review.health_report_id
-    }
-
-    const paidExpertPlan = Boolean(review.order_id)
-    expertPlanOrderId.value = review.order_id ?? null
-    expertPlanReadonly.value = paidExpertPlan && review.status === 'reviewed'
-
-    if (expertPlanReadonly.value && review.order_id) {
-      const loaded = await loadPaidExpertFinalizedPlan(review.order_id)
-      if (!loaded) {
-        const mapped = recommendationFromExpertReview(review)
-        if (!mapped || mapped.packages.length === 0) {
-          recoError.value = t('recommendation.recoError')
-          recommendation.value = null
-          reviewPhase.value = 'error'
-          return
-        }
-        applyReviewedPackages(mapped)
-      }
-      try {
-        const order = await candor.getOrder(review.order_id)
-        expertPlanOpeningAmount.value = order.amount_total
-      } catch {
-        expertPlanOpeningAmount.value = null
-      }
-      aiPackagesLoaded.value = true
-      reviewPhase.value = 'viewing'
-      return
-    }
-
-    if (review.status === 'reviewed') {
-      const mapped = recommendationFromExpertReview(review)
-      if (!mapped || mapped.packages.length === 0) {
-        recoError.value = t('recommendation.recoError')
-        recommendation.value = null
-        reviewPhase.value = 'error'
-        return
-      }
-      applyReviewedPackages(mapped)
-      aiPackagesLoaded.value = true
-    } else {
-      recommendation.value = null
-      selectedPackageCode.value = ''
-    }
-    reviewPhase.value = 'viewing'
-  } catch (err) {
-    if (err instanceof CandorApiError && err.errorCode === 'not_found') {
-      journey.expertReviewStatus = 'none'
-      recommendation.value = null
-      reviewPhase.value = 'viewing'
-      return
-    }
-    if (err instanceof CandorApiError && (err.errorCode === 'member_required' || err.statusCode === 401)) {
-      reviewPhase.value = 'legacy'
-      return
-    }
-    recoError.value = t('recommendation.recoError')
-    recommendation.value = null
-    reviewPhase.value = 'error'
-  } finally {
-    recoPending.value = false
-  }
-}
-
 onMounted(() => {
   void loadReport()
-  void loadRecommendation()
 })
 </script>

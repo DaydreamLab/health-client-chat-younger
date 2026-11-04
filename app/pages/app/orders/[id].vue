@@ -504,6 +504,7 @@ const showViewFinalPlan = computed(() =>
   Boolean(
     order.value?.hasExpertPlanLine
     && order.value.expertCasePhase === 'finalized'
+    && order.value.conversationId?.trim()
   )
 )
 
@@ -641,13 +642,14 @@ function onViewFinalPlan() {
     return
   }
   const conversationId = order.value.conversationId?.trim()
-  if (conversationId) {
-    journey.focusExpertReviewCase({
-      conversationId,
-      expertReviewStatus: 'reviewed'
-    })
+  if (!conversationId) {
+    return
   }
-  void navigateTo(localePath('/app/recommendations'))
+  journey.focusExpertReviewCase({
+    conversationId,
+    expertReviewStatus: 'reviewed'
+  })
+  void navigateTo(localePath(`/app/expert-cases/${conversationId}`))
 }
 
 async function loadOrder() {

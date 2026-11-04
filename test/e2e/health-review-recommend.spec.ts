@@ -233,8 +233,8 @@ async function mockCaseConversationMessages(page: Page) {
   })
 }
 
-test.describe('health review → recommendations (focus case conversation)', () => {
-  test('from /app review row, view recommend hits case conversation expert-review', async ({
+test.describe('health review → expert-cases (focus case conversation)', () => {
+  test('from /app review row, view recommend opens case finalized page', async ({
     page,
     goto
   }) => {
@@ -262,12 +262,11 @@ test.describe('health review → recommendations (focus case conversation)', () 
     expect(hit.url()).toContain(`/conversation/${caseConversationId}/expert-review`)
     expect(hit.url()).not.toContain(latestConversationId)
 
-    await expect(page).toHaveURL(/\/app\/recommendations/)
-    await expect(page.getByTestId('expert-review-gate')).toHaveCount(0)
-    await expect(page.getByTestId('recommendation-path-choice')).toBeVisible({ timeout: 15_000 })
-    await page.getByTestId('recommendation-path-ai').click()
+    await expect(page).toHaveURL(new RegExp(`/app/expert-cases/${caseConversationId}`))
+    await expect(page.getByTestId('expert-plan-result')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('package-plan-basic')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('package-plan-basic')).toContainText('基礎保養')
+    await expect(page.getByTestId('recommendation-path-choice')).toHaveCount(0)
   })
 
   test('from /app review row, open chat loads case conversation messages', async ({

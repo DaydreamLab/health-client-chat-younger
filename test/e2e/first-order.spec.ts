@@ -95,6 +95,45 @@ test.describe('guest session', () => {
     await expect(page.getByTestId('chat-photo')).toHaveCount(0)
   })
 
+  test('recommendations opens path choice without expert-review GET', async ({ page, goto }) => {
+    const expertGets: string[] = []
+    page.on('request', (request) => {
+      if (request.method() === 'GET' && request.url().includes('/expert-review')) {
+        expertGets.push(request.url())
+      }
+    })
+    await goto('/app/recommendations', { waitUntil: 'hydration' })
+    await expect(page.getByTestId('recommendation-path-choice')).toBeVisible()
+    await expect(page.getByTestId('recommendation-path-ai')).toBeVisible()
+    await expect(page.getByTestId('recommendation-path-expert')).toBeVisible()
+    await expect(page.getByTestId('expert-plan-result')).toHaveCount(0)
+    expect(expertGets).toEqual([])
+  })
+
+  test('recommendations AI load error shows outside path choice', async ({ page, goto }) => {
+    await page.route('**/api/v1/recommendations', async (route) => {
+      if (route.request().method() !== 'POST') {
+        await route.fallback()
+        return
+      }
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'failed',
+          error_message: 'Internal error',
+          error_code: 'internal_error'
+        })
+      })
+    })
+    await goto('/app/recommendations', { waitUntil: 'hydration' })
+    await expect(page.getByTestId('recommendation-path-choice')).toBeVisible()
+    await page.getByTestId('recommendation-path-ai').click()
+    await expect(page.getByTestId('recommendation-error')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('recommendation-error')).toContainText('暫時無法取得建議')
+    await expect(page.getByTestId('recommendation-path-choice')).toBeVisible()
+  })
+
   test('recommendations shows checkout auth gate for guest', async ({ page, goto }) => {
     await goto('/app/recommendations', { waitUntil: 'hydration' })
     await expect(page).toHaveURL(/\/app\/recommendations/)
