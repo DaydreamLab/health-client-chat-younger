@@ -138,11 +138,13 @@ export interface PackageRationaleEntry {
   name: string
   ingredient_label: string
   line: string
+  /** Present for zero-contribution core admission items; e.g. 「對應免疫提升」. */
+  help_label?: string | null
   claim_guard_hits: ClaimGuardHit[]
 }
 
 export interface PackageRationaleGroup {
-  kind: 'goal' | 'signal' | string
+  kind: 'goal' | 'signal' | 'foundation' | string
   key: string
   title: string
   entries: PackageRationaleEntry[]

@@ -200,6 +200,10 @@
                   >
                     {{ entry.name }}
                   </span>
+                  <span
+                    v-if="entry.help_label"
+                    data-testid="rationale-help-label"
+                  >（{{ entry.help_label }}）</span>
                 </div>
                 <p
                   v-if="displayReasonForProductCode(entry.code)"

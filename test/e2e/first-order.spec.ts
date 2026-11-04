@@ -145,6 +145,7 @@ test.describe('guest session', () => {
     await expect(page.getByTestId('rationale-group').first()).toBeVisible()
     await expect(page.getByTestId('rationale-entry').first()).toContainText('建議補充')
     await expect(page.getByTestId('rationale-product-badge').first()).toBeVisible()
+    await expect(page.getByTestId('rationale-help-label').first()).toContainText('對應免疫提升')
     await expect(page.getByTestId('rationale-display-reason').first()).toContainText('顧問定稿原因')
     await expect(page.getByTestId('rationale-orphan-reason')).toContainText('無分組定稿原因')
     await expect(page.getByTestId('package-rationale')).toContainText('無分組定稿原因')

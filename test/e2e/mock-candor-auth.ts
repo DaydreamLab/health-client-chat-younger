@@ -620,7 +620,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
               composition_hash: 'sha256:basic',
               rationale: {
                 headline: '評估與總覽',
-                body: '關注免疫提升\n- 建議補充維生素C成份：維生素 C\n\n低密度脂蛋白 190 mg/dL 偏高\n- 建議補充維生素D成份：維生素 D\n- 建議補充鐵成份：鐵蛋白調理',
+                body: '關注免疫提升\n- 建議補充維生素C成份：維生素 C（對應免疫提升）\n\n低密度脂蛋白 190 mg/dL 偏高\n- 建議補充鐵成份：鐵蛋白調理',
                 disclaimer: '本建議僅供健康管理參考，非醫療診斷或療效保證。',
                 copy_mode: 'template',
                 groups: [
@@ -633,7 +633,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                         code: 'vitamin_c',
                         name: '維生素 C',
                         ingredient_label: '維生素C',
-                        line: '建議補充維生素C成份：維生素 C',
+                        line: '建議補充維生素C成份：維生素 C（對應免疫提升）',
+                        help_label: '對應免疫提升',
                         claim_guard_hits: [{ term: '治癒', severity: 'blocked' }]
                       }
                     ]
@@ -657,7 +658,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   {
                     code: 'vitamin_c',
                     name: '維生素 C',
-                    reason: '建議補充維生素C成份：維生素 C',
+                    reason: '建議補充維生素C成份：維生素 C（對應免疫提升）',
                     claim_guard_hits: [{ term: '治癒', severity: 'blocked' }]
                   },
                   {
