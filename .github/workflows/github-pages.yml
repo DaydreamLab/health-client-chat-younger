@@ -1,12 +1,12 @@
 name: github-pages
 
-# Beta 預覽站：推 beta-* tag → GitHub Pages。
+# Beta 預覽站：推固定 tag `beta` → GitHub Pages（與 candor-core／consultant-admin 一致）。
 # 與正式站 deploy-prod（v*）互不觸發；勿加 main branch push。
 
 on:
   push:
     tags:
-      - 'beta-*'
+      - 'beta'
   workflow_dispatch:
 
 permissions:
