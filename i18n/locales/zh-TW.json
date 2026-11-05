@@ -932,6 +932,7 @@
     "title": "結帳",
     "lead": "選擇專家方案並填寫收件資料，確認付款後由專家檢視您的健康資料。",
     "pickSection": "選擇專家方案",
+    "includesPackagePlan": "含保健品方案：{name}",
     "planHint": "專家一對一檢視您的健康資料，定稿後依方案出貨",
     "recipientPrefillHint": "已帶入上次的收件資料，可直接修改",
     "loading": "載入專家方案中…",

@@ -48,6 +48,44 @@ export type PackagePlansMockMode
     | 'description-en'
     | 'description-en-null'
 
+const expertPlanBasic = {
+  id: 'ep-basic',
+  code: 'basic',
+  package_plan_id: 'pp-basic',
+  package_plan_code: 'basic',
+  package_plan_name_zh: '基礎保養',
+  package_plan_name_en: 'Basic care',
+  name_zh: '專家方案（基礎保養）',
+  name_en: 'Expert plan (Basic care)',
+  price: 6000,
+  sort_order: 1,
+  active: true
+}
+
+const expertPlanAdvance = {
+  id: 'ep-advance',
+  code: 'advance',
+  package_plan_id: 'pp-advance',
+  package_plan_code: 'advance',
+  package_plan_name_zh: '全面調理',
+  package_plan_name_en: 'Full care',
+  name_zh: '專家方案（全面調理）',
+  name_en: 'Expert plan (Full care)',
+  price: 9000,
+  sort_order: 2,
+  active: true
+}
+
+function mockExpertPlansCatalog(mode: 'default' | 'empty' | 'single' = 'default') {
+  if (mode === 'empty') {
+    return []
+  }
+  if (mode === 'single') {
+    return [expertPlanBasic]
+  }
+  return [expertPlanBasic, expertPlanAdvance]
+}
+
 export type CandorMockOptions = {
   /** When true, stream after goals returns a profile sex turn until answered. */
   profileQuiz?: boolean
@@ -447,39 +485,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       await route.fallback()
       return
     }
-    const catalog = options.expertPlansCatalog ?? 'default'
-    const expertPlans = catalog === 'empty'
-      ? []
-      : catalog === 'single'
-        ? [{
-            id: 'ep-basic',
-            code: 'basic',
-            package_plan_id: 'pp-basic',
-            name_zh: '基本方案',
-            price: 6000,
-            sort_order: 1,
-            active: true
-          }]
-        : [
-            {
-              id: 'ep-basic',
-              code: 'basic',
-              package_plan_id: 'pp-basic',
-              name_zh: '基本方案',
-              price: 6000,
-              sort_order: 1,
-              active: true
-            },
-            {
-              id: 'ep-advance',
-              code: 'advance',
-              package_plan_id: 'pp-advance',
-              name_zh: '進階方案',
-              price: 9000,
-              sort_order: 2,
-              active: true
-            }
-          ]
+    const expertPlans = mockExpertPlansCatalog(options.expertPlansCatalog ?? 'default')
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -1119,38 +1125,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     }
     const packagePlanCode = url.searchParams.get('package_plan_code') || 'basic'
     const catalog = options.expertPlansCatalog ?? 'default'
-    const expertPlans = catalog === 'empty'
-      ? []
-      : catalog === 'single'
-        ? [{
-            id: 'ep-basic',
-            code: 'basic',
-            package_plan_id: 'pp-basic',
-            name_zh: '基本方案',
-            price: 6000,
-            sort_order: 1,
-            active: true
-          }]
-        : [
-            {
-              id: 'ep-basic',
-              code: 'basic',
-              package_plan_id: 'pp-basic',
-              name_zh: '基本方案',
-              price: 6000,
-              sort_order: 1,
-              active: true
-            },
-            {
-              id: 'ep-advance',
-              code: 'advance',
-              package_plan_id: 'pp-advance',
-              name_zh: '進階方案',
-              price: 9000,
-              sort_order: 2,
-              active: true
-            }
-          ]
+    const expertPlans = mockExpertPlansCatalog(catalog)
 
     const reviewMode = options.expertReview
     let block: { code: string } | null = null

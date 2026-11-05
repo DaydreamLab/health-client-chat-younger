@@ -932,6 +932,7 @@
     "title": "Checkout",
     "lead": "Pick an expert plan and enter shipping details. Payment starts your expert review.",
     "pickSection": "Expert plan",
+    "includesPackagePlan": "Includes: {name}",
     "planHint": "An expert reviews your health data one-on-one; items ship after finalize.",
     "recipientPrefillHint": "We prefilled your last shipping details. You can edit them.",
     "loading": "Loading expert plans…",

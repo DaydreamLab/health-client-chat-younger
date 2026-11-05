@@ -275,9 +275,18 @@
                   :disabled="planSelectionLocked"
                 >
                 <div class="flex items-start justify-between gap-2">
-                  <p class="font-medium text-highlighted">
-                    {{ plan.name_zh }}
-                  </p>
+                  <div class="min-w-0">
+                    <p class="font-medium text-highlighted">
+                      {{ expertPlanTitle(plan) }}
+                    </p>
+                    <p
+                      v-if="includedPackagePlanName(plan)"
+                      class="mt-1 text-sm text-muted"
+                      data-testid="expert-plan-includes"
+                    >
+                      {{ $t('expertPlans.includesPackagePlan', { name: includedPackagePlanName(plan) }) }}
+                    </p>
+                  </div>
                   <p class="shrink-0 text-lg font-semibold tabular-nums text-primary">
                     {{ formatTwd(plan.price) }}
                   </p>
@@ -677,6 +686,10 @@ import {
   composeTaiwanAddress,
   districtsForCity
 } from '~/utils/taiwan-regions'
+import {
+  resolveExpertPlanTitle,
+  resolveIncludedPackagePlanName
+} from '~/utils/expert-plan-display'
 
 definePageMeta({
   layout: 'user',
@@ -685,7 +698,7 @@ definePageMeta({
 
 const PAY_HOLD_MS = 3000
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const localePath = useLocalePath()
 const route = useRoute()
 const auth = useAuthStore()
@@ -843,6 +856,14 @@ const checkoutLockedMessage = computed(() => {
   }
   return t('expertPlans.checkoutLocked')
 })
+
+function expertPlanTitle(plan: ExpertPlan): string {
+  return resolveExpertPlanTitle(plan, locale.value)
+}
+
+function includedPackagePlanName(plan: ExpertPlan): string | null {
+  return resolveIncludedPackagePlanName(plan, locale.value)
+}
 
 function sortExpertPlans(rows: ExpertPlan[]): ExpertPlan[] {
   return [...rows].sort((left, right) => {
