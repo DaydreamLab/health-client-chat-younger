@@ -213,7 +213,10 @@ export interface ExpertPlan {
   code: string
   package_plan_id: string
   package_plan_code?: string | null
+  /** Bound package_plan display name (zh); null on legacy API. */
   package_plan_name_zh?: string | null
+  /** Bound package_plan display name (en); null on legacy API. */
+  package_plan_name_en?: string | null
   name_zh: string
   name_en?: string | null
   /** Opening amount TWD integer. */

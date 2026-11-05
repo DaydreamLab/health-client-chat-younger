@@ -69,7 +69,7 @@
 - 完成 CTA：usable `reply_actions.offer_recommend`（`mode=view_recommendations`）；首按 `POST /conversations/{id}/completion-choice` body `{}` → `recordCompletionChoice()`。B／C 必填問完後 core 可每輪回完成 CTA——FE 只投影**最新一則自己的** RA（不合併／去重／因舊訊息未答而隱藏）；舊訊息氣泡不顯示按鈕。
 - 結帳預覽：`GET /checkout/preview?conversation_id&mode=ai|expert&package_plan_code?` → `getCheckoutPreview()`。
   - `mode=ai`：方案組成以回傳 `ai`（含 `items[]`＝`RecommendationPackageItem`）為準；**不得**再沿用 `POST /recommendations`。缺 `conversation_id`（用戶端）或 preview **422** `invalid_request` → 同一錯誤態（回對話）。切換 `package_plan_code` 重打 preview。
-  - `mode=expert`：上架 `expert_plans`、`preselect_expert_plan_code`（僅一筆上架時）；關掉下架提示後的重新載入 `skipPreselect`（規則 31；使用者自行重整仍可依 core 單筆預選）。
+  - `mode=expert`：上架 `expert_plans`、`preselect_expert_plan_code`（僅一筆上架時）；關掉下架提示後的重新載入 `skipPreselect`（規則 31；使用者自行重整仍可依 core 單筆預選）。每筆可帶選填 `package_plan_name_zh`／`package_plan_name_en`（可 null；legacy 缺欄時卡片不顯示「含保健品方案」列）；英文標題優先 `name_en`→`name_zh`，內含方案名優先 `package_plan_name_en`→`package_plan_name_zh`→`package_plan_code`。上架兩筆以上時不自動預選（維持現況）。
   - `payment_methods[].status=coming_soon` → i18n `checkout.payment.coming_soon`；運費用 `shipping.fee`／`shipping.free`。
   - `block.code`：`expert_case_exists`／`no_expert_plans`；`checkout_locked`＋`checkout_lock_reason`。
   - **422** `questionnaire_incomplete`（core #145 `92e7bbc`；`mode=expert` preview 與 expert_plan 建單）：`error_data.missing_fields`＋`error_data.conversation_id` → 錯誤態（文案 `checkout.questionnaireIncomplete`）；「回到對話」優先用 `error_data.conversation_id`（否則 journey）；`missing_fields` **只存不顯示**（Irice 定案）；不接 `POST /order/{id}/expert-case/retry`。

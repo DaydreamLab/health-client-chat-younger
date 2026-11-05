@@ -4,7 +4,7 @@
  */
 import type { Page } from '@playwright/test'
 import { expect, test } from '@nuxt/test-utils/playwright'
-import { mkdirSync, writeFileSync, copyFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync, copyFileSync, existsSync } from 'node:fs'
 import { mockCandorAuth } from './mock-candor-auth'
 
 const OUT = '/opt/cursor/artifacts'
@@ -92,7 +92,37 @@ test.describe('expert-plan v4 screenshots', () => {
     await seedJourneyConversation(page)
     await goto('/app/checkout?kind=expert_plan', { waitUntil: 'hydration' })
     await expect(page.getByTestId('expert-plan-checkout-submit')).toBeVisible({ timeout: 25000 })
+    await expect(page.getByTestId('expert-plan-basic')).toContainText('專家方案（基礎保養）')
+    await expect(page.getByTestId('expert-plan-basic').getByTestId('expert-plan-includes'))
+      .toHaveText('含保健品方案：基礎保養')
     await shot(page, 'F-04-checkout-expert')
+  })
+
+  test('checkout expert cards show includes line; multi catalog does not preselect', async ({ page, goto }) => {
+    await mockCandorAuth(page, {
+      asMember: true,
+      expertReview: 'none',
+      expertPlansCatalog: 'default'
+    })
+    await seedJourneyConversation(page)
+    await goto('/app/checkout?kind=expert_plan', { waitUntil: 'hydration' })
+    await expect(page.getByTestId('expert-plans-list')).toBeVisible({ timeout: 25000 })
+    await expect(page.getByTestId('expert-plan-basic').getByTestId('expert-plan-includes'))
+      .toHaveText('含保健品方案：基礎保養')
+    await expect(page.getByTestId('expert-plan-advance').getByTestId('expert-plan-includes'))
+      .toHaveText('含保健品方案：全面調理')
+    await expect(page.getByTestId('expert-plan-basic')).not.toHaveClass(/app-path-card-selected/)
+    await expect(page.getByTestId('expert-plan-advance')).not.toHaveClass(/app-path-card-selected/)
+    // No preselect → checkout aside (submit) stays hidden until a plan is chosen.
+    await expect(page.getByTestId('expert-plan-checkout-submit')).toHaveCount(0)
+
+    await goto('/en/app/checkout?kind=expert_plan', { waitUntil: 'hydration' })
+    await expect(page.getByTestId('expert-plans-list')).toBeVisible({ timeout: 25000 })
+    await expect(page.getByTestId('expert-plan-basic')).toContainText('Expert plan (Basic care)')
+    await expect(page.getByTestId('expert-plan-basic').getByTestId('expert-plan-includes'))
+      .toHaveText('Includes: Basic care')
+    await expect(page.getByTestId('expert-plan-advance').getByTestId('expert-plan-includes'))
+      .toHaveText('Includes: Full care')
   })
 
   test('F-05 checkout required error', async ({ page, goto }) => {
@@ -342,6 +372,8 @@ test.describe('expert-plan v4 screenshots', () => {
       'F-20-order-picking-block': 'frontend-F-20.png',
       'F-21-order-shipped-block': 'frontend-F-21.png'
     }
+    const missing = Object.values(map).filter(src => !existsSync(`${DESIGN_SHOTS}/${src}`))
+    test.skip(missing.length > 0, `design shots missing under ${DESIGN_SHOTS}`)
     for (const [outName, src] of Object.entries(map)) {
       copyFileSync(`${DESIGN_SHOTS}/${src}`, `${OUT}/${outName}.png`)
     }
