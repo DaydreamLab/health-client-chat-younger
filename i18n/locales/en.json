@@ -547,6 +547,8 @@
     "photoTrayTooLarge": "Still over 25MB after compression. Remove some photos or use smaller ones.",
     "photoTrayNeedOne": "Add at least one photo.",
     "checkupLink": "I'd like a checkup to confirm my markers",
+    "offerFullTest": "Explore the full 136-marker test",
+    "offerFullTestCopy": "This report includes {n} markers, fewer than the 136 recommended for a complete health analysis, so some areas may not be covered. For a fuller picture, consider a comprehensive test.",
     "continueConsult": "Continue health consultation",
     "uploaded": "Uploaded {name}",
     "uploadedPhotos": "Uploaded report photos ({n})",

@@ -136,7 +136,7 @@
 | 確認價格帶 | `POST /conversation/{id}/package-plan/confirm` | 已接 |
 | 同步訊息 | `POST /conversation/{id}/messages` | Mock |
 | SSE 串流 | `POST /conversation/{id}/messages/stream` | 已接 |
-| `reply_actions` v0.1 CTA（SSE `done`／訊息欄） | 契約定稿；FE 已接；**legacy meta 不當 fallback**（intentional `none`／degraded＝無 CTA）；path 契約下完成 CTA 信 usable `offer_recommend`（goals／報告／optional／舊 bank gap **不挡**；**不**在 none 時 FE 強掛）；`ask_vitals` 數字卡；**不**把舊訊息未答題搬到最新一則（每則只顯示自己的 RA；B／C 每輪完成 CTA 忠實投影） | 接線中 |
+| `reply_actions` v0.1 CTA（SSE `done`／訊息欄） | 契約定稿；FE 已接；**legacy meta 不當 fallback**（intentional `none`／degraded＝無 CTA）；path 契約下完成 CTA 信 usable `offer_recommend`（goals／報告／optional／舊 bank gap **不挡**；**不**在 none 時 FE 強掛）；`ask_vitals` 數字卡；`offer_full_test` 外連完整檢測（對齊 `offer_checkup` `payload.url`）；**不**把舊訊息未答題搬到最新一則（每則只顯示自己的 RA；B／C 每輪完成 CTA 忠實投影） | 接線中 |
 | 對話路徑契約 A／B／C | 進站三選、上傳升 C、C 取消退 B、A 回合引導、B／C 出題信 RA；path 由 SSE／GET messages 覆寫（null→當 A 不回寫）；見 [docs/spec/12-path-contract.md](spec/12-path-contract.md)；**依賴 core #139** | 接線中 |
 | 對話 history hydrate | `GET /conversation/{id}/messages` → 每則 `reply_actions` 映 CTA（與 SSE 同路徑）；`data.path` 覆寫本機（key 缺席不蓋）；缺欄／none 不回退 legacy upload／recommend | 接線中 |
 

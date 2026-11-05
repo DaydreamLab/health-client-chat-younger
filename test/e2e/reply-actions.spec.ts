@@ -132,6 +132,46 @@ test.describe('reply_actions v0.1 CTAs', () => {
     await expect(last.getByTestId('chat-message-checkup')).toHaveCount(0)
   })
 
+  test('/chat: offer_full_test → 建議文案＋外連鈕在完成 CTA 後面；target=_blank', async ({ page, goto }) => {
+    test.setTimeout(90_000)
+    await mockCandorAuth(page, {
+      asMember: true,
+      replyActions: 'offer_full_test'
+    })
+    await seedNoExpertCase(page)
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await goto('/chat', { waitUntil: 'hydration' })
+    await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
+
+    await finishGoalSelect(page)
+    await sendChatLine(page, '請依報告給建議')
+
+    const last = page.getByTestId('chat-last-reply')
+    const recommend = last.getByTestId('chat-view-recommend')
+    const fullTest = last.getByTestId('chat-message-full-test')
+    const hint = last.getByTestId('chat-message-full-test-hint')
+    await expect(recommend).toBeVisible({ timeout: 15_000 })
+    await expect(hint).toBeVisible()
+    await expect(hint).toContainText('42')
+    await expect(fullTest).toBeVisible()
+    await expect(fullTest).toHaveText('了解完整 136 項檢測')
+    await expect(fullTest).toHaveAttribute('href', 'https://www.younger.tw/products/body-decode')
+    await expect(fullTest).toHaveAttribute('target', '_blank')
+    await expect(fullTest).toHaveAttribute('rel', /noopener/)
+    // 建議鈕排在完成鈕後面（DOM 順序）
+    const order = await last.evaluate(() => {
+      const actions = document.querySelector('[data-testid="chat-turn-actions"]')
+      if (!actions) {
+        return ''
+      }
+      const ids = [...actions.querySelectorAll('[data-testid]')]
+        .map(el => el.getAttribute('data-testid') || '')
+        .filter(id => id === 'chat-view-recommend' || id === 'chat-message-full-test')
+      return ids.join(',')
+    })
+    expect(order).toBe('chat-view-recommend,chat-message-full-test')
+  })
+
   test('/chat: ask_report → 上傳必問; 不硬掛取得專屬保健品方案', async ({ page, goto }) => {
     test.setTimeout(90_000)
     await mockCandorAuth(page, { asMember: true, replyActions: 'ask_report' })

@@ -17,6 +17,8 @@ export type ReplyActionType
     | 'ask_report'
     | 'ask_vitals'
     | 'offer_checkup'
+    /** 報告指標未達門檻 → 外連完整檢測（Body Decode）。 */
+    | 'offer_full_test'
     | 'none'
 
 export type ChooseOptionKind
@@ -77,6 +79,21 @@ export interface OfferCheckupPayload {
   url?: string | null
 }
 
+/**
+ * offer_full_test — 外連完整 136 項檢測（對齊 offer_checkup 的 payload.url）。
+ * label／copy 可由 ConversationCopy／CTA 型錄帶入；缺省走 FE i18n。
+ * marker_count（或別名 n）供 i18n「{n} 項指標」回填。
+ */
+export interface OfferFullTestPayload {
+  url?: string | null
+  label?: string | null
+  copy?: string | null
+  marker_count?: number | null
+}
+
+/** 後台未設網址時的 Body Decode 預設外連。 */
+export const OFFER_FULL_TEST_DEFAULT_URL = 'https://www.younger.tw/products/body-decode'
+
 export interface ReplyAction {
   type: string
   payload?: Record<string, unknown> | null
@@ -98,6 +115,7 @@ const KNOWN_TYPES = new Set<string>([
   'ask_report',
   'ask_vitals',
   'offer_checkup',
+  'offer_full_test',
   'none'
 ])
 
@@ -107,7 +125,8 @@ const ACTIONABLE_TYPES = new Set<string>([
   'offer_recommend',
   'ask_report',
   'ask_vitals',
-  'offer_checkup'
+  'offer_checkup',
+  'offer_full_test'
 ])
 
 /** Fallback goal chips when ask_goal has no/insufficient goal_codes (mirrors chat-turn-actions). */
@@ -618,6 +637,30 @@ export function offerCheckupPayload(action: ReplyAction): OfferCheckupPayload {
   }
 }
 
+function asNonNegativeInt(raw: unknown): number | null {
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw >= 0) {
+    return Math.floor(raw)
+  }
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    const parsed = Number(raw)
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      return Math.floor(parsed)
+    }
+  }
+  return null
+}
+
+export function offerFullTestPayload(action: ReplyAction): OfferFullTestPayload {
+  const p = isRecord(action.payload) ? action.payload : {}
+  const markerCount = asNonNegativeInt(p.marker_count) ?? asNonNegativeInt(p.n)
+  return {
+    url: typeof p.url === 'string' ? p.url : null,
+    label: typeof p.label === 'string' ? p.label : null,
+    copy: typeof p.copy === 'string' ? p.copy : null,
+    marker_count: markerCount
+  }
+}
+
 /** Parse spec 33 `offer_recommend` payload; ignores unknown modes (e.g. legacy dual_choice). */
 export function offerRecommendPayload(action: ReplyAction): Partial<OfferRecommendPayload> {
   const p = isRecord(action.payload) ? action.payload : {}
@@ -655,6 +698,7 @@ export interface ReplyActionsCtaFlags {
   showConfirm: boolean
   showUpload: boolean
   showCheckup: boolean
+  showFullTest: boolean
   showSubmitReview: boolean
   showViewRecommend: boolean
 }
@@ -680,6 +724,14 @@ export interface ReplyActionsCtaProjection {
   vitalsFields: VitalsField[]
   vitalsGapCode: string | null
   checkupUrlOverride: string | null
+  /** offer_full_test payload.url when set; else OFFER_FULL_TEST_DEFAULT_URL. */
+  fullTestUrlOverride: string | null
+  /** Backend button label; empty → FE i18n chat.offerFullTest. */
+  fullTestLabelOverride: string | null
+  /** Backend suggestion copy; empty → FE i18n with marker_count. */
+  fullTestCopyOverride: string | null
+  /** Parsed marker count N for i18n fallback (incl. 0). */
+  fullTestMarkerCount: number | null
   /** Exclusive chip codes from choose_option (none / none_of_above). */
   exclusiveCodes: string[]
 }
@@ -716,6 +768,7 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
   const hasReport = actions.some(a => a.type === 'ask_report')
   const vitalsAction = actions.find(a => a.type === 'ask_vitals')
   const checkupAction = actions.find(a => a.type === 'offer_checkup')
+  const fullTestAction = actions.find(a => a.type === 'offer_full_test')
 
   // path_switch／continue_consultation may coexist with open_question_reply／goals／…
   // Keep them out of the primary pick so they cannot hide other chips; append later.
@@ -811,6 +864,8 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
         : (['age', 'height', 'weight'] as VitalsField[]))
     : []
   const checkup = checkupAction ? offerCheckupPayload(checkupAction) : null
+  const fullTest = fullTestAction ? offerFullTestPayload(fullTestAction) : null
+  const fullTestUrl = fullTest?.url?.trim() || null
 
   return {
     flags: {
@@ -818,6 +873,8 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
       showConfirm,
       showUpload: hasReport && input.canShowUpload,
       showCheckup: Boolean(checkupAction) && input.canShowCheckup,
+      // 出不出由 core 決定；FE 有 action 就畫（URL 缺省走預設 Body Decode）。
+      showFullTest: Boolean(fullTestAction),
       showSubmitReview,
       showViewRecommend
     },
@@ -828,6 +885,10 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
     vitalsFields,
     vitalsGapCode: vitals?.gap_code ?? null,
     checkupUrlOverride: checkup?.url?.trim() || null,
+    fullTestUrlOverride: fullTestUrl || (fullTestAction ? OFFER_FULL_TEST_DEFAULT_URL : null),
+    fullTestLabelOverride: fullTest?.label?.trim() || null,
+    fullTestCopyOverride: fullTest?.copy?.trim() || null,
+    fullTestMarkerCount: fullTest?.marker_count ?? null,
     exclusiveCodes: chooseOption?.exclusive_codes?.length
       ? chooseOption.exclusive_codes
       : ['none', 'none_of_above']
