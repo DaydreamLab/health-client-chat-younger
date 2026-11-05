@@ -311,6 +311,71 @@ describe('buildTurnActionsVisibility — journey matrix', () => {
     expect(v.checkupUrlOverride).toBe('https://example.com/check')
   })
 
+  it('usable reply_actions offer_full_test paints after other CTAs fields', () => {
+    const msg = assistant('latest', {
+      replyActions: {
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'llm',
+        degraded: false,
+        error: null,
+        actions: [
+          {
+            type: 'offer_recommend',
+            payload: {
+              mode: 'view_recommendations',
+              label: '查看推薦方案',
+              path: '/app/recommendations'
+            }
+          },
+          {
+            type: 'offer_full_test',
+            payload: {
+              url: 'https://example.test/body-decode',
+              label: '了解完整 136 項檢測',
+              marker_count: 42
+            }
+          }
+        ]
+      }
+    })
+    const ctx = baseCtx({ lastAssistantId: 'latest' })
+    const v = visibility(msg, ctx, { messages: [msg] })
+    expect(v.showViewRecommend).toBe(true)
+    expect(v.showFullTest).toBe(true)
+    expect(v.fullTestUrlOverride).toBe('https://example.test/body-decode')
+    expect(v.fullTestLabelOverride).toBe('了解完整 136 項檢測')
+    expect(v.fullTestMarkerCount).toBe(42)
+  })
+
+  it('offer_full_test hidden when readonly／escalated／pathEntryPending', () => {
+    const msg = assistant('latest', {
+      replyActions: {
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'llm',
+        degraded: false,
+        error: null,
+        actions: [{
+          type: 'offer_full_test',
+          payload: { url: 'https://example.test/body-decode', marker_count: 10 }
+        }]
+      }
+    })
+    expect(visibility(msg, baseCtx({
+      lastAssistantId: 'latest',
+      readonlyMode: true
+    }), { messages: [msg] }).showFullTest).toBe(false)
+    expect(visibility(msg, baseCtx({
+      lastAssistantId: 'latest',
+      escalated: true
+    }), { messages: [msg] }).showFullTest).toBe(false)
+    expect(visibility(msg, baseCtx({
+      lastAssistantId: 'latest',
+      pathEntryPending: true
+    }), { messages: [msg] }).showFullTest).toBe(false)
+  })
+
   it('pending hides recommend on latest even with usable offer_recommend', () => {
     const msg = assistant('latest', {
       replyActions: {

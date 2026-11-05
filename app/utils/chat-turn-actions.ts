@@ -279,6 +279,8 @@ export interface TurnActionsVisibility {
   showConfirm: boolean
   showUpload: boolean
   showCheckup: boolean
+  /** offer_full_test — 報告指標未達門檻外連（排在其他 CTA 後面）. */
+  showFullTest: boolean
   showWantMoreTests: boolean
   /** @deprecated Prefer showSubmitReview / showViewRecommend */
   showRecommend: boolean
@@ -290,6 +292,11 @@ export interface TurnActionsVisibility {
   vitalsGapCode: string | null
   /** offer_checkup payload.url when set; else use journey default. */
   checkupUrlOverride: string | null
+  /** offer_full_test payload.url（或預設 Body Decode）. */
+  fullTestUrlOverride: string | null
+  fullTestLabelOverride: string | null
+  fullTestCopyOverride: string | null
+  fullTestMarkerCount: number | null
   /** True when CTAs come from reply_actions column (usable or intentional empty). */
   fromReplyActions: boolean
   /** Exclusive chip codes when choose_option drives selection. */
@@ -299,12 +306,25 @@ export interface TurnActionsVisibility {
 
 function emptyReplyExtras(): Pick<
   TurnActionsVisibility,
-  'vitalsFields' | 'vitalsGapCode' | 'checkupUrlOverride' | 'fromReplyActions' | 'exclusiveCodes' | 'replyProjection'
+  | 'vitalsFields'
+  | 'vitalsGapCode'
+  | 'checkupUrlOverride'
+  | 'fullTestUrlOverride'
+  | 'fullTestLabelOverride'
+  | 'fullTestCopyOverride'
+  | 'fullTestMarkerCount'
+  | 'fromReplyActions'
+  | 'exclusiveCodes'
+  | 'replyProjection'
 > {
   return {
     vitalsFields: [],
     vitalsGapCode: null,
     checkupUrlOverride: null,
+    fullTestUrlOverride: null,
+    fullTestLabelOverride: null,
+    fullTestCopyOverride: null,
+    fullTestMarkerCount: null,
     fromReplyActions: false,
     exclusiveCodes: ['none', 'none_of_above'],
     replyProjection: null
@@ -317,6 +337,7 @@ function emptyTurnActions(fromReplyActions: boolean): TurnActionsVisibility {
     showConfirm: false,
     showUpload: false,
     showCheckup: false,
+    showFullTest: false,
     showWantMoreTests: false,
     showRecommend: false,
     showSubmitReview: false,
@@ -475,7 +496,8 @@ function suppressGuidanceIfNeeded(
   return {
     ...visibility,
     showUpload: false,
-    showCheckup: false
+    showCheckup: false,
+    showFullTest: false
   }
 }
 
@@ -581,6 +603,10 @@ export function buildTurnActionsVisibility(input: {
       showConfirm,
       showUpload: own.projection.flags.showUpload,
       showCheckup: own.showCheckup,
+      showFullTest: own.projection.flags.showFullTest
+        && !ctx.readonlyMode
+        && !ctx.escalated
+        && !ctx.pathEntryPending,
       showWantMoreTests: false,
       showRecommend: own.projection.flags.showSubmitReview || own.projection.flags.showViewRecommend,
       showSubmitReview: own.projection.flags.showSubmitReview,
@@ -589,6 +615,10 @@ export function buildTurnActionsVisibility(input: {
       vitalsFields: own.projection.vitalsFields,
       vitalsGapCode: own.projection.vitalsGapCode,
       checkupUrlOverride: own.projection.checkupUrlOverride,
+      fullTestUrlOverride: own.projection.fullTestUrlOverride,
+      fullTestLabelOverride: own.projection.fullTestLabelOverride,
+      fullTestCopyOverride: own.projection.fullTestCopyOverride,
+      fullTestMarkerCount: own.projection.fullTestMarkerCount,
       fromReplyActions: true,
       exclusiveCodes: own.projection.exclusiveCodes,
       replyProjection: own.projection
@@ -622,6 +652,7 @@ export function buildTurnActionsVisibility(input: {
     showConfirm: turnConfirmVisible(choices.length, needsMultiConfirm),
     showUpload: false,
     showCheckup: false,
+    showFullTest: false,
     showWantMoreTests: false,
     showRecommend: false,
     showSubmitReview: false,

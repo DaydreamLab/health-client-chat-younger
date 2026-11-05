@@ -157,6 +157,8 @@ export type CandorMockOptions = {
     | 'degraded'
     | 'intake_hybrid'
     | 'consultation_goals'
+    /** 判讀未達 136：完成 CTA＋offer_full_test 外連. */
+    | 'offer_full_test'
     | 'none'
   /**
    * When true with usable reply_actions, dual-write legacy `checkup_offer: true`
@@ -1704,6 +1706,35 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         ]
       }
     }
+    if (mode === 'offer_full_test') {
+      // 判讀回覆：完成 CTA＋未達 136 外連（建議鈕排在完成鈕後面）。
+      return {
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'fake',
+        degraded: false,
+        error: null,
+        actions: [
+          {
+            type: 'offer_recommend',
+            payload: {
+              mode: 'view_recommendations',
+              label: '查看推薦方案',
+              path: '/app/recommendations'
+            }
+          },
+          {
+            type: 'offer_full_test',
+            payload: {
+              url: 'https://www.younger.tw/products/body-decode',
+              label: '了解完整 136 項檢測',
+              copy: '這份報告解析出 42 項指標，少於完整健康分析建議的 136 項，有些健康面向可能看不出來。如果想得到更完整的分析，可以考慮做一次全面檢測。',
+              marker_count: 42
+            }
+          }
+        ]
+      }
+    }
     if (mode === 'ask_report') {
       return {
         schema_version: '0.1',
@@ -1894,6 +1925,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     let assistantOptions: Array<{ code: string, label: string }> = options.replyActions !== 'degraded'
       && options.replyActions !== 'consultation_goals'
       && options.replyActions !== 'lab_followup_stale'
+      && options.replyActions !== 'offer_full_test'
       ? [{ code: 'legacy_chip', label: '舊選項' }]
       : []
     let profileGaps: string[] = []
@@ -1902,6 +1934,9 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       assistantOptions = []
     } else if (options.replyActions === 'lab_followup_stale') {
       assistantContent = '這份報告日期較舊，您可以上傳新報告、繼續諮詢，或安排血檢。'
+      assistantOptions = []
+    } else if (options.replyActions === 'offer_full_test') {
+      assistantContent = '依報告來看，基礎保養會是合適起點。'
       assistantOptions = []
     } else if (options.replyActions === 'intake_hybrid' && goalsSet) {
       if (!hybridSexAnswered) {

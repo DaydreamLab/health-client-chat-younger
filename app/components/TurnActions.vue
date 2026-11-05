@@ -14,6 +14,13 @@ const props = defineProps<{
   uploadDisabled: boolean
   showCheckup: boolean
   checkupUrl: string
+  showFullTest: boolean
+  fullTestUrl: string
+  /** Backend label; empty → i18n chat.offerFullTest. */
+  fullTestLabel?: string | null
+  /** Backend copy; empty → i18n with markerCount. */
+  fullTestCopy?: string | null
+  fullTestMarkerCount?: number | null
   showWantMoreTests: boolean
   wantMoreTestsUrl: string
   showViewRecommend: boolean
@@ -37,6 +44,8 @@ const emit = defineEmits<{
   /** One field per confirm (multi-field = sequential cards). */
   vitalsSubmit: [values: Partial<Record<VitalsField, number>>]
 }>()
+
+const { t } = useI18n()
 
 const activeVitalsFields = computed(() => props.vitalsFields ?? [])
 
@@ -62,6 +71,27 @@ const continueConsultInCtaRow = computed(
   () => showContinueConsult.value && props.choices.length === 0
 )
 
+const showFullTestLink = computed(
+  () => props.showFullTest && props.fullTestUrl.trim() !== ''
+)
+
+const fullTestButtonLabel = computed(() => {
+  const fromPayload = String(props.fullTestLabel ?? '').trim()
+  return fromPayload || t('chat.offerFullTest')
+})
+
+const fullTestHint = computed(() => {
+  const fromPayload = String(props.fullTestCopy ?? '').trim()
+  if (fromPayload) {
+    return fromPayload
+  }
+  const n = props.fullTestMarkerCount
+  if (n === null || n === undefined || !Number.isFinite(n)) {
+    return ''
+  }
+  return t('chat.offerFullTestCopy', { n: Math.floor(n) })
+})
+
 function onVitalsFieldSubmit(value: number) {
   const field = activeVitalsField.value
   if (!field || props.vitalsDisabled || props.pending) {
@@ -75,6 +105,7 @@ const hasActions = computed(() =>
   || props.showConfirm
   || props.showUpload
   || props.showCheckup
+  || showFullTestLink.value
   || props.showWantMoreTests
   || props.showViewRecommend
   || props.showRetry
@@ -138,9 +169,16 @@ const hasActions = computed(() =>
       @submit="onVitalsFieldSubmit"
     />
     <div
-      v-if="showViewRecommend || showUpload || (showCheckup && checkupUrl) || (showWantMoreTests && wantMoreTestsUrl) || showRetry || continueConsultInCtaRow"
+      v-if="showViewRecommend || showUpload || (showCheckup && checkupUrl) || showFullTestLink || (showWantMoreTests && wantMoreTestsUrl) || showRetry || continueConsultInCtaRow"
       class="turn-actions-cta"
     >
+      <p
+        v-if="showFullTestLink && fullTestHint"
+        class="turn-actions-hint"
+        data-testid="chat-message-full-test-hint"
+      >
+        {{ fullTestHint }}
+      </p>
       <div class="turn-actions-row">
         <AppButton
           v-if="showViewRecommend"
@@ -195,6 +233,17 @@ const hasActions = computed(() =>
           @click="emit('retry')"
         >
           {{ $t('chat.reportRetry') }}
+        </AppButton>
+        <!-- 建議按鈕排在原本按鈕（舊報告三顆、完成、checkup 等）後面 -->
+        <AppButton
+          v-if="showFullTestLink"
+          :href="fullTestUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          variant="outline"
+          data-testid="chat-message-full-test"
+        >
+          {{ fullTestButtonLabel }}
         </AppButton>
       </div>
     </div>

@@ -209,6 +209,11 @@
                 :upload-disabled="!canOfferUpload"
                 :show-checkup="showCheckupCta(message)"
                 :checkup-url="checkupUrlFor(message)"
+                :show-full-test="showFullTestCta(message)"
+                :full-test-url="fullTestUrlFor(message)"
+                :full-test-label="fullTestLabelFor(message)"
+                :full-test-copy="fullTestCopyFor(message)"
+                :full-test-marker-count="fullTestMarkerCountFor(message)"
                 :show-want-more-tests="showWantMoreTestsCta(message)"
                 :want-more-tests-url="checkupLinkUrl"
                 :show-view-recommend="showViewRecommendCta(message)"
@@ -787,6 +792,26 @@ function showUploadCta(message: ChatMessage) {
 
 function showCheckupCta(message: ChatMessage) {
   return turnActionsFor(message).showCheckup
+}
+
+function showFullTestCta(message: ChatMessage) {
+  return turnActionsFor(message).showFullTest
+}
+
+function fullTestUrlFor(message: ChatMessage) {
+  return turnActionsFor(message).fullTestUrlOverride ?? ''
+}
+
+function fullTestLabelFor(message: ChatMessage) {
+  return turnActionsFor(message).fullTestLabelOverride
+}
+
+function fullTestCopyFor(message: ChatMessage) {
+  return turnActionsFor(message).fullTestCopyOverride
+}
+
+function fullTestMarkerCountFor(message: ChatMessage) {
+  return turnActionsFor(message).fullTestMarkerCount
 }
 
 function showWantMoreTestsCta(message: ChatMessage) {

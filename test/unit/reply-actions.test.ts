@@ -526,6 +526,79 @@ describe('projectReplyActionsToCtas', () => {
     expect(projection.flags.showUpload).toBe(true)
     expect(projection.flags.showCheckup).toBe(true)
     expect(projection.checkupUrlOverride).toBe('https://labs.example/x')
+    expect(projection.flags.showFullTest).toBe(false)
+  })
+
+  it('offer_full_test projects url／label／copy／marker_count (default Body Decode url)', () => {
+    const withPayload = projectReplyActionsToCtas({
+      replyActions: ra({
+        actions: [{
+          type: 'offer_full_test',
+          payload: {
+            url: 'https://example.test/body-decode',
+            label: '了解完整 136 項檢測',
+            copy: '這份報告解析出 42 項指標，少於完整健康分析建議的 136 項。',
+            marker_count: 42
+          }
+        }]
+      }),
+      canShowRecommendSlot: true,
+      canShowUpload: true,
+      canShowCheckup: true,
+      canShowVitals: true,
+      expertReviewStatus: 'none'
+    })
+    expect(withPayload.flags.showFullTest).toBe(true)
+    expect(withPayload.fullTestUrlOverride).toBe('https://example.test/body-decode')
+    expect(withPayload.fullTestLabelOverride).toBe('了解完整 136 項檢測')
+    expect(withPayload.fullTestCopyOverride).toContain('42')
+    expect(withPayload.fullTestMarkerCount).toBe(42)
+
+    const emptyUrl = projectReplyActionsToCtas({
+      replyActions: ra({
+        actions: [{ type: 'offer_full_test', payload: { n: 0 } }]
+      }),
+      canShowRecommendSlot: true,
+      canShowUpload: true,
+      canShowCheckup: true,
+      canShowVitals: true,
+      expertReviewStatus: 'none'
+    })
+    expect(emptyUrl.flags.showFullTest).toBe(true)
+    expect(emptyUrl.fullTestUrlOverride).toBe('https://www.younger.tw/products/body-decode')
+    expect(emptyUrl.fullTestMarkerCount).toBe(0)
+  })
+
+  it('offer_full_test coexists after offer_recommend／offer_checkup', () => {
+    const projection = projectReplyActionsToCtas({
+      replyActions: ra({
+        actions: [
+          {
+            type: 'offer_recommend',
+            payload: {
+              mode: 'view_recommendations',
+              label: '查看推薦方案',
+              path: '/app/recommendations'
+            }
+          },
+          { type: 'offer_checkup', payload: { url: 'https://labs.example/x' } },
+          {
+            type: 'offer_full_test',
+            payload: { url: 'https://example.test/full', marker_count: 12 }
+          }
+        ]
+      }),
+      canShowRecommendSlot: true,
+      canShowUpload: true,
+      canShowCheckup: true,
+      canShowVitals: true,
+      expertReviewStatus: 'none'
+    })
+    expect(projection.flags.showViewRecommend).toBe(true)
+    expect(projection.flags.showCheckup).toBe(true)
+    expect(projection.flags.showFullTest).toBe(true)
+    expect(projection.fullTestUrlOverride).toBe('https://example.test/full')
+    expect(projection.fullTestMarkerCount).toBe(12)
   })
 
   it('seq 750: open_question_reply + offer_checkup + path_switch keeps both chip groups', () => {
