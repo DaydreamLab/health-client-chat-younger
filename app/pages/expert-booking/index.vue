@@ -392,7 +392,16 @@ const productName = computed(() => {
   return p.name_zh || t('expertBooking.productName')
 })
 
-const productDescription = computed(() => product.value?.description?.trim() || '')
+const productDescription = computed(() => {
+  const p = product.value
+  if (!p) {
+    return ''
+  }
+  if (locale.value.startsWith('en') && p.description_en?.trim()) {
+    return p.description_en.trim()
+  }
+  return p.description?.trim() || ''
+})
 
 const pageTitle = computed(() =>
   productState.value === 'ready' && product.value

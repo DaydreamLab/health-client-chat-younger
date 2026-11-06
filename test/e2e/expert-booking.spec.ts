@@ -99,6 +99,7 @@ async function mockExpertBookingApis(page: Page, opts: {
           name_zh: nameZh,
           name_en: 'Personal health consult',
           description,
+          description_en: 'One-to-one consult. An expert confirms your preferred time.',
           price
         }
       })

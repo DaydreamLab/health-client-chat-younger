@@ -166,7 +166,7 @@
 
 | 能力 | 端點 | 狀態 |
 |------|------|------|
-| 商品資訊 | `GET /expert-booking-product`（`code`／`name_zh`／`description`／`price`） | 接線中（404 `expert_booking_unavailable` →「目前暫停預約」，不退回假價格） |
+| 商品資訊 | `GET /expert-booking-product`（`code`／`name_zh`／`name_en`／`description`／`description_en`／`price`） | 接線中（404 `expert_booking_unavailable` →「目前暫停預約」，不退回假價格；英文介面用 `description_en`，空則中文說明） |
 | 附件上傳 | `POST /expert-booking-attachments`（multipart `file` → key／filename／content_type／size_bytes） | 接線中 |
 | 建立預約＋待付款訂單 | `POST /orders`（`kind=expert_booking`＋`expert_booking_code`＋`expert_booking`：必填 contact_*／preferred_slots；選填 contact_line／requirement_note／attachments） | 接線中 |
 | 訂單詳情附加區塊 | `GET /order/{id}` → `expert_booking`（`awaiting_schedule`｜`product_picks`｜`confirmed_starts_at`／`ends_at`） | 接線中 |
