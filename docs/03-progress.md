@@ -86,6 +86,7 @@
 | 建議／價格帶／建單（品項顯示 `image_url`） | `/app/recommendations`（AI／專家二選）／定稿唯讀 `/app/expert-cases/{conversation_id}`（入口：訂單「查看定稿方案」；健康頁不列案件、無頁首 CTA） | 可用 | 已接 | 完成 |
 | 血檢主檔列表 | — | 無 | 接線中 | Backlog |
 | 訂單列表／詳情／出貨時間線（明細顯示 `image_url`） | `/app/orders`、`/app/orders/[id]` | 可用 | 已接 | 完成 |
+| 預約專家（對話 CTA → 表單／付款／訂單狀態） | CTA `offer_expert_booking`；`/expert-booking`、`/expert-booking/confirm`；`/app/orders/paid`｜`pay-failed`；訂單詳情區塊 | 可用 | 接線中（core API 尚未合併；FE 集中於 `useExpertBookingApi`） | M2 |
 | 訂單反查對話 | 訂單詳情 modal | 可用 | 已接 | 完成 |
 | 重新付款 | `/app/orders/[id]` | 可用 | 已接 | 完成 |
 | 取消訂單 | `/app/orders/[id]` | 可用 | 已接 | 完成 |
@@ -160,6 +161,17 @@
 | 反查對話 | `GET /order/{id}/message` | 已接 |
 | 可用付款方式 | `GET /client-config` → `payment_methods` | 已接 |
 | Provider webhook | `POST /payments/{provider}/callback` | 不做 |
+
+### 預約專家（對齊 candor-core PR #155 head `27901b4`；draft 尚未合併）
+
+| 能力 | 端點 | 狀態 |
+|------|------|------|
+| 商品資訊 | `GET /expert-booking-product`（`code`／`name_zh`／`price`） | 接線中（404 時 FE 回退 NT$6,000） |
+| 附件上傳 | `POST /expert-booking-attachments`（multipart `file` → key／filename／content_type／size_bytes） | 接線中 |
+| 建立預約＋待付款訂單 | `POST /orders`（`kind=expert_booking`＋`expert_booking_code`＋`expert_booking`：必填 contact_*／preferred_slots；選填 contact_line／requirement_note／attachments） | 接線中 |
+| 訂單詳情附加區塊 | `GET /order/{id}` → `expert_booking`（`awaiting_schedule`｜`product_picks`｜`confirmed_starts_at`／`ends_at`） | 接線中 |
+| 重新付款 | `POST /order/{id}/payment`（OpenAPI `ordersCreatePayment`） | 接線中（與 OpenAPI 一致；沿用既有） |
+| 對話 CTA | `offer_expert_booking` payload `{ mode:'book_expert', label, path }`（預設 `/expert-booking`） | 接線中（FE 已投影；出不出由 core 決策判讀） |
 
 ### 法務（公開）
 

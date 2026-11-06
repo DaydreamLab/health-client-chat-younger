@@ -5,6 +5,11 @@ import type {
   RefundBlockedReason,
   RefundRequestStatus
 } from './candor-api'
+import type { ExpertBookingOnOrder } from './expert-booking'
+import {
+  isExpertBookingOrder,
+  parseExpertBookingOnOrder
+} from './expert-booking'
 import type { ReplyActions } from './reply-actions'
 import {
   orderExpertCasePhase,
@@ -280,6 +285,9 @@ export interface OrderRecord {
   completionChoiceAt?: string | null
   /** From expert_case_review — link to recommendations after refund. */
   conversationId?: string | null
+  /** 預約專家訂單區塊（客人可見狀態／確認時間／選品；不含服務紀錄）。 */
+  expertBooking?: ExpertBookingOnOrder | null
+  hasExpertBookingLine?: boolean
 }
 
 export interface CreateOrderInput {
@@ -710,14 +718,20 @@ export function orderRecordFromCandorDetail(
     ? invoiceRaw
     : 'member'
   const hasExpertPlan = orderHasExpertPlanLine(detail)
+  const hasExpertBooking = isExpertBookingOrder(detail)
+  const expertBooking = parseExpertBookingOnOrder(detail.expert_booking)
+    ?? detail.expert_booking
+    ?? null
   const expertPlanName = expertPlanNameFromDetail(detail)
-  const packageName = resolveOrderPlanName({
-    hasExpertPlanLine: hasExpertPlan,
-    expertPlanName,
-    packagePlanName: detail.package_plan_name
-      ?? detail.package?.package_plan_name
-      ?? fallback.packageName
-  })
+  const packageName = hasExpertBooking
+    ? (fallback.packageName ?? '預約專家')
+    : resolveOrderPlanName({
+        hasExpertPlanLine: hasExpertPlan,
+        expertPlanName,
+        packagePlanName: detail.package_plan_name
+          ?? detail.package?.package_plan_name
+          ?? fallback.packageName
+      })
   // Expert pre-finalize used to inject a synthetic line matching the plan name; drop it.
   const displayItems = hasExpertPlan
     ? omitItemsMatchingPlanName(items, expertPlanName ?? packageName)
@@ -748,6 +762,8 @@ export function orderRecordFromCandorDetail(
     refundRequestDisplay: detail.refund_request_display ?? null,
     refundBlockedReason: detail.refund_blocked_reason ?? null,
     hasExpertPlanLine: hasExpertPlan,
+    hasExpertBookingLine: hasExpertBooking,
+    expertBooking,
     shipmentStatus: orderShipmentStatus(detail),
     expertCaseId: detail.expert_case_id ?? null,
     expertCaseStatus: orderExpertCaseStatus(detail),

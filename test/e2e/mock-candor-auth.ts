@@ -159,6 +159,8 @@ export type CandorMockOptions = {
     | 'consultation_goals'
     /** 判讀未達 136：完成 CTA＋offer_full_test 外連. */
     | 'offer_full_test'
+    /** 預約專家：只出 offer_expert_booking（goals 含減重／腸胃道由 core 分流）. */
+    | 'offer_expert_booking'
     | 'none'
   /**
    * When true with usable reply_actions, dual-write legacy `checkup_offer: true`
@@ -1735,6 +1737,26 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         ]
       }
     }
+    if (mode === 'offer_expert_booking') {
+      // C10：goals 含減重／腸胃道時 core 只出專家預約 CTA（不出保健品方案 CTA）。
+      return {
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'fake',
+        degraded: false,
+        error: null,
+        actions: [
+          {
+            type: 'offer_expert_booking',
+            payload: {
+              mode: 'book_expert',
+              path: '/expert-booking',
+              label: '預約專家諮詢'
+            }
+          }
+        ]
+      }
+    }
     if (mode === 'ask_report') {
       return {
         schema_version: '0.1',
@@ -1926,6 +1948,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       && options.replyActions !== 'consultation_goals'
       && options.replyActions !== 'lab_followup_stale'
       && options.replyActions !== 'offer_full_test'
+      && options.replyActions !== 'offer_expert_booking'
       ? [{ code: 'legacy_chip', label: '舊選項' }]
       : []
     let profileGaps: string[] = []
@@ -1937,6 +1960,9 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       assistantOptions = []
     } else if (options.replyActions === 'offer_full_test') {
       assistantContent = '依報告來看，基礎保養會是合適起點。'
+      assistantOptions = []
+    } else if (options.replyActions === 'offer_expert_booking') {
+      assistantContent = '了解。我們可以幫您預約專家諮詢（NT$6,000），專家會依您的希望時段聯繫確認實際時間。'
       assistantOptions = []
     } else if (options.replyActions === 'intake_hybrid' && goalsSet) {
       if (!hybridSexAnswered) {

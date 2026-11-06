@@ -21,6 +21,9 @@ const props = defineProps<{
   /** Backend copy; empty → i18n with markerCount. */
   fullTestCopy?: string | null
   fullTestMarkerCount?: number | null
+  showExpertBooking: boolean
+  /** Backend label; empty → i18n chat.expertBooking. */
+  expertBookingLabel?: string | null
   showWantMoreTests: boolean
   wantMoreTestsUrl: string
   showViewRecommend: boolean
@@ -38,6 +41,7 @@ const emit = defineEmits<{
   confirm: []
   upload: []
   recommend: []
+  expertBooking: []
   retry: []
   /** FE-appended checkup CTA: stream continue-health copy as a normal user message. */
   continueConsult: []
@@ -75,6 +79,13 @@ const showFullTestLink = computed(
   () => props.showFullTest && props.fullTestUrl.trim() !== ''
 )
 
+const showExpertBookingCta = computed(() => props.showExpertBooking)
+
+const expertBookingButtonLabel = computed(() => {
+  const fromPayload = String(props.expertBookingLabel ?? '').trim()
+  return fromPayload || t('chat.expertBooking')
+})
+
 const fullTestButtonLabel = computed(() => {
   const fromPayload = String(props.fullTestLabel ?? '').trim()
   return fromPayload || t('chat.offerFullTest')
@@ -106,6 +117,7 @@ const hasActions = computed(() =>
   || props.showUpload
   || props.showCheckup
   || showFullTestLink.value
+  || showExpertBookingCta.value
   || props.showWantMoreTests
   || props.showViewRecommend
   || props.showRetry
@@ -169,7 +181,7 @@ const hasActions = computed(() =>
       @submit="onVitalsFieldSubmit"
     />
     <div
-      v-if="showViewRecommend || showUpload || (showCheckup && checkupUrl) || showFullTestLink || (showWantMoreTests && wantMoreTestsUrl) || showRetry || continueConsultInCtaRow"
+      v-if="showViewRecommend || showExpertBookingCta || showUpload || (showCheckup && checkupUrl) || showFullTestLink || (showWantMoreTests && wantMoreTestsUrl) || showRetry || continueConsultInCtaRow"
       class="turn-actions-cta"
     >
       <p
@@ -180,6 +192,13 @@ const hasActions = computed(() =>
         {{ fullTestHint }}
       </p>
       <div class="turn-actions-row">
+        <AppButton
+          v-if="showExpertBookingCta"
+          data-testid="chat-expert-booking"
+          @click="emit('expertBooking')"
+        >
+          {{ expertBookingButtonLabel }}
+        </AppButton>
         <AppButton
           v-if="showViewRecommend"
           data-testid="chat-view-recommend"

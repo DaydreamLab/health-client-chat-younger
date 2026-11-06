@@ -1,4 +1,8 @@
 import type { ReplyActions } from './reply-actions'
+import type {
+  ExpertBookingOnOrder,
+  ExpertBookingOrderPayload
+} from './expert-booking'
 
 export type UserRole = 'guest' | 'member'
 
@@ -489,7 +493,13 @@ export interface ConversationPackageConfirm {
 export type CandorPaymentMethod = 'card' | 'linepay' | 'atm'
 export type CandorInvoiceType = 'member' | 'cloud' | 'company' | 'donate'
 
-export type OrderLineKind = 'package' | 'lab_service' | 'day_supply' | 'expert_plan'
+export type OrderLineKind
+  = 'package'
+    | 'lab_service'
+    | 'day_supply'
+    | 'expert_plan'
+    /** 預約專家獨立商品（NT$6,000；不綁保健品／專家方案）。 */
+    | 'expert_booking'
 
 export interface OrderLineInput {
   kind: OrderLineKind
@@ -501,6 +511,8 @@ export interface OrderLineInput {
   days?: number
   /** Spec 33 — expert_plan line (mutually exclusive with package／lab／day_supply). */
   expert_plan_code?: string
+  /** Spec 34 — kind=expert_booking 必填；預設 personal。 */
+  expert_booking_code?: string
 }
 
 export interface OrderCreateRequest {
@@ -511,13 +523,18 @@ export interface OrderCreateRequest {
   recipient: {
     name: string
     phone: string
-    address: string
-    email?: string
+    /** expert_booking 等無出貨地址時可為 null（OpenAPI）。 */
+    address: string | null
+    email?: string | null
   }
   conversation_id?: string
   recommendation_run_id?: string
   renewal_of_order_id?: string
   report_id?: string
+  /**
+   * Spec 34：與 `lines: [{ kind: 'expert_booking', expert_booking_code }]` 併用。
+   */
+  expert_booking?: ExpertBookingOrderPayload
 }
 
 export interface CandorPayment {
@@ -637,6 +654,8 @@ export interface OrderDetail {
   } | null
   /** @deprecated Use refund_rejection_reason. */
   refund_reject_reason?: string | null
+  /** Spec 34 — 預約專家區塊（客人可見；不含服務紀錄）。 */
+  expert_booking?: ExpertBookingOnOrder | null
 }
 
 export interface RefundRequestCreated {
