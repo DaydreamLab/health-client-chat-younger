@@ -23,7 +23,11 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 | `/app/expert-cases/[id]` | `user` + `auth` | 專家案件定稿唯讀（`id`＝案件 conversation id）。付費案可連訂單 | `GET /conversation/{id}/expert-review`；有 `order_id` 時另 `GET /order/{id}/finalized-plan`、`GET /order/{id}` |
 | `/app/checkout` | `user` + `auth` | AI／專家共用結帳（`?kind=package`｜`?kind=expert_plan`）；同頁預覽、按「確認付款」建單；專家卡顯示內含保健品方案名（有 `package_plan_name_*`／code 才顯示）；缺 `conversation_id` 時 AI 顯示諮詢紀錄錯誤＋回對話；`questionnaire_incomplete`／`conversation_already_ordered`／`existing_order` repay／`conversation_order_closed`（開新對話）gate | `GET /checkout/preview`（AI 品項用 `ai.items`）、`POST /orders`、`PATCH /users/me` |
 | `/app/orders` | `user` + `auth` | 訂單列表 | `GET /orders` |
-| `/app/orders/[id]` | `user` + `auth` | 訂單詳情、出貨時間線、對話 modal；專家方案可「申請退款」／顯示「退款申請中」；定稿後「查看定稿方案」導 `/app/expert-cases/{conversation_id}`（定稿方案的主要入口） | `GET /order/{id}`；`GET /order/{id}/message`；`POST /order/{id}/refund-request` |
+| `/app/orders/[id]` | `user` + `auth` | 訂單詳情、出貨時間線、對話 modal；專家方案可「申請退款」／顯示「退款申請中」；定稿後「查看定稿方案」導 `/app/expert-cases/{conversation_id}`（定稿方案的主要入口）；**預約專家**訂單顯示服務狀態、確認時間、選品與理由（不含服務紀錄） | `GET /order/{id}`（含假設欄位 `expert_booking`）；`GET /order/{id}/message`；`POST /order/{id}/refund-request` |
+| `/app/orders/paid` | `user` + `auth` | 預約專家付款成功中繼頁（F-05） | 讀 query `id` → `GET /order/{id}` |
+| `/app/orders/pay-failed` | `user` + `auth` | 預約專家付款失敗／取消中繼頁（F-06）；可重新付款 | `POST /order/{id}/payment` |
+| `/expert-booking` | `user` + `auth` | 預約專家說明＋表單同頁（F-02／F-03）；未登入會員顯示登入門檻（`?redirect=/expert-booking`） | `GET /expert-booking/product`（假設）；附件 `POST /expert-bookings/attachments`（假設） |
+| `/expert-booking/confirm` | `user` + `auth` | 確認預約資料 → 送出並前往付款（F-04） | `POST /expert-bookings`（假設；回 `OrderCreated`） |
 | `/app/notifications` | `user` + `auth` | 通知中心列表（篩選全部／未讀、點列標已讀＋deep link）；guest 顯示 dashed AuthGate；空／錯誤態 | `GET /notifications`、`GET /notifications/unread-count`、`POST /notifications/{id}/read`（member；guest 403） |
 | `/app/me` | `user` + `auth` | 個人資料：顯示名稱、密碼、常用收件（email 唯讀）；guest 顯示登入門檻 | `GET`／`PATCH /users/me`（member） |
 | `/app/handoff` | `user` + `auth` | 舊 FigJam「交給顧問」殼 | 非 core 主路徑；勿新增假 API |
@@ -50,8 +54,9 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 ## 諮詢對話（`/chat`）
 
 - Intake **三要件**（皆必問）：① 問卷 profile gaps ② **report**（`ask_report`，類 goal、**不進 gap**；gap 全滿後仍要問）③ goals。三要件未齊時不進入「完成 CTA」。
-- 三要件齊後：基本回應 → **CTA 判讀**（systemone／catalog）→ **完成 CTA**；FE 依 usable `reply_actions` 決定畫哪些按鈕（含 upload／checkup／`offer_recommend`／`offer_full_test` 等）——**非**固定硬掛「提交專家判讀」。intentional `none`／degraded／無 RA＝不畫怪鈕。**Legacy** `upload_offer`／journey 自創 recommend **不當 fallback**。
+- 三要件齊後：基本回應 → **CTA 判讀**（systemone／catalog）→ **完成 CTA**；FE 依 usable `reply_actions` 決定畫哪些按鈕（含 upload／checkup／`offer_recommend`／`offer_full_test`／`offer_expert_booking` 等）——**非**固定硬掛「提交專家判讀」。intentional `none`／degraded／無 RA＝不畫怪鈕。**Legacy** `upload_offer`／journey 自創 recommend **不當 fallback**。
 - `offer_full_test`：報告解析指標未達門檻時由 core 掛上；FE 投影建議文案＋外連鈕（`payload.url`，缺省 Body Decode；`target=_blank`＋`noopener`），排在同則其他 CTA 後面；文案／按鈕字優先 `payload.copy`／`label`，否則 i18n（`marker_count`／`n` 填 `{n}`）。出不出、同一報告只出一輪、20 題上限不出等由 core 控制；FE **不做**點擊追蹤。
+- `offer_expert_booking`：goals 含「減重」或「腸胃道」時由 core 只出此 CTA（不出保健品方案 CTA）；FE 投影「預約專家諮詢」→ `/expert-booking`（`payload.path`／`label` 可覆寫）。FE **不**依 goals 自行合成。
 - 選項與確認在助理氣泡底部：確認鈕靠右。仍在選改善方向、report 必問、或**本則**仍是 required profile 時，不畫完成 CTA 的 recommend 槽。每則助理泡泡只顯示**自己** `reply_actions` 的按鈕；**不**把舊訊息未答題搬到最新一則（舊訊息維持不顯示按鈕）。B／C 必填問完後 core 每輪可回完成 CTA——前台忠實投影、不自行合併／去重／隱藏。
 - 開場只問改善方向。選方向時，輸入框不提示「有沒有報告」。
 - 氣泡內上傳鈕只出現在最新一則且該則 usable `ask_report`（或 lab_followup→upload）。輸入列的上傳入口仍在（guest 點了導向登入）。

@@ -281,6 +281,8 @@ export interface TurnActionsVisibility {
   showCheckup: boolean
   /** offer_full_test — 報告指標未達門檻外連（排在其他 CTA 後面）. */
   showFullTest: boolean
+  /** offer_expert_booking — 預約專家諮詢（導 /expert-booking）. */
+  showExpertBooking: boolean
   showWantMoreTests: boolean
   /** @deprecated Prefer showSubmitReview / showViewRecommend */
   showRecommend: boolean
@@ -297,6 +299,8 @@ export interface TurnActionsVisibility {
   fullTestLabelOverride: string | null
   fullTestCopyOverride: string | null
   fullTestMarkerCount: number | null
+  expertBookingPathOverride: string | null
+  expertBookingLabelOverride: string | null
   /** True when CTAs come from reply_actions column (usable or intentional empty). */
   fromReplyActions: boolean
   /** Exclusive chip codes when choose_option drives selection. */
@@ -313,6 +317,8 @@ function emptyReplyExtras(): Pick<
   | 'fullTestLabelOverride'
   | 'fullTestCopyOverride'
   | 'fullTestMarkerCount'
+  | 'expertBookingPathOverride'
+  | 'expertBookingLabelOverride'
   | 'fromReplyActions'
   | 'exclusiveCodes'
   | 'replyProjection'
@@ -325,6 +331,8 @@ function emptyReplyExtras(): Pick<
     fullTestLabelOverride: null,
     fullTestCopyOverride: null,
     fullTestMarkerCount: null,
+    expertBookingPathOverride: null,
+    expertBookingLabelOverride: null,
     fromReplyActions: false,
     exclusiveCodes: ['none', 'none_of_above'],
     replyProjection: null
@@ -338,6 +346,7 @@ function emptyTurnActions(fromReplyActions: boolean): TurnActionsVisibility {
     showUpload: false,
     showCheckup: false,
     showFullTest: false,
+    showExpertBooking: false,
     showWantMoreTests: false,
     showRecommend: false,
     showSubmitReview: false,
@@ -497,7 +506,8 @@ function suppressGuidanceIfNeeded(
     ...visibility,
     showUpload: false,
     showCheckup: false,
-    showFullTest: false
+    showFullTest: false,
+    showExpertBooking: false
   }
 }
 
@@ -607,6 +617,10 @@ export function buildTurnActionsVisibility(input: {
         && !ctx.readonlyMode
         && !ctx.escalated
         && !ctx.pathEntryPending,
+      showExpertBooking: own.projection.flags.showExpertBooking
+        && !ctx.readonlyMode
+        && !ctx.escalated
+        && !ctx.pathEntryPending,
       showWantMoreTests: false,
       showRecommend: own.projection.flags.showSubmitReview || own.projection.flags.showViewRecommend,
       showSubmitReview: own.projection.flags.showSubmitReview,
@@ -619,6 +633,8 @@ export function buildTurnActionsVisibility(input: {
       fullTestLabelOverride: own.projection.fullTestLabelOverride,
       fullTestCopyOverride: own.projection.fullTestCopyOverride,
       fullTestMarkerCount: own.projection.fullTestMarkerCount,
+      expertBookingPathOverride: own.projection.expertBookingPathOverride,
+      expertBookingLabelOverride: own.projection.expertBookingLabelOverride,
       fromReplyActions: true,
       exclusiveCodes: own.projection.exclusiveCodes,
       replyProjection: own.projection
@@ -653,6 +669,7 @@ export function buildTurnActionsVisibility(input: {
     showUpload: false,
     showCheckup: false,
     showFullTest: false,
+    showExpertBooking: false,
     showWantMoreTests: false,
     showRecommend: false,
     showSubmitReview: false,

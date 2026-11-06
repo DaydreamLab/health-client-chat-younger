@@ -19,6 +19,8 @@ export type ReplyActionType
     | 'offer_checkup'
     /** 報告指標未達門檻 → 外連完整檢測（Body Decode）。 */
     | 'offer_full_test'
+    /** 預約專家諮詢 → 導向 /expert-booking（goals 分流由 core 決策判讀）。 */
+    | 'offer_expert_booking'
     | 'none'
 
 export type ChooseOptionKind
@@ -91,8 +93,20 @@ export interface OfferFullTestPayload {
   marker_count?: number | null
 }
 
+/**
+ * offer_expert_booking — 對話結尾「預約專家諮詢」CTA。
+ * path／label 可由 ConversationCopy／CTA 型錄帶入；缺省走 FE 路由與 i18n。
+ */
+export interface OfferExpertBookingPayload {
+  path?: string | null
+  label?: string | null
+}
+
 /** 後台未設網址時的 Body Decode 預設外連。 */
 export const OFFER_FULL_TEST_DEFAULT_URL = 'https://www.younger.tw/products/body-decode'
+
+/** 預約專家預設路徑（C11）。 */
+export const OFFER_EXPERT_BOOKING_DEFAULT_PATH = '/expert-booking'
 
 export interface ReplyAction {
   type: string
@@ -116,6 +130,7 @@ const KNOWN_TYPES = new Set<string>([
   'ask_vitals',
   'offer_checkup',
   'offer_full_test',
+  'offer_expert_booking',
   'none'
 ])
 
@@ -126,7 +141,8 @@ const ACTIONABLE_TYPES = new Set<string>([
   'ask_report',
   'ask_vitals',
   'offer_checkup',
-  'offer_full_test'
+  'offer_full_test',
+  'offer_expert_booking'
 ])
 
 /** Fallback goal chips when ask_goal has no/insufficient goal_codes (mirrors chat-turn-actions). */
@@ -661,6 +677,14 @@ export function offerFullTestPayload(action: ReplyAction): OfferFullTestPayload 
   }
 }
 
+export function offerExpertBookingPayload(action: ReplyAction): OfferExpertBookingPayload {
+  const p = isRecord(action.payload) ? action.payload : {}
+  return {
+    path: typeof p.path === 'string' ? p.path : null,
+    label: typeof p.label === 'string' ? p.label : null
+  }
+}
+
 /** Parse spec 33 `offer_recommend` payload; ignores unknown modes (e.g. legacy dual_choice). */
 export function offerRecommendPayload(action: ReplyAction): Partial<OfferRecommendPayload> {
   const p = isRecord(action.payload) ? action.payload : {}
@@ -699,6 +723,8 @@ export interface ReplyActionsCtaFlags {
   showUpload: boolean
   showCheckup: boolean
   showFullTest: boolean
+  /** offer_expert_booking — 預約專家諮詢（goals 分流由 core 決定）。 */
+  showExpertBooking: boolean
   showSubmitReview: boolean
   showViewRecommend: boolean
 }
@@ -732,6 +758,10 @@ export interface ReplyActionsCtaProjection {
   fullTestCopyOverride: string | null
   /** Parsed marker count N for i18n fallback (incl. 0). */
   fullTestMarkerCount: number | null
+  /** offer_expert_booking payload.path when set; else OFFER_EXPERT_BOOKING_DEFAULT_PATH. */
+  expertBookingPathOverride: string | null
+  /** Backend button label; empty → FE i18n chat.expertBooking. */
+  expertBookingLabelOverride: string | null
   /** Exclusive chip codes from choose_option (none / none_of_above). */
   exclusiveCodes: string[]
 }
@@ -769,6 +799,7 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
   const vitalsAction = actions.find(a => a.type === 'ask_vitals')
   const checkupAction = actions.find(a => a.type === 'offer_checkup')
   const fullTestAction = actions.find(a => a.type === 'offer_full_test')
+  const expertBookingAction = actions.find(a => a.type === 'offer_expert_booking')
 
   // path_switch／continue_consultation may coexist with open_question_reply／goals／…
   // Keep them out of the primary pick so they cannot hide other chips; append later.
@@ -866,6 +897,10 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
   const checkup = checkupAction ? offerCheckupPayload(checkupAction) : null
   const fullTest = fullTestAction ? offerFullTestPayload(fullTestAction) : null
   const fullTestUrl = fullTest?.url?.trim() || null
+  const expertBooking = expertBookingAction
+    ? offerExpertBookingPayload(expertBookingAction)
+    : null
+  const expertBookingPath = expertBooking?.path?.trim() || null
 
   return {
     flags: {
@@ -875,6 +910,8 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
       showCheckup: Boolean(checkupAction) && input.canShowCheckup,
       // 出不出由 core 決定；FE 有 action 就畫（URL 缺省走預設 Body Decode）。
       showFullTest: Boolean(fullTestAction),
+      // goals 含減重／腸胃道時 core 只出此 CTA（C10）；FE 不自行合成。
+      showExpertBooking: Boolean(expertBookingAction),
       showSubmitReview,
       showViewRecommend
     },
@@ -889,6 +926,9 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
     fullTestLabelOverride: fullTest?.label?.trim() || null,
     fullTestCopyOverride: fullTest?.copy?.trim() || null,
     fullTestMarkerCount: fullTest?.marker_count ?? null,
+    expertBookingPathOverride: expertBookingPath
+      || (expertBookingAction ? OFFER_EXPERT_BOOKING_DEFAULT_PATH : null),
+    expertBookingLabelOverride: expertBooking?.label?.trim() || null,
     exclusiveCodes: chooseOption?.exclusive_codes?.length
       ? chooseOption.exclusive_codes
       : ['none', 'none_of_above']

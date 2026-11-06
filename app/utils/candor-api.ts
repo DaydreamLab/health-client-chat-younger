@@ -1,4 +1,5 @@
 import type { ReplyActions } from './reply-actions'
+import type { ExpertBookingOnOrder } from './expert-booking'
 
 export type UserRole = 'guest' | 'member'
 
@@ -489,7 +490,13 @@ export interface ConversationPackageConfirm {
 export type CandorPaymentMethod = 'card' | 'linepay' | 'atm'
 export type CandorInvoiceType = 'member' | 'cloud' | 'company' | 'donate'
 
-export type OrderLineKind = 'package' | 'lab_service' | 'day_supply' | 'expert_plan'
+export type OrderLineKind
+  = 'package'
+    | 'lab_service'
+    | 'day_supply'
+    | 'expert_plan'
+    /** 預約專家獨立商品（NT$6,000；不綁保健品／專家方案）。 */
+    | 'expert_booking'
 
 export interface OrderLineInput {
   kind: OrderLineKind
@@ -501,6 +508,8 @@ export interface OrderLineInput {
   days?: number
   /** Spec 33 — expert_plan line (mutually exclusive with package／lab／day_supply). */
   expert_plan_code?: string
+  /** 預約專家 line（與其他 kind 互斥；細節見 expert_booking 區塊）。 */
+  expert_booking_code?: string
 }
 
 export interface OrderCreateRequest {
@@ -637,6 +646,11 @@ export interface OrderDetail {
   } | null
   /** @deprecated Use refund_rejection_reason. */
   refund_reject_reason?: string | null
+  /**
+   * 預約專家區塊（假設欄位；core 合併後對齊）。
+   * 客人可見：服務狀態、確認時間、選品與理由；不含服務紀錄。
+   */
+  expert_booking?: ExpertBookingOnOrder | null
 }
 
 export interface RefundRequestCreated {

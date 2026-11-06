@@ -73,6 +73,12 @@
       </p>
     </div>
 
+    <ExpertBookingOrderSection
+      v-if="order.expertBooking || order.hasExpertBookingLine"
+      :booking="order.expertBooking || fallbackExpertBooking"
+      :amount="order.amount"
+    />
+
     <div
       v-if="refundRejectedBanner"
       class="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5"
@@ -90,6 +96,7 @@
     </div>
 
     <section
+      v-if="!order.hasExpertBookingLine && !order.expertBooking"
       class="rounded-2xl border border-default bg-elevated p-5"
       data-testid="order-package-items"
     >
@@ -434,6 +441,7 @@ import {
   refundRequestDisplayText,
   refundRequestUi
 } from '~/utils/expert-plan-order'
+import type { ExpertBookingOnOrder } from '~/utils/expert-booking'
 
 definePageMeta({
   layout: 'user',
@@ -545,6 +553,16 @@ const showViewFinalPlan = computed(() =>
     && order.value.conversationId?.trim()
   )
 )
+
+/** C7：訂單頁預約專家區塊缺 payload 時的安全預設（待安排、無選品）。 */
+const fallbackExpertBooking = computed<ExpertBookingOnOrder>(() => ({
+  id: order.value?.id ?? 'pending',
+  status: 'pending_schedule',
+  confirmed_at: null,
+  preferred_slots: [],
+  requirements: '',
+  product_recommendations: []
+}))
 
 const refundBlockHint = computed(() => {
   const reason = refundUi.value.blockReason

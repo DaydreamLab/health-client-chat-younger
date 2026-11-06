@@ -214,6 +214,8 @@
                 :full-test-label="fullTestLabelFor(message)"
                 :full-test-copy="fullTestCopyFor(message)"
                 :full-test-marker-count="fullTestMarkerCountFor(message)"
+                :show-expert-booking="showExpertBookingCta(message)"
+                :expert-booking-label="expertBookingLabelFor(message)"
                 :show-want-more-tests="showWantMoreTestsCta(message)"
                 :want-more-tests-url="checkupLinkUrl"
                 :show-view-recommend="showViewRecommendCta(message)"
@@ -226,6 +228,7 @@
                 @confirm="confirmMultiSelection"
                 @upload="openAttachMenu"
                 @recommend="goViewRecommend"
+                @expert-booking="goExpertBooking"
                 @retry="retryReport"
                 @continue-consult="onContinueConsult"
                 @vitals-submit="onVitalsSubmit"
@@ -796,6 +799,18 @@ function showCheckupCta(message: ChatMessage) {
 
 function showFullTestCta(message: ChatMessage) {
   return turnActionsFor(message).showFullTest
+}
+
+function showExpertBookingCta(message: ChatMessage) {
+  return turnActionsFor(message).showExpertBooking
+}
+
+function expertBookingLabelFor(message: ChatMessage) {
+  return turnActionsFor(message).expertBookingLabelOverride
+}
+
+function expertBookingPathFor(message: ChatMessage) {
+  return turnActionsFor(message).expertBookingPathOverride ?? '/expert-booking'
 }
 
 function fullTestUrlFor(message: ChatMessage) {
@@ -3127,6 +3142,17 @@ async function goViewRecommend() {
     return navigateTo({ path, query: { flow: 'standard' } })
   }
 
+  return navigateTo(path)
+}
+
+/** 「預約專家諮詢」→ /expert-booking（須會員；訪客由頁面導登入）. */
+async function goExpertBooking() {
+  if (readonly.value || escalated.value) {
+    return
+  }
+  const last = viewMessages.value.filter(m => m.role === 'assistant').at(-1)
+  const rawPath = last ? expertBookingPathFor(last) : '/expert-booking'
+  const path = localePath(rawPath.startsWith('/') ? rawPath : `/${rawPath}`)
   return navigateTo(path)
 }
 
