@@ -195,9 +195,12 @@ export function draftToOrderCreateRequest(
     /** member 發票 = 會員 email（OpenAPI 必填 invoice_carrier）。 */
     invoiceCarrier: string
     locale?: string
+    /** 從對話送出時寫入訂單，專家站只顯示這一則。 */
+    conversationId?: string | null
   }
 ): OrderCreateRequest {
   const payload = draftToExpertBookingPayload(draft, opts.locale ?? 'zh-TW')
+  const conversationId = opts.conversationId?.trim() ?? ''
   return {
     lines: [{
       kind: 'expert_booking',
@@ -212,6 +215,7 @@ export function draftToOrderCreateRequest(
       address: null,
       email: payload.contact_email
     },
+    ...(conversationId ? { conversation_id: conversationId } : {}),
     expert_booking: payload
   }
 }

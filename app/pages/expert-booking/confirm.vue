@@ -219,6 +219,7 @@ const localePath = useLocalePath()
 const nuxtApp = useNuxtApp()
 const { t, locale } = useI18n()
 const auth = useAuthStore()
+const journey = useJourneyStore()
 const bookingStore = useExpertBookingStore()
 const bookingApi = useExpertBookingApi()
 const ordersApi = useFirstOrderApi()
@@ -304,7 +305,8 @@ async function onSubmit() {
       paymentMethod: 'card',
       invoiceType: 'member',
       invoiceCarrier,
-      locale: locale.value
+      locale: locale.value,
+      conversationId: journey.conversationId
     })
     const created = await bookingApi.createBooking(body)
     try {

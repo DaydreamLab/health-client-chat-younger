@@ -149,6 +149,13 @@ describe('expert-booking form／slots', () => {
     expect(body.invoice_carrier).toBe('wang@example.com')
     expect(body.recipient.address).toBeNull()
     expect(body.payment_method).toBe('card')
+    expect(body.conversation_id).toBeUndefined()
+
+    const bound = draftToOrderCreateRequest(draft, {
+      invoiceCarrier: 'wang@example.com',
+      conversationId: ' 11111111-1111-4111-8111-111111111111 '
+    })
+    expect(bound.conversation_id).toBe('11111111-1111-4111-8111-111111111111')
   })
 
   it('omits empty optional LINE／attachments／requirement_note as null／undefined', () => {
