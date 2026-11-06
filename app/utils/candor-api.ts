@@ -498,7 +498,7 @@ export type OrderLineKind
     | 'lab_service'
     | 'day_supply'
     | 'expert_plan'
-    /** 預約專家獨立商品（NT$6,000；不綁保健品／專家方案）。 */
+    /** 預約專家獨立商品（價格／名稱讀 GET /expert-booking-product；不綁保健品／專家方案）。 */
     | 'expert_booking'
 
 export interface OrderLineInput {

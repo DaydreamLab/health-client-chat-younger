@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import {
-  EXPERT_BOOKING_PRICE_TWD,
   formatConfirmedAtLabel,
   type ExpertBookingOnOrder
 } from '~/utils/expert-booking'
@@ -8,10 +7,11 @@ import { formatTwd } from '~/utils/first-order'
 
 const props = defineProps<{
   booking: ExpertBookingOnOrder
+  /** 訂單快照金額（amount_total）；勿用目前商品價。 */
   amount?: number | null
 }>()
 
-const { locale } = useI18n()
+const { locale, t } = useI18n()
 
 const confirmedLabel = computed(() =>
   formatConfirmedAtLabel(
@@ -23,9 +23,12 @@ const confirmedLabel = computed(() =>
 
 const picks = computed(() => props.booking.product_picks ?? [])
 
-const amountLabel = computed(() =>
-  formatTwd(props.amount ?? EXPERT_BOOKING_PRICE_TWD)
-)
+const amountLabel = computed(() => {
+  if (props.amount == null || !Number.isFinite(props.amount)) {
+    return t('expertBooking.amountPending')
+  }
+  return formatTwd(props.amount)
+})
 </script>
 
 <template>

@@ -6,7 +6,6 @@ import {
   expertBookingFormSchema,
   expertBookingStatusI18nKey,
   expertBookingStatusTone,
-  EXPERT_BOOKING_PRICE_TWD,
   EXPERT_BOOKING_PRODUCT_CODE,
   formatConfirmedAtLabel,
   formatSlotRangeLabel,
@@ -150,7 +149,6 @@ describe('expert-booking form／slots', () => {
     expect(body.invoice_carrier).toBe('wang@example.com')
     expect(body.recipient.address).toBeNull()
     expect(body.payment_method).toBe('card')
-    expect(EXPERT_BOOKING_PRICE_TWD).toBe(6000)
   })
 
   it('omits empty optional LINE／attachments／requirement_note as null／undefined', () => {
@@ -222,6 +220,32 @@ describe('expert-booking order display helpers', () => {
       '2026-11-12T14:00:00+08:00',
       '2026-11-12T16:00:00+08:00'
     )).toContain('14')
+  })
+})
+
+describe('expert_booking_unavailable', () => {
+  it('detects GET 404／POST 409 expert_booking_unavailable', async () => {
+    const { isExpertBookingUnavailableError } = await import(
+      '../../app/utils/expert-booking-unavailable'
+    )
+    const { CandorApiError } = await import('../../app/utils/candor-api')
+
+    expect(isExpertBookingUnavailableError(
+      new CandorApiError('gone', 404, 'expert_booking_unavailable')
+    )).toBe(true)
+    expect(isExpertBookingUnavailableError(
+      new CandorApiError('conflict', 409, 'expert_booking_unavailable')
+    )).toBe(true)
+    expect(isExpertBookingUnavailableError(
+      new CandorApiError('missing', 404, 'not_found')
+    )).toBe(true)
+    expect(isExpertBookingUnavailableError(
+      new CandorApiError('conflict', 409, 'conversation_already_ordered')
+    )).toBe(false)
+    expect(isExpertBookingUnavailableError(
+      new CandorApiError('oops', 500, 'unknown')
+    )).toBe(false)
+    expect(isExpertBookingUnavailableError(new Error('x'))).toBe(false)
   })
 })
 

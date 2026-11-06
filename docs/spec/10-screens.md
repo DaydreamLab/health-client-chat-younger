@@ -26,8 +26,8 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 | `/app/orders/[id]` | `user` + `auth` | 訂單詳情、出貨時間線、對話 modal；專家方案可「申請退款」／顯示「退款申請中」；定稿後「查看定稿方案」導 `/app/expert-cases/{conversation_id}`（定稿方案的主要入口）；**預約專家**訂單顯示服務狀態、確認時間、選品與理由（不含服務紀錄） | `GET /order/{id}`（含假設欄位 `expert_booking`）；`GET /order/{id}/message`；`POST /order/{id}/refund-request` |
 | `/app/orders/paid` | `user` + `auth` | 預約專家付款成功中繼頁（F-05） | 讀 query `id` → `GET /order/{id}` |
 | `/app/orders/pay-failed` | `user` + `auth` | 預約專家付款失敗／取消中繼頁（F-06）；可重新付款 | `POST /order/{id}/payment` |
-| `/expert-booking` | `user` + `auth` | 預約專家說明＋表單同頁（F-02／F-03）；未登入會員顯示登入門檻（`?redirect=/expert-booking`） | `GET /expert-booking-product`（core PR #155） |
-| `/expert-booking/confirm` | `user` + `auth` | 確認預約資料 → 送出並前往付款（F-04） | `POST /orders`（`kind=expert_booking` + `expert_booking`；回 `OrderCreated`） |
+| `/expert-booking` | `user` + `auth` | 預約專家說明＋表單同頁（F-02／F-03）；名稱／說明／價格讀 `GET /expert-booking-product`；下架（404 `expert_booking_unavailable`）顯示「目前暫停預約」並停用送出；未登入會員顯示登入門檻（`?redirect=/expert-booking`） | `GET /expert-booking-product` |
+| `/expert-booking/confirm` | `user` + `auth` | 確認預約資料 → 送出並前往付款（F-04）；POST 409 `expert_booking_unavailable` 同暫停提示 | `POST /orders`（`kind=expert_booking` + `expert_booking`；回 `OrderCreated`） |
 | `/app/notifications` | `user` + `auth` | 通知中心列表（篩選全部／未讀、點列標已讀＋deep link）；guest 顯示 dashed AuthGate；空／錯誤態 | `GET /notifications`、`GET /notifications/unread-count`、`POST /notifications/{id}/read`（member；guest 403） |
 | `/app/me` | `user` + `auth` | 個人資料：顯示名稱、密碼、常用收件（email 唯讀）；guest 顯示登入門檻 | `GET`／`PATCH /users/me`（member） |
 | `/app/handoff` | `user` + `auth` | 舊 FigJam「交給顧問」殼 | 非 core 主路徑；勿新增假 API |

@@ -10,10 +10,7 @@ import type {
   OrderCreateRequest
 } from './candor-api'
 
-/** 獨立商品 NT$6,000（含稅整數元）。 */
-export const EXPERT_BOOKING_PRICE_TWD = 6000
-
-/** expert_booking_products.code 預設（OpenAPI／spec 34）。 */
+/** expert_booking_products.code 預設（OpenAPI／spec 34）；唯一商品，前台不讓客人選。 */
 export const EXPERT_BOOKING_PRODUCT_CODE = 'personal'
 
 export type ExpertBookingAttachmentContentType
