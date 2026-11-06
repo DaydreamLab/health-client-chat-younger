@@ -1027,6 +1027,8 @@
     "optional": "Optional",
     "attachment": "Attachment",
     "uploadFile": "Upload file",
+    "uploading": "Uploading…",
+    "uploadError": "Upload failed. Use pdf／jpeg／png／webp (≤10MB).",
     "preferredSlots": "Preferred times",
     "slotsHint": "{n}/3",
     "slotsNote": "Preferred times are for reference; the expert will confirm the actual time",
@@ -1067,7 +1069,7 @@
     "recommendationsEmpty": "Product picks will appear here after the expert finishes",
     "rescheduleNote": "To reschedule, contact the expert directly. You cannot cancel or reschedule in the app. To cancel, contact support.",
     "status": {
-      "pending_schedule": "Pending schedule",
+      "awaiting_schedule": "Pending schedule",
       "scheduled": "Scheduled",
       "completed": "Completed",
       "cancelled": "Cancelled",

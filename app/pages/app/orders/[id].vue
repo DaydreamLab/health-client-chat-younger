@@ -557,11 +557,12 @@ const showViewFinalPlan = computed(() =>
 /** C7：訂單頁預約專家區塊缺 payload 時的安全預設（待安排、無選品）。 */
 const fallbackExpertBooking = computed<ExpertBookingOnOrder>(() => ({
   id: order.value?.id ?? 'pending',
-  status: 'pending_schedule',
-  confirmed_at: null,
+  status: 'awaiting_schedule',
   preferred_slots: [],
-  requirements: '',
-  product_recommendations: []
+  attachments: [],
+  product_picks: [],
+  confirmed_starts_at: null,
+  confirmed_ends_at: null
 }))
 
 const refundBlockHint = computed(() => {

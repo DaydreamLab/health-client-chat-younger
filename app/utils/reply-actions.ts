@@ -94,11 +94,11 @@ export interface OfferFullTestPayload {
 }
 
 /**
- * offer_expert_booking — 對話結尾「預約專家諮詢」CTA（core PR #155）。
- * payload 目前依既有 offer_* 慣例支援 path／label；缺省走 FE 路由與 i18n。
- * 若 OpenAPI OfferExpertBookingPayload 欄位不同需再對齊（本環境無法讀 core private repo）。
+ * offer_expert_booking — OpenAPI OfferExpertBookingPayload
+ * `{ mode:'book_expert', label, path }`；預設 path `/expert-booking`。
  */
 export interface OfferExpertBookingPayload {
+  mode?: 'book_expert' | string | null
   path?: string | null
   label?: string | null
 }
@@ -681,9 +681,19 @@ export function offerFullTestPayload(action: ReplyAction): OfferFullTestPayload 
 export function offerExpertBookingPayload(action: ReplyAction): OfferExpertBookingPayload {
   const p = isRecord(action.payload) ? action.payload : {}
   return {
+    mode: typeof p.mode === 'string' ? p.mode : null,
     path: typeof p.path === 'string' ? p.path : null,
     label: typeof p.label === 'string' ? p.label : null
   }
+}
+
+/** True when action is usable offer_expert_booking（mode=book_expert）。 */
+export function isOfferExpertBookingAction(action: ReplyAction): boolean {
+  if (action.type !== 'offer_expert_booking') {
+    return false
+  }
+  const payload = offerExpertBookingPayload(action)
+  return payload.mode === 'book_expert'
 }
 
 /** Parse spec 33 `offer_recommend` payload; ignores unknown modes (e.g. legacy dual_choice). */
@@ -800,7 +810,7 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
   const vitalsAction = actions.find(a => a.type === 'ask_vitals')
   const checkupAction = actions.find(a => a.type === 'offer_checkup')
   const fullTestAction = actions.find(a => a.type === 'offer_full_test')
-  const expertBookingAction = actions.find(a => a.type === 'offer_expert_booking')
+  const expertBookingAction = actions.find(isOfferExpertBookingAction)
 
   // path_switch／continue_consultation may coexist with open_question_reply／goals／…
   // Keep them out of the primary pick so they cannot hide other chips; append later.

@@ -26,7 +26,10 @@ export const useExpertBookingStore = defineStore('expert-booking', () => {
           ...parsed,
           slots: Array.isArray(parsed.slots) && parsed.slots.length
             ? parsed.slots.slice(0, 3)
-            : emptyExpertBookingDraft().slots
+            : emptyExpertBookingDraft().slots,
+          attachments: Array.isArray(parsed.attachments)
+            ? parsed.attachments.slice(0, 5)
+            : []
         }
       }
     } catch {

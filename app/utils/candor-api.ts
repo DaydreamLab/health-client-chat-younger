@@ -511,6 +511,8 @@ export interface OrderLineInput {
   days?: number
   /** Spec 33 — expert_plan line (mutually exclusive with package／lab／day_supply). */
   expert_plan_code?: string
+  /** Spec 34 — kind=expert_booking 必填；預設 personal。 */
+  expert_booking_code?: string
 }
 
 export interface OrderCreateRequest {
@@ -521,15 +523,16 @@ export interface OrderCreateRequest {
   recipient: {
     name: string
     phone: string
-    address: string
-    email?: string
+    /** expert_booking 等無出貨地址時可為 null（OpenAPI）。 */
+    address: string | null
+    email?: string | null
   }
   conversation_id?: string
   recommendation_run_id?: string
   renewal_of_order_id?: string
   report_id?: string
   /**
-   * 預約專家（core PR #155）：與 `lines: [{ kind: 'expert_booking' }]` 併用。
+   * Spec 34：與 `lines: [{ kind: 'expert_booking', expert_booking_code }]` 併用。
    */
   expert_booking?: ExpertBookingOrderPayload
 }
@@ -651,10 +654,7 @@ export interface OrderDetail {
   } | null
   /** @deprecated Use refund_rejection_reason. */
   refund_reject_reason?: string | null
-  /**
-   * 預約專家區塊（假設欄位；core 合併後對齊）。
-   * 客人可見：服務狀態、確認時間、選品與理由；不含服務紀錄。
-   */
+  /** Spec 34 — 預約專家區塊（客人可見；不含服務紀錄）。 */
   expert_booking?: ExpertBookingOnOrder | null
 }
 

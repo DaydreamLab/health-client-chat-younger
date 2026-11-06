@@ -14,12 +14,14 @@ const props = defineProps<{
 const { locale } = useI18n()
 
 const confirmedLabel = computed(() =>
-  formatConfirmedAtLabel(props.booking.confirmed_at, locale.value)
+  formatConfirmedAtLabel(
+    props.booking.confirmed_starts_at,
+    props.booking.confirmed_ends_at,
+    locale.value
+  )
 )
 
-const recommendations = computed(
-  () => props.booking.product_recommendations ?? []
-)
+const picks = computed(() => props.booking.product_picks ?? [])
 
 const amountLabel = computed(() =>
   formatTwd(props.amount ?? EXPERT_BOOKING_PRICE_TWD)
@@ -77,17 +79,17 @@ const amountLabel = computed(() =>
         {{ $t('expertBooking.recommendationsTitle') }}
       </h2>
       <ul
-        v-if="recommendations.length"
+        v-if="picks.length"
         class="mt-3 space-y-3"
       >
         <li
-          v-for="item in recommendations"
-          :key="item.sellable_item_id"
+          v-for="item in picks"
+          :key="item.id"
           class="space-y-1"
           :data-testid="`expert-booking-rec-${item.sellable_item_id}`"
         >
           <p class="font-semibold text-highlighted">
-            {{ item.sellable_item_name }}
+            {{ item.sellable_item_name || item.sellable_item_code || item.sellable_item_id }}
           </p>
           <p class="text-sm text-muted">
             {{ item.reason }}

@@ -1749,6 +1749,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           {
             type: 'offer_expert_booking',
             payload: {
+              mode: 'book_expert',
               path: '/expert-booking',
               label: '預約專家諮詢'
             }

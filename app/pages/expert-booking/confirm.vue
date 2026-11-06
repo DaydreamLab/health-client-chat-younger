@@ -100,7 +100,10 @@
             <dt class="text-muted">
               {{ $t('expertBooking.lineId') }}
             </dt>
-            <dd class="text-highlighted">
+            <dd
+              class="text-highlighted"
+              data-testid="expert-booking-confirm-line"
+            >
               {{ draft.lineId || $t('expertBooking.notFilled') }}
             </dd>
           </div>
@@ -122,7 +125,24 @@
               {{ $t('expertBooking.requirements') }}
             </dt>
             <dd class="text-end text-highlighted">
-              {{ draft.requirements }}
+              {{ draft.requirements || $t('expertBooking.notFilled') }}
+            </dd>
+          </div>
+          <div
+            v-if="draft.attachments.length"
+            class="flex justify-between gap-3"
+            data-testid="expert-booking-confirm-attachments"
+          >
+            <dt class="shrink-0 text-muted">
+              {{ $t('expertBooking.attachment') }}
+            </dt>
+            <dd class="space-y-1 text-end text-highlighted">
+              <p
+                v-for="file in draft.attachments"
+                :key="file.key"
+              >
+                {{ file.filename }}
+              </p>
             </dd>
           </div>
         </dl>
@@ -157,8 +177,7 @@
 import {
   draftToOrderCreateRequest,
   EXPERT_BOOKING_PRICE_TWD,
-  formatSlotRangeLabel,
-  slotDraftToIso
+  slotDraftToPreferredLabel
 } from '~/utils/expert-booking'
 import { formatTwd } from '~/utils/first-order'
 import { CandorApiError } from '~/utils/candor-api'
@@ -174,7 +193,6 @@ const { t, locale } = useI18n()
 const auth = useAuthStore()
 const bookingStore = useExpertBookingStore()
 const bookingApi = useExpertBookingApi()
-const journey = useJourneyStore()
 const ordersApi = useFirstOrderApi()
 
 const gateLocked = ref(nuxtApp.isHydrating || !auth.isMember)
@@ -190,17 +208,16 @@ const draft = computed(() => bookingStore.draft)
 const hasDraft = computed(() =>
   Boolean(
     draft.value.contactName.trim()
+    && draft.value.phone.trim()
     && draft.value.email.trim()
     && draft.value.slots.length
-    && draft.value.requirements.trim()
   )
 )
 
 const slotLabels = computed(() =>
-  draft.value.slots.map((slot) => {
-    const iso = slotDraftToIso(slot)
-    return formatSlotRangeLabel(iso.start_at, iso.end_at, locale.value)
-  })
+  draft.value.slots.map(slot =>
+    slotDraftToPreferredLabel(slot, locale.value)
+  )
 )
 
 function syncGate() {
@@ -214,13 +231,14 @@ async function onSubmit() {
   pending.value = true
   submitError.value = ''
   try {
+    const invoiceCarrier = (auth.user?.email || draft.value.email).trim()
     const body = draftToOrderCreateRequest(draft.value, {
       paymentMethod: 'card',
       invoiceType: 'member',
-      conversationId: journey.conversationId?.trim() || null
+      invoiceCarrier,
+      locale: locale.value
     })
     const created = await bookingApi.createBooking(body)
-    // Mirror into local orders cache when possible
     try {
       await ordersApi.getOrder(created.id)
     } catch {

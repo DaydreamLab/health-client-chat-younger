@@ -162,16 +162,16 @@
 | 可用付款方式 | `GET /client-config` → `payment_methods` | 已接 |
 | Provider webhook | `POST /payments/{provider}/callback` | 不做 |
 
-### 預約專家（對齊 candor-core PR #155；draft 尚未合併）
+### 預約專家（對齊 candor-core PR #155 head `27901b4`；draft 尚未合併）
 
 | 能力 | 端點 | 狀態 |
 |------|------|------|
-| 商品資訊 | `GET /expert-booking-product` | 接線中（404 時 FE 回退 NT$6,000） |
-| 建立預約＋待付款訂單 | `POST /orders`（`lines[].kind=expert_booking` + `expert_booking`） | 接線中 |
-| 附件上傳 | — | 不做（core 無端點；設計稿選填附件列缺口） |
-| 訂單詳情附加區塊 | `GET /order/{id}` → `expert_booking` | 接線中 |
-| 重新付款 | `POST /order/{id}/payment`（既有） | 接線中（沿用既有；待 core 文件確認） |
-| 對話 CTA | `reply_actions` type `offer_expert_booking` | 接線中（FE 已投影；出不出由 core 決策判讀） |
+| 商品資訊 | `GET /expert-booking-product`（`code`／`name_zh`／`price`） | 接線中（404 時 FE 回退 NT$6,000） |
+| 附件上傳 | `POST /expert-booking-attachments`（multipart `file` → key／filename／content_type／size_bytes） | 接線中 |
+| 建立預約＋待付款訂單 | `POST /orders`（`kind=expert_booking`＋`expert_booking_code`＋`expert_booking`：必填 contact_*／preferred_slots；選填 contact_line／requirement_note／attachments） | 接線中 |
+| 訂單詳情附加區塊 | `GET /order/{id}` → `expert_booking`（`awaiting_schedule`｜`product_picks`｜`confirmed_starts_at`／`ends_at`） | 接線中 |
+| 重新付款 | `POST /order/{id}/payment`（OpenAPI `ordersCreatePayment`） | 接線中（與 OpenAPI 一致；沿用既有） |
+| 對話 CTA | `offer_expert_booking` payload `{ mode:'book_expert', label, path }`（預設 `/expert-booking`） | 接線中（FE 已投影；出不出由 core 決策判讀） |
 
 ### 法務（公開）
 

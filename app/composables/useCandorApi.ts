@@ -48,7 +48,10 @@ import type {
   UserSession
 } from '~/utils/candor-api'
 import { CandorApiError, TOKEN_STORAGE_KEY } from '~/utils/candor-api'
-import type { ExpertBookingProduct } from '~/utils/expert-booking'
+import type {
+  ExpertBookingAttachment,
+  ExpertBookingProduct
+} from '~/utils/expert-booking'
 import { parseReplyActions } from '~/utils/reply-actions'
 import { noteSessionActivity } from '~/utils/session-activity'
 
@@ -682,10 +685,22 @@ export function useCandorApi() {
       request<AnonymizeAccepted>('/users/me/data', { method: 'DELETE' }),
 
     /**
-     * 預約專家商品（core PR #155：`GET /expert-booking-product`）。
+     * 預約專家商品（`GET /expert-booking-product`）。
      * core 未就緒可能 404 — useExpertBookingApi 會回退規格預設價。
      */
     getExpertBookingProduct: () =>
-      request<ExpertBookingProduct>('/expert-booking-product', { method: 'GET' })
+      request<ExpertBookingProduct>('/expert-booking-product', { method: 'GET' }),
+
+    /**
+     * 專人預約表單附件（`POST /expert-booking-attachments` multipart `file`）。
+     */
+    uploadExpertBookingAttachment: (file: File) => {
+      const form = new FormData()
+      form.append('file', file)
+      return request<ExpertBookingAttachment>('/expert-booking-attachments', {
+        method: 'POST',
+        body: form
+      })
+    }
   }
 }

@@ -1027,6 +1027,8 @@
     "optional": "選填",
     "attachment": "附件",
     "uploadFile": "上傳檔案",
+    "uploading": "上傳中…",
+    "uploadError": "附件上傳失敗，請改選 pdf／jpeg／png／webp（≤10MB）。",
     "preferredSlots": "希望時段",
     "slotsHint": "{n}／3",
     "slotsNote": "希望時段僅供參考，實際時間由專家聯繫確認",
@@ -1067,7 +1069,7 @@
     "recommendationsEmpty": "專家完成選品後會顯示於此",
     "rescheduleNote": "如需改期請直接聯繫專家；系統內無法自行取消或改期。取消請聯絡客服。",
     "status": {
-      "pending_schedule": "待安排",
+      "awaiting_schedule": "待安排",
       "scheduled": "已安排",
       "completed": "已完成",
       "cancelled": "已取消",

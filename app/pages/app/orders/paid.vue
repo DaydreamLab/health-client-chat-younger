@@ -44,7 +44,7 @@
           </dt>
           <dd>
             <ExpertBookingStatusPill
-              :status="order.expertBooking?.status || 'pending_schedule'"
+              :status="order.expertBooking?.status || 'awaiting_schedule'"
             />
           </dd>
         </div>

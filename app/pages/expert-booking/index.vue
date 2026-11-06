@@ -64,7 +64,7 @@
       >
         <div class="flex items-start justify-between gap-3">
           <h2 class="font-semibold text-highlighted">
-            {{ $t('expertBooking.productName') }}
+            {{ productName }}
           </h2>
           <p class="shrink-0 text-base font-semibold tabular-nums text-primary">
             {{ formatTwd(productPrice) }}
@@ -147,6 +147,57 @@
           >
         </label>
 
+        <div>
+          <span class="mb-1.5 block text-sm text-highlighted">
+            {{ $t('expertBooking.attachment') }}
+          </span>
+          <label
+            class="inline-flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-default bg-elevated px-3 py-2 text-sm text-muted hover:border-primary/40"
+            data-testid="expert-booking-attachment"
+          >
+            <UIcon
+              name="i-lucide-plus"
+              class="size-4"
+            />
+            {{ uploadPending ? $t('expertBooking.uploading') : $t('expertBooking.uploadFile') }}
+            <input
+              type="file"
+              class="sr-only"
+              accept=".pdf,image/jpeg,image/png,image/webp"
+              :disabled="uploadPending || form.attachments.length >= 5"
+              @change="onFileChange"
+            >
+          </label>
+          <ul
+            v-if="form.attachments.length"
+            class="mt-2 space-y-1 text-xs text-muted"
+            data-testid="expert-booking-attachment-list"
+          >
+            <li
+              v-for="(file, index) in form.attachments"
+              :key="file.key"
+              class="flex items-center justify-between gap-2"
+            >
+              <span>{{ file.filename }}</span>
+              <button
+                type="button"
+                class="underline"
+                :data-testid="`expert-booking-attachment-remove-${index}`"
+                @click="removeAttachment(index)"
+              >
+                {{ $t('expertBooking.removeSlot') }}
+              </button>
+            </li>
+          </ul>
+          <p
+            v-if="uploadError"
+            class="mt-1 text-xs text-error"
+            data-testid="expert-booking-upload-error"
+          >
+            {{ uploadError }}
+          </p>
+        </div>
+
         <div class="space-y-3">
           <div class="flex items-baseline justify-between gap-2">
             <span class="text-sm text-highlighted">
@@ -209,11 +260,12 @@
         <label class="block">
           <span class="mb-1.5 block text-sm text-highlighted">
             {{ $t('expertBooking.requirements') }}
-            <span class="text-error">*</span>
+            <span class="text-xs text-muted">
+              （{{ $t('expertBooking.optional') }}）
+            </span>
           </span>
           <textarea
             v-model="form.requirements"
-            required
             rows="4"
             class="w-full rounded-md border border-default bg-elevated px-3 py-2 text-sm text-highlighted outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             data-testid="expert-booking-requirements"
@@ -256,24 +308,26 @@ definePageMeta({
 })
 
 const localePath = useLocalePath()
-const route = useRoute()
 const nuxtApp = useNuxtApp()
 const { t } = useI18n()
 const auth = useAuthStore()
 const bookingStore = useExpertBookingStore()
 const bookingApi = useExpertBookingApi()
-const journey = useJourneyStore()
 
 const gateLocked = ref(nuxtApp.isHydrating || !auth.isMember)
 const formError = ref('')
+const uploadError = ref('')
+const uploadPending = ref(false)
 const productPrice = ref(EXPERT_BOOKING_PRICE_TWD)
+const productName = ref(t('expertBooking.productName'))
 const form = reactive<ExpertBookingDraft>({
   contactName: '',
   phone: '',
   email: '',
   lineId: '',
   slots: [emptyExpertBookingSlot()],
-  requirements: ''
+  requirements: '',
+  attachments: []
 })
 
 const loginTo = computed(() =>
@@ -295,6 +349,9 @@ function seedFormFromStore() {
     ? draft.slots.map(s => ({ ...s }))
     : [emptyExpertBookingSlot()]
   form.requirements = draft.requirements
+  form.attachments = Array.isArray(draft.attachments)
+    ? draft.attachments.map(a => ({ ...a }))
+    : []
 
   if (!form.contactName && auth.displayName) {
     form.contactName = auth.displayName
@@ -315,6 +372,29 @@ function removeSlot(index: number) {
   form.slots.splice(index, 1)
 }
 
+function removeAttachment(index: number) {
+  form.attachments.splice(index, 1)
+}
+
+async function onFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || form.attachments.length >= 5 || uploadPending.value) {
+    return
+  }
+  uploadPending.value = true
+  uploadError.value = ''
+  try {
+    const ack = await bookingApi.uploadAttachment(file)
+    form.attachments.push(ack)
+  } catch {
+    uploadError.value = t('expertBooking.uploadError')
+  } finally {
+    uploadPending.value = false
+  }
+}
+
 function onNext() {
   formError.value = ''
   const parsed = expertBookingFormSchema.safeParse({
@@ -323,7 +403,8 @@ function onNext() {
     email: form.email,
     lineId: form.lineId,
     slots: form.slots,
-    requirements: form.requirements
+    requirements: form.requirements,
+    attachments: form.attachments
   })
   if (!parsed.success) {
     formError.value = t('expertBooking.formInvalid')
@@ -335,9 +416,9 @@ function onNext() {
     email: form.email.trim(),
     lineId: form.lineId.trim(),
     slots: form.slots.map(s => ({ ...s })),
-    requirements: form.requirements.trim()
+    requirements: form.requirements.trim(),
+    attachments: form.attachments.map(a => ({ ...a }))
   })
-  void journey.conversationId
   return navigateTo(localePath('/expert-booking/confirm'))
 }
 
@@ -349,6 +430,9 @@ onMounted(async () => {
     try {
       const product = await bookingApi.getProduct()
       productPrice.value = product.price
+      if (product.name_zh) {
+        productName.value = product.name_zh
+      }
     } catch {
       productPrice.value = EXPERT_BOOKING_PRICE_TWD
     }
@@ -361,11 +445,4 @@ watch(() => auth.isMember, () => {
     seedFormFromStore()
   }
 })
-
-watch(
-  () => route.fullPath,
-  () => {
-    syncGate()
-  }
-)
 </script>
