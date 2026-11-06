@@ -51,7 +51,21 @@
         {{ $t('expertBooking.confirmTitle') }}
       </h1>
 
+      <div
+        v-if="productState === 'unavailable' || submitUnavailable"
+        class="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-5"
+        data-testid="expert-booking-unavailable"
+      >
+        <p class="font-semibold text-highlighted">
+          {{ $t('expertBooking.unavailable') }}
+        </p>
+        <p class="mt-2 text-sm leading-6 text-muted">
+          {{ $t('expertBooking.unavailableHint') }}
+        </p>
+      </div>
+
       <section
+        v-else
         class="rounded-2xl border border-default bg-elevated p-5"
         data-testid="expert-booking-confirm-summary"
       >
@@ -60,16 +74,27 @@
             <dt class="text-muted">
               {{ $t('expertBooking.item') }}
             </dt>
-            <dd class="font-medium text-highlighted">
-              {{ $t('expertBooking.title') }}
+            <dd
+              class="font-medium text-highlighted"
+              data-testid="expert-booking-confirm-item"
+            >
+              {{ productName }}
             </dd>
           </div>
           <div class="flex justify-between gap-3">
             <dt class="text-muted">
               {{ $t('expertBooking.amount') }}
             </dt>
-            <dd class="font-semibold tabular-nums text-primary">
-              {{ formatTwd(EXPERT_BOOKING_PRICE_TWD) }}
+            <dd
+              class="font-semibold tabular-nums text-primary"
+              data-testid="expert-booking-confirm-amount"
+            >
+              <template v-if="productPrice != null">
+                {{ formatTwd(productPrice) }}
+              </template>
+              <template v-else>
+                {{ $t('expertBooking.amountPending') }}
+              </template>
             </dd>
           </div>
           <div class="flex justify-between gap-3">
@@ -148,7 +173,10 @@
         </dl>
       </section>
 
-      <p class="text-sm leading-6 text-muted">
+      <p
+        v-if="!submitUnavailable && productState !== 'unavailable'"
+        class="text-sm leading-6 text-muted"
+      >
         {{ $t('expertBooking.submitHint') }}
       </p>
 
@@ -163,7 +191,7 @@
       <AppButton
         class="w-full"
         variant="outline"
-        :disabled="pending"
+        :disabled="pending || !canSubmit"
         data-testid="expert-booking-submit-pay"
         @click="onSubmit"
       >
@@ -176,9 +204,9 @@
 <script setup lang="ts">
 import {
   draftToOrderCreateRequest,
-  EXPERT_BOOKING_PRICE_TWD,
   slotDraftToPreferredLabel
 } from '~/utils/expert-booking'
+import { isExpertBookingUnavailableError } from '~/utils/expert-booking-unavailable'
 import { formatTwd } from '~/utils/first-order'
 import { CandorApiError } from '~/utils/candor-api'
 
@@ -198,12 +226,15 @@ const ordersApi = useFirstOrderApi()
 const gateLocked = ref(nuxtApp.isHydrating || !auth.isMember)
 const pending = ref(false)
 const submitError = ref('')
+const submitUnavailable = ref(false)
 
 const loginTo = computed(() =>
   `${localePath('/login')}?redirect=${encodeURIComponent(localePath('/expert-booking/confirm'))}&mode=login`
 )
 
 const draft = computed(() => bookingStore.draft)
+const product = computed(() => bookingStore.product)
+const productState = computed(() => bookingStore.productState)
 
 const hasDraft = computed(() =>
   Boolean(
@@ -212,6 +243,28 @@ const hasDraft = computed(() =>
     && draft.value.email.trim()
     && draft.value.slots.length
   )
+)
+
+const productName = computed(() => {
+  const p = product.value
+  if (!p) {
+    return t('expertBooking.productName')
+  }
+  if (locale.value.startsWith('en') && p.name_en?.trim()) {
+    return p.name_en.trim()
+  }
+  return p.name_zh || t('expertBooking.productName')
+})
+
+const productPrice = computed(() => {
+  const price = product.value?.price
+  return typeof price === 'number' && Number.isFinite(price) ? price : null
+})
+
+const canSubmit = computed(() =>
+  productState.value === 'ready'
+  && productPrice.value != null
+  && !submitUnavailable.value
 )
 
 const slotLabels = computed(() =>
@@ -224,8 +277,23 @@ function syncGate() {
   gateLocked.value = !auth.isMember
 }
 
+async function refreshProduct() {
+  bookingStore.setProductLoading()
+  submitUnavailable.value = false
+  try {
+    const next = await bookingApi.getProduct()
+    bookingStore.setProduct(next)
+  } catch (error) {
+    if (isExpertBookingUnavailableError(error)) {
+      bookingStore.setProductUnavailable()
+      return
+    }
+    bookingStore.setProductError()
+  }
+}
+
 async function onSubmit() {
-  if (pending.value || !hasDraft.value) {
+  if (pending.value || !hasDraft.value || !canSubmit.value) {
     return
   }
   pending.value = true
@@ -268,6 +336,12 @@ async function onSubmit() {
       await navigateTo(loginTo.value as string)
       return
     }
+    if (isExpertBookingUnavailableError(error)) {
+      submitUnavailable.value = true
+      bookingStore.setProductUnavailable()
+      submitError.value = ''
+      return
+    }
     submitError.value = t('expertBooking.submitError')
   } finally {
     pending.value = false
@@ -278,6 +352,9 @@ onMounted(async () => {
   await auth.ensureSession()
   bookingStore.hydrate()
   syncGate()
+  if (!gateLocked.value && hasDraft.value) {
+    await refreshProduct()
+  }
 })
 
 watch(() => auth.isMember, syncGate)

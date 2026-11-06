@@ -56,11 +56,39 @@ async function sendChatLine(page: Page, text: string) {
   await page.getByTestId('chat-send').click()
 }
 
+/** Non-legacy price so e2e fails if FE still hardcodes NT$6,000. */
+const MOCK_PRODUCT_PRICE = 6500
+const MOCK_PRODUCT_NAME = '專人健康諮詢'
+const MOCK_PRODUCT_DESCRIPTION = '一對一諮詢，專家依希望時段聯繫確認。'
+
 async function mockExpertBookingApis(page: Page, opts: {
   createPaid?: boolean
   captureCreateBody?: { current: unknown }
+  productUnavailable?: boolean
+  createUnavailable?: boolean
+  productPrice?: number
+  productName?: string
+  productDescription?: string | null
 } = {}) {
+  const price = opts.productPrice ?? MOCK_PRODUCT_PRICE
+  const nameZh = opts.productName ?? MOCK_PRODUCT_NAME
+  const description = opts.productDescription === undefined
+    ? MOCK_PRODUCT_DESCRIPTION
+    : opts.productDescription
+
   await page.route('**/api/v1/expert-booking-product', async (route) => {
+    if (opts.productUnavailable) {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'failed',
+          error_message: 'Expert booking is unavailable.',
+          error_code: 'expert_booking_unavailable'
+        })
+      })
+      return
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -68,10 +96,10 @@ async function mockExpertBookingApis(page: Page, opts: {
         status: 'success',
         data: {
           code: 'personal',
-          name_zh: '預約專家',
-          name_en: 'Book an expert',
-          description: null,
-          price: 6000
+          name_zh: nameZh,
+          name_en: 'Personal health consult',
+          description,
+          price
         }
       })
     })
@@ -122,6 +150,18 @@ async function mockExpertBookingApis(page: Page, opts: {
       await route.fallback()
       return
     }
+    if (opts.createUnavailable) {
+      await route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'failed',
+          error_message: 'Expert booking is unavailable.',
+          error_code: 'expert_booking_unavailable'
+        })
+      })
+      return
+    }
     const paid = Boolean(opts.createPaid)
     await route.fulfill({
       status: 201,
@@ -133,12 +173,12 @@ async function mockExpertBookingApis(page: Page, opts: {
           order_no: 'ORD-261106-000021',
           status: paid ? 'paid' : 'pending_payment',
           payment_status: paid ? 'paid' : 'unpaid',
-          amount_total: 6000,
+          amount_total: price,
           payment: {
             id: 'pay-eb-001',
             method: 'card',
             status: paid ? 'paid' : 'pending',
-            amount: 6000,
+            amount: price,
             redirect_url: null
           }
         }
@@ -157,7 +197,7 @@ async function mockExpertBookingApis(page: Page, opts: {
           order_no: 'ORD-261106-000021',
           status: 'paid',
           payment_status: 'paid',
-          amount_total: 6000,
+          amount_total: price,
           lines: [{ kind: 'expert_booking', expert_booking_code: 'personal' }],
           expert_booking: {
             id: 'eb-001',
@@ -190,7 +230,7 @@ async function mockExpertBookingApis(page: Page, opts: {
             id: 'pay-eb-001',
             method: 'card',
             status: 'paid',
-            amount: 6000
+            amount: price
           }]
         }
       })
@@ -250,7 +290,13 @@ test.describe('預約專家 F-01～F-08', () => {
 
     await expect(page.getByTestId('expert-booking-form')).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('expert-booking-email')).toHaveValue(/@/)
-    await expect(page.getByTestId('expert-booking-product-card')).toContainText('預約專家')
+    const productCard = page.getByTestId('expert-booking-product-card')
+    await expect(productCard).toContainText(MOCK_PRODUCT_NAME)
+    await expect(productCard).toContainText('6,500')
+    await expect(productCard).not.toContainText('6,000')
+    await expect(page.getByTestId('expert-booking-product-description')).toContainText(
+      MOCK_PRODUCT_DESCRIPTION
+    )
 
     await page.getByTestId('expert-booking-name').fill('王小明')
     await page.getByTestId('expert-booking-phone').fill('0912345678')
@@ -274,6 +320,8 @@ test.describe('預約專家 F-01～F-08', () => {
 
     await expect(page).toHaveURL(/\/expert-booking\/confirm/)
     await expect(page.getByTestId('expert-booking-confirm-summary')).toBeVisible()
+    await expect(page.getByTestId('expert-booking-confirm-item')).toContainText(MOCK_PRODUCT_NAME)
+    await expect(page.getByTestId('expert-booking-confirm-amount')).toContainText('6,500')
     await expect(page.getByTestId('expert-booking-confirm-line')).toContainText('wang.line')
     await expect(page.getByTestId('expert-booking-confirm-attachments')).toContainText('lab.pdf')
     await page.getByTestId('expert-booking-submit-pay').click()
@@ -304,16 +352,58 @@ test.describe('預約專家 F-01～F-08', () => {
 
     await expect(page.getByTestId('expert-booking-paid-page')).toBeVisible()
     await expect(page.getByTestId('expert-booking-paid-page')).toContainText('付款成功')
+    await expect(page.getByTestId('expert-booking-paid-summary')).toContainText('6,500')
     await page.getByTestId('expert-booking-view-order').click()
 
     await expect(page).toHaveURL(/\/app\/orders\/order-eb-001/)
     await expect(page.getByTestId('expert-booking-order-section')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('expert-booking-order-section')).toContainText('6,500')
     await expect(page.getByTestId('expert-booking-status-pill')).toContainText('待安排')
     await expect(page.getByTestId('expert-booking-confirmed-at')).toContainText('尚未確認')
     await expect(page.getByTestId('expert-booking-recommendations-empty')).toBeVisible()
   })
 
-  test('F-08：訂單詳情顯示已安排＋選品與理由', async ({ page, goto }) => {
+  test('商品下架 GET 404：顯示目前暫停預約並停用送出', async ({ page, goto }) => {
+    test.setTimeout(60_000)
+    await mockCandorAuth(page, { asMember: true })
+    await mockExpertBookingApis(page, { productUnavailable: true })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await goto('/expert-booking', { waitUntil: 'hydration' })
+
+    await expect(page.getByTestId('expert-booking-unavailable')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('expert-booking-unavailable')).toContainText('目前暫停預約')
+    await expect(page.getByTestId('expert-booking-form')).toHaveCount(0)
+    await expect(page.getByTestId('expert-booking-next')).toHaveCount(0)
+    await expect(page.getByTestId('expert-booking-page')).not.toContainText('6,000')
+  })
+
+  test('POST /orders 409 expert_booking_unavailable：確認頁顯示暫停預約並停用送出', async ({ page, goto }) => {
+    test.setTimeout(90_000)
+    await mockCandorAuth(page, { asMember: true })
+    await mockExpertBookingApis(page, { createUnavailable: true })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await goto('/expert-booking', { waitUntil: 'hydration' })
+
+    await expect(page.getByTestId('expert-booking-form')).toBeVisible({ timeout: 15_000 })
+    await page.getByTestId('expert-booking-name').fill('王小明')
+    await page.getByTestId('expert-booking-phone').fill('0912345678')
+    const slot = page.getByTestId('expert-booking-slot-0')
+    await slot.locator('input[type="date"]').fill('2026-11-12')
+    await slot.locator('input[type="time"]').nth(0).fill('14:00')
+    await slot.locator('input[type="time"]').nth(1).fill('16:00')
+    await page.getByTestId('expert-booking-next').click()
+
+    await expect(page).toHaveURL(/\/expert-booking\/confirm/)
+    await expect(page.getByTestId('expert-booking-submit-pay')).toBeEnabled()
+    await page.getByTestId('expert-booking-submit-pay').click()
+
+    await expect(page.getByTestId('expert-booking-unavailable')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('expert-booking-unavailable')).toContainText('目前暫停預約')
+    await expect(page.getByTestId('expert-booking-submit-pay')).toBeDisabled()
+    await expect(page.getByTestId('expert-booking-confirm-page')).not.toContainText('6,000')
+  })
+
+  test('F-08：訂單詳情顯示已安排＋選品與理由（金額用訂單快照）', async ({ page, goto }) => {
     test.setTimeout(60_000)
     await mockCandorAuth(page, { asMember: true })
     await page.route('**/api/v1/order/order-eb-sched', async (route) => {
@@ -327,7 +417,7 @@ test.describe('預約專家 F-01～F-08', () => {
             order_no: 'ORD-261106-000021',
             status: 'paid',
             payment_status: 'paid',
-            amount_total: 6000,
+            amount_total: 7200,
             lines: [{ kind: 'expert_booking', expert_booking_code: 'personal' }],
             expert_booking: {
               id: 'eb-sched',
@@ -366,7 +456,7 @@ test.describe('預約專家 F-01～F-08', () => {
               id: 'pay-1',
               method: 'card',
               status: 'paid',
-              amount: 6000
+              amount: 7200
             }]
           }
         })
@@ -377,6 +467,8 @@ test.describe('預約專家 F-01～F-08', () => {
     await goto('/app/orders/order-eb-sched', { waitUntil: 'hydration' })
 
     await expect(page.getByTestId('expert-booking-order-section')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('expert-booking-order-section')).toContainText('7,200')
+    await expect(page.getByTestId('expert-booking-order-section')).not.toContainText('6,000')
     await expect(page.getByTestId('expert-booking-status-pill')).toContainText('已安排')
     await expect(page.getByTestId('expert-booking-confirmed-at')).not.toContainText('尚未確認')
     await expect(page.getByTestId('expert-booking-rec-si-mg')).toContainText('Magnesium')
