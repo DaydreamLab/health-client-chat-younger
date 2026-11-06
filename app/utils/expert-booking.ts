@@ -1,9 +1,20 @@
 /**
  * 預約專家（expert_booking）— FE 型別、表單 schema、顯示輔助。
- * API 契約尚未合併；路徑／欄位依規格推定，見 useExpertBookingApi。
+ * 對齊 candor-core PR #155（branch cursor/expert-booking-station-fee2）：
+ * - GET /expert-booking-product
+ * - POST /orders（kind=expert_booking + expert_booking 物件）
+ * - GET /order/{id}.expert_booking
+ *
+ * ⚠️ 本環境無法讀 candor-core private repo（gh/API 404）；
+ * 欄位名依產品規格＋既有訂單慣例；若與 OpenAPI 不符需再對齊。
  */
 
 import { z } from 'zod'
+import type {
+  CandorInvoiceType,
+  CandorPaymentMethod,
+  OrderCreateRequest
+} from './candor-api'
 
 /** 獨立商品 NT$6,000（含稅整數元）。 */
 export const EXPERT_BOOKING_PRICE_TWD = 6000
@@ -31,7 +42,7 @@ export interface ExpertBookingProductRecommendation {
   reason: string
 }
 
-/** GET /order/{id} 附加區塊（假設欄位）。 */
+/** GET /order/{id} → `expert_booking`（客人可見；不含服務紀錄）。 */
 export interface ExpertBookingOnOrder {
   id: string
   status: ExpertBookingServiceStatus
@@ -45,6 +56,7 @@ export interface ExpertBookingOnOrder {
   product_recommendations?: ExpertBookingProductRecommendation[] | null
 }
 
+/** GET /expert-booking-product */
 export interface ExpertBookingProduct {
   code: string
   name: string
@@ -52,24 +64,17 @@ export interface ExpertBookingProduct {
   currency: 'TWD'
 }
 
-/** POST /expert-bookings/attachments 回應（假設）。 */
-export interface ExpertBookingAttachmentAck {
-  id: string
-}
-
-/** POST /expert-bookings 請求體（假設）。 */
-export interface ExpertBookingCreateRequest {
+/**
+ * POST /orders 的 `expert_booking` 物件（與 `lines[].kind=expert_booking` 併用）。
+ * 付款／發票欄位走既有 OrderCreateRequest，不放在此物件內。
+ */
+export interface ExpertBookingOrderPayload {
   contact_name: string
   phone: string
   email: string
   line_id?: string | null
   preferred_slots: ExpertBookingPreferredSlot[]
   requirements: string
-  attachment_ids?: string[]
-  payment_method: 'card' | 'linepay' | 'atm'
-  invoice_type: 'member' | 'cloud' | 'company' | 'donate'
-  invoice_carrier?: string
-  conversation_id?: string | null
 }
 
 /** 表單草稿（confirm 頁共用）。 */
@@ -89,9 +94,6 @@ export interface ExpertBookingDraft {
   lineId: string
   slots: ExpertBookingDraftSlot[]
   requirements: string
-  /** Local file names only — upload ids filled on submit when API ready. */
-  attachmentNames: string[]
-  attachmentIds: string[]
 }
 
 export const expertBookingSlotSchema = z.object({
@@ -114,9 +116,7 @@ export const expertBookingFormSchema = z.object({
   email: z.string().trim().email().max(120),
   lineId: z.string().trim().max(64).optional().or(z.literal('')),
   slots: z.array(expertBookingSlotSchema).min(1).max(3),
-  requirements: z.string().trim().min(1).max(2000),
-  attachmentNames: z.array(z.string()).max(5).optional(),
-  attachmentIds: z.array(z.string()).max(5).optional()
+  requirements: z.string().trim().min(1).max(2000)
 })
 
 export type ExpertBookingFormInput = z.infer<typeof expertBookingFormSchema>
@@ -132,9 +132,7 @@ export function emptyExpertBookingDraft(email = ''): ExpertBookingDraft {
     email,
     lineId: '',
     slots: [emptyExpertBookingSlot()],
-    requirements: '',
-    attachmentNames: [],
-    attachmentIds: []
+    requirements: ''
   }
 }
 
@@ -146,27 +144,43 @@ export function slotDraftToIso(slot: ExpertBookingDraftSlot): ExpertBookingPrefe
   }
 }
 
-export function draftToCreateBody(
-  draft: ExpertBookingDraft,
-  opts: {
-    paymentMethod?: ExpertBookingCreateRequest['payment_method']
-    invoiceType?: ExpertBookingCreateRequest['invoice_type']
-    invoiceCarrier?: string
-    conversationId?: string | null
-  } = {}
-): ExpertBookingCreateRequest {
+export function draftToExpertBookingPayload(
+  draft: ExpertBookingDraft
+): ExpertBookingOrderPayload {
   return {
     contact_name: draft.contactName.trim(),
     phone: draft.phone.trim(),
     email: draft.email.trim(),
     line_id: draft.lineId.trim() || null,
     preferred_slots: draft.slots.map(slotDraftToIso),
-    requirements: draft.requirements.trim(),
-    attachment_ids: draft.attachmentIds.length ? draft.attachmentIds : undefined,
+    requirements: draft.requirements.trim()
+  }
+}
+
+/** 組裝 POST /orders body（kind=expert_booking + expert_booking 物件）。 */
+export function draftToOrderCreateRequest(
+  draft: ExpertBookingDraft,
+  opts: {
+    paymentMethod?: CandorPaymentMethod
+    invoiceType?: CandorInvoiceType
+    invoiceCarrier?: string
+    conversationId?: string | null
+  } = {}
+): OrderCreateRequest {
+  const payload = draftToExpertBookingPayload(draft)
+  return {
+    lines: [{ kind: 'expert_booking' }],
     payment_method: opts.paymentMethod ?? 'card',
     invoice_type: opts.invoiceType ?? 'member',
     invoice_carrier: opts.invoiceCarrier,
-    conversation_id: opts.conversationId ?? null
+    recipient: {
+      name: payload.contact_name,
+      phone: payload.phone,
+      address: '',
+      email: payload.email
+    },
+    conversation_id: opts.conversationId?.trim() || undefined,
+    expert_booking: payload
   }
 }
 

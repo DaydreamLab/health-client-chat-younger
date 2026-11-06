@@ -1,21 +1,18 @@
 /**
  * 預約專家 API 模組（型別化集中呼叫）。
  *
- * ⚠️ candor-core 尚未合併；下列路徑／欄位依規格推定，對齊後再改此檔即可。
+ * 對齊 candor-core PR #155：
+ * - `GET  /expert-booking-product` → ExpertBookingProduct
+ * - `POST /orders`（`lines[].kind=expert_booking` + `expert_booking`）→ OrderCreated
+ * - `GET  /order/{id}` → `expert_booking` 區塊
+ * - 重新付款沿用既有 `POST /order/{id}/payment`（useFirstOrderApi.repayOrder）
  *
- * 假設端點：
- * - `GET  /expert-booking/product` → ExpertBookingProduct
- * - `POST /expert-bookings` → OrderCreated（建待付款訂單＋預約需求）
- * - `POST /expert-bookings/attachments`（multipart）→ `{ id }`
- * - `GET  /order/{id}` 附加 `expert_booking` 區塊（見 ExpertBookingOnOrder）
+ * core 無附件上傳端點；本模組不提供 upload。
  */
 
-import type { OrderCreated } from '~/utils/candor-api'
+import type { OrderCreateRequest, OrderCreated } from '~/utils/candor-api'
 import { CandorApiError } from '~/utils/candor-api'
-import type {
-  ExpertBookingCreateRequest,
-  ExpertBookingProduct
-} from '~/utils/expert-booking'
+import type { ExpertBookingProduct } from '~/utils/expert-booking'
 import {
   EXPERT_BOOKING_PRICE_TWD,
   EXPERT_BOOKING_PRODUCT_CODE
@@ -47,30 +44,13 @@ export function useExpertBookingApi() {
   }
 
   /** 建立待付款訂單＋預約需求；付款成功後才進專家待處理。 */
-  async function createBooking(body: ExpertBookingCreateRequest): Promise<OrderCreated> {
-    return candor.createExpertBooking(body)
-  }
-
-  /**
-   * 選填附件上傳。core 未就緒時回 501／404 → 回傳 null（表單仍可送出）。
-   */
-  async function uploadAttachment(file: File): Promise<string | null> {
-    try {
-      const ack = await candor.uploadExpertBookingAttachment(file)
-      return ack.id
-    } catch (error) {
-      if (error instanceof CandorApiError
-        && (error.statusCode === 404 || error.statusCode === 501)) {
-        return null
-      }
-      throw error
-    }
+  async function createBooking(body: OrderCreateRequest): Promise<OrderCreated> {
+    return candor.createOrder(body)
   }
 
   return {
     getProduct,
     createBooking,
-    uploadAttachment,
     fallbackProduct: FALLBACK_PRODUCT
   }
 }

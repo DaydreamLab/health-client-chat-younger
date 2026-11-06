@@ -48,11 +48,7 @@ import type {
   UserSession
 } from '~/utils/candor-api'
 import { CandorApiError, TOKEN_STORAGE_KEY } from '~/utils/candor-api'
-import type {
-  ExpertBookingAttachmentAck,
-  ExpertBookingCreateRequest,
-  ExpertBookingProduct
-} from '~/utils/expert-booking'
+import type { ExpertBookingProduct } from '~/utils/expert-booking'
 import { parseReplyActions } from '~/utils/reply-actions'
 import { noteSessionActivity } from '~/utils/session-activity'
 
@@ -686,32 +682,10 @@ export function useCandorApi() {
       request<AnonymizeAccepted>('/users/me/data', { method: 'DELETE' }),
 
     /**
-     * 預約專家商品（假設 `GET /expert-booking/product`）。
-     * core 合併前可能 404 — useExpertBookingApi 會回退規格預設價。
+     * 預約專家商品（core PR #155：`GET /expert-booking-product`）。
+     * core 未就緒可能 404 — useExpertBookingApi 會回退規格預設價。
      */
     getExpertBookingProduct: () =>
-      request<ExpertBookingProduct>('/expert-booking/product', { method: 'GET' }),
-
-    /**
-     * 建立預約＋待付款訂單（假設 `POST /expert-bookings`）。
-     * 回應形狀對齊既有 OrderCreated（含 payment.redirect_url）。
-     */
-    createExpertBooking: (body: ExpertBookingCreateRequest) =>
-      request<OrderCreated>('/expert-bookings', {
-        method: 'POST',
-        body: body as unknown as Record<string, unknown>
-      }),
-
-    /**
-     * 預約附件上傳（假設 `POST /expert-bookings/attachments` multipart）。
-     */
-    uploadExpertBookingAttachment: (file: File) => {
-      const form = new FormData()
-      form.append('file', file)
-      return request<ExpertBookingAttachmentAck>('/expert-bookings/attachments', {
-        method: 'POST',
-        body: form
-      })
-    }
+      request<ExpertBookingProduct>('/expert-booking-product', { method: 'GET' })
   }
 }

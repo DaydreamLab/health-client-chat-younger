@@ -59,7 +59,7 @@ async function sendChatLine(page: Page, text: string) {
 async function mockExpertBookingApis(page: Page, opts: {
   createPaid?: boolean
 } = {}) {
-  await page.route('**/api/v1/expert-booking/product', async (route) => {
+  await page.route('**/api/v1/expert-booking-product', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -75,9 +75,26 @@ async function mockExpertBookingApis(page: Page, opts: {
     })
   })
 
-  await page.route('**/api/v1/expert-bookings', async (route) => {
+  await page.route('**/api/v1/orders', async (route) => {
     if (route.request().method() !== 'POST') {
-      await route.continue()
+      await route.fallback()
+      return
+    }
+    let isExpertBooking = false
+    try {
+      const raw = route.request().postDataJSON() as {
+        lines?: Array<{ kind?: string }>
+        expert_booking?: unknown
+      } | null
+      if (raw?.expert_booking
+        || raw?.lines?.some(line => line?.kind === 'expert_booking')) {
+        isExpertBooking = true
+      }
+    } catch {
+      // not JSON — treat as non-booking
+    }
+    if (!isExpertBooking) {
+      await route.fallback()
       return
     }
     const paid = Boolean(opts.createPaid)
@@ -116,7 +133,7 @@ async function mockExpertBookingApis(page: Page, opts: {
           status: 'paid',
           payment_status: 'paid',
           amount_total: 6000,
-          lines: [{ kind: 'expert_booking', expert_booking_code: 'expert_booking' }],
+          lines: [{ kind: 'expert_booking' }],
           expert_booking: {
             id: 'eb-001',
             status: 'pending_schedule',

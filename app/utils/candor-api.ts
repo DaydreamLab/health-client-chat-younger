@@ -1,5 +1,8 @@
 import type { ReplyActions } from './reply-actions'
-import type { ExpertBookingOnOrder } from './expert-booking'
+import type {
+  ExpertBookingOnOrder,
+  ExpertBookingOrderPayload
+} from './expert-booking'
 
 export type UserRole = 'guest' | 'member'
 
@@ -508,8 +511,6 @@ export interface OrderLineInput {
   days?: number
   /** Spec 33 — expert_plan line (mutually exclusive with package／lab／day_supply). */
   expert_plan_code?: string
-  /** 預約專家 line（與其他 kind 互斥；細節見 expert_booking 區塊）。 */
-  expert_booking_code?: string
 }
 
 export interface OrderCreateRequest {
@@ -527,6 +528,10 @@ export interface OrderCreateRequest {
   recommendation_run_id?: string
   renewal_of_order_id?: string
   report_id?: string
+  /**
+   * 預約專家（core PR #155）：與 `lines: [{ kind: 'expert_booking' }]` 併用。
+   */
+  expert_booking?: ExpertBookingOrderPayload
 }
 
 export interface CandorPayment {

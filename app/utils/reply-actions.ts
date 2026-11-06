@@ -94,8 +94,9 @@ export interface OfferFullTestPayload {
 }
 
 /**
- * offer_expert_booking — 對話結尾「預約專家諮詢」CTA。
- * path／label 可由 ConversationCopy／CTA 型錄帶入；缺省走 FE 路由與 i18n。
+ * offer_expert_booking — 對話結尾「預約專家諮詢」CTA（core PR #155）。
+ * payload 目前依既有 offer_* 慣例支援 path／label；缺省走 FE 路由與 i18n。
+ * 若 OpenAPI OfferExpertBookingPayload 欄位不同需再對齊（本環境無法讀 core private repo）。
  */
 export interface OfferExpertBookingPayload {
   path?: string | null

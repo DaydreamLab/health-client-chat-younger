@@ -155,7 +155,7 @@
 
 <script setup lang="ts">
 import {
-  draftToCreateBody,
+  draftToOrderCreateRequest,
   EXPERT_BOOKING_PRICE_TWD,
   formatSlotRangeLabel,
   slotDraftToIso
@@ -214,7 +214,7 @@ async function onSubmit() {
   pending.value = true
   submitError.value = ''
   try {
-    const body = draftToCreateBody(draft.value, {
+    const body = draftToOrderCreateRequest(draft.value, {
       paymentMethod: 'card',
       invoiceType: 'member',
       conversationId: journey.conversationId?.trim() || null

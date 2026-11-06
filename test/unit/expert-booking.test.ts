@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  draftToCreateBody,
+  draftToOrderCreateRequest,
   emptyExpertBookingDraft,
   emptyExpertBookingSlot,
   expertBookingFormSchema,
@@ -71,9 +71,7 @@ describe('expert-booking form／slots', () => {
         startTime: '14:00',
         endTime: '16:00'
       }],
-      requirements: '想討論減重',
-      attachmentNames: [],
-      attachmentIds: []
+      requirements: '想討論減重'
     })
     expect(ok.success).toBe(true)
 
@@ -102,8 +100,8 @@ describe('expert-booking form／slots', () => {
     expect(bad.success).toBe(false)
   })
 
-  it('maps draft slots to ISO create body', () => {
-    const body = draftToCreateBody({
+  it('maps draft to POST /orders body (kind=expert_booking + expert_booking)', () => {
+    const body = draftToOrderCreateRequest({
       contactName: '王小明',
       phone: '0912-345-678',
       email: 'wang@example.com',
@@ -113,17 +111,18 @@ describe('expert-booking form／slots', () => {
         startTime: '14:00',
         endTime: '16:00'
       }],
-      requirements: '想討論減重與作息',
-      attachmentNames: [],
-      attachmentIds: []
+      requirements: '想討論減重與作息'
     })
-    expect(body.contact_name).toBe('王小明')
-    expect(body.preferred_slots[0]).toEqual(slotDraftToIso({
+    expect(body.lines).toEqual([{ kind: 'expert_booking' }])
+    expect(body.expert_booking?.contact_name).toBe('王小明')
+    expect(body.expert_booking?.preferred_slots[0]).toEqual(slotDraftToIso({
       date: '2026-11-12',
       startTime: '14:00',
       endTime: '16:00'
     }))
-    expect(body.preferred_slots[0]?.start_at).toContain('2026-11-12T14:00:00')
+    expect(body.expert_booking?.preferred_slots[0]?.start_at).toContain('2026-11-12T14:00:00')
+    expect(body.payment_method).toBe('card')
+    expect(body.recipient.email).toBe('wang@example.com')
     expect(EXPERT_BOOKING_PRICE_TWD).toBe(6000)
   })
 })

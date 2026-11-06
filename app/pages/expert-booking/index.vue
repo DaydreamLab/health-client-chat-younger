@@ -147,39 +147,6 @@
           >
         </label>
 
-        <div>
-          <span class="mb-1.5 block text-sm text-highlighted">
-            {{ $t('expertBooking.attachment') }}
-          </span>
-          <label
-            class="inline-flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-default bg-elevated px-3 py-2 text-sm text-muted hover:border-primary/40"
-            data-testid="expert-booking-attachment"
-          >
-            <UIcon
-              name="i-lucide-plus"
-              class="size-4"
-            />
-            {{ $t('expertBooking.uploadFile') }}
-            <input
-              type="file"
-              class="sr-only"
-              accept=".pdf,image/*"
-              @change="onFileChange"
-            >
-          </label>
-          <ul
-            v-if="form.attachmentNames.length"
-            class="mt-2 space-y-1 text-xs text-muted"
-          >
-            <li
-              v-for="(name, index) in form.attachmentNames"
-              :key="`${name}-${index}`"
-            >
-              {{ name }}
-            </li>
-          </ul>
-        </div>
-
         <div class="space-y-3">
           <div class="flex items-baseline justify-between gap-2">
             <span class="text-sm text-highlighted">
@@ -306,9 +273,7 @@ const form = reactive<ExpertBookingDraft>({
   email: '',
   lineId: '',
   slots: [emptyExpertBookingSlot()],
-  requirements: '',
-  attachmentNames: [],
-  attachmentIds: []
+  requirements: ''
 })
 
 const loginTo = computed(() =>
@@ -330,8 +295,6 @@ function seedFormFromStore() {
     ? draft.slots.map(s => ({ ...s }))
     : [emptyExpertBookingSlot()]
   form.requirements = draft.requirements
-  form.attachmentNames = [...draft.attachmentNames]
-  form.attachmentIds = [...draft.attachmentIds]
 
   if (!form.contactName && auth.displayName) {
     form.contactName = auth.displayName
@@ -352,24 +315,6 @@ function removeSlot(index: number) {
   form.slots.splice(index, 1)
 }
 
-async function onFileChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) {
-    return
-  }
-  form.attachmentNames = [...form.attachmentNames, file.name].slice(0, 5)
-  try {
-    const id = await bookingApi.uploadAttachment(file)
-    if (id) {
-      form.attachmentIds = [...form.attachmentIds, id].slice(0, 5)
-    }
-  } catch {
-    // keep name; submit still works without attachment id
-  }
-  input.value = ''
-}
-
 function onNext() {
   formError.value = ''
   const parsed = expertBookingFormSchema.safeParse({
@@ -378,9 +323,7 @@ function onNext() {
     email: form.email,
     lineId: form.lineId,
     slots: form.slots,
-    requirements: form.requirements,
-    attachmentNames: form.attachmentNames,
-    attachmentIds: form.attachmentIds
+    requirements: form.requirements
   })
   if (!parsed.success) {
     formError.value = t('expertBooking.formInvalid')
@@ -392,11 +335,8 @@ function onNext() {
     email: form.email.trim(),
     lineId: form.lineId.trim(),
     slots: form.slots.map(s => ({ ...s })),
-    requirements: form.requirements.trim(),
-    attachmentNames: [...form.attachmentNames],
-    attachmentIds: [...form.attachmentIds]
+    requirements: form.requirements.trim()
   })
-  // keep conversation hint for create body
   void journey.conversationId
   return navigateTo(localePath('/expert-booking/confirm'))
 }
