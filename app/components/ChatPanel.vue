@@ -1767,6 +1767,8 @@ function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyA
   if ((choose?.kind === 'free' || choose?.kind === 'open_question_reply')
     && (visibility.choices.length || choose.options?.length)) {
     message.options = visibility.choices.length ? visibility.choices : (choose.options ?? [])
+    message.turnType = 'message'
+    message.profileQuestion = null
     quizActive.value = false
     activeQuestion.value = null
     return
@@ -2162,57 +2164,7 @@ async function sendText(text: string) {
     return
   }
 
-  const profile = lastAssistantProfile.value
-  if (profile) {
-    appendMessage('user', content)
-    pending.value = true
-    try {
-      const conversationId = await ensureConversation()
-      const result = await candor.submitProfileAnswer({
-        gap_code: profile.gap_code,
-        raw_text: content,
-        conversation_id: conversationId
-      })
-      if (result.saved) {
-        await continueAfterSavedAnswer({
-          profileGaps: result.profile_gaps,
-          nextQuestion: result.next_question,
-          pendingContent: content,
-          streamIntent: STREAM_INTENT_AFTER_ANSWER
-        })
-        return
-      }
-      // diverted / clarification: short reply, keep profile choices
-      if ('turn_limit' in result && result.turn_limit === true) {
-        applyTurnLimitPayload({
-          prompt: result.prompt,
-          reply_actions: result.reply_actions
-        })
-        pending.value = false
-        return
-      }
-      const clarification = result as ProfileAnswerNeedsClarification
-      appendMessage('assistant', clarification.prompt)
-      const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
-      if (last) {
-        if (clarification.options) {
-          last.options = clarification.options
-          last.turnType = 'profile'
-          last.profileQuestion = {
-            gap_code: profile.gap_code,
-            answer_type: profile.answer_type
-          }
-        }
-        applyCheckupOffer(last, clarification)
-      }
-      pending.value = false
-    } catch {
-      appendMessage('assistant', t('chat.streamError'))
-      pending.value = false
-    }
-    return
-  }
-
+  // 自由文字不由本機進行中題指定 gap；在答哪一題由 core 分類（messages／stream）。
   appendMessage('user', content)
   pendingUserContent.value = content
   await streamPending()
@@ -2327,7 +2279,10 @@ function onChoice(option: GreetingOption) {
   }
 
   if (lastAssistantProfile.value) {
-    return submitProfileChoice({ value: option.code, display: option.label })
+    const profileCodes = new Set((intakeMessage.value?.options ?? []).map(item => item.code))
+    if (profileCodes.has(option.code)) {
+      return submitProfileChoice({ value: option.code, display: option.label })
+    }
   }
 
   // Free-form message options
