@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   STREAM_INTENT_AFTER_ANSWER,
-  buildStreamRequestBody
+  buildStreamRequestBody,
+  resolveAskInterpretI18nKey
 } from '../../app/utils/stream-message'
 
 describe('buildStreamRequestBody (candor-core #134)', () => {
@@ -33,5 +34,18 @@ describe('buildStreamRequestBody (candor-core #134)', () => {
       content: '請判讀報告重點',
       intent: 'interpret'
     })
+  })
+})
+
+describe('resolveAskInterpretI18nKey (Irice 2026-11-09)', () => {
+  it('empty／missing goals → askInterpretNoGoals', () => {
+    expect(resolveAskInterpretI18nKey([])).toBe('chat.askInterpretNoGoals')
+    expect(resolveAskInterpretI18nKey(null)).toBe('chat.askInterpretNoGoals')
+    expect(resolveAskInterpretI18nKey(undefined)).toBe('chat.askInterpretNoGoals')
+  })
+
+  it('non-empty goals → keep askInterpret', () => {
+    expect(resolveAskInterpretI18nKey(['睡眠品質'])).toBe('chat.askInterpret')
+    expect(resolveAskInterpretI18nKey(['體態管理', '睡眠品質'])).toBe('chat.askInterpret')
   })
 })

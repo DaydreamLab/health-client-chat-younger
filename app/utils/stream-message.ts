@@ -14,6 +14,18 @@ export function buildStreamRequestBody(
 }
 
 /**
+ * askInterpret() copy: empty／missing goals → no-goals key; otherwise keep
+ * the goals-aware original. Source in ChatPanel: journey.clarifyingGoals.
+ */
+export function resolveAskInterpretI18nKey(
+  goals: readonly string[] | null | undefined
+): 'chat.askInterpret' | 'chat.askInterpretNoGoals' {
+  return Array.isArray(goals) && goals.length > 0
+    ? 'chat.askInterpret'
+    : 'chat.askInterpretNoGoals'
+}
+
+/**
  * After POST /profile/answers succeeds, the echoed option label follow-up
  * stream uses this intent so core skips questionnaire inference
  * (e.g.「無」must not fill other gaps). Value must match core whitelist.

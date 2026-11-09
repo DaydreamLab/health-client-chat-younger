@@ -446,7 +446,10 @@ import {
   discardFailedFollowUpAssistant
 } from '~/utils/flow-prompt-actions'
 import { expertReviewUiStatusFromRow } from '~/utils/expert-review'
-import { STREAM_INTENT_AFTER_ANSWER } from '~/utils/stream-message'
+import {
+  STREAM_INTENT_AFTER_ANSWER,
+  resolveAskInterpretI18nKey
+} from '~/utils/stream-message'
 import { storeToRefs } from 'pinia'
 
 const props = defineProps<{
@@ -2829,7 +2832,9 @@ async function askInterpret() {
   ) {
     return
   }
-  const interpret = t('chat.askInterpret')
+  // Irice 2026-11-09：goals 空／缺 →「請根據這份報告說明重點」；有 goals 維持原句。
+  // Source: journey.clarifyingGoals（chip／自由文字選完改善方向後寫入）.
+  const interpret = t(resolveAskInterpretI18nKey(journey.clarifyingGoals))
   journey.reportInterpretSent = true
   appendMessage('user', interpret)
   pendingUserContent.value = interpret
