@@ -565,6 +565,103 @@ test.describe('member checkout', () => {
   })
 })
 
+test.describe('askInterpret copy by goals', () => {
+  const interpretWithGoals = '請根據這份報告，配合我這次選定的改善方向說明重點'
+  const interpretNoGoals = '請根據這份報告說明重點'
+
+  test('path B with goals → askInterpret + intent interpret', async ({ page, goto }) => {
+    test.setTimeout(120_000)
+    await mockCandorAuth(page, {
+      asMember: true,
+      conversationPath: null,
+      basicProfileComplete: true,
+      individualTestsUrl: 'https://labs.example/tests'
+    })
+    await seedNoExpertCase(page)
+    await goto('/', { waitUntil: 'hydration' })
+    await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
+    await goto('/chat', { waitUntil: 'hydration' })
+
+    await finishGoalSelect(page)
+    // Chip confirm writes journey.clarifyingGoals from goal option labels.
+    await expect(page.getByTestId('chat-transcript')).toContainText('睡眠', { timeout: 15_000 })
+
+    await page.getByTestId('chat-upload-input').setInputFiles({
+      name: 'labs.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('%PDF-1.4 mock')
+    })
+    await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
+
+    const interpretStream = page.waitForRequest((req) => {
+      if (req.method() !== 'POST' || !req.url().includes('/messages/stream')) {
+        return false
+      }
+      const data = req.postData() || ''
+      return data.includes(interpretWithGoals) && data.includes('"intent":"interpret"')
+    })
+    await page.getByTestId('chat-report-interpret').click()
+    const streamReq = await interpretStream
+    const streamBody = JSON.parse(streamReq.postData() || '{}') as {
+      content?: string
+      intent?: string
+    }
+    expect(streamBody.content).toBe(interpretWithGoals)
+    expect(streamBody.intent).toBe('interpret')
+    await expect(page.getByTestId('chat-transcript')).toContainText(interpretWithGoals)
+  })
+
+  test('path C upload without goals → askInterpretNoGoals + intent interpret', async ({
+    page,
+    goto
+  }) => {
+    test.setTimeout(120_000)
+    await mockCandorAuth(page, {
+      asMember: true,
+      conversationPath: null,
+      basicProfileComplete: true,
+      individualTestsUrl: 'https://labs.example/tests'
+    })
+    await seedNoExpertCase(page)
+    await goto('/', { waitUntil: 'hydration' })
+    await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
+    await goto('/chat', { waitUntil: 'hydration' })
+
+    const entryC = page.getByTestId('chat-quiz-option-c')
+    await expect(entryC).toBeVisible({ timeout: 15_000 })
+    await entryC.click()
+    await expect(page.getByTestId('chat-quiz-option-c')).toHaveCount(0, { timeout: 15_000 })
+
+    await page.getByTestId('chat-message-upload').click()
+    await page.setInputFiles('[data-testid="chat-upload-input"]', {
+      name: 'labs.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('%PDF-1.4 mock')
+    })
+    await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
+    // Path C 上傳後 mock 會開 goals chips，但 clarifyingGoals 仍空直到確認。
+    await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
+
+    const interpretStream = page.waitForRequest((req) => {
+      if (req.method() !== 'POST' || !req.url().includes('/messages/stream')) {
+        return false
+      }
+      const data = req.postData() || ''
+      return data.includes(interpretNoGoals) && data.includes('"intent":"interpret"')
+    })
+    await page.getByTestId('chat-report-interpret').click()
+    const streamReq = await interpretStream
+    const streamBody = JSON.parse(streamReq.postData() || '{}') as {
+      content?: string
+      intent?: string
+    }
+    expect(streamBody.content).toBe(interpretNoGoals)
+    expect(streamBody.intent).toBe('interpret')
+    await expect(page.getByTestId('chat-transcript')).toContainText(interpretNoGoals)
+    await expect(page.getByTestId('chat-transcript')).not.toContainText(interpretWithGoals)
+  })
+})
+
 test.describe('profile quiz gate', () => {
   test.beforeEach(async ({ page }) => {
     // null path → entry a／b／c; tests select B then stream goals (core #133).

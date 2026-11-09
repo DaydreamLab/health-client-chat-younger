@@ -567,6 +567,7 @@
     "reportRetry": "Retry extraction",
     "reportPollTimeout": "Report is still processing. Try again later or re-upload.",
     "askInterpret": "Please summarize this report in light of the goals I selected for this consult",
+    "askInterpretNoGoals": "Please summarize the key points of this report",
     "conversationError": "Could not start the chat. Please refresh the page.",
     "streamError": "Could not get a reply. Please try again.",
     "submitExpertReview": "Get your personalized supplement plan",

@@ -567,6 +567,7 @@
     "reportRetry": "重試擷取",
     "reportPollTimeout": "報告仍在處理中，請稍後再試或重新上傳。",
     "askInterpret": "請根據這份報告，配合我這次選定的改善方向說明重點",
+    "askInterpretNoGoals": "請根據這份報告說明重點",
     "conversationError": "無法開始對話，請重新整理頁面。",
     "streamError": "回覆暫時無法取得，請再試一次。",
     "submitExpertReview": "取得專屬保健品方案",
