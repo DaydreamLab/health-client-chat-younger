@@ -5,7 +5,10 @@ import type {
   RefundBlockedReason,
   RefundRequestStatus
 } from './candor-api'
-import { bottleAddonsFromOrderLines } from './bottle-addon'
+import {
+  bottleAddonsFromOrderLines,
+  orderBottleAddonsFromSnapshots
+} from './bottle-addon'
 import type { ExpertBookingOnOrder } from './expert-booking'
 import {
   isExpertBookingOrder,
@@ -752,10 +755,14 @@ export function orderRecordFromCandorDetail(
   const displayItems = hasExpertPlan
     ? omitItemsMatchingPlanName(items, expertPlanName ?? packageName)
     : items
-  const bottleAddons = bottleAddonsFromOrderLines(detail.lines)
-  const packageAmount = detail.package?.package_plan_price ?? null
-  const addonSubtotal = bottleAddons.length > 0
-    ? bottleAddons.reduce((sum, row) => sum + row.lineTotal, 0)
+  const bottleAddons = detail.bottle_addons != null
+    ? orderBottleAddonsFromSnapshots(detail.bottle_addons)
+    : bottleAddonsFromOrderLines(detail.lines)
+  const packageAmount = typeof detail.package_amount === 'number'
+    ? detail.package_amount
+    : (detail.package?.package_plan_price ?? null)
+  const addonSubtotal = typeof detail.addon_amount === 'number'
+    ? detail.addon_amount
     : null
   return {
     id: detail.id,

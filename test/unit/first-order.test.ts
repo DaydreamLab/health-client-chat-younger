@@ -331,6 +331,68 @@ describe('order plan display name', () => {
     expect(order.items[0]?.name).toBe('維生素 D')
   })
 
+  it('maps package_amount／addon_amount／bottle_addons from OrderDetail', () => {
+    const detail: OrderDetail = {
+      id: 'o-addon',
+      order_no: 'ORD-ADDON',
+      status: 'confirmed',
+      payment_status: 'paid',
+      amount_total: 2870,
+      package_amount: 1980,
+      addon_amount: 890,
+      package_plan_name: '基礎保養',
+      package: {
+        id: 'pkg-1',
+        package_plan_code: 'basic',
+        package_plan_name: '基礎保養',
+        package_plan_price: 1980,
+        period_days: 30,
+        composition_hash: 'sha256:x',
+        used_amount: 800,
+        remaining: 1180,
+        components: [{
+          id: 'c1',
+          sellable_item_id: 's1',
+          sellable_item_code: 'vitamin_d',
+          sellable_item_name: '維生素 D',
+          unit_price: 9,
+          daily_dose: 1,
+          monthly_cost: 280,
+          rank: 1
+        }]
+      },
+      lines: [
+        { kind: 'package', package_plan_code: 'basic' },
+        {
+          kind: 'bottle_addon',
+          sellable_item_code: 'omega3',
+          sellable_item_name: 'Omega-3',
+          qty: 1,
+          bottle_price: 890,
+          amount: 890
+        }
+      ],
+      bottle_addons: [{
+        sellable_item_code: 'omega3',
+        sellable_item_name: 'Omega-3',
+        qty: 1,
+        bottle_price: 890,
+        amount: 890
+      }]
+    }
+    const order = orderRecordFromCandorDetail(detail)
+    expect(order.amount).toBe(2870)
+    expect(order.packageAmount).toBe(1980)
+    expect(order.addonSubtotal).toBe(890)
+    expect(order.bottleAddons).toEqual([{
+      code: 'omega3',
+      name: 'Omega-3',
+      qty: 1,
+      bottlePrice: 890,
+      lineTotal: 890
+    }])
+  })
+
   it('maps list summary with top-level expert_plan_name and falls back safely', () => {
     const withTop: OrderSummary = {
       id: 's1',

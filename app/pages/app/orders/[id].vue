@@ -515,7 +515,7 @@ const planDisplayName = computed(() =>
 
 const bottleAddonRows = computed(() => order.value?.bottleAddons ?? [])
 
-/** Prefer package_plan_price from core; never invent package price from amount_total − addons. */
+/** Prefer OrderDetail.package_amount from core; never invent from amount_total − addons. */
 const packageDisplayAmount = computed(() => {
   if (!order.value) {
     return 0

@@ -1,9 +1,9 @@
 /**
  * Bottle addon (整瓶加購) helpers — shapes from candor-core OpenAPI
- * (PR① order/preview lines; PR② recommendations.addons[]).
+ * (schemas.RecommendationBottleAddon / BottleAddonSnapshot).
  */
 import type {
-  CheckoutPreviewBottleAddon,
+  BottleAddonSnapshot,
   RecommendationBottleAddon
 } from '~/utils/candor-api'
 
@@ -31,7 +31,7 @@ function asNonNegativeInt(value: unknown): number | null {
   return n >= 0 ? n : null
 }
 
-/** Parse POST /recommendations `addons[]` rows; skip malformed entries. */
+/** Parse POST /recommendations `addons[]` (RecommendationBottleAddon). */
 export function parseRecommendationAddons(raw: unknown): RecommendationBottleAddon[] {
   if (!Array.isArray(raw)) {
     return []
@@ -43,60 +43,78 @@ export function parseRecommendationAddons(raw: unknown): RecommendationBottleAdd
     }
     const row = entry as Record<string, unknown>
     const sellable_item_id = asNonEmptyString(row.sellable_item_id)
-    const code = asNonEmptyString(row.code)
-    const name = asNonEmptyString(row.name)
+    const sellable_item_code = asNonEmptyString(row.sellable_item_code)
+    const sellable_item_name = asNonEmptyString(row.sellable_item_name)
     const bottle_price = asNonNegativeInt(row.bottle_price)
-    if (!sellable_item_id || !code || !name || bottle_price == null) {
+    const reason = asNonEmptyString(row.reason) ?? ''
+    if (!sellable_item_id || !sellable_item_code || !sellable_item_name || bottle_price == null) {
       continue
     }
     const qty = asNonNegativeInt(row.qty) ?? 1
     rows.push({
       sellable_item_id,
-      code,
-      name,
+      sellable_item_code,
+      sellable_item_name,
       bottle_price,
       qty: qty > 0 ? qty : 1,
-      reason: asNonEmptyString(row.reason)
+      reason
     })
   }
   return rows
 }
 
-/** Parse checkout preview confirmed addon lines (mode=ai). */
-export function parseCheckoutBottleAddons(raw: unknown): CheckoutPreviewBottleAddon[] {
+/** Parse checkout preview `ai.bottle_addons` / order `bottle_addons`. */
+export function parseBottleAddonSnapshots(raw: unknown): BottleAddonSnapshot[] {
   if (!Array.isArray(raw)) {
     return []
   }
-  const rows: CheckoutPreviewBottleAddon[] = []
+  const rows: BottleAddonSnapshot[] = []
   for (const entry of raw) {
     if (!entry || typeof entry !== 'object') {
       continue
     }
     const row = entry as Record<string, unknown>
-    const code = asNonEmptyString(row.code) ?? asNonEmptyString(row.sellable_item_code)
-    const name = asNonEmptyString(row.name) ?? asNonEmptyString(row.sellable_item_name) ?? code
+    const sellable_item_code = asNonEmptyString(row.sellable_item_code)
+    const sellable_item_name = asNonEmptyString(row.sellable_item_name)
     const bottle_price = asNonNegativeInt(row.bottle_price)
-      ?? asNonNegativeInt(row.unit_price)
-    if (!code || !name || bottle_price == null) {
+    const amount = asNonNegativeInt(row.amount)
+    if (!sellable_item_code || !sellable_item_name || bottle_price == null || amount == null) {
       continue
     }
     const qty = asNonNegativeInt(row.qty) ?? 1
-    const line_total = asNonNegativeInt(row.line_total)
-      ?? asNonNegativeInt(row.amount)
-      ?? undefined
     rows.push({
-      sellable_item_id: asNonEmptyString(row.sellable_item_id) ?? undefined,
-      code,
-      name,
-      bottle_price,
+      sellable_item_code,
+      sellable_item_name,
       qty: qty > 0 ? qty : 1,
-      ...(line_total != null ? { line_total } : {})
+      bottle_price,
+      amount
     })
   }
   return rows
 }
 
-/** Extract bottle_addon lines from order detail `lines[]`. */
+/** @deprecated Prefer parseBottleAddonSnapshots. */
+export function parseCheckoutBottleAddons(raw: unknown): BottleAddonSnapshot[] {
+  return parseBottleAddonSnapshots(raw)
+}
+
+/** Map BottleAddonSnapshot rows into order-detail display records. */
+export function orderBottleAddonsFromSnapshots(
+  raw: unknown
+): OrderBottleAddonLine[] {
+  return parseBottleAddonSnapshots(raw).map(row => ({
+    code: row.sellable_item_code,
+    name: row.sellable_item_name,
+    qty: row.qty,
+    bottlePrice: row.bottle_price,
+    lineTotal: row.amount
+  }))
+}
+
+/**
+ * Fallback: extract bottle_addon from order `lines[]` when `bottle_addons` absent.
+ * Prefer OrderDetail.bottle_addons from core.
+ */
 export function bottleAddonsFromOrderLines(
   lines: Array<Record<string, unknown>> | null | undefined
 ): OrderBottleAddonLine[] {
@@ -109,17 +127,14 @@ export function bottleAddonsFromOrderLines(
       continue
     }
     const code = asNonEmptyString(line.sellable_item_code)
-      ?? asNonEmptyString(line.code)
     const name = asNonEmptyString(line.sellable_item_name)
       ?? asNonEmptyString(line.name)
       ?? code
-    const bottlePrice = asNonNegativeInt(line.bottle_price)
-      ?? asNonNegativeInt(line.unit_price)
-      ?? 0
+    const bottlePrice = asNonNegativeInt(line.bottle_price) ?? 0
     const qty = asNonNegativeInt(line.qty) ?? 1
-    const lineTotal = asNonNegativeInt(line.line_total)
-      ?? asNonNegativeInt(line.amount)
-      ?? bottlePrice * (qty > 0 ? qty : 1)
+    const lineTotal = asNonNegativeInt(line.amount)
+      ?? asNonNegativeInt(line.line_total)
+      ?? bottlePrice
     if (!code || !name) {
       continue
     }
@@ -154,19 +169,10 @@ export function normalizeAddonCodes(codes: string[] | null | undefined): string[
 /** Keep only codes still present in the latest recommendations addons list. */
 export function intersectAddonCodes(
   selected: string[] | null | undefined,
-  available: Array<{ code: string }>
+  available: Array<{ sellable_item_code: string }>
 ): string[] {
-  const allowed = new Set(available.map(item => item.code).filter(Boolean))
+  const allowed = new Set(
+    available.map(item => item.sellable_item_code).filter(Boolean)
+  )
   return normalizeAddonCodes(selected).filter(code => allowed.has(code))
-}
-
-export function addonLineTotal(line: {
-  bottle_price: number
-  qty: number
-  line_total?: number
-}): number {
-  if (typeof line.line_total === 'number' && Number.isFinite(line.line_total)) {
-    return Math.trunc(line.line_total)
-  }
-  return Math.trunc(line.bottle_price) * Math.max(1, Math.trunc(line.qty) || 1)
 }

@@ -358,19 +358,19 @@
           >
             <label
               class="flex w-full cursor-pointer items-start gap-3 px-5 py-4 transition hover:bg-muted"
-              :data-testid="`bottle-addon-${addon.code}`"
+              :data-testid="`bottle-addon-${addon.sellable_item_code}`"
             >
               <input
                 v-model="selectedBottleAddonCodes"
                 type="checkbox"
                 class="mt-1 accent-primary"
-                :value="addon.code"
-                :data-testid="`bottle-addon-check-${addon.code}`"
+                :value="addon.sellable_item_code"
+                :data-testid="`bottle-addon-check-${addon.sellable_item_code}`"
               >
               <span class="min-w-0 flex-1">
                 <span class="flex flex-wrap items-center justify-between gap-2">
                   <span class="font-medium text-highlighted">
-                    {{ addon.name }}
+                    {{ addon.sellable_item_name }}
                   </span>
                   <span
                     class="shrink-0 text-sm font-semibold tabular-nums text-primary"

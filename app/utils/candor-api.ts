@@ -184,15 +184,15 @@ export interface RecommendationPackage {
   rationale?: PackageRationale | null
 }
 
-/** Whole-bottle upsell row from POST /recommendations (core bottle_addon). */
+/** Whole-bottle upsell row from POST /recommendations (schemas.RecommendationBottleAddon). */
 export interface RecommendationBottleAddon {
   sellable_item_id: string
-  code: string
-  name: string
+  sellable_item_code: string
+  sellable_item_name: string
   bottle_price: number
   /** Recommendations always project qty=1. */
   qty: number
-  reason?: string | null
+  reason: string
 }
 
 export interface RecommendationResponse {
@@ -281,15 +281,18 @@ export interface CheckoutPreviewPaymentMethod {
   status: 'coming_soon' | null
 }
 
-/** Confirmed bottle_addon line on checkout preview (core PR①). */
-export interface CheckoutPreviewBottleAddon {
-  sellable_item_id?: string
-  code: string
-  name: string
-  bottle_price: number
+/** Bottle add-on snapshot (schemas.BottleAddonSnapshot) — preview／order detail. */
+export interface BottleAddonSnapshot {
+  sellable_item_code: string
+  sellable_item_name: string
   qty: number
-  line_total?: number
+  bottle_price: number
+  /** Line amount from core (= bottle_price × qty; qty fixed 1). */
+  amount: number
 }
+
+/** @deprecated Prefer BottleAddonSnapshot. */
+export type CheckoutPreviewBottleAddon = BottleAddonSnapshot
 
 /** mode=ai package preview; same composition source as POST /recommendations. */
 export interface CheckoutPreviewAiPackage {
@@ -304,8 +307,12 @@ export interface CheckoutPreviewAiPackage {
   remaining?: number
   composition_hash?: string
   items: RecommendationPackageItem[]
-  /** Selected bottle addons echoed by preview when `addon_codes` sent. */
-  addons?: CheckoutPreviewBottleAddon[] | null
+  /** Selected bottle addons when query `addon_codes` sent. */
+  bottle_addons?: BottleAddonSnapshot[] | null
+  /** Σ bottle_addons.amount */
+  addon_subtotal?: number
+  /** price＋addon_subtotal（運費見頂層 shipping.fee） */
+  amount_total?: number
 }
 
 export interface CheckoutPreview {
@@ -321,12 +328,6 @@ export interface CheckoutPreview {
   expert_plans: ExpertPlan[]
   preselect_expert_plan_code?: string | null
   ai: CheckoutPreviewAiPackage | null
-  /** Package subtotal from core (AI: package price; expert: plan price). */
-  package_subtotal?: number | null
-  /** Sum of selected bottle_addon lines; 0 when none. */
-  addon_subtotal?: number | null
-  /** Authoritative checkout total (package + addons ± shipping rules). */
-  amount_total?: number | null
   completion_choice?: ConversationCompletionChoice | null
   /**
    * core #146 unpaid／pending／failed／expired reuse on 200 preview (`mode=expert`).
@@ -648,6 +649,10 @@ export interface OrderDetail {
   status: string
   payment_status: string
   amount_total: number
+  /** 方案列金額合計（無 package 列為 0）. */
+  package_amount?: number
+  /** bottle_addon 列金額合計（無加購為 0）. */
+  addon_amount?: number
   package_plan_name?: string | null
   /**
    * Top-level expert plan name (core may backfill from expert_plan_id).
@@ -656,6 +661,8 @@ export interface OrderDetail {
   expert_plan_name?: string | null
   package?: OrderDetailPackage | null
   lines: Array<Record<string, unknown>>
+  /** 整瓶加購快照列（schemas.BottleAddonSnapshot）. */
+  bottle_addons?: BottleAddonSnapshot[] | null
   recipient?: {
     name: string
     phone: string

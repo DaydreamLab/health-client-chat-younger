@@ -417,12 +417,11 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     created_at: string
     package_plan_price?: number
     bottle_addons?: Array<{
-      kind: 'bottle_addon'
       sellable_item_code: string
       sellable_item_name: string
       qty: number
       bottle_price: number
-      line_total: number
+      amount: number
     }>
   } | null = options.withOrder
     ? {
@@ -803,8 +802,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           addons: [
             {
               sellable_item_id: sellableOmega,
-              code: 'omega3',
-              name: 'Omega-3',
+              sellable_item_code: 'omega3',
+              sellable_item_name: 'Omega-3',
               bottle_price: 890,
               qty: 1,
               reason: '與本方案目標相關，建議整瓶加購加強日常補充。'
@@ -1204,27 +1203,25 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     ]
 
     const bottleAddonCatalog: Record<string, {
-      sellable_item_id: string
-      code: string
-      name: string
-      bottle_price: number
+      sellable_item_code: string
+      sellable_item_name: string
       qty: number
-      line_total: number
+      bottle_price: number
+      amount: number
     }> = {
       omega3: {
-        sellable_item_id: sellableOmega,
-        code: 'omega3',
-        name: 'Omega-3',
-        bottle_price: 890,
+        sellable_item_code: 'omega3',
+        sellable_item_name: 'Omega-3',
         qty: 1,
-        line_total: 890
+        bottle_price: 890,
+        amount: 890
       }
     }
     const selectedAddons = [...new Set(addonCodes)]
       .map(code => bottleAddonCatalog[code])
       .filter((row): row is NonNullable<typeof row> => Boolean(row))
     const packagePrice = packagePlanCode === 'advance' ? 2980 : 1980
-    const addonSubtotal = selectedAddons.reduce((sum, row) => sum + row.line_total, 0)
+    const addonSubtotal = selectedAddons.reduce((sum, row) => sum + row.amount, 0)
 
     await route.fulfill({
       status: 200,
@@ -1257,9 +1254,6 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           preselect_expert_plan_code: mode === 'expert' && expertPlans.length === 1
             ? expertPlans[0]?.code ?? null
             : null,
-          package_subtotal: mode === 'ai' ? packagePrice : null,
-          addon_subtotal: mode === 'ai' ? addonSubtotal : 0,
-          amount_total: mode === 'ai' ? packagePrice + addonSubtotal : null,
           ai: mode === 'ai'
             ? {
                 package_plan_code: packagePlanCode,
@@ -1272,7 +1266,9 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                 remaining: packagePlanCode === 'advance' ? 2180 : 1180,
                 composition_hash: `sha256:${packagePlanCode}`,
                 items: aiItems,
-                addons: selectedAddons
+                bottle_addons: selectedAddons,
+                addon_subtotal: addonSubtotal,
+                amount_total: packagePrice + addonSubtotal
               }
             : null,
           completion_choice: null,
@@ -2932,16 +2928,15 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
             ? line.sellable_item_code
             : 'omega3'
           return {
-            kind: 'bottle_addon' as const,
             sellable_item_code: code,
             sellable_item_name: code === 'omega3' ? 'Omega-3' : code,
             qty: typeof line.qty === 'number' ? line.qty : 1,
             bottle_price: 890,
-            line_total: 890
+            amount: 890
           }
         })
       const packagePrice = isExpert ? 6000 : 1980
-      const addonTotal = bottleAddons.reduce((sum, row) => sum + row.line_total, 0)
+      const addonTotal = bottleAddons.reduce((sum, row) => sum + row.amount, 0)
       const amountTotal = packagePrice + addonTotal
       placedOrder = {
         id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
@@ -3069,6 +3064,10 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           status: placedOrder.status,
           payment_status: placedOrder.payment_status,
           amount_total: placedOrder.amount_total,
+          package_amount: placedOrder.package_plan_price
+            ?? (placedOrder.package_plan_name?.includes('專家') ? 6000 : 1280),
+          addon_amount: (placedOrder.bottle_addons ?? [])
+            .reduce((sum, row) => sum + row.amount, 0),
           package_plan_name: placedOrder.package_plan_name,
           package: {
             id: 'pkg-1',
@@ -3088,11 +3087,19 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
               { id: 'c3', sellable_item_id: sellableVitC, sellable_item_code: 'vitamin_c', sellable_item_name: '維生素 C', unit_price: 16, daily_dose: 1, monthly_cost: 480, rank: 3, is_core: false }
             ]
           },
+          bottle_addons: placedOrder.bottle_addons ?? [],
           lines: [
             ...(placedOrder.package_plan_name?.includes('專家')
               ? [{ kind: 'expert_plan', expert_plan_code: 'basic', expert_plan_name: placedOrder.package_plan_name }]
               : [{ kind: 'package', package_plan_code: 'basic' }]),
-            ...(placedOrder.bottle_addons ?? [])
+            ...(placedOrder.bottle_addons ?? []).map(row => ({
+              kind: 'bottle_addon',
+              sellable_item_code: row.sellable_item_code,
+              sellable_item_name: row.sellable_item_name,
+              qty: row.qty,
+              bottle_price: row.bottle_price,
+              amount: row.amount
+            }))
           ],
           recipient: { name: '林晏婷', phone: '0912345678', address: '台北市大安區', email: 'guest@example.com' },
           invoice_type: 'member',
