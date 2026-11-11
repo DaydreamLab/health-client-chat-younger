@@ -73,6 +73,42 @@ describe('checkout preview ai.items (spec 33 / core #143)', () => {
     expect(aiPackageFromPreview(ai).items).toEqual([])
   })
 
+  it('carries package／addon totals from preview when present', () => {
+    const preview: CheckoutPreview = {
+      conversation_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      mode: 'ai',
+      block: null,
+      checkout_locked: false,
+      shipping: { fee: 0, free: true },
+      payment_methods: [],
+      expert_plans: [],
+      package_subtotal: 1980,
+      addon_subtotal: 890,
+      amount_total: 2870,
+      ai: {
+        package_plan_code: 'basic',
+        package_plan_name: '基礎保養',
+        name_zh: '基礎保養',
+        price: 1980,
+        period_days: 30,
+        item_count: 1,
+        composition_hash: 'sha256:basic',
+        items,
+        addons: [{
+          code: 'omega3',
+          name: 'Omega-3',
+          bottle_price: 890,
+          qty: 1,
+          line_total: 890
+        }]
+      }
+    }
+    expect(preview.package_subtotal).toBe(1980)
+    expect(preview.addon_subtotal).toBe(890)
+    expect(preview.amount_total).toBe(2870)
+    expect(preview.ai?.addons?.[0]?.code).toBe('omega3')
+  })
+
   it('tolerates core #146 existing_order object or null on CheckoutPreview', () => {
     const withOrder: CheckoutPreview = {
       conversation_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',

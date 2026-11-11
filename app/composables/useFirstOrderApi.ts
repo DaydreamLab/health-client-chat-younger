@@ -57,13 +57,24 @@ export function useFirstOrderApi() {
       throw new Error('auth_required')
     }
     const reportId = input.reportId?.trim()
+    const bottleAddonLines = (input.bottleAddonCodes ?? [])
+      .map(code => code.trim())
+      .filter(Boolean)
+      .map(code => ({
+        kind: 'bottle_addon' as const,
+        sellable_item_code: code,
+        qty: 1
+      }))
     const created = await candor.createOrder({
-      lines: [{
-        kind: 'package',
-        package_plan_code: input.packagePlanCode,
-        composition_hash: input.compositionHash,
-        ...(reportId ? { report_id: reportId } : {})
-      }],
+      lines: [
+        {
+          kind: 'package',
+          package_plan_code: input.packagePlanCode,
+          composition_hash: input.compositionHash,
+          ...(reportId ? { report_id: reportId } : {})
+        },
+        ...bottleAddonLines
+      ],
       payment_method: input.paymentMethod,
       invoice_type: input.invoice,
       invoice_carrier: input.invoiceCarrier,

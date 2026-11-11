@@ -184,6 +184,17 @@ export interface RecommendationPackage {
   rationale?: PackageRationale | null
 }
 
+/** Whole-bottle upsell row from POST /recommendations (core bottle_addon). */
+export interface RecommendationBottleAddon {
+  sellable_item_id: string
+  code: string
+  name: string
+  bottle_price: number
+  /** Recommendations always project qty=1. */
+  qty: number
+  reason?: string | null
+}
+
 export interface RecommendationResponse {
   run_id: string
   report_id?: string | null
@@ -199,6 +210,8 @@ export interface RecommendationResponse {
   }
   items: RecommendationItem[]
   packages: RecommendationPackage[]
+  /** Empty / omitted → FE hides the addon section. */
+  addons?: RecommendationBottleAddon[] | null
   excluded?: Array<{ sellable_item_id: string, reason_code: string }> | null
 }
 
@@ -268,11 +281,22 @@ export interface CheckoutPreviewPaymentMethod {
   status: 'coming_soon' | null
 }
 
+/** Confirmed bottle_addon line on checkout preview (core PR①). */
+export interface CheckoutPreviewBottleAddon {
+  sellable_item_id?: string
+  code: string
+  name: string
+  bottle_price: number
+  qty: number
+  line_total?: number
+}
+
 /** mode=ai package preview; same composition source as POST /recommendations. */
 export interface CheckoutPreviewAiPackage {
   package_plan_code: string
   package_plan_name: string
   name_zh: string
+  /** Package plan price only (excludes bottle addons). */
   price: number
   period_days: number
   item_count: number
@@ -280,6 +304,8 @@ export interface CheckoutPreviewAiPackage {
   remaining?: number
   composition_hash?: string
   items: RecommendationPackageItem[]
+  /** Selected bottle addons echoed by preview when `addon_codes` sent. */
+  addons?: CheckoutPreviewBottleAddon[] | null
 }
 
 export interface CheckoutPreview {
@@ -295,6 +321,12 @@ export interface CheckoutPreview {
   expert_plans: ExpertPlan[]
   preselect_expert_plan_code?: string | null
   ai: CheckoutPreviewAiPackage | null
+  /** Package subtotal from core (AI: package price; expert: plan price). */
+  package_subtotal?: number | null
+  /** Sum of selected bottle_addon lines; 0 when none. */
+  addon_subtotal?: number | null
+  /** Authoritative checkout total (package + addons ± shipping rules). */
+  amount_total?: number | null
   completion_choice?: ConversationCompletionChoice | null
   /**
    * core #146 unpaid／pending／failed／expired reuse on 200 preview (`mode=expert`).
@@ -500,6 +532,8 @@ export type OrderLineKind
     | 'expert_plan'
     /** 預約專家獨立商品（價格／名稱讀 GET /expert-booking-product；不綁保健品／專家方案）。 */
     | 'expert_booking'
+    /** 整瓶加購（與 package 同單；不佔方案預算；續約不含）。 */
+    | 'bottle_addon'
 
 export interface OrderLineInput {
   kind: OrderLineKind
@@ -509,6 +543,8 @@ export interface OrderLineInput {
   lab_service_code?: string
   sellable_item_code?: string
   days?: number
+  /** bottle_addon qty（recommendations 固定 1；建單回傳 core 核定值）。 */
+  qty?: number
   /** Spec 33 — expert_plan line (mutually exclusive with package／lab／day_supply). */
   expert_plan_code?: string
   /** Spec 34 — kind=expert_booking 必填；預設 personal。 */

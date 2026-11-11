@@ -338,13 +338,55 @@
                   {{ selectedPackage.package_plan_name }}
                 </p>
                 <p class="shrink-0 text-lg font-semibold tabular-nums text-primary">
-                  {{ $t('recommendation.perMonth', { price: formatTwd(selectedPackage.price) }) }}
+                  {{ $t('recommendation.perMonth', { price: formatTwd(packageSubtotal) }) }}
                 </p>
               </div>
               <p class="mt-1 text-sm text-muted">
                 {{ $t('recommendation.itemCountHint', { count: selectedPackage.items.length }) }}
               </p>
             </div>
+
+            <section
+              v-if="!isExpertPlan && eligibleBottleAddonRows.length > 0"
+              class="mt-4 rounded-xl border border-default bg-default/40 p-4"
+              data-testid="checkout-bottle-addons"
+            >
+              <h2 class="text-sm font-medium text-highlighted">
+                {{ $t('checkout.bottleAddonSection') }}
+              </h2>
+              <p class="mt-1 text-xs text-muted">
+                {{ $t('checkout.bottleAddonConfirmHint') }}
+              </p>
+              <ul class="mt-3 space-y-3">
+                <li
+                  v-for="addon in eligibleBottleAddonRows"
+                  :key="addon.code"
+                  class="flex items-start gap-3"
+                  :data-testid="`checkout-bottle-addon-${addon.code}`"
+                >
+                  <label class="flex min-w-0 flex-1 cursor-pointer items-start gap-2">
+                    <input
+                      v-model="selectedBottleAddonCodes"
+                      type="checkbox"
+                      class="mt-1 accent-primary"
+                      :value="addon.code"
+                      :data-testid="`checkout-bottle-addon-check-${addon.code}`"
+                    >
+                    <span class="min-w-0">
+                      <span class="block font-medium text-highlighted">
+                        {{ addon.name }}
+                      </span>
+                      <span class="mt-0.5 block text-xs text-muted">
+                        {{ $t('checkout.bottleAddonQty', { count: addon.qty }) }}
+                      </span>
+                    </span>
+                  </label>
+                  <span class="shrink-0 text-sm font-semibold tabular-nums text-primary">
+                    {{ formatTwd(addon.line_total ?? addon.bottle_price) }}
+                  </span>
+                </li>
+              </ul>
+            </section>
           </template>
         </section>
       </div>
@@ -362,8 +404,25 @@
             <dt class="text-muted">
               {{ $t('checkout.subtotal') }}
             </dt>
-            <dd class="tabular-nums text-highlighted">
-              {{ formatTwd(checkoutPrice) }}
+            <dd
+              class="tabular-nums text-highlighted"
+              data-testid="checkout-package-subtotal"
+            >
+              {{ formatTwd(packageSubtotal) }}
+            </dd>
+          </div>
+          <div
+            v-if="!isExpertPlan && addonSubtotal > 0"
+            class="flex justify-between gap-3"
+          >
+            <dt class="text-muted">
+              {{ $t('checkout.addonSubtotal') }}
+            </dt>
+            <dd
+              class="tabular-nums text-highlighted"
+              data-testid="checkout-addon-subtotal"
+            >
+              {{ formatTwd(addonSubtotal) }}
             </dd>
           </div>
           <div class="flex justify-between gap-3">
@@ -385,10 +444,17 @@
               class="tabular-nums text-primary"
               :data-testid="isExpertPlan ? 'expert-plan-checkout-total' : 'checkout-total'"
             >
-              {{ formatTwd(checkoutPrice) }}
+              {{ formatTwd(checkoutTotal) }}
             </dd>
           </div>
         </dl>
+        <p
+          v-if="!isExpertPlan && selectedBottleAddonCodes.length > 0"
+          class="mt-3 text-xs text-muted"
+          data-testid="checkout-refund-whole-order-note"
+        >
+          {{ $t('checkout.refundWholeOrderNote') }}
+        </p>
 
         <form
           class="mt-5 space-y-4"
@@ -649,6 +715,7 @@ import type {
   CheckoutLockReason,
   CheckoutPreview,
   CheckoutPreviewAiPackage,
+  CheckoutPreviewBottleAddon,
   CheckoutPreviewPaymentMethod,
   ExpertPlan,
   RecommendationPackage,
@@ -686,6 +753,10 @@ import {
   composeTaiwanAddress,
   districtsForCity
 } from '~/utils/taiwan-regions'
+import {
+  normalizeAddonCodes,
+  parseCheckoutBottleAddons
+} from '~/utils/bottle-addon'
 import {
   resolveExpertPlanTitle,
   resolveIncludedPackagePlanName
@@ -744,10 +815,19 @@ const packagePending = ref(false)
 const packageError = ref('')
 const recommendation = ref<RecommendationResponse | null>(null)
 const selectedPackageCode = ref('')
+/** Codes selected on recommendations; checkout may only remove, not add. */
+const eligibleBottleAddonCodes = ref<string[]>([])
+const selectedBottleAddonCodes = ref<string[]>([])
+/** Eligible rows carried from recommendations／first preview; checkout cannot add beyond this set. */
+const eligibleBottleAddonRows = ref<CheckoutPreviewBottleAddon[]>([])
+const packageSubtotalFromPreview = ref<number | null>(null)
+const addonSubtotalFromPreview = ref<number | null>(null)
+const amountTotalFromPreview = ref<number | null>(null)
 const showDelistedModal = ref(false)
 const showRecipientPrefillHint = ref(false)
 const shippingFree = ref(true)
 const shippingFee = ref(0)
+const skipAddonSelectionWatch = ref(false)
 
 const name = ref(auth.displayName)
 const phone = ref('')
@@ -807,11 +887,23 @@ const packages = computed(() => recommendation.value?.packages ?? [])
 const selectedPackage = computed(() =>
   packages.value.find(pkg => pkg.package_plan_code === selectedPackageCode.value) ?? null
 )
-const checkoutPrice = computed(() =>
-  isExpertPlan.value
+/** Package amount only — prefer preview `package_subtotal`, else plan／package price. */
+const packageSubtotal = computed(() => {
+  if (packageSubtotalFromPreview.value != null) {
+    return packageSubtotalFromPreview.value
+  }
+  return isExpertPlan.value
     ? (selectedPlan.value?.price ?? 0)
     : (selectedPackage.value?.price ?? 0)
-)
+})
+const addonSubtotal = computed(() => addonSubtotalFromPreview.value ?? 0)
+/** Authoritative total from preview when present. */
+const checkoutTotal = computed(() => {
+  if (amountTotalFromPreview.value != null) {
+    return amountTotalFromPreview.value
+  }
+  return packageSubtotal.value
+})
 
 const recipientReady = computed(() =>
   name.value.trim() !== ''
@@ -904,6 +996,28 @@ function resolvePackagePlanCode(): string {
     return value.trim()
   }
   return journey.selectedPackageCode?.trim() ?? ''
+}
+
+function resolveAddonCodesFromRoute(): string[] {
+  const raw = route.query.addon_codes
+  if (Array.isArray(raw)) {
+    return normalizeAddonCodes(raw.flatMap(value => String(value).split(',')))
+  }
+  if (typeof raw === 'string' && raw.trim()) {
+    return normalizeAddonCodes(raw.split(','))
+  }
+  return normalizeAddonCodes(journey.selectedBottleAddonCodes)
+}
+
+function syncEligibleAddonCodes(codes: string[]) {
+  const normalized = normalizeAddonCodes(codes)
+  eligibleBottleAddonCodes.value = normalized
+  skipAddonSelectionWatch.value = true
+  selectedBottleAddonCodes.value = [...normalized]
+  journey.selectedBottleAddonCodes = [...normalized]
+  void nextTick(() => {
+    skipAddonSelectionWatch.value = false
+  })
 }
 
 function aiPackageFromPreview(ai: CheckoutPreviewAiPackage): RecommendationPackage {
@@ -1027,12 +1141,47 @@ function applyAiPreviewPackage(preview: CheckoutPreview) {
   if (!ai || !Array.isArray(ai.items)) {
     packageError.value = t('recommendation.recoError')
     recommendation.value = null
+    packageSubtotalFromPreview.value = null
+    addonSubtotalFromPreview.value = null
+    amountTotalFromPreview.value = null
     return
   }
   // Spec 33 / core #143: checkout uses preview.ai.items only — never POST /recommendations cache.
   const pkg = aiPackageFromPreview(ai)
   recommendation.value = recommendationShell([pkg])
   selectedPackageCode.value = pkg.package_plan_code
+  const addons = parseCheckoutBottleAddons(ai.addons)
+  // Merge preview rows into eligible snapshots (keep unchecked rows visible for re-confirm).
+  if (addons.length > 0) {
+    const byCode = new Map(eligibleBottleAddonRows.value.map(row => [row.code, row]))
+    for (const row of addons) {
+      byCode.set(row.code, row)
+    }
+    const merged = [...byCode.values()].filter(row =>
+      eligibleBottleAddonCodes.value.length === 0
+      || eligibleBottleAddonCodes.value.includes(row.code)
+    )
+    eligibleBottleAddonRows.value = merged
+    if (eligibleBottleAddonCodes.value.length === 0) {
+      eligibleBottleAddonCodes.value = merged.map(row => row.code)
+    }
+  }
+  skipAddonSelectionWatch.value = true
+  selectedBottleAddonCodes.value = normalizeAddonCodes(selectedBottleAddonCodes.value)
+    .filter(code => eligibleBottleAddonCodes.value.includes(code))
+  journey.selectedBottleAddonCodes = [...selectedBottleAddonCodes.value]
+  void nextTick(() => {
+    skipAddonSelectionWatch.value = false
+  })
+  packageSubtotalFromPreview.value = typeof preview.package_subtotal === 'number'
+    ? preview.package_subtotal
+    : ai.price
+  addonSubtotalFromPreview.value = typeof preview.addon_subtotal === 'number'
+    ? preview.addon_subtotal
+    : 0
+  amountTotalFromPreview.value = typeof preview.amount_total === 'number'
+    ? preview.amount_total
+    : packageSubtotalFromPreview.value
 }
 
 function applyQuestionnaireIncompleteGate(err: CandorApiError) {
@@ -1147,6 +1296,19 @@ async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
   planSelectionLocked.value = false
   listError.value = ''
   packageError.value = ''
+  if (!options.skipPreselect && !isExpertPlan.value) {
+    syncEligibleAddonCodes(resolveAddonCodesFromRoute())
+  }
+  if (isExpertPlan.value) {
+    eligibleBottleAddonRows.value = []
+    packageSubtotalFromPreview.value = null
+    addonSubtotalFromPreview.value = null
+    amountTotalFromPreview.value = null
+    eligibleBottleAddonCodes.value = []
+    selectedBottleAddonCodes.value = []
+  } else if (!options.skipPreselect) {
+    eligibleBottleAddonRows.value = []
+  }
 
   const conversationId = journey.conversationId?.trim() ?? ''
   if (!conversationId) {
@@ -1182,10 +1344,16 @@ async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
       return
     }
 
+    const addonCodes = isExpertPlan.value
+      ? []
+      : normalizeAddonCodes(selectedBottleAddonCodes.value)
+          .filter(code => eligibleBottleAddonCodes.value.includes(code))
+
     const preview = await candor.getCheckoutPreview({
       conversationId,
       mode: isExpertPlan.value ? 'expert' : 'ai',
-      packagePlanCode: isExpertPlan.value ? undefined : packagePlanCode
+      packagePlanCode: isExpertPlan.value ? undefined : packagePlanCode,
+      ...(addonCodes.length > 0 ? { addonCodes } : {})
     })
 
     pageGate.value = resolvePageGate(preview)
@@ -1211,6 +1379,13 @@ async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
       if (pageGate.value === 'none' && plans.value.length === 0) {
         pageGate.value = 'empty_catalog'
       }
+      packageSubtotalFromPreview.value = typeof preview.package_subtotal === 'number'
+        ? preview.package_subtotal
+        : null
+      amountTotalFromPreview.value = typeof preview.amount_total === 'number'
+        ? preview.amount_total
+        : packageSubtotalFromPreview.value
+      addonSubtotalFromPreview.value = 0
     } else if (pageGate.value === 'none') {
       applyAiPreviewPackage(preview)
     }
@@ -1367,12 +1542,15 @@ async function onPay(event: Event) {
     }
 
     const pkg = selectedPackage.value
+    const bottleAddonCodes = normalizeAddonCodes(selectedBottleAddonCodes.value)
+      .filter(code => eligibleBottleAddonCodes.value.includes(code))
     const created = await api.createOrder({
       packagePlanCode: parsed.data.packagePlanCode,
       packageName: pkg.package_plan_name,
-      amount: pkg.price,
+      amount: checkoutTotal.value,
       productCodes: pkg.items.map(item => item.code || item.sellable_item_id),
       productNames: pkg.items.map(item => item.name ?? item.code),
+      bottleAddonCodes,
       paymentMethod: 'card',
       invoice: parsed.data.invoice,
       invoiceCarrier: parsed.data.invoiceCarrier,
@@ -1516,4 +1694,25 @@ watch(
     await loadCheckoutPreview()
   }
 )
+
+watch(selectedBottleAddonCodes, async (codes) => {
+  if (skipAddonSelectionWatch.value || isExpertPlan.value) {
+    return
+  }
+  // Checkout may only cancel (remove) addons, never introduce new codes.
+  const next = normalizeAddonCodes(codes)
+    .filter(code => eligibleBottleAddonCodes.value.includes(code))
+  if (next.length !== codes.length || next.some((code, i) => code !== codes[i])) {
+    skipAddonSelectionWatch.value = true
+    selectedBottleAddonCodes.value = next
+    void nextTick(() => {
+      skipAddonSelectionWatch.value = false
+    })
+  }
+  journey.selectedBottleAddonCodes = [...next]
+  if (pageGate.value !== 'none' || !auth.isMember) {
+    return
+  }
+  await loadCheckoutPreview({ skipPreselect: true })
+}, { deep: true })
 </script>

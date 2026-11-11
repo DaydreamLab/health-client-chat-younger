@@ -61,6 +61,7 @@
 ## 下單與付款
 
 - 建單帶建議回傳的 package 識別與 `composition_hash`（欄位以 OpenAPI 為準）。
+- **整瓶加購（bottle_addon）**：`POST /recommendations` 可回 `addons[]`（`sellable_item_id`／`code`／`name`／`bottle_price`／`qty`／`reason`）；方案頁勾選後，`GET /checkout/preview` 帶 `addon_codes`，金額用 preview 的 `package_subtotal`／`addon_subtotal`／`amount_total`（前端不自算）。建單 `lines` 含 `kind=package` ＋ `kind=bottle_addon`（`sellable_item_code`＋`qty`）。訂單詳情拆方案與加購；退款僅整筆。
 - Sandbox：跟隨 `payment.redirect_url` 整頁導轉；callback 只打 core。
 - **不得**實作或呼叫 `POST /payments/{provider}/callback`。
 
