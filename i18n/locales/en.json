@@ -672,7 +672,9 @@
     "perMonth": "{price} / mo",
     "itemCountHint": "{count} items",
     "close": "Close",
-    "disclaimer": "For health management reference only. Not a medical diagnosis or efficacy guarantee."
+    "disclaimer": "For health management reference only. Not a medical diagnosis or efficacy guarantee.",
+    "bottleAddonTitle": "Whole-bottle add-ons",
+    "bottleAddonHint": "Recommended with your plan. Add-on cost is outside the plan budget and is not auto-renewed."
   },
   "shop": {
     "title": "Recommended plan",
@@ -789,6 +791,11 @@
     "carrierPlaceholder_company": "12345678",
     "carrierPlaceholder_donate": "12345",
     "subtotal": "Plan",
+    "addonSubtotal": "Add-ons",
+    "bottleAddonSection": "Whole-bottle add-ons",
+    "bottleAddonConfirmHint": "You can remove selected add-ons here. To add more, go back to the plan page.",
+    "bottleAddonQty": "Qty {count}",
+    "refundWholeOrderNote": "Orders with add-ons can only be refunded in full — not add-ons or the plan alone.",
     "shippingFee": "Shipping",
     "shippingFree": "Free",
     "total": "Total",
@@ -838,6 +845,9 @@
     "amount": "Total",
     "detailTitle": "Order detail {number}",
     "sectionItems": "Items",
+    "sectionBottleAddons": "Whole-bottle add-ons",
+    "bottleAddonQty": "Qty {count}",
+    "refundWholeOrderNote": "Orders with add-ons can only be refunded in full — not add-ons or the plan alone.",
     "planLabelAi": "TODO: orders.planLabelAi",
     "planLabelExpert": "TODO: orders.planLabelExpert",
     "sectionPayment": "Payment",

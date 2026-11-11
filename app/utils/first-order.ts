@@ -5,6 +5,10 @@ import type {
   RefundBlockedReason,
   RefundRequestStatus
 } from './candor-api'
+import {
+  bottleAddonsFromOrderLines,
+  orderBottleAddonsFromSnapshots
+} from './bottle-addon'
 import type { ExpertBookingOnOrder } from './expert-booking'
 import {
   isExpertBookingOrder,
@@ -243,6 +247,14 @@ export interface OrderItemLine {
   imageUrl?: string | null
 }
 
+export interface OrderBottleAddonRecord {
+  code: string
+  name: string
+  qty: number
+  bottlePrice: number
+  lineTotal: number
+}
+
 export interface OrderRecord {
   id: string
   number: string
@@ -250,9 +262,14 @@ export interface OrderRecord {
   packagePlanCode: string
   packageName?: string
   amount: number
+  /** Package plan price only when core provides it (excludes bottle addons). */
+  packageAmount?: number | null
+  /** Backend addon subtotal when present. */
+  addonSubtotal?: number | null
   productCodes: string[]
   productNames?: string[]
   items: OrderItemLine[]
+  bottleAddons?: OrderBottleAddonRecord[]
   paymentMethod: PaymentMethod
   paymentStatus?: string
   orderStatus?: string
@@ -296,6 +313,8 @@ export interface CreateOrderInput {
   amount?: number
   productCodes?: string[]
   productNames?: string[]
+  /** Selected bottle_addon sellable codes (qty=1 each). */
+  bottleAddonCodes?: string[]
   paymentMethod: PaymentMethod
   invoice: InvoiceType
   invoiceCarrier: string
@@ -736,6 +755,15 @@ export function orderRecordFromCandorDetail(
   const displayItems = hasExpertPlan
     ? omitItemsMatchingPlanName(items, expertPlanName ?? packageName)
     : items
+  const bottleAddons = detail.bottle_addons != null
+    ? orderBottleAddonsFromSnapshots(detail.bottle_addons)
+    : bottleAddonsFromOrderLines(detail.lines)
+  const packageAmount = typeof detail.package_amount === 'number'
+    ? detail.package_amount
+    : (detail.package?.package_plan_price ?? null)
+  const addonSubtotal = typeof detail.addon_amount === 'number'
+    ? detail.addon_amount
+    : null
   return {
     id: detail.id,
     number: detail.order_no,
@@ -743,9 +771,12 @@ export function orderRecordFromCandorDetail(
     packagePlanCode: detail.package?.package_plan_code ?? fallback.packagePlanCode ?? '',
     packageName,
     amount: detail.amount_total,
+    packageAmount,
+    addonSubtotal,
     productCodes,
     productNames,
     items: displayItems,
+    bottleAddons,
     paymentMethod: fallback.paymentMethod ?? 'card',
     paymentStatus: detail.payment_status,
     orderStatus: detail.status,

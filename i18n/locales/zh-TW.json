@@ -672,7 +672,9 @@
     "perMonth": "{price}／月",
     "itemCountHint": "共 {count} 項",
     "close": "關閉",
-    "disclaimer": "本建議僅供健康管理參考，非醫療診斷或療效保證。"
+    "disclaimer": "本建議僅供健康管理參考，非醫療診斷或療效保證。",
+    "bottleAddonTitle": "整瓶加購推薦",
+    "bottleAddonHint": "根據您的方案額外推薦；加購金額另計、不佔方案預算，也不會自動續買。"
   },
   "shop": {
     "title": "推薦方案",
@@ -789,6 +791,11 @@
     "carrierPlaceholder_company": "12345678",
     "carrierPlaceholder_donate": "12345",
     "subtotal": "方案金額",
+    "addonSubtotal": "加購金額",
+    "bottleAddonSection": "整瓶加購",
+    "bottleAddonConfirmHint": "可取消已選加購；若要新增請回到方案頁重新勾選。",
+    "bottleAddonQty": "數量 {count}",
+    "refundWholeOrderNote": "含加購的訂單僅能整筆申請退款，無法只退加購或只退方案。",
     "shippingFee": "運費",
     "shippingFree": "免運",
     "total": "總金額",
@@ -838,6 +845,9 @@
     "amount": "訂購總額",
     "detailTitle": "訂單詳情 {number}",
     "sectionItems": "品項清單",
+    "sectionBottleAddons": "整瓶加購",
+    "bottleAddonQty": "數量 {count}",
+    "refundWholeOrderNote": "含加購的訂單僅能整筆申請退款，無法只退加購或只退方案。",
     "planLabelAi": "AI 建議方案",
     "planLabelExpert": "專家方案",
     "sectionPayment": "付款資訊",

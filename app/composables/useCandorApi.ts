@@ -643,6 +643,8 @@ export function useCandorApi() {
       conversationId: string
       mode: 'ai' | 'expert'
       packagePlanCode?: string
+      /** Selected bottle_addon codes (repeated query `addon_codes`). */
+      addonCodes?: string[]
     }) =>
       request<CheckoutPreview>('/checkout/preview', {
         method: 'GET',
@@ -651,6 +653,9 @@ export function useCandorApi() {
           mode: params.mode,
           ...(params.packagePlanCode
             ? { package_plan_code: params.packagePlanCode }
+            : {}),
+          ...(params.addonCodes && params.addonCodes.length > 0
+            ? { addon_codes: params.addonCodes.join(',') }
             : {})
         }
       }),

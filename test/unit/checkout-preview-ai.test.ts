@@ -73,6 +73,46 @@ describe('checkout preview ai.items (spec 33 / core #143)', () => {
     expect(aiPackageFromPreview(ai).items).toEqual([])
   })
 
+  it('carries package／addon totals on ai.* (not top-level)', () => {
+    const preview: CheckoutPreview = {
+      conversation_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      mode: 'ai',
+      block: null,
+      checkout_locked: false,
+      shipping: { fee: 0, free: true },
+      payment_methods: [],
+      expert_plans: [],
+      ai: {
+        package_plan_code: 'basic',
+        package_plan_name: '基礎保養',
+        name_zh: '基礎保養',
+        price: 1980,
+        period_days: 30,
+        item_count: 1,
+        composition_hash: 'sha256:basic',
+        items,
+        bottle_addons: [{
+          sellable_item_code: 'omega3',
+          sellable_item_name: 'Omega-3',
+          bottle_price: 890,
+          qty: 1,
+          amount: 890
+        }],
+        addon_subtotal: 890,
+        amount_total: 2870
+      }
+    }
+    expect(preview.ai?.price).toBe(1980)
+    expect(preview.ai?.addon_subtotal).toBe(890)
+    expect(preview.ai?.amount_total).toBe(2870)
+    expect(preview.ai?.bottle_addons?.[0]?.sellable_item_code).toBe('omega3')
+    expect(preview.ai?.bottle_addons?.[0]?.amount).toBe(890)
+    // Top-level amount fields must not exist on CheckoutPreview
+    expect('package_subtotal' in preview).toBe(false)
+    expect('addon_subtotal' in preview).toBe(false)
+    expect('amount_total' in preview).toBe(false)
+  })
+
   it('tolerates core #146 existing_order object or null on CheckoutPreview', () => {
     const withOrder: CheckoutPreview = {
       conversation_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',

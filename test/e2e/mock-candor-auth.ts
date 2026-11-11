@@ -415,6 +415,14 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     amount_total: number
     package_plan_name: string
     created_at: string
+    package_plan_price?: number
+    bottle_addons?: Array<{
+      sellable_item_code: string
+      sellable_item_name: string
+      qty: number
+      bottle_price: number
+      amount: number
+    }>
   } | null = options.withOrder
     ? {
         id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
@@ -423,7 +431,9 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         payment_status: 'paid',
         amount_total: 1280,
         package_plan_name: '基礎保養',
-        created_at: '2026-01-01T12:00:00Z'
+        package_plan_price: 1280,
+        created_at: '2026-01-01T12:00:00Z',
+        bottle_addons: []
       }
     : options.existingUnpaidOrder
       ? {
@@ -433,7 +443,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           payment_status: 'pending',
           amount_total: 6000,
           package_plan_name: '專家基本方案',
-          created_at: '2026-01-01T12:00:00Z'
+          created_at: '2026-01-01T12:00:00Z',
+          bottle_addons: []
         }
       : null
 
@@ -788,6 +799,16 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
               }
             }
           ],
+          addons: [
+            {
+              sellable_item_id: sellableOmega,
+              sellable_item_code: 'omega3',
+              sellable_item_name: 'Omega-3',
+              bottle_price: 890,
+              qty: 1,
+              reason: '與本方案目標相關，建議整瓶加購加強日常補充。'
+            }
+          ],
           excluded: []
         }
       })
@@ -1130,6 +1151,10 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     const packagePlanCode = url.searchParams.get('package_plan_code') || 'basic'
     const catalog = options.expertPlansCatalog ?? 'default'
     const expertPlans = mockExpertPlansCatalog(catalog)
+    const addonCodes = url.searchParams.getAll('addon_codes')
+      .flatMap(value => value.split(','))
+      .map(value => value.trim())
+      .filter(Boolean)
 
     const reviewMode = options.expertReview
     let block: { code: string } | null = null
@@ -1177,6 +1202,27 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       }
     ]
 
+    const bottleAddonCatalog: Record<string, {
+      sellable_item_code: string
+      sellable_item_name: string
+      qty: number
+      bottle_price: number
+      amount: number
+    }> = {
+      omega3: {
+        sellable_item_code: 'omega3',
+        sellable_item_name: 'Omega-3',
+        qty: 1,
+        bottle_price: 890,
+        amount: 890
+      }
+    }
+    const selectedAddons = [...new Set(addonCodes)]
+      .map(code => bottleAddonCatalog[code])
+      .filter((row): row is NonNullable<typeof row> => Boolean(row))
+    const packagePrice = packagePlanCode === 'advance' ? 2980 : 1980
+    const addonSubtotal = selectedAddons.reduce((sum, row) => sum + row.amount, 0)
+
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -1213,13 +1259,16 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                 package_plan_code: packagePlanCode,
                 package_plan_name: packagePlanCode === 'advance' ? '完整調理' : '基礎保養',
                 name_zh: packagePlanCode === 'advance' ? '完整調理' : '基礎保養',
-                price: packagePlanCode === 'advance' ? 2980 : 1980,
+                price: packagePrice,
                 period_days: 30,
                 item_count: aiItems.length,
                 used_amount: 800,
                 remaining: packagePlanCode === 'advance' ? 2180 : 1180,
                 composition_hash: `sha256:${packagePlanCode}`,
-                items: aiItems
+                items: aiItems,
+                bottle_addons: selectedAddons,
+                addon_subtotal: addonSubtotal,
+                amount_total: packagePrice + addonSubtotal
               }
             : null,
           completion_choice: null,
@@ -2867,14 +2916,38 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         })
         return
       }
+      const postBody = route.request().postDataJSON() as {
+        lines?: Array<Record<string, unknown>>
+      } | null
+      const lines = Array.isArray(postBody?.lines) ? postBody.lines : []
+      const isExpert = lines.some(line => line?.kind === 'expert_plan')
+      const bottleAddons = lines
+        .filter(line => line?.kind === 'bottle_addon')
+        .map((line) => {
+          const code = typeof line.sellable_item_code === 'string'
+            ? line.sellable_item_code
+            : 'omega3'
+          return {
+            sellable_item_code: code,
+            sellable_item_name: code === 'omega3' ? 'Omega-3' : code,
+            qty: typeof line.qty === 'number' ? line.qty : 1,
+            bottle_price: 890,
+            amount: 890
+          }
+        })
+      const packagePrice = isExpert ? 6000 : 1980
+      const addonTotal = bottleAddons.reduce((sum, row) => sum + row.amount, 0)
+      const amountTotal = packagePrice + addonTotal
       placedOrder = {
         id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
         order_no: 'ORD-260101-000001',
         status: 'created',
         payment_status: 'pending',
-        amount_total: 1280,
-        package_plan_name: '基礎保養',
-        created_at: '2026-01-01T12:00:00Z'
+        amount_total: amountTotal,
+        package_plan_name: isExpert ? '專家基本方案' : '基礎保養',
+        package_plan_price: packagePrice,
+        created_at: '2026-01-01T12:00:00Z',
+        bottle_addons: bottleAddons
       }
       await route.fulfill({
         status: 201,
@@ -2886,12 +2959,12 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
             order_no: placedOrder.order_no,
             status: 'created',
             payment_status: 'pending',
-            amount_total: 1280,
+            amount_total: amountTotal,
             payment: {
               id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
               method: 'card',
               status: 'pending',
-              amount: 1280,
+              amount: amountTotal,
               redirect_url: 'https://sandbox.example/pay/sbx_e2e'
             }
           }
@@ -2991,12 +3064,19 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           status: placedOrder.status,
           payment_status: placedOrder.payment_status,
           amount_total: placedOrder.amount_total,
+          package_amount: placedOrder.package_plan_price
+            ?? (placedOrder.package_plan_name?.includes('專家') ? 6000 : 1280),
+          addon_amount: (placedOrder.bottle_addons ?? [])
+            .reduce((sum, row) => sum + row.amount, 0),
           package_plan_name: placedOrder.package_plan_name,
           package: {
             id: 'pkg-1',
             package_plan_code: 'basic',
-            package_plan_name: '基礎保養',
-            package_plan_price: 1280,
+            package_plan_name: placedOrder.package_plan_name?.includes('專家')
+              ? '基礎保養'
+              : (placedOrder.package_plan_name || '基礎保養'),
+            package_plan_price: placedOrder.package_plan_price
+              ?? (placedOrder.package_plan_name?.includes('專家') ? 6000 : 1280),
             period_days: 30,
             composition_hash: 'sha256:basic',
             used_amount: 1280,
@@ -3007,9 +3087,20 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
               { id: 'c3', sellable_item_id: sellableVitC, sellable_item_code: 'vitamin_c', sellable_item_name: '維生素 C', unit_price: 16, daily_dose: 1, monthly_cost: 480, rank: 3, is_core: false }
             ]
           },
-          lines: placedOrder.package_plan_name?.includes('專家')
-            ? [{ kind: 'expert_plan', expert_plan_code: 'basic', expert_plan_name: placedOrder.package_plan_name }]
-            : [],
+          bottle_addons: placedOrder.bottle_addons ?? [],
+          lines: [
+            ...(placedOrder.package_plan_name?.includes('專家')
+              ? [{ kind: 'expert_plan', expert_plan_code: 'basic', expert_plan_name: placedOrder.package_plan_name }]
+              : [{ kind: 'package', package_plan_code: 'basic' }]),
+            ...(placedOrder.bottle_addons ?? []).map(row => ({
+              kind: 'bottle_addon',
+              sellable_item_code: row.sellable_item_code,
+              sellable_item_name: row.sellable_item_name,
+              qty: row.qty,
+              bottle_price: row.bottle_price,
+              amount: row.amount
+            }))
+          ],
           recipient: { name: '林晏婷', phone: '0912345678', address: '台北市大安區', email: 'guest@example.com' },
           invoice_type: 'member',
           created_at: placedOrder.created_at,

@@ -337,6 +337,60 @@
           </li>
         </ul>
       </section>
+
+      <section
+        v-if="pathChoice === 'ai' && selectedPackage && bottleAddons.length > 0"
+        class="overflow-hidden rounded-2xl border border-default bg-elevated"
+        data-testid="bottle-addon-section"
+      >
+        <div class="border-b border-default px-5 py-4">
+          <h2 class="font-semibold text-highlighted">
+            {{ $t('recommendation.bottleAddonTitle') }}
+          </h2>
+          <p class="mt-1 text-sm text-muted">
+            {{ $t('recommendation.bottleAddonHint') }}
+          </p>
+        </div>
+        <ul class="divide-y divide-default">
+          <li
+            v-for="addon in bottleAddons"
+            :key="addon.sellable_item_id"
+          >
+            <label
+              class="flex w-full cursor-pointer items-start gap-3 px-5 py-4 transition hover:bg-muted"
+              :data-testid="`bottle-addon-${addon.sellable_item_code}`"
+            >
+              <input
+                v-model="selectedBottleAddonCodes"
+                type="checkbox"
+                class="mt-1 accent-primary"
+                :value="addon.sellable_item_code"
+                :data-testid="`bottle-addon-check-${addon.sellable_item_code}`"
+              >
+              <span class="min-w-0 flex-1">
+                <span class="flex flex-wrap items-center justify-between gap-2">
+                  <span class="font-medium text-highlighted">
+                    {{ addon.sellable_item_name }}
+                  </span>
+                  <span
+                    class="shrink-0 text-sm font-semibold tabular-nums text-primary"
+                    data-testid="bottle-addon-price"
+                  >
+                    {{ formatTwd(addon.bottle_price) }}
+                  </span>
+                </span>
+                <span
+                  v-if="addon.reason"
+                  class="mt-1 block text-sm text-muted whitespace-pre-wrap"
+                  data-testid="bottle-addon-reason"
+                >
+                  {{ addon.reason }}
+                </span>
+              </span>
+            </label>
+          </li>
+        </ul>
+      </section>
     </div>
 
     <div
@@ -430,10 +484,16 @@
 <script setup lang="ts">
 import type {
   HealthReportResult,
+  RecommendationBottleAddon,
   RecommendationCopy,
   RecommendationPackageItem,
   RecommendationResponse
 } from '~/utils/candor-api'
+import {
+  intersectAddonCodes,
+  normalizeAddonCodes,
+  parseRecommendationAddons
+} from '~/utils/bottle-addon'
 import { formatTwd } from '~/utils/first-order'
 import { recommendationRequestFromJourney } from '~/utils/recommendation-request'
 
@@ -457,7 +517,7 @@ const recoPending = ref(false)
 const recoError = ref('')
 const recommendation = ref<RecommendationResponse | null>(null)
 const selectedPackageCode = ref('')
-const aiPackagesLoaded = ref(false)
+const selectedBottleAddonCodes = ref<string[]>([])
 
 const showAiCheckoutBar = computed(() =>
   pathChoice.value === 'ai'
@@ -473,6 +533,9 @@ const canGoPackageCheckout = computed(() =>
 const packages = computed(() => recommendation.value?.packages ?? [])
 const selectedPackage = computed(() =>
   packages.value.find(pkg => pkg.package_plan_code === selectedPackageCode.value) ?? null
+)
+const bottleAddons = computed<RecommendationBottleAddon[]>(() =>
+  parseRecommendationAddons(recommendation.value?.addons)
 )
 
 const selectedRationale = computed(() => selectedPackage.value?.rationale ?? null)
@@ -549,6 +612,10 @@ watch(selectedPackageCode, (code) => {
   }
 })
 
+watch(selectedBottleAddonCodes, (codes) => {
+  journey.selectedBottleAddonCodes = normalizeAddonCodes(codes)
+}, { deep: true })
+
 async function loadReport() {
   const reportId = journey.reportId
   if (!reportId) {
@@ -574,12 +641,16 @@ function applyPackages(result: RecommendationResponse) {
   if (selectedPackageCode.value) {
     journey.selectedPackageCode = selectedPackageCode.value
   }
+  const addons = parseRecommendationAddons(result.addons)
+  selectedBottleAddonCodes.value = intersectAddonCodes(
+    journey.selectedBottleAddonCodes,
+    addons
+  )
+  journey.selectedBottleAddonCodes = [...selectedBottleAddonCodes.value]
 }
 
+/** Always re-fetch recommendations when entering the AI path (no stale cache). */
 async function loadAiPackages() {
-  if (aiPackagesLoaded.value && packages.value.length > 0) {
-    return
-  }
   recoPending.value = true
   recoError.value = ''
   try {
@@ -590,10 +661,11 @@ async function loadAiPackages() {
       })
     )
     applyPackages(result)
-    aiPackagesLoaded.value = true
   } catch {
     recoError.value = t('recommendation.recoError')
     recommendation.value = null
+    selectedBottleAddonCodes.value = []
+    journey.selectedBottleAddonCodes = []
   } finally {
     recoPending.value = false
   }
@@ -604,18 +676,23 @@ async function goPackageCheckout() {
   if (!pkg?.composition_hash) {
     return
   }
+  const addonCodes = normalizeAddonCodes(selectedBottleAddonCodes.value)
+  journey.selectedBottleAddonCodes = addonCodes
   await navigateTo({
     path: localePath('/app/checkout'),
     query: {
       kind: 'package',
       package_plan_code: pkg.package_plan_code,
-      composition_hash: pkg.composition_hash
+      composition_hash: pkg.composition_hash,
+      ...(addonCodes.length > 0 ? { addon_codes: addonCodes.join(',') } : {})
     }
   })
 }
 
 watch(pathChoice, async (choice) => {
   if (choice === 'expert') {
+    journey.selectedBottleAddonCodes = []
+    selectedBottleAddonCodes.value = []
     await navigateTo({
       path: localePath('/app/checkout'),
       query: { kind: 'expert_plan' }
@@ -623,9 +700,7 @@ watch(pathChoice, async (choice) => {
     return
   }
   if (choice === 'ai') {
-    if (packages.value.length === 0) {
-      await loadAiPackages()
-    }
+    await loadAiPackages()
   }
 })
 

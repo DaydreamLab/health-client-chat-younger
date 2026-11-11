@@ -126,7 +126,7 @@
             class="shrink-0 text-base font-semibold tabular-nums text-primary"
             data-testid="order-plan-price"
           >
-            {{ formatTwd(order.amount) }}
+            {{ formatTwd(packageDisplayAmount) }}
           </p>
         </div>
       </div>
@@ -154,7 +154,7 @@
               v-else
               class="shrink-0 text-base font-semibold tabular-nums text-primary"
             >
-              {{ formatTwd(order.amount) }}
+              {{ formatTwd(packageDisplayAmount) }}
             </span>
           </template>
         </li>
@@ -167,9 +167,45 @@
           {{ orderProductSummary(order) || $t('orders.itemsEmpty') }}
         </span>
         <span class="shrink-0 text-base font-semibold tabular-nums text-primary">
-          {{ formatTwd(order.amount) }}
+          {{ formatTwd(packageDisplayAmount) }}
         </span>
       </div>
+    </section>
+
+    <section
+      v-if="bottleAddonRows.length > 0"
+      class="rounded-2xl border border-default bg-elevated p-5"
+      data-testid="order-bottle-addons"
+    >
+      <h2 class="text-sm font-semibold text-muted">
+        {{ $t('orders.sectionBottleAddons') }}
+      </h2>
+      <ul class="mt-3 space-y-3">
+        <li
+          v-for="addon in bottleAddonRows"
+          :key="addon.code"
+          class="flex items-start justify-between gap-3"
+          :data-testid="`order-bottle-addon-${addon.code}`"
+        >
+          <span class="min-w-0">
+            <span class="block font-medium text-highlighted">
+              {{ addon.name }}
+            </span>
+            <span class="mt-0.5 block text-xs text-muted">
+              {{ $t('orders.bottleAddonQty', { count: addon.qty }) }}
+            </span>
+          </span>
+          <span class="shrink-0 text-base font-semibold tabular-nums text-primary">
+            {{ formatTwd(addon.lineTotal) }}
+          </span>
+        </li>
+      </ul>
+      <p
+        class="mt-3 text-xs text-muted"
+        data-testid="order-refund-whole-order-note"
+      >
+        {{ $t('orders.refundWholeOrderNote') }}
+      </p>
     </section>
 
     <section
@@ -476,6 +512,19 @@ function syncGate() {
 const planDisplayName = computed(() =>
   normalizePlanDisplayName(order.value?.packageName) ?? ''
 )
+
+const bottleAddonRows = computed(() => order.value?.bottleAddons ?? [])
+
+/** Prefer OrderDetail.package_amount from core; never invent from amount_total − addons. */
+const packageDisplayAmount = computed(() => {
+  if (!order.value) {
+    return 0
+  }
+  if (order.value.packageAmount != null) {
+    return order.value.packageAmount
+  }
+  return order.value.amount
+})
 
 const orderItems = computed<OrderItemLine[]>(() => {
   if (!order.value) {
