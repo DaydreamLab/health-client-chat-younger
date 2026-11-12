@@ -36,13 +36,16 @@
             class="app-path-card"
             :class="{ 'app-path-card-selected': pathChoice === 'expert' }"
             data-testid="recommendation-path-expert"
+            @click.prevent="onExpertPathClick"
           >
             <input
-              v-model="pathChoice"
               type="radio"
               class="sr-only"
               name="recommendation-path"
               value="expert"
+              :checked="pathChoice === 'expert'"
+              tabindex="-1"
+              @click.prevent
             >
             <p class="font-medium text-highlighted">
               {{ $t('recommendation.pathExpertTitle') }}
@@ -338,6 +341,14 @@
         </ul>
       </section>
 
+      <p
+        v-if="pathChoice === 'ai' && addonsDroppedHint"
+        class="rounded-2xl border border-default bg-elevated p-5 text-sm text-muted"
+        data-testid="recommendation-addons-dropped-hint"
+      >
+        {{ addonsDroppedHint }}
+      </p>
+
       <section
         v-if="pathChoice === 'ai' && selectedPackage && bottleAddons.length > 0"
         class="overflow-hidden rounded-2xl border border-default bg-elevated"
@@ -490,6 +501,7 @@ import type {
   RecommendationResponse
 } from '~/utils/candor-api'
 import {
+  droppedAddonCodes,
   intersectAddonCodes,
   normalizeAddonCodes,
   parseRecommendationAddons
@@ -518,6 +530,9 @@ const recoError = ref('')
 const recommendation = ref<RecommendationResponse | null>(null)
 const selectedPackageCode = ref('')
 const selectedBottleAddonCodes = ref<string[]>([])
+const addonsDroppedHint = ref('')
+/** Remember addon display names across re-fetches for drop hints. */
+const addonNameByCode = ref(new Map<string, string>())
 
 const showAiCheckoutBar = computed(() =>
   pathChoice.value === 'ai'
@@ -633,7 +648,17 @@ async function loadReport() {
   }
 }
 
+function rememberAddonNames(addons: RecommendationBottleAddon[]) {
+  const next = new Map(addonNameByCode.value)
+  for (const addon of addons) {
+    next.set(addon.sellable_item_code, addon.sellable_item_name)
+  }
+  addonNameByCode.value = next
+}
+
 function applyPackages(result: RecommendationResponse) {
+  const previousCodes = normalizeAddonCodes(journey.selectedBottleAddonCodes)
+  rememberAddonNames(parseRecommendationAddons(recommendation.value?.addons))
   recommendation.value = result
   const preferred = journey.selectedPackageCode
   const match = result.packages.find(pkg => pkg.package_plan_code === preferred)
@@ -642,17 +667,26 @@ function applyPackages(result: RecommendationResponse) {
     journey.selectedPackageCode = selectedPackageCode.value
   }
   const addons = parseRecommendationAddons(result.addons)
-  selectedBottleAddonCodes.value = intersectAddonCodes(
-    journey.selectedBottleAddonCodes,
-    addons
-  )
-  journey.selectedBottleAddonCodes = [...selectedBottleAddonCodes.value]
+  rememberAddonNames(addons)
+  const nextCodes = intersectAddonCodes(previousCodes, addons)
+  const dropped = droppedAddonCodes(previousCodes, nextCodes)
+  selectedBottleAddonCodes.value = nextCodes
+  journey.selectedBottleAddonCodes = [...nextCodes]
+  if (dropped.length > 0) {
+    const names = dropped
+      .map(code => addonNameByCode.value.get(code) || code)
+      .join('、')
+    addonsDroppedHint.value = t('recommendation.addonsDroppedHint', { names })
+  } else {
+    addonsDroppedHint.value = ''
+  }
 }
 
 /** Always re-fetch recommendations when entering the AI path (no stale cache). */
 async function loadAiPackages() {
   recoPending.value = true
   recoError.value = ''
+  addonsDroppedHint.value = ''
   try {
     const result = await candor.createRecommendation(
       recommendationRequestFromJourney({
@@ -666,6 +700,7 @@ async function loadAiPackages() {
     recommendation.value = null
     selectedBottleAddonCodes.value = []
     journey.selectedBottleAddonCodes = []
+    addonsDroppedHint.value = ''
   } finally {
     recoPending.value = false
   }
@@ -689,16 +724,23 @@ async function goPackageCheckout() {
   })
 }
 
-watch(pathChoice, async (choice) => {
-  if (choice === 'expert') {
-    journey.selectedBottleAddonCodes = []
-    selectedBottleAddonCodes.value = []
-    await navigateTo({
-      path: localePath('/app/checkout'),
-      query: { kind: 'expert_plan' }
-    })
-    return
+async function onExpertPathClick() {
+  // AI 方案已顯示時先確認；取消則留在 AI，不導向專家結帳。
+  if (pathChoice.value === 'ai' && selectedPackage.value) {
+    const confirmed = window.confirm(t('recommendation.switchToExpertConfirm'))
+    if (!confirmed) {
+      return
+    }
   }
+  // Keep selectedBottleAddonCodes so returning to AI can restore them.
+  pathChoice.value = 'expert'
+  await navigateTo({
+    path: localePath('/app/checkout'),
+    query: { kind: 'expert_plan' }
+  })
+}
+
+watch(pathChoice, async (choice) => {
   if (choice === 'ai') {
     await loadAiPackages()
   }

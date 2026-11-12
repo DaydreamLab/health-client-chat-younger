@@ -176,3 +176,57 @@ export function intersectAddonCodes(
   )
   return normalizeAddonCodes(selected).filter(code => allowed.has(code))
 }
+
+/** Codes present in `previous` but missing from `next` (after intersect／re-recommend). */
+export function droppedAddonCodes(
+  previous: string[] | null | undefined,
+  next: string[] | null | undefined
+): string[] {
+  const nextSet = new Set(normalizeAddonCodes(next))
+  return normalizeAddonCodes(previous).filter(code => !nextSet.has(code))
+}
+
+export type CheckoutKind = 'expert_plan' | 'package'
+
+/**
+ * Resolve checkout mode from URL.
+ * Missing `kind` + present `package_plan_code` → AI package (not expert_plan).
+ */
+export function resolveCheckoutKind(query: {
+  kind?: unknown
+  package_plan_code?: unknown
+}): CheckoutKind {
+  const rawKind = query.kind
+  const kind = Array.isArray(rawKind) ? rawKind[0] : rawKind
+  if (kind === 'package') {
+    return 'package'
+  }
+  if (kind === 'expert_plan') {
+    return 'expert_plan'
+  }
+  const rawPlan = query.package_plan_code
+  const plan = Array.isArray(rawPlan) ? rawPlan[0] : rawPlan
+  if (typeof plan === 'string' && plan.trim()) {
+    return 'package'
+  }
+  return 'expert_plan'
+}
+
+/**
+ * Selected rows use preview `amount`; cancelled rows use recommendation／list
+ * `bottle_price` (do not keep the first preview amount after uncheck).
+ */
+export function addonRowDisplayAmount(
+  addon: Pick<BottleAddonSnapshot, 'amount' | 'bottle_price'>,
+  selected: boolean
+): number {
+  return selected ? addon.amount : addon.bottle_price
+}
+
+/** `addon_codes` query value, or undefined when empty (omit from URL). */
+export function addonCodesQueryValue(
+  codes: string[] | null | undefined
+): string | undefined {
+  const normalized = normalizeAddonCodes(codes)
+  return normalized.length > 0 ? normalized.join(',') : undefined
+}

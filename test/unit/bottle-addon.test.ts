@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
+  addonCodesQueryValue,
+  addonRowDisplayAmount,
   bottleAddonsFromOrderLines,
+  droppedAddonCodes,
   intersectAddonCodes,
   normalizeAddonCodes,
   orderBottleAddonsFromSnapshots,
   parseBottleAddonSnapshots,
-  parseRecommendationAddons
+  parseRecommendationAddons,
+  resolveCheckoutKind
 } from '../../app/utils/bottle-addon'
 
 describe('parseRecommendationAddons', () => {
@@ -124,5 +128,34 @@ describe('addon code helpers', () => {
       ['omega3', 'gone'],
       [{ sellable_item_code: 'omega3' }]
     )).toEqual(['omega3'])
+  })
+
+  it('lists codes dropped after intersect／re-recommend', () => {
+    expect(droppedAddonCodes(['omega3', 'iron'], ['omega3'])).toEqual(['iron'])
+    expect(droppedAddonCodes(['omega3'], ['omega3', 'iron'])).toEqual([])
+  })
+
+  it('builds addon_codes query value or omits when empty', () => {
+    expect(addonCodesQueryValue(['omega3', ' iron '])).toBe('omega3,iron')
+    expect(addonCodesQueryValue([])).toBeUndefined()
+  })
+})
+
+describe('resolveCheckoutKind', () => {
+  it('treats missing kind + package_plan_code as AI package', () => {
+    expect(resolveCheckoutKind({ package_plan_code: 'basic' })).toBe('package')
+    expect(resolveCheckoutKind({ kind: 'package', package_plan_code: 'basic' })).toBe('package')
+    expect(resolveCheckoutKind({ kind: 'expert_plan' })).toBe('expert_plan')
+    expect(resolveCheckoutKind({})).toBe('expert_plan')
+    // bare `code` alone must not force package (expert uses code=)
+    expect(resolveCheckoutKind({ kind: undefined })).toBe('expert_plan')
+  })
+})
+
+describe('addonRowDisplayAmount', () => {
+  it('uses preview amount when selected, bottle_price when cancelled', () => {
+    const row = { amount: 999, bottle_price: 890 }
+    expect(addonRowDisplayAmount(row, true)).toBe(999)
+    expect(addonRowDisplayAmount(row, false)).toBe(890)
   })
 })
