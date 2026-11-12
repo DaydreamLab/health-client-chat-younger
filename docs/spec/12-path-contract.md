@@ -24,6 +24,12 @@
 
 Path B／C 出題只信後端 `reply_actions`／`flow_prompt`／`POST /profile/answers` 的 `next_question`。**不再**主動 `GET …/questions/next`（依賴 core #139）。
 
+### Decision-driven intake ask（ADR 0037 R8）
+
+- 有 `gap_code`＋作答方式時：以代號與作答方式決定 UI／宿主氣泡，**不**比對題幹文字；氣泡只顯示模型寫的問句，**不**再拼接題庫 `prompt`。
+- 作答方式暫讀暫定欄位 `answer_ui`（`app/utils/intake-ask-adapter.ts`；core 定案後只改該處）；缺欄時可由既有 `answer_type`／`ask_vitals` 推導。
+- 缺 `gap_code` 或無任何作答方式 → 退回舊的題幹文字 peel／includes 行為（相容舊訊息）。
+
 ## 完成 CTA
 
 - 只信 usable `reply_actions.offer_recommend`（core 在 A 已 strip）。

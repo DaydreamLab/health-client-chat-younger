@@ -402,9 +402,10 @@ import {
   stripFinishedQuizGuide
 } from '~/utils/first-order'
 import {
-  basicQuestionFollowsUserTurn,
-  peelAppendedPrompt
+  decideBasicQuestionHost,
+  shouldWriteBankPromptToHost
 } from '~/utils/basic-question-host'
+import { isDecisionDrivenIntakeAsk } from '~/utils/intake-ask-adapter'
 import { findIntakeAssistantMessage } from '~/utils/chat-intake'
 import {
   buildTurnActionsVisibility,
@@ -421,6 +422,7 @@ import {
   type ConversationPath
 } from '~/utils/path-contract'
 import {
+  askVitalsPayload,
   chooseOptionPayload,
   detectPathRuleCopyKind,
   hasAskReportAction,
@@ -1240,47 +1242,109 @@ function messageHasRequiredBasicAsk(message: ChatMessage | undefined): boolean {
   })
 }
 
+function messageRequiredBasicGapCode(message: ChatMessage | undefined): string | null {
+  if (!message) {
+    return null
+  }
+  if (message.profileQuestion && isRequiredBasicGapCode(message.profileQuestion.gap_code)) {
+    return message.profileQuestion.gap_code
+  }
+  const actions = message.replyActions
+  if (!actions || !isUsableReplyActions(actions)) {
+    return null
+  }
+  for (const action of actions.actions) {
+    if (action.type === 'ask_vitals') {
+      const vitals = askVitalsPayload(action)
+      if (vitals.gap_code && isRequiredBasicGapCode(vitals.gap_code)) {
+        return vitals.gap_code
+      }
+      const field = vitals.fields?.[0] ?? null
+      if (field && isRequiredBasicGapCode(field)) {
+        return field
+      }
+    }
+    if (action.type === 'choose_option') {
+      const gap = chooseOptionPayload(action).gap_code
+      if (isRequiredBasicGapCode(gap)) {
+        return gap ?? null
+      }
+    }
+  }
+  return null
+}
+
 /**
  * Host for the next basic question.
- * After a direct upload the latest turn is the user file bubble; appending
- * the prompt onto the previous assistant message cuts the question off.
+ * Decision-driven (gap_code + answer UI): host by code, never splice bank stems.
+ * Legacy: prompt-text peel／includes (old messages without gap／answer method).
  */
-function placeBasicQuestionBubble(prompt: string): ChatMessage | null {
+function placeBasicQuestionBubble(input: {
+  prompt: string
+  gapCode: string | null | undefined
+  decisionDriven: boolean
+}): ChatMessage | null {
   const lastAssistant = [...journey.messages].reverse().find(m => m.role === 'assistant')
   if (!lastAssistant) {
     return null
   }
   const last = journey.messages[journey.messages.length - 1]
-  if (!basicQuestionFollowsUserTurn(last?.role)) {
+  const action = decideBasicQuestionHost({
+    lastMessageRole: last?.role,
+    lastAssistantText: messageText(lastAssistant),
+    lastAssistantGapCode: messageRequiredBasicGapCode(lastAssistant),
+    lastAssistantHasRequiredBasicAsk: messageHasRequiredBasicAsk(lastAssistant),
+    nextGapCode: input.gapCode,
+    nextPrompt: input.prompt,
+    decisionDriven: input.decisionDriven
+  })
+
+  if (action.kind === 'reuse') {
     return lastAssistant
   }
-  const existing = messageText(lastAssistant)
-  const peeled = peelAppendedPrompt(existing, prompt)
-  if (peeled) {
-    setMessageText(lastAssistant.id, peeled)
+
+  if (action.kind === 'peel_then_append') {
+    setMessageText(lastAssistant.id, action.peeledText)
     if (lastAssistant.profileQuestion && isRequiredBasicGapCode(lastAssistant.profileQuestion.gap_code)) {
       lastAssistant.profileQuestion = null
       lastAssistant.turnType = 'message'
       lastAssistant.options = []
     }
-    return appendMessage('assistant', prompt)
+    return appendMessage('assistant', action.appendText)
   }
-  if (prompt && existing.trim() === prompt.trim()) {
-    return lastAssistant
+
+  // append — after user turn on decision-driven path, drop stale required-ask meta
+  // that was wrongly left on the pre-upload assistant bubble.
+  if (
+    input.decisionDriven
+    && lastAssistant.profileQuestion
+    && isRequiredBasicGapCode(lastAssistant.profileQuestion.gap_code)
+  ) {
+    lastAssistant.profileQuestion = null
+    lastAssistant.turnType = 'message'
+    lastAssistant.options = []
   }
-  if (prompt && existing.includes(prompt) && messageHasRequiredBasicAsk(lastAssistant)) {
-    return lastAssistant
-  }
-  return appendMessage('assistant', prompt)
+  return appendMessage('assistant', action.text)
 }
 
 function paintLocalProfileQuestion(next: Extract<ProfileNext, { done: false }>) {
-  const host = placeBasicQuestionBubble(next.prompt || '')
+  const vitalField = vitalGapField(next.gap_code)
+  const answerType = next.answer_type
+  const decisionDriven = isDecisionDrivenIntakeAsk({
+    gapCode: next.gap_code,
+    answerType,
+    hasAskVitals: Boolean(vitalField),
+    vitalsField: vitalField,
+    source: next as unknown as Record<string, unknown>
+  })
+  const host = placeBasicQuestionBubble({
+    prompt: next.prompt || '',
+    gapCode: next.gap_code,
+    decisionDriven
+  })
   if (!host) {
     return
   }
-  const answerType = next.answer_type
-  const vitalField = vitalGapField(next.gap_code)
   // Int vitals keep ask_vitals. Clearing reply_actions here dropped the height card
   // after a direct upload (question text spliced onto the upload invite, no input).
   if (!next.options?.length && vitalField) {
@@ -1337,11 +1401,15 @@ function paintLocalProfileQuestion(next: Extract<ProfileNext, { done: false }>) 
   if (next.gap_code && !profileGaps.value.includes(next.gap_code)) {
     profileGaps.value = [...profileGaps.value, next.gap_code]
   }
-  if (next.prompt) {
+  // Decision-driven: show model-written ask only — never splice bank stem.
+  // Legacy: append bank prompt when missing from the host bubble.
+  if (shouldWriteBankPromptToHost({
+    decisionDriven,
+    existingText: messageText(host),
+    prompt: next.prompt || ''
+  })) {
     const existing = messageText(host)
-    if (!existing.includes(next.prompt)) {
-      setMessageText(host.id, existing ? `${existing}\n\n${next.prompt}` : next.prompt)
-    }
+    setMessageText(host.id, existing ? `${existing}\n\n${next.prompt}` : next.prompt)
   }
 }
 
