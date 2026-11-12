@@ -381,8 +381,11 @@
                       </span>
                     </span>
                   </label>
-                  <span class="shrink-0 text-sm font-semibold tabular-nums text-primary">
-                    {{ formatTwd(addon.amount) }}
+                  <span
+                    class="shrink-0 text-sm font-semibold tabular-nums text-primary"
+                    :data-testid="`checkout-bottle-addon-price-${addon.sellable_item_code}`"
+                  >
+                    {{ formatTwd(addonRowPrice(addon)) }}
                   </span>
                 </li>
               </ul>
@@ -754,8 +757,12 @@ import {
   districtsForCity
 } from '~/utils/taiwan-regions'
 import {
+  addonCodesQueryValue,
+  addonRowDisplayAmount,
   normalizeAddonCodes,
-  parseBottleAddonSnapshots
+  parseBottleAddonSnapshots,
+  resolveCheckoutKind,
+  type CheckoutKind
 } from '~/utils/bottle-addon'
 import {
   resolveExpertPlanTitle,
@@ -772,12 +779,12 @@ const PAY_HOLD_MS = 3000
 const { t, locale } = useI18n()
 const localePath = useLocalePath()
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 const journey = useJourneyStore()
 const api = useFirstOrderApi()
 const candor = useCandorApi()
 
-type CheckoutKind = 'expert_plan' | 'package'
 type PageGate
   = 'none'
     | 'case_exists'
@@ -789,11 +796,10 @@ type PageGate
     | 'existing_order_repay'
     | 'conversation_order_closed'
 
-const checkoutKind = computed<CheckoutKind>(() => {
-  const raw = route.query.kind
-  const value = Array.isArray(raw) ? raw[0] : raw
-  return value === 'package' ? 'package' : 'expert_plan'
-})
+const checkoutKind = computed<CheckoutKind>(() => resolveCheckoutKind({
+  kind: route.query.kind,
+  package_plan_code: route.query.package_plan_code
+}))
 const isExpertPlan = computed(() => checkoutKind.value === 'expert_plan')
 
 const pageGate = ref<PageGate>('none')
@@ -1018,6 +1024,38 @@ function syncEligibleAddonCodes(codes: string[]) {
   void nextTick(() => {
     skipAddonSelectionWatch.value = false
   })
+}
+
+function addonRowPrice(addon: BottleAddonSnapshot): number {
+  return addonRowDisplayAmount(
+    addon,
+    selectedBottleAddonCodes.value.includes(addon.sellable_item_code)
+  )
+}
+
+/** Keep URL `addon_codes` in sync so refresh does not restore cancelled addons. */
+async function syncAddonCodesRoute(codes: string[]) {
+  if (isExpertPlan.value) {
+    return
+  }
+  const nextValue = addonCodesQueryValue(codes)
+  const raw = route.query.addon_codes
+  const current = Array.isArray(raw)
+    ? normalizeAddonCodes(raw.flatMap(value => String(value).split(','))).join(',')
+    : typeof raw === 'string'
+      ? normalizeAddonCodes(raw.split(',')).join(',')
+      : ''
+  const next = nextValue ?? ''
+  if (current === next) {
+    return
+  }
+  const query = { ...route.query }
+  if (nextValue) {
+    query.addon_codes = nextValue
+  } else {
+    delete query.addon_codes
+  }
+  await router.replace({ path: route.path, query })
 }
 
 function aiPackageFromPreview(ai: CheckoutPreviewAiPackage): RecommendationPackage {
@@ -1710,6 +1748,7 @@ watch(selectedBottleAddonCodes, async (codes) => {
     })
   }
   journey.selectedBottleAddonCodes = [...next]
+  await syncAddonCodesRoute(next)
   if (pageGate.value !== 'none' || !auth.isMember) {
     return
   }

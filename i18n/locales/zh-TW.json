@@ -674,7 +674,9 @@
     "close": "關閉",
     "disclaimer": "本建議僅供健康管理參考，非醫療診斷或療效保證。",
     "bottleAddonTitle": "整瓶加購推薦",
-    "bottleAddonHint": "根據您的方案額外推薦；加購金額另計、不佔方案預算，也不會自動續買。"
+    "bottleAddonHint": "根據您的方案額外推薦；加購金額另計、不佔方案預算，也不會自動續買。",
+    "switchToExpertConfirm": "您目前正在查看 AI 方案。確定改走專家預約嗎？已選的加購會保留，返回 AI 方案時可繼續使用。",
+    "addonsDroppedHint": "重新推薦後，以下加購已不在建議中，已取消勾選：{names}"
   },
   "shop": {
     "title": "推薦方案",

@@ -674,7 +674,9 @@
     "close": "Close",
     "disclaimer": "For health management reference only. Not a medical diagnosis or efficacy guarantee.",
     "bottleAddonTitle": "Whole-bottle add-ons",
-    "bottleAddonHint": "Recommended with your plan. Add-on cost is outside the plan budget and is not auto-renewed."
+    "bottleAddonHint": "Recommended with your plan. Add-on cost is outside the plan budget and is not auto-renewed.",
+    "switchToExpertConfirm": "You are viewing an AI plan. Switch to expert booking? Selected add-ons will be kept for when you return to the AI plan.",
+    "addonsDroppedHint": "After refreshing recommendations, these add-ons are no longer suggested and were unchecked: {names}"
   },
   "shop": {
     "title": "Recommended plan",
