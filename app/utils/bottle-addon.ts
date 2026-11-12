@@ -230,3 +230,108 @@ export function addonCodesQueryValue(
   const normalized = normalizeAddonCodes(codes)
   return normalized.length > 0 ? normalized.join(',') : undefined
 }
+
+/** Persisted checkout／journey catalog row (display fields; not selection state). */
+export interface BottleAddonCatalogItem {
+  sellable_item_code: string
+  sellable_item_name: string
+  bottle_price: number
+  qty: number
+}
+
+export function parseBottleAddonCatalog(raw: unknown): BottleAddonCatalogItem[] {
+  if (!Array.isArray(raw)) {
+    return []
+  }
+  const rows: BottleAddonCatalogItem[] = []
+  const seen = new Set<string>()
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') {
+      continue
+    }
+    const row = entry as Record<string, unknown>
+    const sellable_item_code = asNonEmptyString(row.sellable_item_code)
+    const sellable_item_name = asNonEmptyString(row.sellable_item_name)
+    const bottle_price = asNonNegativeInt(row.bottle_price)
+    if (!sellable_item_code || !sellable_item_name || bottle_price == null || seen.has(sellable_item_code)) {
+      continue
+    }
+    seen.add(sellable_item_code)
+    const qty = asNonNegativeInt(row.qty) ?? 1
+    rows.push({
+      sellable_item_code,
+      sellable_item_name,
+      bottle_price,
+      qty: qty > 0 ? qty : 1
+    })
+  }
+  return rows
+}
+
+/** Catalog rows for the codes selected when leaving recommendations → checkout. */
+export function catalogFromRecommendationAddons(
+  addons: RecommendationBottleAddon[] | null | undefined,
+  selectedCodes: string[] | null | undefined
+): BottleAddonCatalogItem[] {
+  const wanted = new Set(normalizeAddonCodes(selectedCodes))
+  if (wanted.size === 0 || !Array.isArray(addons)) {
+    return []
+  }
+  return parseBottleAddonCatalog(
+    addons
+      .filter(addon => wanted.has(addon.sellable_item_code))
+      .map(addon => ({
+        sellable_item_code: addon.sellable_item_code,
+        sellable_item_name: addon.sellable_item_name,
+        bottle_price: addon.bottle_price,
+        qty: addon.qty
+      }))
+  )
+}
+
+export function catalogToSnapshots(
+  catalog: BottleAddonCatalogItem[] | null | undefined
+): BottleAddonSnapshot[] {
+  return parseBottleAddonCatalog(catalog).map(row => ({
+    sellable_item_code: row.sellable_item_code,
+    sellable_item_name: row.sellable_item_name,
+    qty: row.qty,
+    bottle_price: row.bottle_price,
+    // Unselected display uses bottle_price; selected amount comes from preview merge.
+    amount: row.bottle_price
+  }))
+}
+
+/**
+ * Re-recommend selection: keep prior checks when the addon is still recommended;
+ * drop (+ caller shows hint) only when missing from the new addons list.
+ */
+export function retainAddonSelection(
+  previousSelected: string[] | null | undefined,
+  available: Array<{ sellable_item_code: string }>
+): { selected: string[], dropped: string[] } {
+  const selected = intersectAddonCodes(previousSelected, available)
+  return {
+    selected,
+    dropped: droppedAddonCodes(previousSelected, selected)
+  }
+}
+
+/**
+ * Checkout: catalog = eligible rows; URL／journey selected ⊆ eligible.
+ * `routeCodes` null means the URL omitted `addon_codes` → fall back to journey selected.
+ */
+export function resolveCheckoutAddonState(input: {
+  catalog: BottleAddonCatalogItem[] | null | undefined
+  routeCodes: string[] | null
+  journeySelected: string[] | null | undefined
+}): { eligibleCodes: string[], selectedCodes: string[], rows: BottleAddonSnapshot[] } {
+  const rows = catalogToSnapshots(input.catalog)
+  const eligibleCodes = rows.map(row => row.sellable_item_code)
+  const eligibleSet = new Set(eligibleCodes)
+  const rawSelected = input.routeCodes == null
+    ? normalizeAddonCodes(input.journeySelected)
+    : normalizeAddonCodes(input.routeCodes)
+  const selectedCodes = rawSelected.filter(code => eligibleSet.has(code))
+  return { eligibleCodes, selectedCodes, rows }
+}
