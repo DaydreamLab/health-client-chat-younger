@@ -41,6 +41,7 @@ git push origin beta
 | [docs/figjam-mvp-flow.md](docs/figjam-mvp-flow.md) | FigJam 產品流快照 |
 | [docs/color-inventory.md](docs/color-inventory.md) | 品牌色 |
 | [AGENTS.md](AGENTS.md) | AI／貢獻者硬規則 |
+| [.cursor/rules/ui-principles.mdc](.cursor/rules/ui-principles.mdc) | UI 原則：少標籤、靠排版 |
 
 Core 側：串接進度 [04](https://github.com/DaydreamLab/candor-core/blob/main/docs/04-integration-progress.md)、架構 [05](https://github.com/DaydreamLab/candor-core/blob/main/docs/05-integration-architecture.md)、契約 [spec 31](https://github.com/DaydreamLab/candor-core/blob/main/docs/spec/31-client-integration.md)。
 

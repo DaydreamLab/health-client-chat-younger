@@ -43,9 +43,13 @@ health-client-chat-younger/
 │   └── utils/            # candor-api 型別、checkout-schema 等
 ├── test/                 # unit（Vitest）、e2e（Playwright）
 ├── i18n/locales/
-├── .cursor/rules/        # CI lint、FigJam 產品流
+├── .cursor/rules/        # CI lint、FigJam 產品流、UI 原則
 └── nuxt.config.ts
 ```
+
+## UI 原則
+
+避免不必要的次級標籤與描述，用排版本身說明介面。細節與例子見 [.cursor/rules/ui-principles.mdc](.cursor/rules/ui-principles.mdc)（套用 `app/**`、`i18n/**` 等前端相關檔）。
 
 ## 命名與金額
 
