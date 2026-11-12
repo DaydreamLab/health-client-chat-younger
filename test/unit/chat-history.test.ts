@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
   historyMessageToChatMessage,
+  mergeServerHistoryWithLocalUserMessages,
   normalizeStoredChatMessage,
   normalizeStoredChatMessages,
   parseConversationMessagesResult,
   parseHistoryMessage
 } from '../../app/utils/chat-history'
+import type { ChatMessage } from '../../app/utils/first-order'
 import {
   buildTurnActionsVisibility,
   type ChatTurnUiContext
@@ -185,5 +187,87 @@ describe('normalizeStoredChatMessages', () => {
       { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'x' }] },
       { role: 'assistant' }
     ]).map(m => m.id)).toEqual(['u1'])
+  })
+})
+
+function textMsg(
+  id: string,
+  role: 'user' | 'assistant',
+  text: string
+): ChatMessage {
+  return { id, role, parts: [{ type: 'text', text }] }
+}
+
+describe('mergeServerHistoryWithLocalUserMessages', () => {
+  it('keeps path-C local-only user turns in order when server omits them', () => {
+    const local = [
+      textMsg('greet', 'assistant', '您好'),
+      textMsg('local-path-c', 'user', '幫我看報告'),
+      textMsg('local-upload', 'user', '已上傳 report.pdf'),
+      textMsg('local-goals-asst', 'assistant', '本機舊 goals')
+    ]
+    const server = [
+      textMsg('greet', 'assistant', '您好'),
+      textMsg('srv-goals', 'assistant', '先選您想改善的健康方向。')
+    ]
+    const merged = mergeServerHistoryWithLocalUserMessages(local, server)
+    expect(merged.map(m => m.id)).toEqual([
+      'greet',
+      'local-path-c',
+      'local-upload',
+      'srv-goals'
+    ])
+    expect(merged.map(m => m.parts[0]?.text)).toEqual([
+      '您好',
+      '幫我看報告',
+      '已上傳 report.pdf',
+      '先選您想改善的健康方向。'
+    ])
+  })
+
+  it('dedupes by trimmed text when core later persists the same user turns', () => {
+    const local = [
+      textMsg('greet', 'assistant', '您好'),
+      textMsg('local-path-c', 'user', '幫我看報告'),
+      textMsg('local-upload', 'user', '已上傳 report.pdf'),
+      textMsg('local-extra', 'user', '還想問睡眠')
+    ]
+    const server = [
+      textMsg('greet', 'assistant', '您好'),
+      textMsg('srv-path-c', 'user', '幫我看報告'),
+      textMsg('srv-upload', 'user', '已上傳 report.pdf'),
+      textMsg('srv-goals', 'assistant', '先選方向')
+    ]
+    const merged = mergeServerHistoryWithLocalUserMessages(local, server)
+    expect(merged.map(m => m.id)).toEqual([
+      'greet',
+      'srv-path-c',
+      'srv-upload',
+      'local-extra',
+      'srv-goals'
+    ])
+    const pathCCount = merged.filter(
+      m => m.role === 'user' && m.parts[0]?.text === '幫我看報告'
+    ).length
+    const uploadCount = merged.filter(
+      m => m.role === 'user' && m.parts[0]?.text === '已上傳 report.pdf'
+    ).length
+    expect(pathCCount).toBe(1)
+    expect(uploadCount).toBe(1)
+  })
+
+  it('dedupes by id when local and server share the same user id', () => {
+    const local = [
+      textMsg('greet', 'assistant', '您好'),
+      textMsg('u-shared', 'user', '幫我看報告'),
+      textMsg('u-only', 'user', '已上傳 a.pdf')
+    ]
+    const server = [
+      textMsg('greet', 'assistant', '您好'),
+      textMsg('u-shared', 'user', '幫我看報告'),
+      textMsg('a1', 'assistant', '收到')
+    ]
+    const merged = mergeServerHistoryWithLocalUserMessages(local, server)
+    expect(merged.map(m => m.id)).toEqual(['greet', 'u-shared', 'u-only', 'a1'])
   })
 })

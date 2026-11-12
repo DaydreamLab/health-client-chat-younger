@@ -4,6 +4,7 @@
  */
 
 import type { ChatMessage, ChatMessageOption } from './first-order'
+import { chatMessageText } from './first-order'
 import { parseReplyActions } from './reply-actions'
 
 export interface ConversationHistoryMessage {
@@ -240,4 +241,112 @@ export function normalizeStoredChatMessages(raw: unknown): ChatMessage[] {
   return raw
     .map(normalizeStoredChatMessage)
     .filter((m): m is ChatMessage => m !== null)
+}
+
+/**
+ * Merge GET …/messages history with the in-memory transcript.
+ *
+ * Server rows win for shared turns. Local-only **user** bubbles (e.g. path-C
+ * 「幫我看報告」、已上傳 PDF) that core has not persisted yet are kept.
+ *
+ * Dedup (so FE＋core both persisting the same turn still show once):
+ * 1. Same `id` as a server message → drop local copy (server version kept).
+ * 2. Same trimmed plain text as a still-unmatched server **user** message →
+ *    treat as already on server (covers core assigning a new id later).
+ * 3. Otherwise keep the local user message, inserted after the nearest prior
+ *    local message that survives in the result (or at the start if none).
+ *
+ * Assistant-only local rows are not preserved — hydrate prefers server CTAs.
+ */
+export function mergeServerHistoryWithLocalUserMessages(
+  local: ChatMessage[],
+  server: ChatMessage[]
+): ChatMessage[] {
+  if (server.length === 0) {
+    return local.slice()
+  }
+  if (local.length === 0) {
+    return server.slice()
+  }
+
+  const serverIds = new Set(server.map(message => message.id))
+  const serverUsersByText = new Map<string, string[]>()
+  for (const message of server) {
+    if (message.role !== 'user') {
+      continue
+    }
+    const text = chatMessageText(message).trim()
+    if (!text) {
+      continue
+    }
+    const ids = serverUsersByText.get(text)
+    if (ids) {
+      ids.push(message.id)
+    } else {
+      serverUsersByText.set(text, [message.id])
+    }
+  }
+
+  /** Local user id → matched server user id (content dedupe). */
+  const localMatchedServerId = new Map<string, string>()
+  const localOnlyIds = new Set<string>()
+  const localOnly: Array<{ message: ChatMessage, afterId: string | null }> = []
+  const consumedUserText = new Map<string, number>()
+
+  for (let i = 0; i < local.length; i++) {
+    const message = local[i]!
+    if (message.role !== 'user') {
+      continue
+    }
+    if (serverIds.has(message.id)) {
+      localMatchedServerId.set(message.id, message.id)
+      continue
+    }
+    const text = chatMessageText(message).trim()
+    if (!text) {
+      continue
+    }
+    const consumed = consumedUserText.get(text) ?? 0
+    const serverIdsForText = serverUsersByText.get(text) ?? []
+    if (consumed < serverIdsForText.length) {
+      localMatchedServerId.set(message.id, serverIdsForText[consumed]!)
+      consumedUserText.set(text, consumed + 1)
+      continue
+    }
+
+    let afterId: string | null = null
+    for (let j = i - 1; j >= 0; j--) {
+      const prev = local[j]!
+      if (serverIds.has(prev.id)) {
+        afterId = prev.id
+        break
+      }
+      const matched = localMatchedServerId.get(prev.id)
+      if (matched) {
+        afterId = matched
+        break
+      }
+      if (localOnlyIds.has(prev.id)) {
+        afterId = prev.id
+        break
+      }
+    }
+    localOnlyIds.add(message.id)
+    localOnly.push({ message, afterId })
+  }
+
+  const result = server.slice()
+  for (const { message, afterId } of localOnly) {
+    if (afterId == null) {
+      result.unshift(message)
+      continue
+    }
+    const idx = result.findIndex(row => row.id === afterId)
+    if (idx === -1) {
+      result.push(message)
+    } else {
+      result.splice(idx + 1, 0, message)
+    }
+  }
+  return result
 }

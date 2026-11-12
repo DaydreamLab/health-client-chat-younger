@@ -442,6 +442,7 @@ import {
 import { vitalsGapCodeForField } from '~/utils/vitals-input'
 import {
   historyMessageToChatMessage,
+  mergeServerHistoryWithLocalUserMessages,
   parseConversationMessagesResult
 } from '~/utils/chat-history'
 import {
@@ -1697,13 +1698,16 @@ async function hydrateConversationHistory(conversationId: string) {
       return
     }
     const mapped = parsed.messages.map(historyMessageToChatMessage)
-    journey.messages.splice(0, journey.messages.length, ...mapped)
-    for (const message of mapped) {
+    // Keep local-only user turns (path-C entry／upload) until core persists them;
+    // dedupe by id or trimmed text so dual-write never doubles bubbles.
+    const merged = mergeServerHistoryWithLocalUserMessages(journey.messages, mapped)
+    journey.messages.splice(0, journey.messages.length, ...merged)
+    for (const message of merged) {
       applyPathRuleCopy(message)
     }
 
     // Latest assistant owns visible CTAs (no lift from older bank gaps).
-    const lastAssistant = [...mapped].reverse().find(m => m.role === 'assistant')
+    const lastAssistant = [...merged].reverse().find(m => m.role === 'assistant')
     if (lastAssistant?.replyActions && isUsableReplyActions(lastAssistant.replyActions)) {
       applyReplyActionsInteraction(lastAssistant, lastAssistant.replyActions)
       const override = turnActionsFor(lastAssistant).checkupUrlOverride
@@ -3039,54 +3043,8 @@ async function onSubmit() {
     return
   }
 
-  if (goalSelectActive.value) {
-    input.value = ''
-    focusChatInput()
-    appendMessage('user', content)
-    pending.value = true
-    focusChatInput()
-    try {
-      const conversationId = await ensureConversation()
-      const result = await candor.setConversationGoals(conversationId, { raw_text: content })
-      if (result.saved) {
-        selectedCodes.value = []
-        // Mark goals answered so A→B guide_switch does not reopen the menu.
-        if (journey.clarifyingGoals.length === 0) {
-          journey.clarifyingGoals = [content]
-        }
-        // Clear after pending is already true so recommend CTA does not flash.
-        goalSelectActive.value = false
-        const nextAfterGoals = result.next_question
-        const gapsAfterGoals = nextAfterGoals && !nextAfterGoals.done && nextAfterGoals.gap_code
-          ? [nextAfterGoals.gap_code]
-          : []
-        await continueAfterSavedAnswer({
-          profileGaps: gapsAfterGoals,
-          nextQuestion: nextAfterGoals ?? { done: true },
-          pendingContent: content
-        })
-        return
-      }
-      appendMessage('assistant', result.prompt || t('chat.streamError'))
-      if (result.options) {
-        goalOptions.value = result.options
-      }
-      if (result.options_kind === 'consultation_goals' || result.options?.length) {
-        goalSelectActive.value = true
-      }
-      const last = [...journey.messages].reverse().find(message => message.role === 'assistant')
-      if (last) {
-        applyCheckupOffer(last, result)
-      }
-    } catch {
-      appendMessage('assistant', t('chat.streamError'))
-    } finally {
-      pending.value = false
-      focusChatInput()
-    }
-    return
-  }
-
+  // Irice 2026-11-13：goals 按鈕掛著時，使用者自行打字一律走 messages/stream，
+  // 由後端判斷是否為 goals；不再 POST …/goals raw_text。按鈕作答（confirmMultiSelection）不變。
   // pathEntryPending 時由 sendText 隱式選 A 再送出；真的要送才清輸入框。
   input.value = ''
   focusChatInput()
