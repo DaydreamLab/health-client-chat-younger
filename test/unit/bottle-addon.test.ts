@@ -3,13 +3,18 @@ import {
   addonCodesQueryValue,
   addonRowDisplayAmount,
   bottleAddonsFromOrderLines,
+  catalogFromRecommendationAddons,
+  catalogToSnapshots,
   droppedAddonCodes,
   intersectAddonCodes,
   normalizeAddonCodes,
   orderBottleAddonsFromSnapshots,
+  parseBottleAddonCatalog,
   parseBottleAddonSnapshots,
   parseRecommendationAddons,
-  resolveCheckoutKind
+  resolveCheckoutAddonState,
+  resolveCheckoutKind,
+  retainAddonSelection
 } from '../../app/utils/bottle-addon'
 
 describe('parseRecommendationAddons', () => {
@@ -157,5 +162,83 @@ describe('addonRowDisplayAmount', () => {
     const row = { amount: 999, bottle_price: 890 }
     expect(addonRowDisplayAmount(row, true)).toBe(999)
     expect(addonRowDisplayAmount(row, false)).toBe(890)
+  })
+})
+
+describe('bottle addon catalog', () => {
+  const recoAddons = [{
+    sellable_item_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    sellable_item_code: 'omega3',
+    sellable_item_name: 'Omega-3',
+    bottle_price: 890,
+    qty: 1,
+    reason: '相關'
+  }, {
+    sellable_item_id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+    sellable_item_code: 'd3k',
+    sellable_item_name: 'D3+K',
+    bottle_price: 650,
+    qty: 1,
+    reason: '相關'
+  }]
+
+  it('builds catalog from first-selected recommendation addons', () => {
+    expect(catalogFromRecommendationAddons(recoAddons, ['d3k'])).toEqual([{
+      sellable_item_code: 'd3k',
+      sellable_item_name: 'D3+K',
+      bottle_price: 650,
+      qty: 1
+    }])
+    expect(parseBottleAddonCatalog([{ sellable_item_code: 'x' }])).toEqual([])
+  })
+
+  it('maps catalog to snapshots for cancelled-row display', () => {
+    expect(catalogToSnapshots([{
+      sellable_item_code: 'omega3',
+      sellable_item_name: 'Omega-3',
+      bottle_price: 890,
+      qty: 1
+    }])).toEqual([{
+      sellable_item_code: 'omega3',
+      sellable_item_name: 'Omega-3',
+      qty: 1,
+      bottle_price: 890,
+      amount: 890
+    }])
+  })
+
+  it('checkout state keeps catalog eligible when URL has no addon_codes', () => {
+    const catalog = catalogFromRecommendationAddons(recoAddons, ['omega3', 'd3k'])
+    expect(resolveCheckoutAddonState({
+      catalog,
+      routeCodes: [],
+      journeySelected: []
+    })).toEqual({
+      eligibleCodes: ['omega3', 'd3k'],
+      selectedCodes: [],
+      rows: catalogToSnapshots(catalog)
+    })
+    expect(resolveCheckoutAddonState({
+      catalog,
+      routeCodes: null,
+      journeySelected: ['omega3']
+    }).selectedCodes).toEqual(['omega3'])
+  })
+})
+
+describe('retainAddonSelection', () => {
+  it('keeps checks when addon still recommended; drops only when gone', () => {
+    expect(retainAddonSelection(
+      ['omega3', 'd3k'],
+      [{ sellable_item_code: 'omega3' }, { sellable_item_code: 'd3k' }]
+    )).toEqual({ selected: ['omega3', 'd3k'], dropped: [] })
+    expect(retainAddonSelection(
+      ['omega3', 'd3k'],
+      [{ sellable_item_code: 'omega3' }]
+    )).toEqual({ selected: ['omega3'], dropped: ['d3k'] })
+    expect(retainAddonSelection(
+      [],
+      [{ sellable_item_code: 'omega3' }]
+    )).toEqual({ selected: [], dropped: [] })
   })
 })

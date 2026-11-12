@@ -501,10 +501,10 @@ import type {
   RecommendationResponse
 } from '~/utils/candor-api'
 import {
-  droppedAddonCodes,
-  intersectAddonCodes,
+  catalogFromRecommendationAddons,
   normalizeAddonCodes,
-  parseRecommendationAddons
+  parseRecommendationAddons,
+  retainAddonSelection
 } from '~/utils/bottle-addon'
 import { formatTwd } from '~/utils/first-order'
 import { recommendationRequestFromJourney } from '~/utils/recommendation-request'
@@ -529,7 +529,10 @@ const recoPending = ref(false)
 const recoError = ref('')
 const recommendation = ref<RecommendationResponse | null>(null)
 const selectedPackageCode = ref('')
-const selectedBottleAddonCodes = ref<string[]>([])
+/** Restore prior checks from journey so re-recommend／remount keep selection. */
+const selectedBottleAddonCodes = ref<string[]>(
+  normalizeAddonCodes(journey.selectedBottleAddonCodes)
+)
 const addonsDroppedHint = ref('')
 /** Remember addon display names across re-fetches for drop hints. */
 const addonNameByCode = ref(new Map<string, string>())
@@ -657,7 +660,12 @@ function rememberAddonNames(addons: RecommendationBottleAddon[]) {
 }
 
 function applyPackages(result: RecommendationResponse) {
-  const previousCodes = normalizeAddonCodes(journey.selectedBottleAddonCodes)
+  // Prefer in-page selection; fall back to journey (fresh mount before local sync).
+  const previousCodes = normalizeAddonCodes(
+    selectedBottleAddonCodes.value.length > 0
+      ? selectedBottleAddonCodes.value
+      : journey.selectedBottleAddonCodes
+  )
   rememberAddonNames(parseRecommendationAddons(recommendation.value?.addons))
   recommendation.value = result
   const preferred = journey.selectedPackageCode
@@ -668,8 +676,8 @@ function applyPackages(result: RecommendationResponse) {
   }
   const addons = parseRecommendationAddons(result.addons)
   rememberAddonNames(addons)
-  const nextCodes = intersectAddonCodes(previousCodes, addons)
-  const dropped = droppedAddonCodes(previousCodes, nextCodes)
+  // Keep checks when the same addon is still recommended; only drop＋hint when gone.
+  const { selected: nextCodes, dropped } = retainAddonSelection(previousCodes, addons)
   selectedBottleAddonCodes.value = nextCodes
   journey.selectedBottleAddonCodes = [...nextCodes]
   if (dropped.length > 0) {
@@ -700,6 +708,7 @@ async function loadAiPackages() {
     recommendation.value = null
     selectedBottleAddonCodes.value = []
     journey.selectedBottleAddonCodes = []
+    journey.bottleAddonCatalog = []
     addonsDroppedHint.value = ''
   } finally {
     recoPending.value = false
@@ -713,6 +722,8 @@ async function goPackageCheckout() {
   }
   const addonCodes = normalizeAddonCodes(selectedBottleAddonCodes.value)
   journey.selectedBottleAddonCodes = addonCodes
+  // Lock eligible checkout rows to the first-selected catalog (survives uncheck＋reload).
+  journey.bottleAddonCatalog = catalogFromRecommendationAddons(bottleAddons.value, addonCodes)
   await navigateTo({
     path: localePath('/app/checkout'),
     query: {

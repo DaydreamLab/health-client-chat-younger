@@ -4,6 +4,10 @@ import { normalizeStoredChatMessages } from '~/utils/chat-history'
 import type { ConversationPackage, GreetingOption, ProfileNextQuestion } from '~/utils/candor-api'
 import type { ExpertReviewUiStatus } from '~/utils/chat-turn-actions'
 import {
+  parseBottleAddonCatalog,
+  type BottleAddonCatalogItem
+} from '~/utils/bottle-addon'
+import {
   normalizeConversationPath,
   type ConversationPath
 } from '~/utils/path-contract'
@@ -14,8 +18,13 @@ interface JourneySnapshot {
   messages: ChatMessage[]
   hasAnalysis: boolean
   selectedPackageCode: string | null
-  /** Selected whole-bottle addon sellable codes (recommendations → checkout). */
+  /** Currently checked whole-bottle addon codes (URL `addon_codes` mirror). */
   selectedBottleAddonCodes: string[]
+  /**
+   * Full addon list from first checkout selection (name／price／qty).
+   * Survives uncheck + reload so cancelled rows can be restored.
+   */
+  bottleAddonCatalog: BottleAddonCatalogItem[]
   conversationId: string | null
   reportId: string | null
   reportDockOpen: boolean
@@ -47,6 +56,7 @@ const emptySnapshot = (): JourneySnapshot => ({
   hasAnalysis: false,
   selectedPackageCode: null,
   selectedBottleAddonCodes: [],
+  bottleAddonCatalog: [],
   conversationId: null,
   reportId: null,
   reportDockOpen: false,
@@ -99,6 +109,7 @@ function readStored(): JourneySnapshot {
         ? parsed.selectedBottleAddonCodes.filter((code): code is string =>
             typeof code === 'string' && code.trim() !== '')
         : [],
+      bottleAddonCatalog: parseBottleAddonCatalog(parsed.bottleAddonCatalog),
       goalOptions: Array.isArray(parsed.goalOptions) ? parsed.goalOptions : [],
       profileGaps: Array.isArray(parsed.profileGaps) ? parsed.profileGaps : [],
       clarifyingGoals: Array.isArray(parsed.clarifyingGoals) ? parsed.clarifyingGoals : [],
@@ -129,6 +140,9 @@ export const useJourneyStore = defineStore('journey', () => {
   const hasAnalysis = ref(initial.hasAnalysis)
   const selectedPackageCode = ref<string | null>(initial.selectedPackageCode ?? null)
   const selectedBottleAddonCodes = ref<string[]>([...initial.selectedBottleAddonCodes])
+  const bottleAddonCatalog = ref<BottleAddonCatalogItem[]>(
+    parseBottleAddonCatalog(initial.bottleAddonCatalog)
+  )
   const conversationId = ref<string | null>(initial.conversationId)
   const reportId = ref<string | null>(initial.reportId)
   const reportDockOpen = ref(initial.reportDockOpen)
@@ -162,6 +176,7 @@ export const useJourneyStore = defineStore('journey', () => {
       hasAnalysis: hasAnalysis.value,
       selectedPackageCode: selectedPackageCode.value,
       selectedBottleAddonCodes: [...selectedBottleAddonCodes.value],
+      bottleAddonCatalog: parseBottleAddonCatalog(bottleAddonCatalog.value),
       conversationId: conversationId.value,
       reportId: reportId.value,
       reportDockOpen: reportDockOpen.value,
@@ -195,6 +210,7 @@ export const useJourneyStore = defineStore('journey', () => {
     hasAnalysis.value = false
     selectedPackageCode.value = null
     selectedBottleAddonCodes.value = []
+    bottleAddonCatalog.value = []
     conversationId.value = null
     reportId.value = null
     reportDockOpen.value = false
@@ -227,6 +243,7 @@ export const useJourneyStore = defineStore('journey', () => {
     hasAnalysis.value = stored.hasAnalysis
     selectedPackageCode.value = stored.selectedPackageCode ?? null
     selectedBottleAddonCodes.value = [...stored.selectedBottleAddonCodes]
+    bottleAddonCatalog.value = parseBottleAddonCatalog(stored.bottleAddonCatalog)
     conversationId.value = stored.conversationId
     reportId.value = stored.reportId
     reportDockOpen.value = stored.reportDockOpen
@@ -289,6 +306,7 @@ export const useJourneyStore = defineStore('journey', () => {
     goalOptions.value = []
     selectedCodes.value = []
     selectedBottleAddonCodes.value = []
+    bottleAddonCatalog.value = []
 
     persist()
   }
@@ -300,6 +318,7 @@ export const useJourneyStore = defineStore('journey', () => {
         hasAnalysis,
         selectedPackageCode,
         selectedBottleAddonCodes,
+        bottleAddonCatalog,
         conversationId,
         reportId,
         reportDockOpen,
@@ -331,6 +350,7 @@ export const useJourneyStore = defineStore('journey', () => {
     hasAnalysis,
     selectedPackageCode,
     selectedBottleAddonCodes,
+    bottleAddonCatalog,
     conversationId,
     reportId,
     reportDockOpen,

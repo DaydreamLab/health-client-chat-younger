@@ -759,8 +759,11 @@ import {
 import {
   addonCodesQueryValue,
   addonRowDisplayAmount,
+  catalogToSnapshots,
   normalizeAddonCodes,
+  parseBottleAddonCatalog,
   parseBottleAddonSnapshots,
+  resolveCheckoutAddonState,
   resolveCheckoutKind,
   type CheckoutKind
 } from '~/utils/bottle-addon'
@@ -1004,23 +1007,48 @@ function resolvePackagePlanCode(): string {
   return journey.selectedPackageCode?.trim() ?? ''
 }
 
-function resolveAddonCodesFromRoute(): string[] {
+/** null = URL omitted `addon_codes` (use journey selected); else explicit list (may be empty). */
+function resolveRouteAddonCodes(): string[] | null {
+  if (!('addon_codes' in route.query)) {
+    return null
+  }
   const raw = route.query.addon_codes
   if (Array.isArray(raw)) {
     return normalizeAddonCodes(raw.flatMap(value => String(value).split(',')))
   }
-  if (typeof raw === 'string' && raw.trim()) {
+  if (typeof raw === 'string') {
     return normalizeAddonCodes(raw.split(','))
   }
-  return normalizeAddonCodes(journey.selectedBottleAddonCodes)
+  return []
 }
 
-function syncEligibleAddonCodes(codes: string[]) {
-  const normalized = normalizeAddonCodes(codes)
-  eligibleBottleAddonCodes.value = normalized
+/** Eligible rows come from journey catalog; URL only drives current checks. */
+function syncAddonSelectionFromCatalogAndRoute() {
+  const catalog = parseBottleAddonCatalog(journey.bottleAddonCatalog)
+  const state = resolveCheckoutAddonState({
+    catalog,
+    routeCodes: resolveRouteAddonCodes(),
+    journeySelected: journey.selectedBottleAddonCodes
+  })
+  // Legacy: no catalog yet — fall back to route／journey codes as eligible until preview fills rows.
+  if (state.eligibleCodes.length === 0) {
+    const fallback = resolveRouteAddonCodes()
+      ?? normalizeAddonCodes(journey.selectedBottleAddonCodes)
+    eligibleBottleAddonCodes.value = fallback
+    eligibleBottleAddonRows.value = []
+    skipAddonSelectionWatch.value = true
+    selectedBottleAddonCodes.value = [...fallback]
+    journey.selectedBottleAddonCodes = [...fallback]
+    void nextTick(() => {
+      skipAddonSelectionWatch.value = false
+    })
+    return
+  }
+  eligibleBottleAddonCodes.value = state.eligibleCodes
+  eligibleBottleAddonRows.value = state.rows
   skipAddonSelectionWatch.value = true
-  selectedBottleAddonCodes.value = [...normalized]
-  journey.selectedBottleAddonCodes = [...normalized]
+  selectedBottleAddonCodes.value = [...state.selectedCodes]
+  journey.selectedBottleAddonCodes = [...state.selectedCodes]
   void nextTick(() => {
     skipAddonSelectionWatch.value = false
   })
@@ -1188,24 +1216,32 @@ function applyAiPreviewPackage(preview: CheckoutPreview) {
   const pkg = aiPackageFromPreview(ai)
   recommendation.value = recommendationShell([pkg])
   selectedPackageCode.value = pkg.package_plan_code
-  const addons = parseBottleAddonSnapshots(ai.bottle_addons)
-  // Merge preview rows into eligible snapshots (keep unchecked rows visible for re-confirm).
-  if (addons.length > 0) {
-    const byCode = new Map(
-      eligibleBottleAddonRows.value.map(row => [row.sellable_item_code, row])
-    )
-    for (const row of addons) {
+  const previewAddons = parseBottleAddonSnapshots(ai.bottle_addons)
+  const catalogRows = catalogToSnapshots(journey.bottleAddonCatalog)
+  // Catalog rows always stay visible (cancelled can be restored); preview updates selected amounts.
+  const byCode = new Map<string, BottleAddonSnapshot>()
+  for (const row of catalogRows) {
+    byCode.set(row.sellable_item_code, row)
+  }
+  // Keep any in-memory eligible rows (legacy path without catalog).
+  for (const row of eligibleBottleAddonRows.value) {
+    if (!byCode.has(row.sellable_item_code)) {
       byCode.set(row.sellable_item_code, row)
     }
-    const merged = [...byCode.values()].filter(row =>
-      eligibleBottleAddonCodes.value.length === 0
-      || eligibleBottleAddonCodes.value.includes(row.sellable_item_code)
-    )
-    eligibleBottleAddonRows.value = merged
-    if (eligibleBottleAddonCodes.value.length === 0) {
-      eligibleBottleAddonCodes.value = merged.map(row => row.sellable_item_code)
-    }
   }
+  for (const row of previewAddons) {
+    byCode.set(row.sellable_item_code, row)
+  }
+  if (eligibleBottleAddonCodes.value.length === 0 && byCode.size > 0) {
+    eligibleBottleAddonCodes.value = [...byCode.keys()]
+  }
+  const eligibleSet = new Set(eligibleBottleAddonCodes.value)
+  const merged = eligibleSet.size > 0
+    ? eligibleBottleAddonCodes.value
+        .map(code => byCode.get(code))
+        .filter((row): row is BottleAddonSnapshot => Boolean(row))
+    : [...byCode.values()]
+  eligibleBottleAddonRows.value = merged
   skipAddonSelectionWatch.value = true
   selectedBottleAddonCodes.value = normalizeAddonCodes(selectedBottleAddonCodes.value)
     .filter(code => eligibleBottleAddonCodes.value.includes(code))
@@ -1336,7 +1372,7 @@ async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
   listError.value = ''
   packageError.value = ''
   if (!options.skipPreselect && !isExpertPlan.value) {
-    syncEligibleAddonCodes(resolveAddonCodesFromRoute())
+    syncAddonSelectionFromCatalogAndRoute()
   }
   if (isExpertPlan.value) {
     eligibleBottleAddonRows.value = []
@@ -1345,9 +1381,9 @@ async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
     amountTotalFromPreview.value = null
     eligibleBottleAddonCodes.value = []
     selectedBottleAddonCodes.value = []
-  } else if (!options.skipPreselect) {
-    eligibleBottleAddonRows.value = []
   }
+  // AI path: do not clear eligibleBottleAddonRows here — catalog／route sync already seeded
+  // cancelled rows so reload can restore checks.
 
   const conversationId = journey.conversationId?.trim() ?? ''
   if (!conversationId) {
@@ -1737,7 +1773,7 @@ watch(selectedBottleAddonCodes, async (codes) => {
   if (skipAddonSelectionWatch.value || isExpertPlan.value) {
     return
   }
-  // Checkout may only cancel (remove) addons, never introduce new codes.
+  // May cancel or restore codes from the first-selected catalog — not add outside it.
   const next = normalizeAddonCodes(codes)
     .filter(code => eligibleBottleAddonCodes.value.includes(code))
   if (next.length !== codes.length || next.some((code, i) => code !== codes[i])) {

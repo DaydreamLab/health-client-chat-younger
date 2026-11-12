@@ -795,7 +795,7 @@
     "subtotal": "Plan",
     "addonSubtotal": "Add-ons",
     "bottleAddonSection": "Whole-bottle add-ons",
-    "bottleAddonConfirmHint": "You can remove selected add-ons here. To add more, go back to the plan page.",
+    "bottleAddonConfirmHint": "You can remove or restore add-ons from this checkout. To add others, go back to the plan page.",
     "bottleAddonQty": "Qty {count}",
     "refundWholeOrderNote": "Orders with add-ons can only be refunded in full — not add-ons or the plan alone.",
     "shippingFee": "Shipping",

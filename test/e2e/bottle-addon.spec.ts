@@ -344,16 +344,89 @@ test.describe('bottle addon (整瓶加購)', () => {
 
     await page.addInitScript(() => {
       localStorage.setItem('candor.guest.token', 'e2e-member-token')
+      // Do not clobber journey on reload — cancel state must survive.
+      if (!localStorage.getItem('candor.unpaid.journey')) {
+        localStorage.setItem('candor.unpaid.journey', JSON.stringify({
+          messages: [],
+          hasAnalysis: true,
+          selectedPackageCode: 'basic',
+          selectedBottleAddonCodes: ['omega3'],
+          bottleAddonCatalog: [{
+            sellable_item_code: 'omega3',
+            sellable_item_name: 'Omega-3',
+            bottle_price: 890,
+            qty: 1
+          }],
+          conversationId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+          reportId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+          reportDockOpen: false,
+          reportDockCollapsed: true,
+          reportInterpretSent: true,
+          selectedPackage: null,
+          packageConfirmed: false,
+          goalSelectActive: false,
+          reportAskActive: false,
+          goalOptions: [],
+          selectedCodes: [],
+          quizActive: false,
+          activeQuestion: null,
+          postQuizGuided: false,
+          profileGaps: [],
+          clarifyingGoals: [],
+          expertReviewStatus: 'none',
+          conversationPath: 'b'
+        }))
+      }
+    })
+
+    await goto(
+      '/app/checkout?kind=package&package_plan_code=basic&composition_hash=sha256:basic&addon_codes=omega3',
+      { waitUntil: 'hydration' }
+    )
+    await expect(page.getByTestId('checkout-bottle-addons')).toBeVisible({ timeout: 25000 })
+    await expect(page.getByTestId('checkout-bottle-addon-price-omega3')).toContainText('999')
+
+    await page.getByTestId('checkout-bottle-addon-check-omega3').uncheck()
+    await expect(page).not.toHaveURL(/addon_codes=/)
+    await expect(page.getByTestId('checkout-bottle-addon-price-omega3')).toContainText('890')
+    await expect(page.getByTestId('checkout-addon-subtotal')).toHaveCount(0)
+
+    const journeyRaw = await page.evaluate(() => localStorage.getItem('candor.unpaid.journey'))
+    const journey = JSON.parse(journeyRaw!) as {
+      selectedBottleAddonCodes: string[]
+      bottleAddonCatalog: Array<{ sellable_item_code: string }>
+    }
+    expect(journey.selectedBottleAddonCodes).not.toContain('omega3')
+    expect(journey.bottleAddonCatalog.map(row => row.sellable_item_code)).toContain('omega3')
+
+    // Reload without addon_codes — cancelled row must remain and be restorable.
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await expect(page.getByTestId('checkout-bottle-addon-omega3')).toBeVisible({ timeout: 25000 })
+    await expect(page.getByTestId('checkout-bottle-addon-check-omega3')).not.toBeChecked()
+    await expect(page.getByTestId('checkout-bottle-addon-price-omega3')).toContainText('890')
+
+    await page.getByTestId('checkout-bottle-addon-check-omega3').check()
+    await expect(page).toHaveURL(/addon_codes=omega3/)
+    await expect(page.getByTestId('checkout-addon-subtotal')).toBeVisible({ timeout: 25000 })
+  })
+
+  test('re-recommend keeps checkbox when same addon is still recommended', async ({
+    page,
+    goto
+  }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('candor.guest.token', 'e2e-member-token')
       localStorage.setItem('candor.unpaid.journey', JSON.stringify({
         messages: [],
-        hasAnalysis: true,
+        hasAnalysis: false,
         selectedPackageCode: 'basic',
         selectedBottleAddonCodes: ['omega3'],
+        bottleAddonCatalog: [],
         conversationId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-        reportId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+        reportId: null,
         reportDockOpen: false,
         reportDockCollapsed: true,
-        reportInterpretSent: true,
+        reportInterpretSent: false,
         selectedPackage: null,
         packageConfirmed: false,
         goalSelectActive: false,
@@ -370,21 +443,17 @@ test.describe('bottle addon (整瓶加購)', () => {
       }))
     })
 
-    await goto(
-      '/app/checkout?kind=package&package_plan_code=basic&composition_hash=sha256:basic&addon_codes=omega3',
-      { waitUntil: 'hydration' }
-    )
-    await expect(page.getByTestId('checkout-bottle-addons')).toBeVisible({ timeout: 25000 })
-    await expect(page.getByTestId('checkout-bottle-addon-price-omega3')).toContainText('999')
+    await goto('/app/recommendations', { waitUntil: 'hydration' })
+    await page.getByTestId('recommendation-path-ai').click()
+    await expect(page.getByTestId('bottle-addon-check-omega3')).toBeVisible({ timeout: 25000 })
+    await expect(page.getByTestId('bottle-addon-check-omega3')).toBeChecked()
+    await expect(page.getByTestId('recommendation-addons-dropped-hint')).toHaveCount(0)
 
-    await page.getByTestId('checkout-bottle-addon-check-omega3').uncheck()
-    await expect(page).not.toHaveURL(/addon_codes=/)
-    await expect(page.getByTestId('checkout-bottle-addon-price-omega3')).toContainText('890')
-    await expect(page.getByTestId('checkout-addon-subtotal')).toHaveCount(0)
-
-    const journeyRaw = await page.evaluate(() => localStorage.getItem('candor.unpaid.journey'))
-    const journey = JSON.parse(journeyRaw!) as { selectedBottleAddonCodes: string[] }
-    expect(journey.selectedBottleAddonCodes).not.toContain('omega3')
+    // Remount + re-fetch recommendations (still includes omega3) — selection must stay.
+    await goto('/app/recommendations', { waitUntil: 'hydration' })
+    await page.getByTestId('recommendation-path-ai').click()
+    await expect(page.getByTestId('bottle-addon-check-omega3')).toBeChecked({ timeout: 25000 })
+    await expect(page.getByTestId('recommendation-addons-dropped-hint')).toHaveCount(0)
   })
 
   test('re-recommend shows hint when selected addons disappear', async ({

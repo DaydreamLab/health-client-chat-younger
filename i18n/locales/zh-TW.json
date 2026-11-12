@@ -795,7 +795,7 @@
     "subtotal": "方案金額",
     "addonSubtotal": "加購金額",
     "bottleAddonSection": "整瓶加購",
-    "bottleAddonConfirmHint": "可取消已選加購；若要新增請回到方案頁重新勾選。",
+    "bottleAddonConfirmHint": "可取消或恢復本次已選的加購；若要新增其他品項請回到方案頁重新勾選。",
     "bottleAddonQty": "數量 {count}",
     "refundWholeOrderNote": "含加購的訂單僅能整筆申請退款，無法只退加購或只退方案。",
     "shippingFee": "運費",
