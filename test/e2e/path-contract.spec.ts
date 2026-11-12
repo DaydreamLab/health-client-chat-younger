@@ -140,6 +140,55 @@ test.describe('path contract (A／B／C)', () => {
     await expect(page.getByTestId('chat-quiz-option-sleep')).toHaveCount(0)
   })
 
+  test('訪客開場不點選項、直接打字 Enter → 隱式路徑 A、訊息送出、三鈕收起', async ({ page, goto }) => {
+    test.setTimeout(90_000)
+    await mockCandorAuth(page, {
+      asMember: false,
+      conversationPath: null,
+      basicProfileComplete: true
+    })
+    await seedNoExpertCase(page)
+    await openFreshChat(page, goto)
+
+    const transcript = page.getByTestId('chat-transcript')
+    await expect(transcript).toContainText(FLOW_V2_GREETING_CONSULT, { timeout: 15_000 })
+    await expect(page.getByTestId('chat-quiz-option-a')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('chat-quiz-option-b')).toBeVisible()
+    await expect(page.getByTestId('chat-quiz-option-c')).toBeVisible()
+
+    const typed = '想問睡眠怎麼改善'
+    const pathPost = page.waitForRequest((req) => {
+      if (req.method() !== 'POST' || !req.url().includes('/path')) {
+        return false
+      }
+      const body = req.postData() || ''
+      return body.includes('"path":"a"') || body.includes('"path": "a"')
+    }, { timeout: 20_000 })
+    const streamPost = page.waitForRequest((req) => {
+      if (req.method() !== 'POST' || !req.url().includes('/messages/stream')) {
+        return false
+      }
+      return (req.postData() || '').includes(typed)
+    }, { timeout: 20_000 })
+
+    const input = page.getByTestId('chat-input')
+    await expect(input).toBeVisible({ timeout: 15_000 })
+    await expect(input).toBeEnabled()
+    await input.fill(typed)
+    await expect(input).toHaveValue(typed)
+    await input.press('Enter')
+
+    await pathPost
+    await streamPost
+    await expect(transcript).toContainText(typed, { timeout: 15_000 })
+    // 三鈕收起（含 entry c；path A 不會再掛 path_switch c）
+    await expect(page.getByTestId('chat-quiz-option-a')).toHaveCount(0, { timeout: 15_000 })
+    await expect(page.getByTestId('chat-quiz-option-b')).toHaveCount(0)
+    await expect(page.getByTestId('chat-quiz-option-c')).toHaveCount(0)
+    // 真的送出後才清；不可無故殘留或誤清後什麼都沒送
+    await expect(input).toHaveValue('')
+  })
+
   test('path B：選項當一般訊息送出 → stream 回 goals；開場白在上、三鈕在下', async ({ page, goto }) => {
     test.setTimeout(90_000)
     await mockCandorAuth(page, {
