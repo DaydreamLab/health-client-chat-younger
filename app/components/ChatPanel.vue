@@ -393,6 +393,7 @@ import {
   tryLoadImageFile
 } from '~/utils/compress-report-images'
 import { IME_CONFIRM_ENTER_MS, shouldIgnoreComposerEnter } from '~/utils/composer-enter'
+import { planPathEntrySubmit } from '~/utils/path-entry-submit'
 import type { ChatMessage } from '~/utils/first-order'
 import {
   assistantStillAsking,
@@ -2174,17 +2175,27 @@ async function onVitalsSubmit(values: Partial<Record<VitalsField, number>>) {
 }
 
 async function sendText(text: string) {
-  const content = text.trim()
-  if (!content || pending.value || readonly.value || escalated.value) {
+  const plan = planPathEntrySubmit({
+    content: text,
+    pending: pending.value,
+    readonly: readonly.value,
+    escalated: escalated.value,
+    pathEntryPending: pathEntryPending.value
+  })
+  if (plan.type === 'ignore') {
     return
   }
-  if (pathEntryPending.value) {
+
+  // 開場尚未選路徑：自由文字 ≡ 選路徑 A（core 未選路徑當 A），走與 chip「我想聊聊」相同 entry 流程。
+  if (plan.type === 'implicit_path_a') {
+    appendMessage('user', plan.content)
+    await selectConversationPath('A', 'entry')
     return
   }
 
   // 自由文字不由本機進行中題指定 gap；在答哪一題由 core 分類（messages／stream）。
-  appendMessage('user', content)
-  pendingUserContent.value = content
+  appendMessage('user', plan.content)
+  pendingUserContent.value = plan.content
   await streamPending()
 }
 
@@ -2955,16 +2966,14 @@ function onComposerEnter(event: KeyboardEvent) {
 
 async function onSubmit() {
   const content = input.value.trim()
-  input.value = ''
-  focusChatInput()
+  // 先檢查再清：pathEntryPending／pending／空字串時不可無聲清空輸入框。
   if (!content || pending.value) {
-    return
-  }
-  if (pathEntryPending.value) {
     return
   }
 
   if (goalSelectActive.value) {
+    input.value = ''
+    focusChatInput()
     appendMessage('user', content)
     pending.value = true
     focusChatInput()
@@ -3010,6 +3019,9 @@ async function onSubmit() {
     return
   }
 
+  // pathEntryPending 時由 sendText 隱式選 A 再送出；真的要送才清輸入框。
+  input.value = ''
+  focusChatInput()
   await sendText(content)
   focusChatInput()
 }
