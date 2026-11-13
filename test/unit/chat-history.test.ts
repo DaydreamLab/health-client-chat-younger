@@ -111,6 +111,54 @@ describe('parseConversationMessagesResult / historyMessageToChatMessage', () => 
     expect(missing.path).toBeUndefined()
   })
 
+  it('guide_switch 422 realign: history path a + path_switch RA (chips follow core)', () => {
+    const parsed = parseConversationMessagesResult({
+      conversation_id: 'c1',
+      path: 'a',
+      messages: [{
+        id: 'guide-1',
+        role: 'assistant',
+        content: '若想取得專屬保健品方案，可以繼續諮詢健康方案。',
+        reply_actions: {
+          schema_version: '0.1',
+          source: 'rule',
+          adaptor: 'rule',
+          degraded: false,
+          error: null,
+          actions: [
+            {
+              type: 'choose_option',
+              payload: {
+                kind: 'path_switch',
+                mode: 'single',
+                confirm: false,
+                options: [{ code: 'b', label: '' }],
+                selected: [],
+                gap_code: null,
+                answer_type: null,
+                exclusive_codes: []
+              }
+            }
+          ]
+        }
+      }]
+    })
+    expect(parsed.path).toBe('a')
+    const assistant = historyMessageToChatMessage(parsed.messages[0]!)
+    expect(isUsableReplyActions(assistant.replyActions)).toBe(true)
+    const visibility = buildTurnActionsVisibility({
+      message: assistant,
+      ctx: baseCtx({
+        lastAssistantId: 'guide-1',
+        conversationPath: 'A'
+      }),
+      goalOptions: [],
+      needsMultiConfirm: false
+    })
+    expect(visibility.choices.some(c => c.code === 'b')).toBe(true)
+    expect(visibility.choices.some(c => c.code === 'sleep')).toBe(false)
+  })
+
   it('degraded / missing reply_actions do not fall back to legacy upload', () => {
     const degraded = historyMessageToChatMessage(parseHistoryMessage({
       id: 'a1',

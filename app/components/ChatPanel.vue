@@ -1286,7 +1286,8 @@ async function syncConversationPath(
   if (!conversationId) {
     return null
   }
-  // Soft-fail if path API is down; local journey path still drives UI gates.
+  // On any error: re-fetch so FE path／CTAs match core (e.g. 422 path_switch_too_early).
+  // Do not keep the requested path locally when the POST is rejected.
   try {
     const ack = await candor.setConversationPath(conversationId, {
       path: toApiConversationPath(path),
@@ -1299,7 +1300,7 @@ async function syncConversationPath(
     if (await handleStaleCta(err)) {
       return null
     }
-    // Keep local journey path.
+    await hydrateConversationHistory(conversationId)
     return null
   }
 }
@@ -1608,14 +1609,24 @@ async function selectConversationPath(
     return
   }
 
-  conversationPath.value = path
+  // Do not set local path before POST succeeds — a rejected guide_switch
+  // (e.g. 422 path_switch_too_early) must leave FE on core's path.
   const guideHost = [...journey.messages].reverse().find(message => message.role === 'assistant')
   const pathAck = await syncConversationPath(path, reason, guideHost?.id)
+  // Failed POST already re-fetched history (path／messages／CTAs). Do not apply
+  // the requested path side-effects (clear CTAs、stream、open goals).
+  if (!pathAck) {
+    return
+  }
+  // Ack may omit `path` on older cores; fall back to the requested path.
+  if (normalizeConversationPath(pathAck.path) == null) {
+    conversationPath.value = path
+  }
   if (reason === 'guide_switch') {
     clearPathRuleGuideCtas(toApiConversationPath(path))
   }
   // core #140：POST …/path A→B may return flow_prompt＋goals／next-ask RA — paint as-is.
-  if (pathAck?.flow_prompt) {
+  if (pathAck.flow_prompt) {
     appendCoreAssistantTurn(pathAck.flow_prompt)
   }
 

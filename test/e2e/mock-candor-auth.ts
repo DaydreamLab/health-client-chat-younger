@@ -189,6 +189,12 @@ export type CandorMockOptions = {
    */
   goalsAlreadySet?: boolean
   /**
+   * Reject POST …/path when reason=guide_switch with HTTP 422
+   * `path_switch_too_early` (core before 10 turns). Entry path POSTs still
+   * succeed; mockEntryPath is not updated on the rejected switch.
+   */
+  rejectGuideSwitchTooEarly?: boolean
+  /**
    * Terminal status after the first processing poll on GET /health-reports/{id}.
    * Default `ready`. Use `needs_review` to assert POST-attach stream ack.
    */
@@ -1552,7 +1558,24 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       await route.fallback()
       return
     }
-    const body = route.request().postDataJSON() as { path?: string } | null
+    const body = route.request().postDataJSON() as {
+      path?: string
+      reason?: string
+    } | null
+    const reason = typeof body?.reason === 'string' ? body.reason : ''
+    if (options.rejectGuideSwitchTooEarly && reason === 'guide_switch') {
+      await route.fulfill({
+        status: 422,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'failed',
+          error_message: 'Path switch is too early.',
+          error_code: 'path_switch_too_early',
+          error_data: null
+        })
+      })
+      return
+    }
     const raw = typeof body?.path === 'string' ? body.path.trim().toLowerCase() : ''
     const nextPath = raw === 'a' || raw === 'b' || raw === 'c' ? raw : 'b'
     mockEntryPathSelected = nextPath
@@ -1946,6 +1969,74 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
       return
     }
     if (!options.replyActions) {
+      // After a rejected A→B guide_switch, history must still report path a and
+      // the guide path_switch chip so FE re-aligns CTAs from core.
+      if (
+        options.chatFlowV2 === 'a-guide-15'
+        && mockEntryPath === 'a'
+        && chatFlowTurnCount >= 15
+      ) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            status: 'success',
+            data: {
+              conversation_id: conversationId,
+              path: 'a',
+              messages: [{
+                id: `msg-v2-a-${chatFlowTurnCount}`,
+                role: 'assistant',
+                content: '若想取得專屬保健品方案，可以繼續諮詢健康方案。',
+                options: [],
+                turn: { type: 'message' },
+                profile_question: null,
+                profile_gaps: [],
+                reply_actions: {
+                  schema_version: '0.1',
+                  source: 'rule',
+                  adaptor: 'rule',
+                  degraded: false,
+                  error: null,
+                  actions: [
+                    {
+                      type: 'choose_option',
+                      payload: {
+                        kind: 'open_question_reply',
+                        mode: 'single',
+                        confirm: false,
+                        options: [
+                          { code: 'no_more', label: '我沒有問題了' },
+                          { code: 'suggest', label: '你有什麼建議' }
+                        ],
+                        selected: [],
+                        gap_code: null,
+                        answer_type: null,
+                        exclusive_codes: []
+                      }
+                    },
+                    { type: 'offer_checkup', payload: { url: 'https://example.test/checkup' } },
+                    {
+                      type: 'choose_option',
+                      payload: {
+                        kind: 'path_switch',
+                        mode: 'single',
+                        confirm: false,
+                        options: [{ code: 'b', label: '' }],
+                        selected: [],
+                        gap_code: null,
+                        answer_type: null,
+                        exclusive_codes: []
+                      }
+                    }
+                  ]
+                }
+              }]
+            }
+          })
+        })
+        return
+      }
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

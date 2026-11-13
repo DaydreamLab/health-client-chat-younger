@@ -54,15 +54,22 @@ async function selectEntryPath(page: Page, path: 'A' | 'B' | 'C') {
   const chip = page.getByTestId(`chat-quiz-option-${code}`)
   await expect(chip).toBeVisible({ timeout: 15_000 })
   await chip.click()
-  // Wait for POST …/path to finish. Entry `c` chip clears; C flow_prompt may keep a／b.
-  await expect(page.getByTestId('chat-quiz-option-c')).toHaveCount(0, { timeout: 15_000 })
+  // Design B v3: opening chips stay (selected／grey). Wait until the chosen
+  // entry chip is stamped historical selected (path POST + retain done).
+  const retained = page
+    .locator('[data-testid="chat-turn-actions"][data-round-status="historical"]')
+    .getByTestId(`chat-quiz-option-${code}`)
+  await expect(retained).toHaveAttribute('data-cta-status', 'selected', { timeout: 15_000 })
+  await expect(retained).toBeDisabled()
 }
 
 async function finishGoalSelect(page: Page) {
-  await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
-  await page.getByTestId('chat-quiz-option-sleep').click()
-  await page.getByTestId('chat-quiz-confirm').click()
-  await expect(page.getByTestId('chat-quiz-confirm')).toHaveCount(0, { timeout: 15_000 })
+  // Design B v3: historical goal chips／confirm stay; act on the current last reply.
+  const last = page.getByTestId('chat-last-reply')
+  await expect(last.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
+  await last.getByTestId('chat-quiz-option-sleep').click()
+  await last.getByTestId('chat-quiz-confirm').click()
+  await expect(last.getByTestId('chat-quiz-confirm')).toHaveCount(0, { timeout: 15_000 })
 }
 
 async function sendChatLine(page: Page, text: string) {
@@ -151,8 +158,67 @@ test.describe('chat flow v2 — 四條主流程', () => {
     await expect(last.getByTestId('chat-quiz-option-b')).toBeVisible({ timeout: 15_000 })
     await last.getByTestId('chat-quiz-option-b').click()
 
-    await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByTestId('chat-quiz-confirm')).toBeVisible()
+    const goalsHost = page.getByTestId('chat-last-reply')
+    await expect(goalsHost.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
+    await expect(goalsHost.getByTestId('chat-quiz-confirm')).toBeVisible()
+  })
+
+  test('A→B guide_switch 422 path_switch_too_early → 不落入 B、重抓 history、chips 跟 core', async ({
+    page,
+    goto
+  }) => {
+    test.setTimeout(120_000)
+    await mockCandorAuth(page, {
+      asMember: true,
+      conversationPath: null,
+      individualTestsUrl: 'https://example.test/checkup',
+      chatFlowV2: 'a-guide-15',
+      goalsAlreadySet: false,
+      basicProfileComplete: true,
+      rejectGuideSwitchTooEarly: true
+    })
+    await seedNoExpertCase(page)
+    await openFreshChat(page, goto)
+    await selectEntryPath(page, 'A')
+
+    for (let i = 0; i < 15; i++) {
+      await sendChatLine(page, `聊聊 ${i + 1}`)
+      await expect(page.getByTestId('chat-send')).toBeEnabled({ timeout: 15_000 })
+    }
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last.getByTestId('chat-quiz-option-b')).toBeVisible({ timeout: 15_000 })
+
+    const historyGet = page.waitForRequest((req) => {
+      if (req.method() !== 'GET') {
+        return false
+      }
+      const url = req.url()
+      return url.includes('/messages') && !url.includes('/messages/stream')
+    }, { timeout: 20_000 })
+
+    await last.getByTestId('chat-quiz-option-b').click()
+    await historyGet
+
+    // No toast／error copy; stay on A chips from core history.
+    await expect(page.getByTestId('chat-quiz-option-sleep')).toHaveCount(0, { timeout: 10_000 })
+    await expect(page.getByTestId('chat-quiz-confirm')).toHaveCount(0)
+    await expect(page.getByTestId('chat-quiz-option-b')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('chat-quiz-option-b')).toHaveText('我想諮詢健康方案')
+    await expect(page.getByTestId('chat-message-checkup')).toBeVisible()
+
+    const storedPath = await page.evaluate(() => {
+      const raw = localStorage.getItem('candor.unpaid.journey')
+      if (!raw) {
+        return null
+      }
+      try {
+        return (JSON.parse(raw) as { conversationPath?: string | null }).conversationPath ?? null
+      } catch {
+        return null
+      }
+    })
+    expect(storedPath).toBe('A')
   })
 
   test('B：問完必填 → 完成按鈕組', async ({ page, goto }) => {
