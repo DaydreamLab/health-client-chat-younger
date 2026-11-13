@@ -202,7 +202,7 @@
               <TurnActions
                 v-if="message.role === 'assistant'"
                 :choices="choicesFor(message)"
-                :selected-codes="selectedCodes"
+                :selected-codes="selectedCodesFor(message)"
                 :show-confirm="showConfirmFor(message)"
                 :confirm-disabled="confirmDisabled"
                 :show-upload="showUploadCta(message)"
@@ -225,6 +225,12 @@
                 :flow="isStandardFlow ? 'standard' : undefined"
                 :vitals-fields="vitalsFieldsFor(message)"
                 :vitals-disabled="pending || readonly || escalated"
+                :vitals-status="vitalsStatusFor(message)"
+                :vitals-has-stored-value="vitalsHasStoredValueFor(message)"
+                :vitals-stored-value="vitalsStoredValueFor(message)"
+                :confirm-status="confirmStatusFor(message)"
+                :round-status="roundStatusFor(message)"
+                :composer-typing="composerTyping && message.id === lastAssistantId"
                 @choice="onChoice"
                 @confirm="confirmMultiSelection"
                 @upload="openAttachMenu"
@@ -388,6 +394,11 @@ import type {
 } from '~/utils/candor-api'
 import { CandorApiError } from '~/utils/candor-api'
 import {
+  isStaleCtaError,
+  resolveReplyActionsAsHistorical,
+  selectedCodesFromReplyActions
+} from '~/utils/cta-interaction'
+import {
   CompressReportImagesError,
   REPORT_IMAGE_MAX_COUNT,
   compressReportImages,
@@ -496,6 +507,8 @@ const input = ref('')
 const composing = ref(false)
 let compositionEndedAt = 0
 let composingTimer: ReturnType<typeof setTimeout> | undefined
+/** Design B: current-round CTAs grey while the user is typing a free-text answer. */
+const composerTyping = computed(() => input.value.trim().length > 0)
 const pending = ref(false)
 const liveAssistantId = ref<string | null>(null)
 const resetting = ref(false)
@@ -719,6 +732,11 @@ function turnActionsFor(message: ChatMessage) {
       showRetry: true,
       vitalsFields: [] as VitalsField[],
       vitalsGapCode: null,
+      vitalsStatus: null,
+      vitalsHasStoredValue: false,
+      vitalsStoredValue: null,
+      confirmStatus: null,
+      roundStatus: null,
       checkupUrlOverride: null,
       fullTestUrlOverride: null,
       fullTestLabelOverride: null,
@@ -763,13 +781,16 @@ function isPathSwitchChoice(option: GreetingOption): boolean {
   return isPathSwitchOptionCode(last.replyActions, option.code)
 }
 
-/** Drop path-rule guide CTAs after the user has already switched path. */
-function clearPathRuleGuideCtas() {
+/** Lock path-rule guide CTAs after the user has already switched path (grey retain). */
+function clearPathRuleGuideCtas(selectedPathCode?: string) {
   for (const message of journey.messages) {
     if (message.role !== 'assistant' || !detectPathRuleCopyKind(message.replyActions)) {
       continue
     }
-    message.replyActions = undefined
+    retainOrClearHostActions(message, {
+      outcome: 'option_selected',
+      selectedCodes: selectedPathCode ? [selectedPathCode] : []
+    })
   }
 }
 
@@ -811,11 +832,80 @@ function choicesFor(message: ChatMessage): GreetingOption[] {
   return localizePathSwitchChoices(message, turnActionsFor(message).choices)
 }
 
+/** Live multi-select uses journey.selectedCodes; historical uses hydrated option.status. */
+function selectedCodesFor(message: ChatMessage): string[] {
+  const actions = turnActionsFor(message)
+  if (actions.roundStatus === 'historical') {
+    const fromStatus = selectedCodesFromReplyActions(message.replyActions)
+    if (fromStatus.length) {
+      return fromStatus
+    }
+  }
+  if (message.id === lastAssistantId.value) {
+    return selectedCodes.value
+  }
+  return selectedCodesFromReplyActions(message.replyActions)
+}
+
 function showConfirmFor(message: ChatMessage) {
   if (pathEntryPending.value && message.id === lastAssistantId.value) {
     return false
   }
   return turnActionsFor(message).showConfirm
+}
+
+function confirmStatusFor(message: ChatMessage) {
+  return turnActionsFor(message).confirmStatus
+}
+
+function roundStatusFor(message: ChatMessage) {
+  return turnActionsFor(message).roundStatus
+}
+
+function vitalsStatusFor(message: ChatMessage) {
+  return turnActionsFor(message).vitalsStatus
+}
+
+function vitalsHasStoredValueFor(message: ChatMessage) {
+  return turnActionsFor(message).vitalsHasStoredValue
+}
+
+function vitalsStoredValueFor(message: ChatMessage) {
+  return turnActionsFor(message).vitalsStoredValue
+}
+
+/**
+ * 409 stale_cta: refresh history so retained CTA statuses match the server.
+ * Never leave the UI in a broken mid-submit state.
+ */
+async function handleStaleCta(err: unknown): Promise<boolean> {
+  if (!isStaleCtaError(err)) {
+    return false
+  }
+  const conversationId = journey.conversationId
+  if (conversationId) {
+    await hydrateConversationHistory(conversationId)
+  }
+  return true
+}
+
+/** Prefer grey-retain resolve; fall back to strip when the bubble has no RA. */
+function retainOrClearHostActions(
+  host: ChatMessage | undefined,
+  resolution: {
+    outcome: 'option_selected' | 'free_text'
+    selectedCodes?: readonly string[]
+    vitalsStored?: { value: number } | null
+  }
+) {
+  if (!host) {
+    return
+  }
+  if (host.replyActions && isUsableReplyActions(host.replyActions)) {
+    resolveReplyActionsAsHistorical(host, resolution)
+    return
+  }
+  clearChatMessageActions(host)
 }
 
 function isConsultationGoalOptions(
@@ -1215,7 +1305,8 @@ function applyServerConversationPath(
 
 async function syncConversationPath(
   path: ConversationPath,
-  reason: string
+  reason: string,
+  sourceMessageId?: string | null
 ): Promise<Awaited<ReturnType<typeof candor.setConversationPath>> | null> {
   const conversationId = journey.conversationId
   if (!conversationId) {
@@ -1225,11 +1316,15 @@ async function syncConversationPath(
   try {
     const ack = await candor.setConversationPath(conversationId, {
       path: toApiConversationPath(path),
-      reason
+      reason,
+      ...(sourceMessageId ? { source_message_id: sourceMessageId } : {})
     })
     applyServerConversationPath(ack)
     return ack
-  } catch {
+  } catch (err) {
+    if (await handleStaleCta(err)) {
+      return null
+    }
     // Keep local journey path.
     return null
   }
@@ -1470,9 +1565,11 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
       if (!journey.conversationId) {
         await ensureConversation()
       }
+      const openingHost = [...journey.messages].reverse().find(message => message.role === 'assistant')
       const ack = await candor.setConversationPath(journey.conversationId!, {
         path: toApiConversationPath(path),
-        reason: 'entry'
+        reason: 'entry',
+        source_message_id: openingHost?.id ?? null
       })
       applyServerConversationPath(ack)
       const normalized = normalizeConversationPath(ack.path) ?? path
@@ -1487,6 +1584,12 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
         goalSelectActive.value = false
         quizActive.value = false
         activeQuestion.value = null
+        if (openingHost) {
+          retainOrClearHostActions(openingHost, {
+            outcome: 'option_selected',
+            selectedCodes: [toApiConversationPath(path)]
+          })
+        }
         if (ack.flow_prompt) {
           appendCoreAssistantTurn(ack.flow_prompt)
         }
@@ -1498,14 +1601,16 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
       if (normalized === 'A' || normalized === 'B') {
         quizActive.value = false
         activeQuestion.value = null
-        const openingHost = [...journey.messages].reverse().find(message => message.role === 'assistant')
         const lastUser = [...journey.messages].reverse().find(message => message.role === 'user')
         if (lastUser) {
           pendingUserContent.value = messageText(lastUser)
           const streamed = await streamPending()
           if (streamed.ok) {
             if (openingHost && openingHost.id !== streamed.assistantId) {
-              clearChatMessageActions(openingHost)
+              retainOrClearHostActions(openingHost, {
+                outcome: 'option_selected',
+                selectedCodes: [toApiConversationPath(path)]
+              })
             }
           } else {
             // Keep error bubble + retry tip (run15); do not restore prior host as latest.
@@ -1513,7 +1618,10 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
           }
         }
       }
-    } catch {
+    } catch (err) {
+      if (await handleStaleCta(err)) {
+        return
+      }
       conversationPath.value = null
       appendMessage('assistant', t('chat.conversationError'))
     } finally {
@@ -1523,9 +1631,10 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
   }
 
   conversationPath.value = path
-  const pathAck = await syncConversationPath(path, reason)
+  const guideHost = [...journey.messages].reverse().find(message => message.role === 'assistant')
+  const pathAck = await syncConversationPath(path, reason, guideHost?.id)
   if (reason === 'guide_switch') {
-    clearPathRuleGuideCtas()
+    clearPathRuleGuideCtas(toApiConversationPath(path))
   }
   // core #140：POST …/path A→B may return flow_prompt＋goals／next-ask RA — paint as-is.
   if (pathAck?.flow_prompt) {
@@ -1569,7 +1678,7 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
     const streamed = await streamPending()
     if (streamed.ok) {
       if (flowHost && flowHost.id !== streamed.assistantId) {
-        clearChatMessageActions(flowHost)
+        retainOrClearHostActions(flowHost, { outcome: 'free_text' })
       }
     } else {
       keepFailedFollowUpAssistant(journey.messages, streamed.assistantId, flowHost?.id)
@@ -2223,7 +2332,7 @@ async function retryFailedStream(message: ChatMessage) {
   pendingIntent.value = retry.intent
   const streamed = await streamPending()
   if (streamed.ok && host && host.id !== streamed.assistantId) {
-    clearChatMessageActions(host)
+    retainOrClearHostActions(host, { outcome: 'free_text' })
   }
 }
 
@@ -2270,10 +2379,11 @@ async function onVitalsSubmit(values: Partial<Record<VitalsField, number>>) {
     const result = await candor.submitProfileAnswer({
       gap_code: gapCode,
       value: n,
-      conversation_id: conversationId
+      conversation_id: conversationId,
+      source_message_id: host.id
     })
 
-    // Advance local multi-field queue, or clear ask_vitals when done.
+    // Advance local multi-field queue, or lock ask_vitals when done (grey retain).
     if (host.replyActions) {
       if (remaining.length > 0) {
         host.replyActions = {
@@ -2297,10 +2407,10 @@ async function onVitalsSubmit(values: Partial<Record<VitalsField, number>>) {
           })
         }
       } else {
-        host.replyActions = {
-          ...host.replyActions,
-          actions: host.replyActions.actions.filter(a => a.type !== 'ask_vitals')
-        }
+        resolveReplyActionsAsHistorical(host, {
+          outcome: 'option_selected',
+          vitalsStored: { value: n }
+        })
       }
     }
 
@@ -2320,7 +2430,11 @@ async function onVitalsSubmit(values: Partial<Record<VitalsField, number>>) {
     }
     appendMessage('assistant', result.prompt)
     pending.value = false
-  } catch {
+  } catch (err) {
+    if (await handleStaleCta(err)) {
+      pending.value = false
+      return
+    }
     appendMessage('assistant', t('chat.streamError'))
     pending.value = false
   }
@@ -2346,7 +2460,11 @@ async function sendText(text: string) {
   }
 
   // 自由文字不由本機進行中題指定 gap；在答哪一題由 core 分類（messages／stream）。
+  const freeTextHost = [...journey.messages].reverse().find(message => message.role === 'assistant')
   appendMessage('user', plan.content)
+  if (freeTextHost?.replyActions && isUsableReplyActions(freeTextHost.replyActions)) {
+    retainOrClearHostActions(freeTextHost, { outcome: 'free_text' })
+  }
   pendingUserContent.value = plan.content
   await streamPending()
 }
@@ -2369,6 +2487,10 @@ function onContinueConsult() {
   if (pending.value || readonly.value || escalated.value) {
     return
   }
+  const host = intakeMessage.value
+  if (host) {
+    retainOrClearHostActions(host, { outcome: 'option_selected' })
+  }
   clearLastAssistantOptions()
   return sendText(t(CONTINUE_CONSULT_I18N_KEY))
 }
@@ -2377,6 +2499,13 @@ function onContinueConsult() {
 function submitContinueHealthConsultationLabel(label: string) {
   if (pending.value || readonly.value || escalated.value) {
     return
+  }
+  const host = intakeMessage.value
+  if (host) {
+    retainOrClearHostActions(host, {
+      outcome: 'option_selected',
+      selectedCodes: []
+    })
   }
   clearLastAssistantOptions()
   return sendText(label)
@@ -2486,10 +2615,13 @@ async function confirmMultiSelection() {
       .map(o => o.label)
     appendMessage('user', labels.join('、'))
     pending.value = true
+    const goalsHost = [...journey.messages].reverse().find(message => message.role === 'assistant')
+    const goalsSnapshot = [...selectedCodes.value]
     try {
       const conversationId = await ensureConversation()
       const result = await candor.setConversationGoals(conversationId, {
-        goals: selectedCodes.value
+        goals: goalsSnapshot,
+        source_message_id: goalsHost?.id ?? null
       })
       if (!result.saved) {
         appendMessage('assistant', result.prompt || t('chat.streamError'))
@@ -2510,6 +2642,12 @@ async function confirmMultiSelection() {
       selectedCodes.value = []
       // Clear after pending is already true so recommend CTA does not flash.
       goalSelectActive.value = false
+      if (goalsHost) {
+        retainOrClearHostActions(goalsHost, {
+          outcome: 'option_selected',
+          selectedCodes: goalsSnapshot
+        })
+      }
       const nextAfterGoals = result.next_question
       const gapsAfterGoals = nextAfterGoals && !nextAfterGoals.done && nextAfterGoals.gap_code
         ? [nextAfterGoals.gap_code]
@@ -2519,7 +2657,11 @@ async function confirmMultiSelection() {
         nextQuestion: nextAfterGoals ?? { done: true },
         pendingContent: labels.join('、')
       })
-    } catch {
+    } catch (err) {
+      if (await handleStaleCta(err)) {
+        pending.value = false
+        return
+      }
       appendMessage('assistant', t('chat.streamError'))
       pending.value = false
     }
@@ -2549,6 +2691,10 @@ async function submitProfileChoice(payload: {
 
   appendMessage('user', payload.display)
   pending.value = true
+  const profileHost = [...journey.messages].reverse().find(message => message.role === 'assistant')
+  const selectedSnapshot = Array.isArray(payload.value)
+    ? payload.value.filter((code): code is string => typeof code === 'string')
+    : (typeof payload.value === 'string' ? [payload.value] : [])
 
   try {
     const conversationId = await ensureConversation()
@@ -2556,7 +2702,8 @@ async function submitProfileChoice(payload: {
       gap_code: profile.gap_code,
       value: payload.value,
       raw_text: payload.raw_text,
-      conversation_id: conversationId
+      conversation_id: conversationId,
+      source_message_id: profileHost?.id ?? null
     })
 
     if (!result.saved) {
@@ -2591,13 +2738,26 @@ async function submitProfileChoice(payload: {
       return
     }
 
+    if (profileHost) {
+      retainOrClearHostActions(profileHost, {
+        outcome: selectedSnapshot.length || payload.raw_text
+          ? (selectedSnapshot.length ? 'option_selected' : 'free_text')
+          : 'option_selected',
+        selectedCodes: selectedSnapshot
+      })
+    }
+
     await continueAfterSavedAnswer({
       profileGaps: result.profile_gaps,
       nextQuestion: result.next_question,
       pendingContent: payload.display,
       streamIntent: STREAM_INTENT_AFTER_ANSWER
     })
-  } catch {
+  } catch (err) {
+    if (await handleStaleCta(err)) {
+      pending.value = false
+      return
+    }
     appendMessage('assistant', t('chat.streamError'))
     pending.value = false
   }
@@ -2972,7 +3132,7 @@ async function bindAndInterpret(reportId: string) {
   const ack = await streamReportUploadedAck()
   if (ack.ok) {
     if (flowHost) {
-      clearChatMessageActions(flowHost)
+      retainOrClearHostActions(flowHost, { outcome: 'free_text' })
     }
     return
   }

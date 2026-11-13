@@ -493,7 +493,11 @@ export function useCandorApi() {
       ),
     setConversationGoals: (
       conversationId: string,
-      body: { goals?: string[], raw_text?: string | null }
+      body: {
+        goals?: string[]
+        raw_text?: string | null
+        source_message_id?: string | null
+      }
     ) =>
       request<ConversationGoalsResult>(
         `/conversation/${encodeURIComponent(conversationId)}/goals`,
@@ -591,6 +595,7 @@ export function useCandorApi() {
       value?: string | number | boolean | string[] | null
       raw_text?: string | null
       conversation_id?: string
+      source_message_id?: string | null
     }) => request<ProfileAnswerResult>('/profile/answers', { method: 'POST', body }),
 
     createOrder: (body: OrderCreateRequest) =>

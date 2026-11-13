@@ -51,6 +51,11 @@ export interface ChatMessageOption {
   label: string
   /** LabFollowup dual-chip routing (ask_report → upload UI; offer_checkup →外連). */
   maps_to?: string | null
+  /**
+   * Hydrated CTA control status (core #186 / design B v3).
+   * Absent on old backends — treat as current when the round is live.
+   */
+  status?: 'current' | 'selected' | 'disabled' | null
 }
 
 export interface ChatMessage {
