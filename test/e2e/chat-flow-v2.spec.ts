@@ -106,6 +106,43 @@ test.describe('chat flow v2 — 四條主流程', () => {
     await expect(last.getByTestId('chat-view-recommend')).toHaveCount(0)
   })
 
+  test('A：點選 open_question_reply chip → selected 非 disabled（run19 6a）', async ({
+    page,
+    goto
+  }) => {
+    test.setTimeout(120_000)
+    await mockCandorAuth(page, {
+      asMember: true,
+      conversationPath: null,
+      individualTestsUrl: 'https://example.test/checkup',
+      chatFlowV2: 'a-guide-15',
+      basicProfileComplete: true
+    })
+    await seedNoExpertCase(page)
+    await openFreshChat(page, goto)
+    await selectEntryPath(page, 'A')
+
+    for (let i = 0; i < 15; i++) {
+      await sendChatLine(page, `聊聊 ${i + 1}`)
+      await expect(page.getByTestId('chat-send')).toBeEnabled({ timeout: 15_000 })
+    }
+
+    const guide = page.getByTestId('chat-last-reply')
+    await expect(guide.getByTestId('chat-quiz-option-no_more')).toBeVisible({ timeout: 15_000 })
+    await guide.getByTestId('chat-quiz-option-no_more').click()
+
+    // Chosen chip must be selected (not merely disabled like peers). A later
+    // stream turn may also paint the same codes — assert at least one selected.
+    const selected = page.locator(
+      '[data-testid="chat-quiz-option-no_more"][data-cta-status="selected"]'
+    )
+    await expect(selected).toHaveCount(1, { timeout: 15_000 })
+    await expect(selected).toBeDisabled()
+    await expect(
+      page.locator('[data-testid="chat-quiz-option-suggest"][data-cta-status="disabled"]').first()
+    ).toBeVisible()
+  })
+
   test('A→B：goals 已答過 → 切換後不再開 goals 選單', async ({ page, goto }) => {
     test.setTimeout(120_000)
     await mockCandorAuth(page, {
@@ -163,7 +200,7 @@ test.describe('chat flow v2 — 四條主流程', () => {
     await expect(goalsHost.getByTestId('chat-quiz-confirm')).toBeVisible()
   })
 
-  test('A→B guide_switch 422 path_switch_too_early → 不落入 B、重抓 history、chips 跟 core', async ({
+  test('A→B guide_switch 400 path_switch_too_early → 不落入 B、重抓 history、chips 跟 core', async ({
     page,
     goto
   }) => {

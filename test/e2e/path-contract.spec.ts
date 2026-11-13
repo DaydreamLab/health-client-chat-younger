@@ -443,7 +443,7 @@ test.describe('path contract (A／B／C)', () => {
     expect(nextCalls).toEqual([])
   })
 
-  test('path C：attach flow_prompt RA → 自動送後搬到新助理則', async ({ page, goto }) => {
+  test('path C：attach flow_prompt RA → 自動送後搬到新助理則；await_upload 鈕不消失', async ({ page, goto }) => {
     test.setTimeout(120_000)
     await mockCandorAuth(page, {
       asMember: true,
@@ -454,6 +454,12 @@ test.describe('path contract (A／B／C)', () => {
     await seedNoExpertCase(page)
     await openFreshChat(page, goto)
     await selectEntryPath(page, 'C')
+
+    const awaitUpload = page.getByTestId('chat-last-reply')
+    await expect(awaitUpload).toContainText(FLOW_V2_PATH_C_AWAIT_UPLOAD, { timeout: 15_000 })
+    await expect(awaitUpload.getByTestId('chat-quiz-option-a')).toBeVisible()
+    await expect(awaitUpload.getByTestId('chat-quiz-option-b')).toBeVisible()
+    await expect(awaitUpload.getByTestId('chat-message-upload')).toBeVisible()
 
     const streamAck = page.waitForRequest((req) => {
       if (req.method() !== 'POST' || !req.url().includes('/messages/stream')) {
@@ -476,7 +482,18 @@ test.describe('path contract (A／B／C)', () => {
 
     const last = page.getByTestId('chat-last-reply')
     await expect(last.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByTestId('chat-quiz-option-sleep')).toHaveCount(1)
+
+    // run19 6b: waiting-message buttons must grey-retain after settle (not vanish).
+    const waitingActions = page.locator(
+      '[data-testid="chat-turn-actions"][data-round-status="historical"]'
+    ).filter({ has: page.getByTestId('chat-message-upload') })
+    await expect(waitingActions.getByTestId('chat-quiz-option-a')).toBeVisible({ timeout: 15_000 })
+    await expect(waitingActions.getByTestId('chat-quiz-option-b')).toBeVisible()
+    await expect(waitingActions.getByTestId('chat-quiz-option-a')).toHaveAttribute(
+      'data-cta-status',
+      'disabled'
+    )
+    await expect(waitingActions.getByTestId('chat-message-upload')).toBeVisible()
   })
 
   test('path C：自動送失敗時保留錯誤提示＋再試一次（不靜默刪泡泡）', async ({ page, goto }) => {
