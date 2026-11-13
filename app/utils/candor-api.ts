@@ -42,6 +42,8 @@ export interface GreetingOption {
   label_en?: string
   /** When set (lab_followup), click routes to upload / checkup — not profile answers. */
   maps_to?: string | null
+  /** Hydrated CTA status (core #186). */
+  status?: 'current' | 'selected' | 'disabled' | null
 }
 
 export interface ConversationPackage {
@@ -449,6 +451,8 @@ export interface ConversationPathUpdate {
   path: 'a' | 'b' | 'c' | 'A' | 'B' | 'C'
   /** Optional reason for audit (entry｜upload_promote｜cancel_demote｜guide_switch). */
   reason?: string | null
+  /** Assistant message id that hosted the clicked CTA (core #186). */
+  source_message_id?: string | null
 }
 
 export interface ConversationPathAck {

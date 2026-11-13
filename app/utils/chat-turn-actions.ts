@@ -8,13 +8,16 @@ import {
   type ConversationPath
 } from './path-contract'
 import {
+  hasCtaInteractionMeta,
   hasReplyActionsColumn,
   isUsableReplyActions,
   NON_GAP_CHOOSE_OPTION_KINDS,
   projectReplyActionsToCtas,
   type ChooseOptionPayload,
+  type CtaControlStatus,
   type ReplyActions,
   type ReplyActionsCtaProjection,
+  type ReplyActionsRoundStatus,
   type VitalsField
 } from './reply-actions'
 
@@ -292,6 +295,11 @@ export interface TurnActionsVisibility {
   /** ask_vitals numeric fields (reply_actions path only). */
   vitalsFields: VitalsField[]
   vitalsGapCode: string | null
+  vitalsStatus: CtaControlStatus | null
+  vitalsHasStoredValue: boolean
+  vitalsStoredValue: number | null
+  confirmStatus: CtaControlStatus | null
+  roundStatus: ReplyActionsRoundStatus | null
   /** offer_checkup payload.url when set; else use journey default. */
   checkupUrlOverride: string | null
   /** offer_full_test payload.url（或預設 Body Decode）. */
@@ -312,6 +320,11 @@ function emptyReplyExtras(): Pick<
   TurnActionsVisibility,
   | 'vitalsFields'
   | 'vitalsGapCode'
+  | 'vitalsStatus'
+  | 'vitalsHasStoredValue'
+  | 'vitalsStoredValue'
+  | 'confirmStatus'
+  | 'roundStatus'
   | 'checkupUrlOverride'
   | 'fullTestUrlOverride'
   | 'fullTestLabelOverride'
@@ -326,6 +339,11 @@ function emptyReplyExtras(): Pick<
   return {
     vitalsFields: [],
     vitalsGapCode: null,
+    vitalsStatus: null,
+    vitalsHasStoredValue: false,
+    vitalsStoredValue: null,
+    confirmStatus: null,
+    roundStatus: null,
     checkupUrlOverride: null,
     fullTestUrlOverride: null,
     fullTestLabelOverride: null,
@@ -566,61 +584,75 @@ export function buildTurnActionsVisibility(input: {
   }
 
   if (isUsableReplyActions(message.replyActions)) {
-    // Irice 2026-11-04：不把舊訊息未答題按鈕搬到最新一則；舊訊息維持不顯示按鈕。
-    // 最新一則只投影自己的 reply_actions（含每輪完成 CTA）。
-    if (!latest) {
+    // Design B v3 / core #186：有 interaction 的歷史輪保留 CTA（selected／disabled）。
+    // 舊後端無 interaction → 非最新仍不顯示（相容現況）。
+    // 仍不把舊訊息未答題搬到最新一則（每則只投影自己的 RA）。
+    const replyActions = message.replyActions!
+    const retainHistorical = hasCtaInteractionMeta(replyActions)
+    if (!latest && !retainHistorical) {
       return emptyTurnActions(true)
     }
 
     // Pending optional gaps must not steal completion CTA — core owns readiness.
     void basicProfileComplete
-    const canShowRecommendSlot = recommendSlotVisible(slotInput)
+    const historicalRound = replyActions.interaction?.round_status === 'historical'
+    // Historical rounds keep CTAs visible even when readonly／escalated (paint only).
+    const canShowRecommendSlot = historicalRound
+      ? Boolean(
+          replyActions.actions.some(action => action.type === 'offer_recommend')
+        )
+      : recommendSlotVisible(slotInput)
     const guidanceSuppressed = shouldSuppressGuidanceCtas({
       labReportQuizActive: Boolean(ctx.labReportQuizActive)
     })
-    const canShowUpload = !guidanceSuppressed
-      && !ctx.readonlyMode
-      && !ctx.escalated
-      && !ctx.hasReportAnalysis
-      && !(ctx.goalSelectActive && !ctx.hasReportAnalysis)
-      && !ctx.pathEntryPending
-    const canShowCheckup = !guidanceSuppressed
-      && !ctx.readonlyMode
-      && !ctx.escalated
-      && !ctx.pathEntryPending
-    const replyActions = message.replyActions!
+    const canShowUpload = historicalRound
+      ? replyActions.actions.some(action => action.type === 'ask_report')
+      : (!guidanceSuppressed
+        && !ctx.readonlyMode
+        && !ctx.escalated
+        && !ctx.hasReportAnalysis
+        && !(ctx.goalSelectActive && !ctx.hasReportAnalysis)
+        && !ctx.pathEntryPending)
+    const canShowCheckup = historicalRound
+      ? replyActions.actions.some(action => action.type === 'offer_checkup')
+      : (!guidanceSuppressed
+        && !ctx.readonlyMode
+        && !ctx.escalated
+        && !ctx.pathEntryPending)
     const ownHasAskVitals = replyActions.actions.some(action => action.type === 'ask_vitals')
+    // Historical vitals cards must paint even when the live turn is readonly.
+    const canShowVitals = ownHasAskVitals && (
+      historicalRound || (!ctx.readonlyMode && !ctx.escalated)
+    )
 
     const own = projectGates({
       replyActions,
       canShowRecommendSlot,
       canShowUpload,
       canShowCheckup,
-      canShowVitals: !ctx.readonlyMode && !ctx.escalated && ownHasAskVitals,
+      canShowVitals,
       expertReviewStatus,
       standardFlow,
-      checkupLinkReady: ctx.checkupLinkReady
+      checkupLinkReady: ctx.checkupLinkReady || historicalRound
     })
 
     const ownSplit = splitProjectionChoices(own.projection)
-    // Latest bubble: only this turn's gap＋non-gap chips (no lift from older bank).
+    // Each bubble: only this turn's gap＋non-gap chips (no lift from older bank).
     const choices = [...ownSplit.gapChoices, ...ownSplit.nonGapChoices]
     const showConfirm = (ownSplit.gapChoices.length > 0 && ownSplit.gapConfirm)
       || (ownSplit.nonGapChoices.length > 0 && ownSplit.nonGapConfirm)
 
-    return overlay({
+    const visibility: TurnActionsVisibility = {
       choices,
       showConfirm,
       showUpload: own.projection.flags.showUpload,
       showCheckup: own.showCheckup,
       showFullTest: own.projection.flags.showFullTest
-        && !ctx.readonlyMode
-        && !ctx.escalated
-        && !ctx.pathEntryPending,
+        && (historicalRound
+          || (!ctx.readonlyMode && !ctx.escalated && !ctx.pathEntryPending)),
       showExpertBooking: own.projection.flags.showExpertBooking
-        && !ctx.readonlyMode
-        && !ctx.escalated
-        && !ctx.pathEntryPending,
+        && (historicalRound
+          || (!ctx.readonlyMode && !ctx.escalated && !ctx.pathEntryPending)),
       showWantMoreTests: false,
       showRecommend: own.projection.flags.showSubmitReview || own.projection.flags.showViewRecommend,
       showSubmitReview: own.projection.flags.showSubmitReview,
@@ -628,6 +660,11 @@ export function buildTurnActionsVisibility(input: {
       showRetry: false,
       vitalsFields: own.projection.vitalsFields,
       vitalsGapCode: own.projection.vitalsGapCode,
+      vitalsStatus: own.projection.vitalsStatus,
+      vitalsHasStoredValue: own.projection.vitalsHasStoredValue,
+      vitalsStoredValue: own.projection.vitalsStoredValue,
+      confirmStatus: own.projection.confirmStatus,
+      roundStatus: own.projection.roundStatus,
       checkupUrlOverride: own.projection.checkupUrlOverride,
       fullTestUrlOverride: own.projection.fullTestUrlOverride,
       fullTestLabelOverride: own.projection.fullTestLabelOverride,
@@ -638,7 +675,13 @@ export function buildTurnActionsVisibility(input: {
       fromReplyActions: true,
       exclusiveCodes: own.projection.exclusiveCodes,
       replyProjection: own.projection
-    })
+    }
+
+    // Historical rounds skip journey overlays that would hide retained CTAs.
+    if (historicalRound) {
+      return visibility
+    }
+    return overlay(visibility)
   }
 
   // No reply_actions column: greeting / hydrate without RA may still show goal

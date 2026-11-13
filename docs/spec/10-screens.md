@@ -57,7 +57,7 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 - 三要件齊後：基本回應 → **CTA 判讀**（systemone／catalog）→ **完成 CTA**；FE 依 usable `reply_actions` 決定畫哪些按鈕（含 upload／checkup／`offer_recommend`／`offer_full_test`／`offer_expert_booking` 等）——**非**固定硬掛「提交專家判讀」。intentional `none`／degraded／無 RA＝不畫怪鈕。**Legacy** `upload_offer`／journey 自創 recommend **不當 fallback**。
 - `offer_full_test`：報告解析指標未達門檻時由 core 掛上；FE 投影建議文案＋外連鈕（`payload.url`，缺省 Body Decode；`target=_blank`＋`noopener`），排在同則其他 CTA 後面；文案／按鈕字優先 `payload.copy`／`label`，否則 i18n（`marker_count`／`n` 填 `{n}`）。出不出、同一報告只出一輪、20 題上限不出等由 core 控制；FE **不做**點擊追蹤。
 - `offer_expert_booking`：goals 含「減重」或「腸胃道」時由 core 只出此 CTA（不出保健品方案 CTA）；FE 投影「預約專家諮詢」→ `/expert-booking`（`payload.path`／`label` 可覆寫）。FE **不**依 goals 自行合成。
-- 選項與確認在助理氣泡底部：確認鈕靠右。仍在選改善方向、report 必問、或**本則**仍是 required profile 時，不畫完成 CTA 的 recommend 槽。每則助理泡泡只顯示**自己** `reply_actions` 的按鈕；**不**把舊訊息未答題搬到最新一則（舊訊息維持不顯示按鈕）。B／C 必填問完後 core 每輪可回完成 CTA——前台忠實投影、不自行合併／去重／隱藏。
+- 選項與確認在助理氣泡底部：chip 兩欄等寬；確認與年紀卡撐滿；可點主鈕維持品牌色。仍在選改善方向、report 必問、或**本則**仍是 required profile 時，不畫完成 CTA 的 recommend 槽。每則助理泡泡只顯示**自己** `reply_actions` 的按鈕；**不**把舊訊息未答題搬到最新一則。有 core #186 `interaction` 時，歷史輪保留 CTA：`selected` 強調、`disabled` 全灰（數值卡依 `has_stored_value` 顯示值或空卡）；打字中當輪全灰。舊後端無 `interaction` 時行為同前（僅最新一輪可點、歷史不顯示）。送答帶 `source_message_id`；`409 stale_cta` 時重拉歷史。
 - 開場只問改善方向。選方向時，輸入框不提示「有沒有報告」。
 - 氣泡內上傳鈕只出現在最新一則且該則 usable `ask_report`（或 lab_followup→upload）。輸入列的上傳入口仍在（guest 點了導向登入）。
 | 建議／結帳 | `pages/app/recommendations.vue`、`pages/app/checkout.vue`、`composables/useFirstOrderApi.ts` |

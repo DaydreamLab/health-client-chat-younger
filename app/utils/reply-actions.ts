@@ -56,6 +56,17 @@ export type ChooseOptionMode = 'single' | 'multi'
 
 export type VitalsField = 'age' | 'height' | 'weight'
 
+/** Per-control paint／click state (core #186 hydrate). */
+export type CtaControlStatus = 'current' | 'selected' | 'disabled'
+
+export type ReplyActionsRoundStatus = 'current' | 'historical'
+export type ReplyActionsOutcome = null | 'option_selected' | 'free_text'
+
+export interface ReplyActionsInteraction {
+  round_status: ReplyActionsRoundStatus
+  outcome: ReplyActionsOutcome
+}
+
 export interface ChooseOptionPayload {
   kind?: ChooseOptionKind | string | null
   mode?: ChooseOptionMode | string | null
@@ -65,6 +76,8 @@ export interface ChooseOptionPayload {
   gap_code?: string | null
   answer_type?: string | null
   exclusive_codes?: string[] | null
+  /** Confirm button status when multi／goals confirm is shown. */
+  confirm_status?: CtaControlStatus | null
 }
 
 export interface AskGoalPayload {
@@ -75,6 +88,9 @@ export interface AskVitalsPayload {
   fields?: VitalsField[] | null
   /** Hybrid gap fill may attach the open gap. */
   gap_code?: string | null
+  status?: CtaControlStatus | null
+  has_stored_value?: boolean | null
+  stored_value?: number | null
 }
 
 export interface OfferCheckupPayload {
@@ -121,6 +137,8 @@ export interface ReplyActions {
   actions: ReplyAction[]
   degraded?: boolean
   error?: string | null
+  /** core #186 — round hydrate for grey-retain. Absent on old backends. */
+  interaction?: ReplyActionsInteraction | null
 }
 
 const KNOWN_TYPES = new Set<string>([
@@ -176,6 +194,29 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+export function parseCtaControlStatus(raw: unknown): CtaControlStatus | null {
+  if (raw === 'current' || raw === 'selected' || raw === 'disabled') {
+    return raw
+  }
+  return null
+}
+
+function parseInteraction(raw: unknown): ReplyActionsInteraction | null {
+  if (!isRecord(raw)) {
+    return null
+  }
+  const round = raw.round_status
+  if (round !== 'current' && round !== 'historical') {
+    return null
+  }
+  const outcomeRaw = raw.outcome
+  const outcome: ReplyActionsOutcome
+    = outcomeRaw === 'option_selected' || outcomeRaw === 'free_text'
+      ? outcomeRaw
+      : null
+  return { round_status: round, outcome }
+}
+
 function asOptionList(raw: unknown): ChatMessageOption[] {
   if (!Array.isArray(raw)) {
     return []
@@ -193,9 +234,22 @@ function asOptionList(raw: unknown): ChatMessageOption[] {
     // Missing label field still falls back to code for other choose_option kinds.
     const label = typeof item.label === 'string' ? item.label : code
     const mapsTo = typeof item.maps_to === 'string' ? item.maps_to : null
-    out.push(mapsTo ? { code, label, maps_to: mapsTo } : { code, label })
+    const status = parseCtaControlStatus(item.status)
+    const option: ChatMessageOption = mapsTo
+      ? { code, label, maps_to: mapsTo }
+      : { code, label }
+    if (status) {
+      option.status = status
+    }
+    out.push(option)
   }
   return out
+}
+
+/** True when reply_actions carries core #186 interaction (new hydrate). */
+export function hasCtaInteractionMeta(ra: ReplyActions | null | undefined): boolean {
+  return Boolean(ra?.interaction?.round_status === 'current'
+    || ra?.interaction?.round_status === 'historical')
 }
 
 function asVitalsFields(raw: unknown): VitalsField[] {
@@ -234,13 +288,16 @@ export function parseReplyActions(raw: unknown): ReplyActions | null {
       }).filter(item => item.type !== '')
     : []
 
+  const interaction = parseInteraction(raw.interaction)
+
   return {
     schema_version: typeof raw.schema_version === 'string' ? raw.schema_version : undefined,
     source: typeof raw.source === 'string' ? raw.source : undefined,
     adaptor: typeof raw.adaptor === 'string' ? raw.adaptor : undefined,
     actions,
     degraded: raw.degraded === true,
-    error: typeof raw.error === 'string' ? raw.error : (raw.error === null ? null : undefined)
+    error: typeof raw.error === 'string' ? raw.error : (raw.error === null ? null : undefined),
+    ...(interaction ? { interaction } : {})
   }
 }
 
@@ -626,7 +683,8 @@ export function chooseOptionPayload(action: ReplyAction): ChooseOptionPayload {
     answer_type: typeof p.answer_type === 'string' ? p.answer_type : null,
     exclusive_codes: Array.isArray(p.exclusive_codes)
       ? p.exclusive_codes.filter((c): c is string => typeof c === 'string')
-      : undefined
+      : undefined,
+    confirm_status: parseCtaControlStatus(p.confirm_status)
   }
 }
 
@@ -639,11 +697,27 @@ export function askGoalPayload(action: ReplyAction): AskGoalPayload {
   }
 }
 
+function asStoredNumber(raw: unknown): number | null {
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return raw
+  }
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    const n = Number(raw)
+    if (Number.isFinite(n)) {
+      return n
+    }
+  }
+  return null
+}
+
 export function askVitalsPayload(action: ReplyAction): AskVitalsPayload {
   const p = isRecord(action.payload) ? action.payload : {}
   return {
     fields: asVitalsFields(p.fields),
-    gap_code: typeof p.gap_code === 'string' ? p.gap_code : null
+    gap_code: typeof p.gap_code === 'string' ? p.gap_code : null,
+    status: parseCtaControlStatus(p.status),
+    has_stored_value: typeof p.has_stored_value === 'boolean' ? p.has_stored_value : null,
+    stored_value: asStoredNumber(p.stored_value)
   }
 }
 
@@ -760,6 +834,11 @@ export interface ReplyActionsCtaProjection {
   askGoal: AskGoalPayload | null
   vitalsFields: VitalsField[]
   vitalsGapCode: string | null
+  vitalsStatus: CtaControlStatus | null
+  vitalsHasStoredValue: boolean
+  vitalsStoredValue: number | null
+  confirmStatus: CtaControlStatus | null
+  roundStatus: ReplyActionsRoundStatus | null
   checkupUrlOverride: string | null
   /** offer_full_test payload.url when set; else OFFER_FULL_TEST_DEFAULT_URL. */
   fullTestUrlOverride: string | null
@@ -918,6 +997,11 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
     ? offerExpertBookingPayload(expertBookingAction)
     : null
   const expertBookingPath = expertBooking?.path?.trim() || null
+  const roundStatus = input.replyActions.interaction?.round_status ?? null
+  const confirmStatus = chooseOption?.confirm_status
+    ?? (showConfirm && roundStatus === 'historical' ? 'disabled' : null)
+  const vitalsStatus = vitals?.status
+    ?? (vitals && roundStatus === 'historical' ? 'disabled' : null)
 
   return {
     flags: {
@@ -938,6 +1022,11 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
     askGoal,
     vitalsFields,
     vitalsGapCode: vitals?.gap_code ?? null,
+    vitalsStatus,
+    vitalsHasStoredValue: vitals?.has_stored_value === true,
+    vitalsStoredValue: vitals?.stored_value ?? null,
+    confirmStatus,
+    roundStatus,
     checkupUrlOverride: checkup?.url?.trim() || null,
     fullTestUrlOverride: fullTestUrl || (fullTestAction ? OFFER_FULL_TEST_DEFAULT_URL : null),
     fullTestLabelOverride: fullTest?.label?.trim() || null,

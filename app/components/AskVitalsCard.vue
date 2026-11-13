@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { VitalsField } from '~/utils/reply-actions'
+import type { CtaControlStatus, VitalsField } from '~/utils/reply-actions'
 import {
   agePickerValues,
   appendVitalsDigit,
@@ -10,13 +10,22 @@ import {
   VITALS_FIELD_RANGE
 } from '~/utils/vitals-input'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   field: VitalsField
   disabled?: boolean
   pending?: boolean
-  /** After successful submit — show static summary. */
+  /** Hydrated／resolved control status (design B). */
+  controlStatus?: CtaControlStatus | null
+  hasStoredValue?: boolean
+  storedValue?: number | null
+  /** @deprecated Prefer controlStatus + storedValue. */
   submittedValue?: number | null
-}>()
+}>(), {
+  controlStatus: null,
+  hasStoredValue: false,
+  storedValue: null,
+  submittedValue: null
+})
 
 const emit = defineEmits<{
   submit: [value: number]
@@ -56,8 +65,44 @@ const ITEM_H = 44
 const isAge = computed(() => props.field === 'age')
 const ageValues = agePickerValues()
 
-const submitted = computed(() =>
-  props.submittedValue != null && Number.isFinite(props.submittedValue)
+const lockedValue = computed(() => {
+  if (props.storedValue != null && Number.isFinite(props.storedValue)) {
+    return props.storedValue
+  }
+  if (props.submittedValue != null && Number.isFinite(props.submittedValue)) {
+    return props.submittedValue
+  }
+  return null
+})
+
+const showLockedCard = computed(() => {
+  const status = props.controlStatus
+  if (status === 'selected' || status === 'disabled') {
+    return true
+  }
+  return lockedValue.value != null && status !== 'current'
+})
+
+const lockedHasValue = computed(() => {
+  if (props.hasStoredValue && lockedValue.value != null) {
+    return true
+  }
+  if (props.controlStatus === 'selected' && lockedValue.value != null) {
+    return true
+  }
+  return false
+})
+
+/** Design B:「36 歲」— no secondary「已填」label. */
+const lockedDisplay = computed(() => {
+  if (!lockedHasValue.value || lockedValue.value == null) {
+    return ''
+  }
+  return `${lockedValue.value} ${t(unitKey[props.field])}`
+})
+
+const interactive = computed(() =>
+  !showLockedCard.value && props.controlStatus !== 'disabled'
 )
 
 const displayRaw = computed(() => {
@@ -70,14 +115,11 @@ const displayRaw = computed(() => {
 const status = computed(() =>
   vitalsInputStatus(props.field, displayRaw.value, {
     pending: props.pending,
-    submitted: submitted.value
+    submitted: false
   })
 )
 
 const previewText = computed(() => {
-  if (submitted.value) {
-    return String(props.submittedValue)
-  }
   if (isAge.value) {
     return String(ageSelected.value)
   }
@@ -85,18 +127,12 @@ const previewText = computed(() => {
 })
 
 const previewEmpty = computed(() =>
-  !isAge.value && !submitted.value && !raw.value.trim()
+  !isAge.value && !raw.value.trim()
 )
 
 const hintText = computed(() => {
   if (status.value === 'pending') {
     return t('chat.vitalsSubmitting')
-  }
-  if (status.value === 'submitted') {
-    return t('chat.vitalsSubmitted', {
-      value: props.submittedValue,
-      unit: t(unitKey[props.field])
-    })
   }
   if (status.value === 'error') {
     const range = VITALS_FIELD_RANGE[props.field]
@@ -106,7 +142,7 @@ const hintText = computed(() => {
 })
 
 const confirmDisabled = computed(() => {
-  if (props.disabled || props.pending || submitted.value) {
+  if (props.disabled || props.pending || !interactive.value) {
     return true
   }
   if (isAge.value) {
@@ -116,7 +152,7 @@ const confirmDisabled = computed(() => {
 })
 
 const keysLocked = computed(() =>
-  Boolean(props.disabled || props.pending || submitted.value)
+  Boolean(props.disabled || props.pending || !interactive.value)
 )
 
 const errorId = computed(() => `ask-vitals-error-${props.field}`)
@@ -131,7 +167,7 @@ watch(
 )
 
 onMounted(() => {
-  if (isAge.value) {
+  if (isAge.value && interactive.value) {
     nextTick(() => scrollAgeIntoView(ageSelected.value, false))
   }
 })
@@ -218,29 +254,33 @@ function onConfirm() {
 </script>
 
 <template>
+  <!-- Locked selected／grey card (design B): value or empty; no secondary labels. -->
   <div
-    v-if="submitted"
-    class="ask-vitals-card is-submitted"
+    v-if="showLockedCard"
+    class="ask-vitals-card"
+    :class="{
+      'is-selected': controlStatus === 'selected' || (lockedHasValue && controlStatus !== 'disabled'),
+      'is-disabled-tone': controlStatus === 'disabled' || controlStatus == null,
+      'is-empty': !lockedHasValue
+    }"
     data-testid="chat-vitals-card"
     :data-vitals-field="field"
-    data-vitals-status="submitted"
+    :data-vitals-status="controlStatus ?? 'disabled'"
+    :data-has-stored-value="lockedHasValue ? 'true' : 'false'"
     role="status"
   >
-    {{ $t('chat.vitalsSubmitted', {
-      value: submittedValue,
-      unit: $t(unitKey[field])
-    }) }}
+    <span v-if="lockedHasValue">{{ lockedDisplay }}</span>
   </div>
   <div
     v-else
-    class="ask-vitals-card"
+    class="ask-vitals-card is-current"
     :class="{
       'is-error': status === 'error',
       'is-pending': status === 'pending'
     }"
     data-testid="chat-vitals-card"
     :data-vitals-field="field"
-    :data-vitals-status="status"
+    :data-vitals-status="controlStatus ?? 'current'"
   >
     <div class="ask-vitals-head">
       <span class="ask-vitals-label">{{ $t(labelKey[field]) }}</span>
@@ -380,38 +420,56 @@ function onConfirm() {
 <style scoped>
 .ask-vitals-card {
   width: 100%;
-  max-width: 20rem;
+  max-width: none;
   margin-top: 0.25rem;
   padding: 0.875rem;
-  border: 1px solid var(--ui-border);
+  border: 1px solid var(--color-mist-500);
   border-radius: 0.875rem;
-  background: var(--ui-bg-elevated);
+  background: #fff;
   box-shadow: 0 4px 16px color-mix(in oklab, var(--color-mist-600) 6%, transparent);
 }
 
-.ask-vitals-card.is-error {
+.ask-vitals-card.is-current.is-error {
   border-color: color-mix(in oklab, var(--color-coral-600) 45%, var(--ui-border));
   background: linear-gradient(
     180deg,
     var(--color-coral-50),
-    var(--ui-bg-elevated) 48%
+    #fff 48%
   );
 }
 
-.ask-vitals-card.is-pending {
+.ask-vitals-card.is-current.is-pending {
   opacity: 0.72;
   pointer-events: none;
 }
 
-.ask-vitals-card.is-submitted {
-  max-width: 17.5rem;
+/* Design B locked cards — selected vs grey; empty grey has min height, no「未填」. */
+.ask-vitals-card.is-selected,
+.ask-vitals-card.is-disabled-tone {
   padding: 0.625rem 0.875rem;
-  background: var(--color-brand-50);
-  border-color: var(--color-brand-100);
   box-shadow: none;
   font-size: 0.8125rem;
   font-weight: 600;
+  min-height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ask-vitals-card.is-selected {
+  background: var(--color-brand-50);
+  border: 1.5px solid var(--color-brand-700);
   color: var(--color-brand-700);
+}
+
+.ask-vitals-card.is-disabled-tone {
+  background: var(--color-mist-100);
+  border: 1px solid var(--color-mist-500);
+  color: var(--color-mist-600);
+}
+
+.ask-vitals-card.is-empty {
+  min-height: 2.5rem;
 }
 
 .ask-vitals-head {
@@ -424,13 +482,13 @@ function onConfirm() {
 .ask-vitals-label {
   font-size: 0.8125rem;
   font-weight: 700;
-  color: var(--ui-text-highlighted);
+  color: var(--color-mist-600);
 }
 
 .ask-vitals-unit {
   font-size: 0.75rem;
   font-weight: 700;
-  color: var(--ui-primary);
+  color: var(--color-brand-600);
   background: var(--color-brand-50);
   padding: 0.125rem 0.5rem;
   border-radius: 999px;
@@ -444,11 +502,11 @@ function onConfirm() {
   font-weight: 700;
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
-  color: var(--ui-text-highlighted);
+  color: var(--color-mist-600);
 }
 
 .ask-vitals-preview.empty {
-  color: var(--ui-text-dimmed);
+  color: var(--color-mist-400);
   font-weight: 500;
   font-size: 1.75rem;
 }
@@ -594,19 +652,16 @@ function onConfirm() {
 
 .ask-vitals-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: stretch;
   margin-top: 0.75rem;
 }
 
 .ask-vitals-confirm {
-  min-width: 4.5rem;
+  width: 100%;
+  min-width: 0;
 }
 
 @media (max-width: 640px) {
-  .ask-vitals-card {
-    max-width: 100%;
-  }
-
   .ask-vitals-key {
     min-height: 3rem;
   }
