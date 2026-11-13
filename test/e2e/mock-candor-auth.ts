@@ -605,10 +605,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   sellable_item_id: sellableVitD,
                   code: 'vitamin_d',
                   name: '維生素 D',
-                  unit_price: 9,
                   daily_dose: 1,
                   daily_servings_max: 1,
-                  monthly_cost: 280,
                   is_core: true,
                   image_url: 'https://cdn.example/catalog/vitamin_d.png',
                   display_reason: '無分組定稿原因'
@@ -618,10 +616,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   sellable_item_id: sellableIron,
                   code: 'iron',
                   name: '鐵蛋白調理',
-                  unit_price: 17,
                   daily_dose: 1,
                   daily_servings_max: 1,
-                  monthly_cost: 520,
                   is_core: false
                 },
                 {
@@ -629,10 +625,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   sellable_item_id: sellableVitC,
                   code: 'vitamin_c',
                   name: '維生素 C',
-                  unit_price: 16,
                   daily_dose: 1,
                   daily_servings_max: 1,
-                  monthly_cost: 480,
                   is_core: false,
                   display_reason: '顧問定稿原因'
                 }
@@ -710,10 +704,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   sellable_item_id: sellableVitD,
                   code: 'vitamin_d',
                   name: '維生素 D',
-                  unit_price: 9,
                   daily_dose: 1,
                   daily_servings_max: 1,
-                  monthly_cost: 280,
                   is_core: true,
                   image_url: 'https://cdn.example/catalog/vitamin_d.png'
                 },
@@ -722,10 +714,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   sellable_item_id: sellableIron,
                   code: 'iron',
                   name: '鐵蛋白調理',
-                  unit_price: 17,
                   daily_dose: 1,
                   daily_servings_max: 1,
-                  monthly_cost: 520,
                   is_core: false
                 },
                 {
@@ -733,10 +723,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   sellable_item_id: sellableVitC,
                   code: 'vitamin_c',
                   name: '維生素 C',
-                  unit_price: 16,
                   daily_dose: 1,
                   daily_servings_max: 1,
-                  monthly_cost: 480,
                   is_core: false
                 },
                 {
@@ -744,10 +732,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
                   sellable_item_id: sellableOmega,
                   code: 'omega3',
                   name: 'Omega-3',
-                  unit_price: 9,
                   daily_dose: 1,
                   daily_servings_max: 1,
-                  monthly_cost: 280,
                   is_core: true
                 }
               ],
@@ -828,9 +814,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           sellable_item_id: sellableVitD,
           code: 'vitamin_d',
           name: '維生素 D',
-          unit_price: 9,
           daily_dose: 1,
-          monthly_cost: 280,
           is_core: true,
           image_url: 'https://cdn.example/catalog/vitamin_d.png',
           display_reason: '無分組定稿原因'
@@ -840,9 +824,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           sellable_item_id: sellableIron,
           code: 'iron',
           name: '鐵蛋白調理',
-          unit_price: 17,
           daily_dose: 1,
-          monthly_cost: 520,
           is_core: false
         },
         {
@@ -850,9 +832,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           sellable_item_id: sellableVitC,
           code: 'vitamin_c',
           name: '維生素 C',
-          unit_price: 16,
           daily_dose: 1,
-          monthly_cost: 480,
           is_core: false,
           display_reason: '顧問定稿原因'
         }
@@ -896,9 +876,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           sellable_item_id: sellableVitD,
           code: 'vitamin_d',
           name: '維生素 D',
-          unit_price: 9,
           daily_dose: 1,
-          monthly_cost: 280,
           is_core: true
         },
         {
@@ -906,9 +884,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
           sellable_item_id: sellableOmega,
           code: 'omega3',
           name: 'Omega-3',
-          unit_price: 9,
           daily_dose: 1,
-          monthly_cost: 280,
           is_core: true
         }
       ],
@@ -1178,11 +1154,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         sellable_item_id: sellableVitD,
         code: 'vitamin_d',
         name: '維生素 D',
-        unit_price: 9,
         daily_dose: 1,
         daily_servings_max: 2,
-        daily_price: 9,
-        monthly_cost: 280,
         score_raw: 1,
         is_core: true,
         image_url: null
@@ -1192,11 +1165,8 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         sellable_item_id: sellableIron,
         code: 'iron',
         name: '鐵蛋白調理',
-        unit_price: 17,
         daily_dose: 1,
         daily_servings_max: 1,
-        daily_price: 17,
-        monthly_cost: 520,
         score_raw: 0.8,
         is_core: false,
         image_url: null
@@ -3083,9 +3053,9 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
             used_amount: 1280,
             remaining: 0,
             components: [
-              { id: 'c1', sellable_item_id: sellableVitD, sellable_item_code: 'vitamin_d', sellable_item_name: '維生素 D', unit_price: 9, daily_dose: 1, monthly_cost: 280, rank: 1, is_core: true, image_url: 'https://cdn.example/catalog/vitamin_d.png' },
-              { id: 'c2', sellable_item_id: sellableIron, sellable_item_code: 'iron', sellable_item_name: '鐵蛋白調理', unit_price: 17, daily_dose: 1, monthly_cost: 520, rank: 2, is_core: false, image_url: null },
-              { id: 'c3', sellable_item_id: sellableVitC, sellable_item_code: 'vitamin_c', sellable_item_name: '維生素 C', unit_price: 16, daily_dose: 1, monthly_cost: 480, rank: 3, is_core: false }
+              { id: 'c1', sellable_item_id: sellableVitD, sellable_item_code: 'vitamin_d', sellable_item_name: '維生素 D', daily_dose: 1, rank: 1, is_core: true, image_url: 'https://cdn.example/catalog/vitamin_d.png' },
+              { id: 'c2', sellable_item_id: sellableIron, sellable_item_code: 'iron', sellable_item_name: '鐵蛋白調理', daily_dose: 1, rank: 2, is_core: false, image_url: null },
+              { id: 'c3', sellable_item_id: sellableVitC, sellable_item_code: 'vitamin_c', sellable_item_name: '維生素 C', daily_dose: 1, rank: 3, is_core: false }
             ]
           },
           bottle_addons: placedOrder.bottle_addons ?? [],

@@ -26,11 +26,8 @@ describe('checkout preview ai.items (spec 33 / core #143)', () => {
       sellable_item_id: 'dddddddd-dddd-dddd-dddd-dddddddddd01',
       code: 'vitamin_d',
       name: '維生素 D',
-      unit_price: 9,
       daily_dose: 1,
       daily_servings_max: 2,
-      daily_price: 9,
-      monthly_cost: 280,
       score_raw: 1,
       is_core: true,
       image_url: null
@@ -55,7 +52,7 @@ describe('checkout preview ai.items (spec 33 / core #143)', () => {
     expect(pkg.package_plan_name).toBe('基礎保養方案')
     expect(pkg.price).toBe(1980)
     expect(pkg.items).toEqual(items)
-    expect(pkg.items[0]?.daily_price).toBe(9)
+    expect(pkg.items[0]?.code).toBe('vitamin_d')
     expect(pkg.items[0]?.score_raw).toBe(1)
     expect(pkg.composition_hash).toBe('sha256:basic')
   })

@@ -151,6 +151,10 @@ test.describe('guest session', () => {
     await expect(page.getByTestId('package-rationale')).toContainText('無分組定稿原因')
     await expect(page.getByTestId('package-items')).not.toContainText('顧問定稿原因')
     await expect(page.getByTestId('package-items')).not.toContainText('無分組定稿原因')
+    // Member API no longer returns per-item prices; composition list must not show them.
+    await expect(page.getByTestId('package-items')).not.toContainText('NT$')
+    await expect(page.getByTestId('sellable-item-vitamin_d')).toContainText('維生素 D')
+    await expect(page.getByTestId('package-plan-basic')).toContainText('NT$')
     await expect(page.getByTestId('recommendation-go-checkout')).toBeVisible()
     // Guest checkout gate is on /app/checkout after「前往結帳」.
     await page.getByTestId('recommendation-go-checkout').click()
@@ -252,6 +256,9 @@ test.describe('member order detail', () => {
     await expect(page.getByTestId('order-item-vitamin_d')).toContainText('維生素 D')
     await expect(page.getByTestId('order-item-vitamin_d')).not.toContainText('NT$')
     await expect(page.getByTestId('order-item-iron')).toContainText('鐵蛋白調理')
+    await expect(page.getByTestId('order-item-iron')).not.toContainText('NT$')
+    await expect(page.getByTestId('order-item-vitamin_c')).not.toContainText('NT$')
+    await expect(page.getByTestId('order-package-items')).toContainText('NT$')
     await expect(page.getByTestId('order-payment-section')).toBeVisible()
     await expect(page.getByTestId('order-invoice-section')).toBeVisible()
     await expect(page.getByTestId('order-shipping-section')).toContainText('林晏婷')

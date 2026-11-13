@@ -325,16 +325,11 @@
                   </span>
                 </span>
               </span>
-              <span class="flex shrink-0 flex-col items-end gap-1">
-                <span
-                  class="app-badge app-badge-pending"
-                  :data-testid="`sellable-item-dose-${item.code || item.sellable_item_id}`"
-                >
-                  {{ doseLabel(item) }}
-                </span>
-                <span class="text-sm tabular-nums text-muted">
-                  {{ formatTwd(item.monthly_cost) }}
-                </span>
+              <span
+                class="app-badge app-badge-pending shrink-0"
+                :data-testid="`sellable-item-dose-${item.code || item.sellable_item_id}`"
+              >
+                {{ doseLabel(item) }}
               </span>
             </button>
           </li>

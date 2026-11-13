@@ -137,28 +137,25 @@
         <li
           v-for="item in orderItems"
           :key="item.code"
-          class="flex items-start justify-between gap-3"
+          class="flex items-start gap-3"
           :data-testid="`order-item-${item.code}`"
         >
           <span class="min-w-0 font-medium text-highlighted">
             {{ item.name }}
           </span>
-          <template v-if="!planDisplayName">
-            <span
-              v-if="item.monthlyCost != null"
-              class="shrink-0 text-base font-semibold tabular-nums text-primary"
-            >
-              {{ formatTwd(item.monthlyCost) }}
-            </span>
-            <span
-              v-else
-              class="shrink-0 text-base font-semibold tabular-nums text-primary"
-            >
-              {{ formatTwd(packageDisplayAmount) }}
-            </span>
-          </template>
         </li>
       </ul>
+      <div
+        v-if="!planDisplayName && orderItems.length"
+        class="mt-3 flex items-start justify-end"
+      >
+        <span
+          class="shrink-0 text-base font-semibold tabular-nums text-primary"
+          data-testid="order-plan-price"
+        >
+          {{ formatTwd(packageDisplayAmount) }}
+        </span>
+      </div>
       <div
         v-else-if="!planDisplayName"
         class="mt-3 flex items-start justify-between gap-3"
@@ -166,7 +163,10 @@
         <span class="font-medium text-highlighted">
           {{ orderProductSummary(order) || $t('orders.itemsEmpty') }}
         </span>
-        <span class="shrink-0 text-base font-semibold tabular-nums text-primary">
+        <span
+          class="shrink-0 text-base font-semibold tabular-nums text-primary"
+          data-testid="order-plan-price"
+        >
           {{ formatTwd(packageDisplayAmount) }}
         </span>
       </div>

@@ -50,18 +50,14 @@ describe('expert-review helpers', () => {
           rank: 1,
           sellable_item_id: 's1',
           code: 'keep',
-          unit_price: 10,
           daily_dose: 1,
-          monthly_cost: 300,
           removed: false
         },
         {
           rank: 0,
           sellable_item_id: 's2',
           code: 'gone',
-          unit_price: 10,
           daily_dose: 1,
-          monthly_cost: 300,
           removed: true
         }
       ]
