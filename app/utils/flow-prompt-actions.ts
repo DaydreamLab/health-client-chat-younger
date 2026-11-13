@@ -3,7 +3,8 @@
  * Core attach／create may return flow_prompt with usable RA; FE paints them,
  * then may stream a follow-up turn (e.g.「我的報告已上傳」). On success the
  * new assistant owns CTAs — clear the prior bubble so chips do not dual-host.
- * On stream failure keep the flow_prompt RA (caller discards the failed bubble).
+ * On stream failure keep the error bubble with a retry tip (run15); do not
+ * silently discard so the user never sees a vanished reply.
  */
 
 import type { ChatMessage } from './first-order'
@@ -22,11 +23,11 @@ export function clearChatMessageActions(message: ChatMessage): void {
 }
 
 /**
- * After a failed follow-up stream, drop the error／empty assistant so the
- * flow_prompt host remains the latest assistant (buttons stay clickable).
- * Returns true when a bubble was removed.
+ * After a failed follow-up stream, keep the error／empty assistant bubble
+ * (run15: never silently remove) and strip any CTAs so only the error tip
+ * + retry affordance show. Returns true when the failed bubble was marked.
  */
-export function discardFailedFollowUpAssistant(
+export function keepFailedFollowUpAssistant(
   messages: ChatMessage[],
   assistantId: string | null | undefined,
   flowHostId?: string | null
@@ -34,12 +35,25 @@ export function discardFailedFollowUpAssistant(
   if (!assistantId || assistantId === flowHostId) {
     return false
   }
-  const idx = messages.findIndex(message => message.id === assistantId)
-  if (idx < 0) {
+  const message = messages.find(item => item.id === assistantId)
+  if (!message) {
     return false
   }
-  messages.splice(idx, 1)
+  clearChatMessageActions(message)
+  message.streamFailed = true
   return true
+}
+
+/**
+ * @deprecated run15: prefer {@link keepFailedFollowUpAssistant}. Kept as a
+ * thin alias so older call sites／tests migrate without silent discard.
+ */
+export function discardFailedFollowUpAssistant(
+  messages: ChatMessage[],
+  assistantId: string | null | undefined,
+  flowHostId?: string | null
+): boolean {
+  return keepFailedFollowUpAssistant(messages, assistantId, flowHostId)
 }
 
 /** Whether a greeting／flow_prompt payload carries usable reply_actions. */

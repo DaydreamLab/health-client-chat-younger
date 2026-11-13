@@ -204,7 +204,8 @@ export type CandorMockOptions = {
    */
   attachFlowPromptRa?: 'consultation_goals' | 'lab_followup_stale'
   /**
-   * Fail the auto「我的報告已上傳」stream so FE must keep flow_prompt CTAs.
+   * Fail the auto「我的報告已上傳」stream so FE keeps an error tip + retry
+   * (run15; does not silently discard the failed follow-up bubble).
    */
   failReportUploadedAckStream?: boolean
 }
@@ -2073,7 +2074,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     const streamBody = route.request().postDataJSON() as { content?: string } | null
     const streamText = typeof streamBody?.content === 'string' ? streamBody.content : ''
 
-    // Path C upload ack failure: keep flow_prompt CTAs on the prior assistant bubble.
+    // Path C upload ack failure: SSE error → FE keeps error bubble + retry (run15).
     if (options.failReportUploadedAckStream && streamText.includes('我的報告已上傳')) {
       const body = [
         'event: error',

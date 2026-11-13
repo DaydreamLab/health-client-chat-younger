@@ -28,6 +28,8 @@ const props = defineProps<{
   wantMoreTestsUrl: string
   showViewRecommend: boolean
   showRetry: boolean
+  /** Backend／caller label; empty → i18n chat.reportRetry. */
+  retryLabel?: string | null
   pending: boolean
   /** `standard` never submits expert review; the recommend button stays「查看推薦方案」. */
   flow?: 'standard'
@@ -80,6 +82,11 @@ const showFullTestLink = computed(
 )
 
 const showExpertBookingCta = computed(() => props.showExpertBooking)
+
+const retryButtonLabel = computed(() => {
+  const fromCaller = String(props.retryLabel ?? '').trim()
+  return fromCaller || t('chat.reportRetry')
+})
 
 const expertBookingButtonLabel = computed(() => {
   const fromPayload = String(props.expertBookingLabel ?? '').trim()
@@ -249,9 +256,10 @@ const hasActions = computed(() =>
           v-if="showRetry"
           variant="outline"
           data-testid="chat-report-retry"
+          :disabled="pending"
           @click="emit('retry')"
         >
-          {{ $t('chat.reportRetry') }}
+          {{ retryButtonLabel }}
         </AppButton>
         <!-- 建議按鈕排在原本按鈕（舊報告三顆、完成、checkup 等）後面 -->
         <AppButton

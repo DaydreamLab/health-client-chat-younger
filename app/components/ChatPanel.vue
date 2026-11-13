@@ -220,6 +220,7 @@
                 :want-more-tests-url="checkupLinkUrl"
                 :show-view-recommend="showViewRecommendCta(message)"
                 :show-retry="showRetryCta(message)"
+                :retry-label="retryLabelFor(message)"
                 :pending="pending"
                 :flow="isStandardFlow ? 'standard' : undefined"
                 :vitals-fields="vitalsFieldsFor(message)"
@@ -229,7 +230,7 @@
                 @upload="openAttachMenu"
                 @recommend="goViewRecommend"
                 @expert-booking="goExpertBooking"
-                @retry="retryReport"
+                @retry="onRetryCta(message)"
                 @continue-consult="onContinueConsult"
                 @vitals-submit="onVitalsSubmit"
               />
@@ -447,7 +448,7 @@ import {
 } from '~/utils/chat-history'
 import {
   clearChatMessageActions,
-  discardFailedFollowUpAssistant
+  keepFailedFollowUpAssistant
 } from '~/utils/flow-prompt-actions'
 import { expertReviewUiStatusFromRow } from '~/utils/expert-review'
 import {
@@ -702,6 +703,34 @@ const turnUiContext = computed((): ChatTurnUiContext => ({
 }))
 
 function turnActionsFor(message: ChatMessage) {
+  // Failed stream bubble: only the error tip + retry CTA (no goals／chips bleed).
+  if (message.streamFailed) {
+    return {
+      choices: [],
+      showConfirm: false,
+      showUpload: false,
+      showCheckup: false,
+      showFullTest: false,
+      showExpertBooking: false,
+      showWantMoreTests: false,
+      showRecommend: false,
+      showSubmitReview: false,
+      showViewRecommend: false,
+      showRetry: true,
+      vitalsFields: [] as VitalsField[],
+      vitalsGapCode: null,
+      checkupUrlOverride: null,
+      fullTestUrlOverride: null,
+      fullTestLabelOverride: null,
+      fullTestCopyOverride: null,
+      fullTestMarkerCount: null,
+      expertBookingPathOverride: null,
+      expertBookingLabelOverride: null,
+      fromReplyActions: false,
+      exclusiveCodes: [] as string[],
+      replyProjection: null
+    }
+  }
   return buildTurnActionsVisibility({
     message,
     ctx: turnUiContext.value,
@@ -1026,7 +1055,21 @@ function showViewRecommendCta(message: ChatMessage) {
 }
 
 function showRetryCta(message: ChatMessage) {
-  return turnActionsFor(message).showRetry
+  // Stream follow-up failure (run15): keep bubble + retry tip. Report OCR retry
+  // still uses the dock／status row; TurnActions showRetry is for streamFailed.
+  return Boolean(message.streamFailed) || turnActionsFor(message).showRetry
+}
+
+function retryLabelFor(message: ChatMessage) {
+  return message.streamFailed ? t('chat.streamRetry') : t('chat.reportRetry')
+}
+
+function onRetryCta(message: ChatMessage) {
+  if (message.streamFailed) {
+    void retryFailedStream(message)
+    return
+  }
+  void retryReport()
 }
 
 function messageText(message: ChatMessage) {
@@ -1465,10 +1508,8 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
               clearChatMessageActions(openingHost)
             }
           } else {
-            discardFailedFollowUpAssistant(journey.messages, streamed.assistantId, openingHost?.id)
-            if (openingHost?.replyActions && isUsableReplyActions(openingHost.replyActions)) {
-              applyReplyActionsInteraction(openingHost, openingHost.replyActions)
-            }
+            // Keep error bubble + retry tip (run15); do not restore prior host as latest.
+            keepFailedFollowUpAssistant(journey.messages, streamed.assistantId, openingHost?.id)
           }
         }
       }
@@ -1531,10 +1572,7 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
         clearChatMessageActions(flowHost)
       }
     } else {
-      discardFailedFollowUpAssistant(journey.messages, streamed.assistantId, flowHost?.id)
-      if (flowHost?.replyActions && isUsableReplyActions(flowHost.replyActions)) {
-        applyReplyActionsInteraction(flowHost, flowHost.replyActions)
-      }
+      keepFailedFollowUpAssistant(journey.messages, streamed.assistantId, flowHost?.id)
     }
   }
 }
@@ -1854,7 +1892,7 @@ function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyA
   }
 
   // free／open_question_reply: chips from projection (may include companion
-  // path_switch／continue_consultation).
+  // path_switch／continue_consultation). kind=free mode=single → single-tap.
   if ((choose?.kind === 'free' || choose?.kind === 'open_question_reply')
     && (visibility.choices.length || choose.options?.length)) {
     message.options = visibility.choices.length ? visibility.choices : (choose.options ?? [])
@@ -1862,6 +1900,7 @@ function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyA
     message.profileQuestion = null
     quizActive.value = false
     activeQuestion.value = null
+    goalSelectActive.value = false
     return
   }
 
@@ -2050,6 +2089,13 @@ function restorePendingUserIfMissing(pendingContent: string) {
   appendMessage('user', text)
 }
 
+/** Last failed stream payload so the error bubble can retry without inventing copy. */
+const failedStreamRetry = ref<{
+  content: string
+  intent: string | null
+  assistantId: string
+} | null>(null)
+
 async function streamPending(): Promise<{ ok: boolean, assistantId: string | null }> {
   const content = pendingUserContent.value
   const intent = pendingIntent.value
@@ -2099,7 +2145,8 @@ async function streamPending(): Promise<{ ok: boolean, assistantId: string | nul
         setMessageText(assistantId, streamed)
       },
       onReplace: (text) => {
-        // Avoid redraw flicker when done content matches what was already streamed.
+        // Smooth replace when done ≠ streamed: one setMessageText, skip no-op equals
+        // so the bubble does not clear／flash the prior stream before swapping.
         if (text === streamed) {
           return
         }
@@ -2112,6 +2159,7 @@ async function streamPending(): Promise<{ ok: boolean, assistantId: string | nul
     // Empty / meta-only replies still need a host bubble for CTAs.
     ensureLiveAssistant()
     streamMessageLookupId = applyStreamMeta(assistantId, result)
+    failedStreamRetry.value = null
 
     // Interpret 外連改吃 stream reply_actions offer_checkup（#20）；勿 FE 硬設 wantMoreTestsOffer.
     if (intent === 'interpret' && !checkupUrlLoaded.value) {
@@ -2127,13 +2175,16 @@ async function streamPending(): Promise<{ ok: boolean, assistantId: string | nul
     if (intent === 'interpret') {
       journey.reportInterpretSent = false
     }
-    if (wasSelectingGoals) {
-      goalSelectActive.value = true
-    }
-    // Always use the reserved assistantId so callers can discard on failure
-    // (e.g. keep path-C flow_prompt CTAs instead of an error bubble).
+    // Keep the assistant bubble with a retryable error tip (run15) — never invent
+    // reply copy, and do not restore goalSelectActive onto this failure bubble.
     ensureLiveAssistant()
     setMessageText(assistantId, t('chat.streamError'))
+    const failed = journey.messages.find(item => item.id === assistantId)
+    if (failed) {
+      clearChatMessageActions(failed)
+      failed.streamFailed = true
+    }
+    failedStreamRetry.value = { content, intent, assistantId }
     streamMessageLookupId = assistantId
     ok = false
   } finally {
@@ -2145,6 +2196,35 @@ async function streamPending(): Promise<{ ok: boolean, assistantId: string | nul
     }
   }
   return { ok, assistantId: streamMessageLookupId }
+}
+
+/**
+ * Re-run the failed follow-up stream from the error bubble's「再試一次」CTA.
+ * Drops the failed bubble first; on success clears prior host CTAs like the
+ * original success path.
+ */
+async function retryFailedStream(message: ChatMessage) {
+  if (!message.streamFailed || pending.value || readonly.value || escalated.value) {
+    return
+  }
+  const retry = failedStreamRetry.value
+  if (!retry || retry.assistantId !== message.id || !retry.content) {
+    return
+  }
+  const host = [...journey.messages].reverse().find(item =>
+    item.role === 'assistant' && item.id !== message.id
+  )
+  const idx = journey.messages.findIndex(item => item.id === message.id)
+  if (idx >= 0) {
+    journey.messages.splice(idx, 1)
+  }
+  failedStreamRetry.value = null
+  pendingUserContent.value = retry.content
+  pendingIntent.value = retry.intent
+  const streamed = await streamPending()
+  if (streamed.ok && host && host.id !== streamed.assistantId) {
+    clearChatMessageActions(host)
+  }
 }
 
 async function runProfileThenStream() {
@@ -2896,11 +2976,8 @@ async function bindAndInterpret(reportId: string) {
     }
     return
   }
-  // Stream 失敗：丟掉 error 泡泡，讓 flow_prompt RA 留在最新助理則（勿卡住無鈕）。
-  discardFailedFollowUpAssistant(journey.messages, ack.assistantId, flowHost?.id)
-  if (flowHost?.replyActions && isUsableReplyActions(flowHost.replyActions)) {
-    applyReplyActionsInteraction(flowHost, flowHost.replyActions)
-  }
+  // Stream 失敗：保留 error 泡泡＋再試一次（run15）；不把 flow_prompt 當最新覆寫掉錯誤提示。
+  keepFailedFollowUpAssistant(journey.messages, ack.assistantId, flowHost?.id)
 }
 
 async function askInterpret() {

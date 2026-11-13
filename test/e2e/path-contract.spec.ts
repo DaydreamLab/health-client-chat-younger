@@ -461,7 +461,9 @@ test.describe('path contract (A／B／C)', () => {
     await expect(page.getByTestId('chat-quiz-option-sleep')).toHaveCount(1)
   })
 
-  test('path C：自動送失敗時保留 flow_prompt 按鈕', async ({ page, goto }) => {
+  test('path C：自動送失敗時保留錯誤提示＋再試一次（不靜默刪泡泡）', async ({ page, goto }) => {
+    // run15: SSE error keeps the assistant bubble with a retry tip; do not discard
+    // and re-host flow_prompt CTAs as if the follow-up never happened.
     test.setTimeout(120_000)
     await mockCandorAuth(page, {
       asMember: true,
@@ -486,9 +488,10 @@ test.describe('path contract (A／B／C)', () => {
     await expect(transcript).toContainText('我的報告已上傳', { timeout: 15_000 })
 
     const last = page.getByTestId('chat-last-reply')
-    await expect(last).toContainText(FLOW_V2_PATH_C_BASICS)
-    await expect(last.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
-    await expect(last).not.toContainText('回覆暫時無法取得')
+    await expect(last).toContainText('回覆暫時無法取得', { timeout: 15_000 })
+    await expect(last.getByTestId('chat-report-retry')).toBeVisible()
+    await expect(last.getByTestId('chat-report-retry')).toHaveText('再試一次')
+    await expect(last.getByTestId('chat-quiz-option-sleep')).toHaveCount(0)
   })
 
   test('path B：goals 掛著時打字走 stream，不打 POST /goals', async ({ page, goto }) => {

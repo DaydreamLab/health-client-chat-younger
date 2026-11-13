@@ -570,6 +570,7 @@
     "askInterpretNoGoals": "請根據這份報告說明重點",
     "conversationError": "無法開始對話，請重新整理頁面。",
     "streamError": "回覆暫時無法取得，請再試一次。",
+    "streamRetry": "再試一次",
     "submitExpertReview": "取得專屬保健品方案",
     "submitExpertReviewHint": "以上為 AI 對話資訊，專人將於 24 小時內為您處理",
     "viewRecommend": "查看推薦方案",
