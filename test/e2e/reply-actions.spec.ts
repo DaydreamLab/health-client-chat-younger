@@ -1122,4 +1122,175 @@ test.describe('reply_actions v0.1 CTAs', () => {
     // Only the latest bubble paints CTAs — one view-recommend in the thread.
     await expect(page.getByTestId('chat-view-recommend')).toHaveCount(1)
   })
+
+  test('profile sex + continue_chat: hydrate shows 生理男／女＋繼續聊聊; click streams', async ({
+    page,
+    goto
+  }) => {
+    // run22: core ships both; FE must not drop continue_chat when mixed with profile.
+    test.setTimeout(90_000)
+    const conversationId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+    await mockCandorAuth(page, {
+      asMember: true,
+      replyActions: 'none',
+      conversationPath: 'B'
+    })
+    await seedNoExpertCase(page)
+    await page.setViewportSize({ width: 390, height: 844 })
+
+    const sexContinueRa = {
+      schema_version: '0.1',
+      source: 'semantic_judgment',
+      adaptor: 'fake',
+      degraded: false,
+      error: null,
+      interaction: { round_status: 'current', outcome: null },
+      actions: [
+        { type: 'none', payload: {} },
+        {
+          type: 'choose_option',
+          payload: {
+            kind: 'profile',
+            mode: 'single',
+            confirm: false,
+            gap_code: 'sex',
+            answer_type: 'enum',
+            options: [
+              { code: 'M', label: '生理男', status: 'current' },
+              { code: 'F', label: '生理女', status: 'current' }
+            ]
+          }
+        },
+        {
+          type: 'choose_option',
+          payload: {
+            kind: 'continue_chat',
+            mode: 'single',
+            confirm: false,
+            options: [{ code: 'continue_chat', label: '繼續聊聊', status: 'current' }]
+          }
+        }
+      ]
+    }
+
+    await page.route(`**/api/v1/conversation/${conversationId}/messages`, async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback()
+        return
+      }
+      if (route.request().url().includes('/messages/stream')) {
+        await route.fallback()
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            conversation_id: conversationId,
+            path: 'b',
+            messages: [
+              {
+                id: 'asst-sex-reask',
+                role: 'assistant',
+                content: '請問您的生理性別是？',
+                reply_actions: sexContinueRa
+              }
+            ]
+          }
+        })
+      })
+    })
+
+    // Live stream path: free-typed tangent → done carries the same RA mix.
+    await page.route(`**/api/v1/conversation/${conversationId}/messages/stream`, async (route) => {
+      const body = route.request().postData() || ''
+      const content = body.includes('繼續聊聊')
+        ? '好的，我們先聊聊睡眠。'
+        : '這個問題有助於我們更貼近您的情況。請問您的生理性別是？'
+      const reply_actions = body.includes('繼續聊聊')
+        ? {
+            schema_version: '0.1',
+            degraded: false,
+            error: null,
+            actions: [{ type: 'none', payload: {} }]
+          }
+        : sexContinueRa
+      const donePayload = {
+        message_id: `msg-sex-continue-${Date.now()}`,
+        claim_guard: 'passed',
+        content,
+        options: [],
+        turn: { type: 'message' },
+        profile_question: null,
+        profile_gaps: body.includes('繼續聊聊') ? [] : ['sex'],
+        reply_actions
+      }
+      const sse = [
+        'event: delta',
+        `data: ${JSON.stringify({ text: content })}`,
+        '',
+        'event: done',
+        `data: ${JSON.stringify(donePayload)}`,
+        '',
+        ''
+      ].join('\n')
+      await route.fulfill({ status: 200, contentType: 'text/event-stream', body: sse })
+    })
+
+    await page.addInitScript((journey) => {
+      localStorage.setItem('candor.unpaid.journey', JSON.stringify(journey))
+    }, {
+      conversationId,
+      conversationPath: 'B',
+      messages: [{
+        id: 'stale',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'stale' }]
+      }],
+      hasAnalysis: false,
+      selectedPackageCode: null,
+      reportId: null,
+      reportDockOpen: false,
+      reportDockCollapsed: true,
+      reportInterpretSent: false,
+      selectedPackage: null,
+      packageConfirmed: false,
+      goalSelectActive: false,
+      goalOptions: [],
+      selectedCodes: [],
+      quizActive: false,
+      activeQuestion: null,
+      postQuizGuided: false,
+      profileGaps: ['sex'],
+      clarifyingGoals: ['睡眠'],
+      expertReviewStatus: 'none'
+    })
+
+    await goto('/chat', { waitUntil: 'hydration' })
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last).toContainText('請問您的生理性別是？', { timeout: 15_000 })
+    await expect(last.getByTestId('chat-quiz-option-M')).toHaveText('生理男')
+    await expect(last.getByTestId('chat-quiz-option-F')).toHaveText('生理女')
+    await expect(last.getByTestId('chat-quiz-option-continue_chat')).toHaveText('繼續聊聊')
+    await expect(last.getByTestId('chat-quiz-option-M')).toBeEnabled()
+    await expect(last.getByTestId('chat-quiz-option-continue_chat')).toBeEnabled()
+
+    const streamReq = page.waitForRequest((req) => {
+      if (req.method() !== 'POST' || !req.url().includes('/messages/stream')) {
+        return false
+      }
+      return (req.postData() || '').includes('繼續聊聊')
+    }, { timeout: 20_000 })
+
+    await last.getByTestId('chat-quiz-option-continue_chat').click()
+    const stream = await streamReq
+    expect(stream.postDataJSON()).toMatchObject({ content: '繼續聊聊' })
+    await expect(page.getByTestId('chat-transcript')).toContainText('繼續聊聊', { timeout: 15_000 })
+    await expect(page.getByTestId('chat-last-reply')).toContainText('好的，我們先聊聊睡眠', {
+      timeout: 15_000
+    })
+  })
 })

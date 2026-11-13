@@ -6,6 +6,7 @@ import {
   hasLabReportBankOrFollowup,
   hasReportRequiredAsk,
   hasUsableGapCta,
+  isContinueChatOption,
   isContinueConsultationOption,
   isPathSwitchOptionCode,
   isUsableReplyActions,
@@ -777,6 +778,147 @@ describe('projectReplyActionsToCtas', () => {
     expect(projection.chooseOption?.kind).toBe('consultation_goals')
     expect(projection.flags.choices.map(c => c.code)).toEqual(['sleep', 'weight_loss', 'b'])
     expect(projection.flags.showConfirm).toBe(true)
+  })
+
+  it('profile sex + continue_chat: sex chips stay primary; 繼續聊聊 appended (run22)', () => {
+    // Core re-asks sex after tangent with soft continue — FE must not drop continue_chat.
+    const projection = projectReplyActionsToCtas({
+      replyActions: ra({
+        actions: [
+          { type: 'none', payload: {} },
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'profile',
+              mode: 'single',
+              confirm: false,
+              gap_code: 'sex',
+              answer_type: 'enum',
+              options: [
+                { code: 'M', label: '生理男' },
+                { code: 'F', label: '生理女' }
+              ]
+            }
+          },
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'continue_chat',
+              mode: 'single',
+              confirm: false,
+              options: [{ code: 'continue_chat', label: '繼續聊聊' }]
+            }
+          }
+        ]
+      }),
+      canShowRecommendSlot: false,
+      canShowUpload: false,
+      canShowCheckup: false,
+      canShowVitals: false,
+      expertReviewStatus: 'none'
+    })
+    expect(projection.chooseOption?.kind).toBe('profile')
+    expect(projection.chooseOption?.gap_code).toBe('sex')
+    expect(projection.continueChat?.kind).toBe('continue_chat')
+    expect(projection.flags.choices.map(c => c.code)).toEqual(['M', 'F', 'continue_chat'])
+    expect(projection.flags.choices.map(c => c.label)).toEqual(['生理男', '生理女', '繼續聊聊'])
+    expect(projection.flags.showConfirm).toBe(false)
+
+    const replyActions = ra({
+      actions: [
+        {
+          type: 'choose_option',
+          payload: {
+            kind: 'profile',
+            gap_code: 'sex',
+            answer_type: 'enum',
+            mode: 'single',
+            confirm: false,
+            options: [
+              { code: 'M', label: '生理男' },
+              { code: 'F', label: '生理女' }
+            ]
+          }
+        },
+        {
+          type: 'choose_option',
+          payload: {
+            kind: 'continue_chat',
+            mode: 'single',
+            confirm: false,
+            options: [{ code: 'continue_chat', label: '繼續聊聊' }]
+          }
+        }
+      ]
+    })
+    expect(isContinueChatOption(replyActions, 'continue_chat')).toBe(true)
+    expect(isContinueChatOption(replyActions, 'M')).toBe(false)
+
+    const visibility = buildTurnActionsVisibility({
+      message: {
+        id: 'sex-reask',
+        role: 'assistant',
+        parts: [{ type: 'text', text: '請問您的生理性別是？' }],
+        replyActions
+      },
+      ctx: {
+        readonlyMode: false,
+        escalated: false,
+        pending: false,
+        goalSelectActive: false,
+        reportAskActive: false,
+        hasReportAnalysis: false,
+        reportRetry: false,
+        checkupLinkReady: true,
+        lastAssistantId: 'sex-reask',
+        conversationPath: 'B',
+        openProfileGaps: ['sex'],
+        pathEntryPending: false
+      },
+      goalOptions: [],
+      needsMultiConfirm: false
+    })
+    expect(visibility.choices.map(c => c.code)).toEqual(['M', 'F', 'continue_chat'])
+    expect(visibility.choices.map(c => c.label)).toEqual(['生理男', '生理女', '繼續聊聊'])
+  })
+
+  it('continue_chat before profile still keeps both (order-independent)', () => {
+    const projection = projectReplyActionsToCtas({
+      replyActions: ra({
+        actions: [
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'continue_chat',
+              mode: 'single',
+              confirm: false,
+              options: [{ code: 'continue_chat', label: '繼續聊聊' }]
+            }
+          },
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'profile',
+              mode: 'single',
+              confirm: false,
+              gap_code: 'sex',
+              answer_type: 'enum',
+              options: [
+                { code: 'M', label: '生理男' },
+                { code: 'F', label: '生理女' }
+              ]
+            }
+          }
+        ]
+      }),
+      canShowRecommendSlot: false,
+      canShowUpload: false,
+      canShowCheckup: false,
+      canShowVitals: false,
+      expertReviewStatus: 'none'
+    })
+    expect(projection.chooseOption?.kind).toBe('profile')
+    expect(projection.flags.choices.map(c => c.code)).toEqual(['M', 'F', 'continue_chat'])
   })
 
   it('profile / lab_followup + path_switch: primary kind unchanged; switch appended', () => {

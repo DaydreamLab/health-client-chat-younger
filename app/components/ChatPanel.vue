@@ -443,6 +443,7 @@ import {
   hasReplyActionsColumn,
   hasReportRequiredAsk,
   CONTINUE_CONSULT_I18N_KEY,
+  isContinueChatOption,
   isContinueConsultationOption,
   isPathSwitchOptionCode,
   isUsableReplyActions,
@@ -2536,6 +2537,24 @@ function submitContinueHealthConsultationLabel(label: string) {
   return sendText(label)
 }
 
+/** Soft continue_chat chip beside profile ask — stream label; grey-retain selected. */
+function submitContinueChatLabel(label: string) {
+  if (pending.value || readonly.value || escalated.value) {
+    return
+  }
+  const host = intakeMessage.value
+  if (host) {
+    retainOrClearHostActions(host, {
+      outcome: 'option_selected',
+      selectedCodes: ['continue_chat']
+    })
+  }
+  clearLastAssistantOptions()
+  quizActive.value = false
+  activeQuestion.value = null
+  return sendText(label)
+}
+
 function onChoice(option: GreetingOption) {
   if (pending.value) {
     return
@@ -2576,6 +2595,10 @@ function onChoice(option: GreetingOption) {
   const intake = intakeMessage.value
   if (intake && isContinueConsultationOption(intake.replyActions, option.code)) {
     return submitContinueHealthConsultationLabel(option.label)
+  }
+  // Soft「繼續聊聊」beside profile ask — stream label; never POST /profile/answers (run22).
+  if (intake && isContinueChatOption(intake.replyActions, option.code)) {
+    return submitContinueChatLabel(option.label)
   }
 
   // LabFollowup maps_to: upload UI or checkup外連 — never POST /profile/answers (#22).

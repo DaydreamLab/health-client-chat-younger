@@ -34,6 +34,11 @@ export type ChooseOptionKind
     | 'path_switch'
     /** POST …/continue-health-consultation (completion 組第二鈕). */
     | 'continue_consultation'
+    /**
+     * Soft continue beside a required profile ask (e.g. sex re-ask after tangent).
+     * Not a profile gap host — coexist with profile chips (run22).
+     */
+    | 'continue_chat'
 
 /** choose_option option.maps_to → FE route (LabFollowup chips). */
 export type ChooseOptionMapsTo = 'ask_report' | 'offer_checkup' | 'continue_consultation'
@@ -380,6 +385,8 @@ export const NON_GAP_CHOOSE_OPTION_KINDS = new Set<string>([
   'lab_report',
   'path_switch',
   'continue_consultation',
+  // Soft continue beside profile ask (sex re-ask after tangent); not gap host.
+  'continue_chat',
   // System One asking fallback (continue / no-more-questions); not profile gap host.
   'open_question_reply'
 ])
@@ -499,6 +506,26 @@ export function isContinueConsultationOption(
     }
     const payload = chooseOptionPayload(action)
     if (payload.kind !== 'continue_consultation') {
+      return false
+    }
+    return (payload.options ?? []).some(option => option.code === code)
+  })
+}
+
+/** Soft「繼續聊聊」chip beside a profile ask (run22); streams label, not profile/answers. */
+export function isContinueChatOption(
+  ra: ReplyActions | null | undefined,
+  code: string
+): boolean {
+  if (!isUsableReplyActions(ra)) {
+    return false
+  }
+  return ra!.actions.some((action) => {
+    if (action.type !== 'choose_option') {
+      return false
+    }
+    const payload = chooseOptionPayload(action)
+    if (payload.kind !== 'continue_chat') {
       return false
     }
     return (payload.options ?? []).some(option => option.code === code)
@@ -830,6 +857,11 @@ export interface ReplyActionsCtaProjection {
    * streams the label so core prepareTurn opens continue_health_consultation.
    */
   continueConsultation: ChooseOptionPayload | null
+  /**
+   * continue_chat payload when present (soft continue beside profile sex／etc.).
+   * Coexists with profile chips; click streams the label (not POST /profile/answers).
+   */
+  continueChat: ChooseOptionPayload | null
   /** ask_goal without consultation_goals choose_option. */
   askGoal: AskGoalPayload | null
   vitalsFields: VitalsField[]
@@ -891,11 +923,12 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
   const fullTestAction = actions.find(a => a.type === 'offer_full_test')
   const expertBookingAction = actions.find(isOfferExpertBookingAction)
 
-  // path_switch／continue_consultation may coexist with open_question_reply／goals／…
+  // path_switch／continue_consultation／continue_chat may coexist with profile／goals／…
   // Keep them out of the primary pick so they cannot hide other chips; append later.
   let chooseOption: ChooseOptionPayload | null = null
   let pathSwitch: ChooseOptionPayload | null = null
   let continueConsultation: ChooseOptionPayload | null = null
+  let continueChat: ChooseOptionPayload | null = null
   for (const action of chooseActions) {
     const payload = chooseOptionPayload(action)
     if (payload.kind === 'path_switch') {
@@ -904,6 +937,10 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
     }
     if (payload.kind === 'continue_consultation') {
       continueConsultation = payload
+      continue
+    }
+    if (payload.kind === 'continue_chat') {
+      continueChat = payload
       continue
     }
     // Prefer consultation_goals when multiple choose_option appear.
@@ -917,6 +954,9 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
   }
   if (!chooseOption && continueConsultation) {
     chooseOption = continueConsultation
+  }
+  if (!chooseOption && continueChat) {
+    chooseOption = continueChat
   }
 
   const hasConsultationGoals = chooseOption?.kind === 'consultation_goals'
@@ -981,6 +1021,18 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
     }
   }
 
+  // Companion continue_chat:「繼續聊聊」beside profile sex／other required asks (run22).
+  if (continueChat && chooseOption?.kind !== 'continue_chat') {
+    const seen = new Set(choices.map(option => option.code))
+    for (const option of continueChat.options ?? []) {
+      if (seen.has(option.code)) {
+        continue
+      }
+      seen.add(option.code)
+      choices = [...choices, option]
+    }
+  }
+
   const showSubmitReview = false
   const showViewRecommend = hasRecommend && input.canShowRecommendSlot
 
@@ -1019,6 +1071,7 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
     chooseOption,
     pathSwitch,
     continueConsultation,
+    continueChat,
     askGoal,
     vitalsFields,
     vitalsGapCode: vitals?.gap_code ?? null,
