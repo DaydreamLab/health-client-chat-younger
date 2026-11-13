@@ -475,7 +475,7 @@ export function useCandorApi() {
       }),
     /**
      * Sync conversation path after create (A→B guide／C cancel→B).
-     * Soft-fail so local journey path still drives UI if the endpoint is down.
+     * Callers must re-fetch conversation on error (do not keep a rejected path).
      */
     setConversationPath: (
       conversationId: string,
