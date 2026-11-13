@@ -491,6 +491,190 @@ test.describe('path contract (A／B／C)', () => {
     await expect(last).not.toContainText('回覆暫時無法取得')
   })
 
+  test('path B：goals 掛著時打字走 stream，不打 POST /goals', async ({ page, goto }) => {
+    // Irice 2026-11-13：自由打字交由 messages/stream；按鈕作答仍 POST /goals。
+    test.setTimeout(90_000)
+    const conversationId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+    const goalsPosts: string[] = []
+    const streamBodies: string[] = []
+
+    await mockCandorAuth(page, {
+      asMember: true,
+      conversationPath: null,
+      basicProfileComplete: false
+    })
+    await seedNoExpertCase(page)
+    page.on('request', (req) => {
+      if (req.method() !== 'POST') {
+        return
+      }
+      const url = req.url()
+      if (url.includes(`/conversation/${conversationId}/goals`)) {
+        goalsPosts.push(req.postData() || '')
+      }
+      if (url.includes('/messages/stream')) {
+        streamBodies.push(req.postData() || '')
+      }
+    })
+    await openFreshChat(page, goto)
+    await selectEntryPath(page, 'B')
+    await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
+
+    const typed = '想先問睡眠怎麼改善'
+    const streamReq = page.waitForRequest((req) => {
+      if (req.method() !== 'POST' || !req.url().includes('/messages/stream')) {
+        return false
+      }
+      return (req.postData() || '').includes(typed)
+    }, { timeout: 20_000 })
+
+    const input = page.getByTestId('chat-input')
+    await input.fill(typed)
+    await page.getByTestId('chat-send').click()
+    await streamReq
+
+    expect(streamBodies.some(body => body.includes(typed))).toBe(true)
+    expect(goalsPosts.some(body => body.includes('raw_text') || body.includes(typed))).toBe(false)
+    await expect(page.getByTestId('chat-transcript')).toContainText(typed, { timeout: 15_000 })
+  })
+
+  test('hydrate 保留路徑 C 本地使用者訊息且不重複', async ({ page, goto }) => {
+    test.setTimeout(90_000)
+    const conversationId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+    const pathCLabel = '幫我看報告'
+    const uploadedLabel = '已上傳 report.pdf'
+
+    await mockCandorAuth(page, {
+      asMember: true,
+      conversationPath: 'C',
+      basicProfileComplete: false,
+      replyActions: 'consultation_goals'
+    })
+    await seedNoExpertCase(page)
+
+    // Override history: server has greeting＋goals, omits path-C／upload user turns.
+    await page.route(`**/api/v1/conversation/${conversationId}/messages`, async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback()
+        return
+      }
+      if (route.request().url().includes('/messages/stream')) {
+        await route.fallback()
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            conversation_id: conversationId,
+            path: 'c',
+            messages: [
+              {
+                id: 'greet-e2e',
+                role: 'assistant',
+                content: `${FLOW_V2_GREETING_CONSULT}\n\n想先從哪裡開始？`,
+                reply_actions: {
+                  schema_version: '0.1',
+                  source: 'engine',
+                  adaptor: 'fake',
+                  degraded: false,
+                  error: null,
+                  actions: [{ type: 'none' }]
+                }
+              },
+              {
+                id: 'msg-history-assistant',
+                role: 'assistant',
+                content: '先選您想改善的健康方向。',
+                reply_actions: {
+                  schema_version: '0.1',
+                  source: 'engine',
+                  adaptor: 'fake',
+                  degraded: false,
+                  error: null,
+                  actions: [{
+                    type: 'choose_option',
+                    payload: {
+                      gap_code: null,
+                      answer_type: 'multi',
+                      kind: 'consultation_goals',
+                      options: [
+                        { code: 'sleep', label: '睡眠' },
+                        { code: 'weight_loss', label: '體重管理' }
+                      ]
+                    }
+                  }]
+                }
+              }
+            ]
+          }
+        })
+      })
+    })
+
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await page.addInitScript((journey) => {
+      localStorage.setItem('candor.unpaid.journey', JSON.stringify(journey))
+    }, {
+      conversationId,
+      conversationPath: 'C',
+      messages: [
+        {
+          id: 'greet-e2e',
+          role: 'assistant',
+          parts: [{ type: 'text', text: `${FLOW_V2_GREETING_CONSULT}\n\n想先從哪裡開始？` }]
+        },
+        {
+          id: 'local-path-c',
+          role: 'user',
+          parts: [{ type: 'text', text: pathCLabel }]
+        },
+        {
+          id: 'local-upload',
+          role: 'user',
+          parts: [{ type: 'text', text: uploadedLabel }]
+        },
+        {
+          id: 'stale-local-asst',
+          role: 'assistant',
+          parts: [{ type: 'text', text: '本機舊開場應被蓋掉' }]
+        }
+      ],
+      hasAnalysis: false,
+      selectedPackageCode: null,
+      reportId: null,
+      reportDockOpen: false,
+      reportDockCollapsed: true,
+      reportInterpretSent: false,
+      selectedPackage: null,
+      packageConfirmed: false,
+      goalSelectActive: false,
+      reportAskActive: false,
+      goalOptions: [],
+      selectedCodes: [],
+      quizActive: false,
+      activeQuestion: null,
+      postQuizGuided: false,
+      profileGaps: [],
+      clarifyingGoals: [],
+      expertReviewStatus: 'none'
+    })
+    await goto('/chat', { waitUntil: 'hydration' })
+
+    const transcript = page.getByTestId('chat-transcript')
+    await expect(transcript).toContainText(pathCLabel, { timeout: 15_000 })
+    await expect(transcript).toContainText(uploadedLabel)
+    await expect(transcript).toContainText('先選您想改善的健康方向')
+    await expect(transcript).not.toContainText('本機舊開場應被蓋掉')
+    await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
+
+    // Each local-only user line appears once (no duplicate bubbles).
+    expect((await transcript.getByText(pathCLabel, { exact: true }).count())).toBe(1)
+    expect((await transcript.getByText(uploadedLabel, { exact: true }).count())).toBe(1)
+  })
+
   test('path C：舊報告 attach flow_prompt 三鈕顯示', async ({ page, goto }) => {
     test.setTimeout(120_000)
     await mockCandorAuth(page, {
