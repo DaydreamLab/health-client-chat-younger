@@ -42,6 +42,8 @@ test.describe('bottle addon (整瓶加購)', () => {
     await page.getByTestId('recommendation-path-ai').click()
     await expect(page.getByTestId('bottle-addon-section')).toBeVisible({ timeout: 25000 })
     await expect(page.getByTestId('bottle-addon-omega3')).toBeVisible()
+    await expect(page.getByTestId('package-items')).not.toContainText('NT$')
+    await expect(page.getByTestId('bottle-addon-price').first()).toContainText('NT$')
     await page.getByTestId('bottle-addon-check-omega3').check()
     await page.getByTestId('recommendation-go-checkout').click()
 
@@ -112,9 +114,7 @@ test.describe('bottle addon (整瓶加購)', () => {
                 sellable_item_id: 'dddddddd-dddd-dddd-dddd-dddddddddd01',
                 code: 'vitamin_d',
                 name: '維生素 D',
-                unit_price: 9,
                 daily_dose: 1,
-                monthly_cost: 280,
                 is_core: true
               }],
               used_amount: 280,
@@ -318,9 +318,7 @@ test.describe('bottle addon (整瓶加購)', () => {
                 sellable_item_id: 'dddddddd-dddd-dddd-dddd-dddddddddd01',
                 code: 'vitamin_d',
                 name: '維生素 D',
-                unit_price: 9,
                 daily_dose: 1,
-                monthly_cost: 280,
                 is_core: true
               }],
               bottle_addons: includeOmega
@@ -494,9 +492,7 @@ test.describe('bottle addon (整瓶加購)', () => {
                 sellable_item_id: 'dddddddd-dddd-dddd-dddd-dddddddddd01',
                 code: 'vitamin_d',
                 name: '維生素 D',
-                unit_price: 9,
                 daily_dose: 1,
-                monthly_cost: 280,
                 is_core: true
               }],
               used_amount: 280,

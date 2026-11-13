@@ -20,9 +20,7 @@ const reviewedPackages = [
         sellable_item_id: 'dddddddd-dddd-dddd-dddd-dddddddddd01',
         code: 'vitamin_d',
         name: '維生素 D',
-        unit_price: 9,
         daily_dose: 1,
-        monthly_cost: 280,
         is_core: true
       }
     ],

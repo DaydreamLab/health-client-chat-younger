@@ -116,11 +116,8 @@ export interface RecommendationPackageItem {
   sellable_item_id: string
   code: string
   name?: string | null
-  unit_price: number
   daily_dose: number
   daily_servings_max?: number | null
-  daily_price?: number | null
-  monthly_cost: number
   score_raw?: number | null
   /** 是否基礎（核心）品；來自主檔，false／缺省視為功能型 */
   is_core?: boolean
@@ -623,9 +620,7 @@ export interface OrderPackageComponent {
   sellable_item_id: string
   sellable_item_code: string
   sellable_item_name: string
-  unit_price: number
   daily_dose: number
-  monthly_cost: number
   rank: number
   is_core?: boolean
   image_url?: string | null

@@ -206,8 +206,6 @@ export interface DemoSellableItem {
   id: DemoSellableItemId
   swatch: string
   dailyDose: number
-  dailyCost: number
-  monthlyCost: number
   tier: 'core' | 'plus'
 }
 
@@ -248,7 +246,6 @@ export interface OrderItemLine {
   code: string
   name: string
   dailyDose: number
-  monthlyCost?: number
   isCore?: boolean
   imageUrl?: string | null
 }
@@ -349,48 +346,36 @@ export const demoSellableItems: Record<DemoSellableItemId, DemoSellableItem> = {
     id: 'vitaminD',
     swatch: '#8B7FC7',
     dailyDose: 1,
-    dailyCost: 9,
-    monthlyCost: 280,
     tier: 'core'
   },
   iron: {
     id: 'iron',
     swatch: '#67D665',
     dailyDose: 1,
-    dailyCost: 17,
-    monthlyCost: 520,
     tier: 'core'
   },
   vitaminC: {
     id: 'vitaminC',
     swatch: '#5B9BD5',
     dailyDose: 1,
-    dailyCost: 16,
-    monthlyCost: 480,
     tier: 'core'
   },
   omega3: {
     id: 'omega3',
     swatch: '#D9A441',
     dailyDose: 1,
-    dailyCost: 9,
-    monthlyCost: 280,
     tier: 'plus'
   },
   probiotic: {
     id: 'probiotic',
     swatch: '#8B7FC7',
     dailyDose: 1,
-    dailyCost: 7,
-    monthlyCost: 220,
     tier: 'plus'
   },
   magnesium: {
     id: 'magnesium',
     swatch: '#F6C16B',
     dailyDose: 1,
-    dailyCost: 7,
-    monthlyCost: 200,
     tier: 'plus'
   }
 }
@@ -726,7 +711,6 @@ export function orderRecordFromCandorDetail(
         code: item.sellable_item_code,
         name: item.sellable_item_name,
         dailyDose: item.daily_dose,
-        monthlyCost: item.monthly_cost,
         isCore: item.is_core ?? false,
         imageUrl: item.image_url ?? null
       }))

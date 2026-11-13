@@ -265,9 +265,7 @@ function recommendationFromFinalizedPlan(plan: FinalizedPlan): RecommendationRes
       sellable_item_id: item.sellable_item_code?.trim() || String(rank),
       code: item.sellable_item_code?.trim() || '',
       name: item.name_zh?.trim() || item.sellable_item_code?.trim() || '',
-      unit_price: 0,
       daily_dose: item.daily_dose ?? 1,
-      monthly_cost: 0,
       is_core: false
     }))
     return {

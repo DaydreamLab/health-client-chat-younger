@@ -312,9 +312,7 @@ describe('order plan display name', () => {
           sellable_item_id: 's1',
           sellable_item_code: 'vitamin_d',
           sellable_item_name: '維生素 D',
-          unit_price: 9,
           daily_dose: 1,
-          monthly_cost: 280,
           rank: 1
         }]
       },
@@ -329,6 +327,7 @@ describe('order plan display name', () => {
     expect(order.packageName).toBe('專家方案（基礎保養）')
     expect(order.items).toHaveLength(1)
     expect(order.items[0]?.name).toBe('維生素 D')
+    expect(order.items[0]).not.toHaveProperty('monthlyCost')
   })
 
   it('maps package_amount／addon_amount／bottle_addons from OrderDetail', () => {
@@ -355,9 +354,7 @@ describe('order plan display name', () => {
           sellable_item_id: 's1',
           sellable_item_code: 'vitamin_d',
           sellable_item_name: '維生素 D',
-          unit_price: 9,
           daily_dose: 1,
-          monthly_cost: 280,
           rank: 1
         }]
       },

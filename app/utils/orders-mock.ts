@@ -24,7 +24,6 @@ const packageItem = {
   code: 'immunity_30d',
   name: '免疫力配方 30日',
   dailyDose: 1,
-  monthlyCost: 1280,
   isCore: true,
   imageUrl: null as string | null
 }
