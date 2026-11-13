@@ -395,6 +395,7 @@ import type {
 import { CandorApiError } from '~/utils/candor-api'
 import {
   isStaleCtaError,
+  resolveEntryPathSwitchResolution,
   resolveReplyActionsAsHistorical,
   selectedCodesFromReplyActions
 } from '~/utils/cta-interaction'
@@ -1259,33 +1260,6 @@ async function resetConversation() {
   }
 }
 
-/** Drop entry greeting path_switch chips after path is chosen or user types freely. */
-function clearGreetingEntryPathSwitch() {
-  for (const message of journey.messages) {
-    if (message.role !== 'assistant' || !message.replyActions) {
-      continue
-    }
-    if (!isUsableReplyActions(message.replyActions)) {
-      continue
-    }
-    const remaining = message.replyActions.actions.filter((action) => {
-      if (action.type !== 'choose_option') {
-        return true
-      }
-      return chooseOptionPayload(action).kind !== 'path_switch'
-    })
-    if (remaining.length === message.replyActions.actions.length) {
-      continue
-    }
-    if (remaining.length === 0) {
-      message.replyActions = undefined
-      message.options = []
-    } else {
-      message.replyActions = { ...message.replyActions, actions: remaining }
-    }
-  }
-}
-
 /**
  * Overwrite local path from core when the payload includes `path`.
  * Explicit null → store null (treat as A via resolveEntryPath); never POST null→a.
@@ -1552,7 +1526,11 @@ function paintLocalProfileQuestion(next: Extract<ProfileNext, { done: false }>) 
   }
 }
 
-async function selectConversationPath(path: ConversationPath, reason = 'entry') {
+async function selectConversationPath(
+  path: ConversationPath,
+  reason = 'entry',
+  opts?: { entryOutcome?: 'option_selected' | 'free_text' }
+) {
   if (!pathContractEnabled.value || pending.value || readonly.value) {
     return
   }
@@ -1577,19 +1555,21 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
       if (ack.report_id) {
         journey.reportId = ack.report_id
       }
-      clearGreetingEntryPathSwitch()
+      // Design B v3: keep opening path_switch chips (selected／grey). Never strip them —
+      // clearGreetingEntryPathSwitch used to drop A／C chips after settle (#73 regress).
+      const entryResolution = resolveEntryPathSwitchResolution(
+        toApiConversationPath(normalized),
+        opts?.entryOutcome ?? 'option_selected'
+      )
+      if (openingHost) {
+        retainOrClearHostActions(openingHost, entryResolution)
+      }
 
       // Flow v2：選完路徑不再附加本地路徑專屬句；開場白保留 core greeting。
       if (normalized === 'C' && !journey.reportId) {
         goalSelectActive.value = false
         quizActive.value = false
         activeQuestion.value = null
-        if (openingHost) {
-          retainOrClearHostActions(openingHost, {
-            outcome: 'option_selected',
-            selectedCodes: [toApiConversationPath(path)]
-          })
-        }
         if (ack.flow_prompt) {
           appendCoreAssistantTurn(ack.flow_prompt)
         }
@@ -1606,11 +1586,9 @@ async function selectConversationPath(path: ConversationPath, reason = 'entry') 
           pendingUserContent.value = messageText(lastUser)
           const streamed = await streamPending()
           if (streamed.ok) {
+            // Re-stamp after stream in case a later step cleared RA (idempotent).
             if (openingHost && openingHost.id !== streamed.assistantId) {
-              retainOrClearHostActions(openingHost, {
-                outcome: 'option_selected',
-                selectedCodes: [toApiConversationPath(path)]
-              })
+              retainOrClearHostActions(openingHost, entryResolution)
             }
           } else {
             // Keep error bubble + retry tip (run15); do not restore prior host as latest.
@@ -2452,10 +2430,10 @@ async function sendText(text: string) {
     return
   }
 
-  // 開場尚未選路徑：自由文字 ≡ 選路徑 A（core 未選路徑當 A），走與 chip「我想聊聊」相同 entry 流程。
+  // 開場尚未選路徑：自由文字 ≡ 選路徑 A（core 未選路徑當 A）；CTA 全灰（free_text），非選中「我想聊聊」。
   if (plan.type === 'implicit_path_a') {
     appendMessage('user', plan.content)
-    await selectConversationPath('A', 'entry')
+    await selectConversationPath('A', 'entry', { entryOutcome: 'free_text' })
     return
   }
 

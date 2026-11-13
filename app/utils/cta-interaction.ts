@@ -230,6 +230,26 @@ export function vitalsDisplayFromReplyActions(ra: ReplyActions | null | undefine
   }
 }
 
+/**
+ * Entry path_switch settle resolution (design B v3).
+ * Chip tap → selected code + others grey; free-typed entry → all grey.
+ */
+export function resolveEntryPathSwitchResolution(
+  pathCode: string,
+  entryOutcome: 'option_selected' | 'free_text' = 'option_selected'
+): {
+  outcome: Exclude<ReplyActionsOutcome, null>
+  selectedCodes?: readonly string[]
+} {
+  if (entryOutcome === 'free_text') {
+    return { outcome: 'free_text' }
+  }
+  return {
+    outcome: 'option_selected',
+    selectedCodes: [pathCode]
+  }
+}
+
 export function ensureCurrentInteraction(ra: ReplyActions): ReplyActions {
   if (hasCtaInteractionMeta(ra)) {
     return ra

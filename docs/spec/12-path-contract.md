@@ -10,7 +10,7 @@
 | B | 我想諮詢健康方案 | 必填四欄→可問 optional／goals→完成 CTA（信 RA） |
 | C | 幫我看報告 | 先上傳；取消→B；已有報告則補基本→完成 CTA（信 RA） |
 
-進頁即 `POST /conversations`（**不帶 path**）→ core 寫入開場白並附 `reply_actions` `path_switch` a／b／c；前台顯示開場白，三鈕在其下（**只信** core greeting RA；**無**本地 `PATH_ENTRY_OPTIONS` 保底）。`pathEntryA/B/C` i18n 仍保留，供 `path_switch` 空 label 時 `pathSwitchOptionI18nKey` 回填（不顯示 key 字串）。點鈕呼叫 `POST …/path` 首次選路徑（不再建對話）。`journey.conversationPath` 由 path 回應 hydrate。帶 `report_id` 建對話仍強制 path=c、不出三鈕。未選路徑直接打字：FE 不禁輸入，照常送出；core 當 A 處理。
+進頁即 `POST /conversations`（**不帶 path**）→ core 寫入開場白並附 `reply_actions` `path_switch` a／b／c；前台顯示開場白，三鈕在其下（**只信** core greeting RA；**無**本地 `PATH_ENTRY_OPTIONS` 保底）。`pathEntryA/B/C` i18n 仍保留，供 `path_switch` 空 label 時 `pathSwitchOptionI18nKey` 回填（不顯示 key 字串）。點鈕呼叫 `POST …/path` 首次選路徑（不再建對話）。`journey.conversationPath` 由 path 回應 hydrate。帶 `report_id` 建對話仍強制 path=c、不出三鈕。未選路徑直接打字：FE 不禁輸入，照常送出；core 當 A 處理。選完路徑後開場三鈕**不拔除**（design B v3／core #186）：點選項 → `selected` 強調、其餘 `disabled` 灰階；自由打字 → 三鈕皆灰。settle 與 reload（`GET …/messages` hydrate）皆同。
 
 ## `path` hydrate
 
