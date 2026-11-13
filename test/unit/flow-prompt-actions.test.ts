@@ -3,7 +3,8 @@ import type { ChatMessage } from '../../app/utils/first-order'
 import {
   clearChatMessageActions,
   discardFailedFollowUpAssistant,
-  flowPromptHasUsableReplyActions
+  flowPromptHasUsableReplyActions,
+  keepFailedFollowUpAssistant
 } from '../../app/utils/flow-prompt-actions'
 import { buildTurnActionsVisibility } from '../../app/utils/chat-turn-actions'
 import { historyMessageToChatMessage, parseHistoryMessage } from '../../app/utils/chat-history'
@@ -96,15 +97,34 @@ describe('flow-prompt-actions', () => {
     expect(message.uploadOffer).toBe(false)
   })
 
-  it('discardFailedFollowUpAssistant removes error bubble; keeps flow host id', () => {
+  it('keepFailedFollowUpAssistant keeps error bubble and marks streamFailed', () => {
     const messages: ChatMessage[] = [
       { id: 'flow-1', role: 'assistant', parts: [{ type: 'text', text: 'flow' }] },
       { id: 'user-1', role: 'user', parts: [{ type: 'text', text: '我的報告已上傳' }] },
+      {
+        id: 'err-1',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'stream error' }],
+        replyActions: goalsRa as ChatMessage['replyActions'],
+        options: [{ code: 'sleep', label: '睡眠' }]
+      }
+    ]
+    expect(keepFailedFollowUpAssistant(messages, 'err-1', 'flow-1')).toBe(true)
+    expect(messages.map(m => m.id)).toEqual(['flow-1', 'user-1', 'err-1'])
+    expect(messages[2]?.streamFailed).toBe(true)
+    expect(messages[2]?.replyActions).toBeUndefined()
+    expect(messages[2]?.options).toEqual([])
+    expect(keepFailedFollowUpAssistant(messages, 'flow-1', 'flow-1')).toBe(false)
+  })
+
+  it('discardFailedFollowUpAssistant aliases keep (no silent remove)', () => {
+    const messages: ChatMessage[] = [
+      { id: 'flow-1', role: 'assistant', parts: [{ type: 'text', text: 'flow' }] },
       { id: 'err-1', role: 'assistant', parts: [{ type: 'text', text: 'stream error' }] }
     ]
     expect(discardFailedFollowUpAssistant(messages, 'err-1', 'flow-1')).toBe(true)
-    expect(messages.map(m => m.id)).toEqual(['flow-1', 'user-1'])
-    expect(discardFailedFollowUpAssistant(messages, 'flow-1', 'flow-1')).toBe(false)
+    expect(messages.map(m => m.id)).toEqual(['flow-1', 'err-1'])
+    expect(messages[1]?.streamFailed).toBe(true)
   })
 
   it('flowPromptHasUsableReplyActions detects goals／stale lab RA', () => {

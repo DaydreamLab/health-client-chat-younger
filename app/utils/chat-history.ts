@@ -225,6 +225,9 @@ export function normalizeStoredChatMessage(raw: unknown): ChatMessage | null {
   if (raw.notice === true) {
     message.notice = true
   }
+  if (raw.streamFailed === true) {
+    message.streamFailed = true
+  }
   // Accept either camelCase (snapshot) or snake_case (accidental API dump).
   const replyRaw = raw.replyActions !== undefined ? raw.replyActions : raw.reply_actions
   const replyActions = parseReplyActions(replyRaw)

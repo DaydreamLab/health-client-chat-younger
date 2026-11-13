@@ -857,17 +857,23 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
       if (chooseOption.kind === 'continue_consultation') {
         choices = stampContinueConsultationMapsTo(choices)
       }
-      const wantsConfirm = chooseOption.confirm === true
-        || chooseOption.mode === 'multi'
-        || chooseOption.kind === 'consultation_goals'
-        || answerType === 'multi_enum'
-      const singleNoConfirm = chooseOption.mode === 'single' && chooseOption.confirm !== true
-      showConfirm = wantsConfirm && !singleNoConfirm && choices.length > 0
-      if (chooseOption.confirm === true && choices.length > 0) {
-        showConfirm = true
+      // Goals bank ask: always multi-select + confirm (never degrade to single-tap).
+      // kind=free mode=single still uses the singleNoConfirm path below.
+      if (chooseOption.kind === 'consultation_goals') {
+        showConfirm = choices.length > 0
+      } else {
+        const wantsConfirm = chooseOption.confirm === true
+          || chooseOption.mode === 'multi'
+          || answerType === 'multi_enum'
+        const singleNoConfirm = chooseOption.mode === 'single' && chooseOption.confirm !== true
+        showConfirm = wantsConfirm && !singleNoConfirm && choices.length > 0
+        if (chooseOption.confirm === true && choices.length > 0) {
+          showConfirm = true
+        }
       }
     }
   } else if (askGoal) {
+    // ask_goal → always multi + confirm (run15); chip catalog from payload／fallback.
     choices = goalOptionsFromAskGoal(askGoal)
     showConfirm = choices.length > 0
   }

@@ -451,6 +451,68 @@ describe('projectReplyActionsToCtas', () => {
     expect(withChoose.flags.choices.map(c => c.code)).toEqual(['sleep', 'weight_loss'])
   })
 
+  it('ask_goal／consultation_goals stay multi+confirm even if wire says mode=single', () => {
+    const askGoal = projectReplyActionsToCtas({
+      replyActions: ra({
+        actions: [{ type: 'ask_goal', payload: { goal_codes: ['sleep', 'immune_boost'] } }]
+      }),
+      canShowRecommendSlot: false,
+      canShowUpload: false,
+      canShowCheckup: false,
+      canShowVitals: false,
+      expertReviewStatus: 'none'
+    })
+    expect(askGoal.flags.showConfirm).toBe(true)
+    expect(askGoal.flags.choices.length).toBeGreaterThanOrEqual(2)
+
+    const goalsSingleWire = projectReplyActionsToCtas({
+      replyActions: ra({
+        actions: [{
+          type: 'choose_option',
+          payload: {
+            kind: 'consultation_goals',
+            mode: 'single',
+            confirm: false,
+            options: [
+              { code: 'sleep', label: '睡眠' },
+              { code: 'weight_loss', label: '減重' }
+            ]
+          }
+        }]
+      }),
+      canShowRecommendSlot: false,
+      canShowUpload: false,
+      canShowCheckup: false,
+      canShowVitals: false,
+      expertReviewStatus: 'none'
+    })
+    expect(goalsSingleWire.flags.showConfirm).toBe(true)
+
+    const freeSingle = projectReplyActionsToCtas({
+      replyActions: ra({
+        actions: [{
+          type: 'choose_option',
+          payload: {
+            kind: 'free',
+            mode: 'single',
+            confirm: false,
+            options: [
+              { code: 'a', label: '選項 A' },
+              { code: 'b', label: '選項 B' }
+            ]
+          }
+        }]
+      }),
+      canShowRecommendSlot: false,
+      canShowUpload: false,
+      canShowCheckup: false,
+      canShowVitals: false,
+      expertReviewStatus: 'none'
+    })
+    expect(freeSingle.flags.showConfirm).toBe(false)
+    expect(freeSingle.flags.choices.map(c => c.code)).toEqual(['a', 'b'])
+  })
+
   it('parses view_recommendations offer_recommend; ignores dual_choice', () => {
     expect(isViewRecommendationsOfferAction(VIEW_RECOMMEND_ACTION)).toBe(true)
     expect(offerRecommendPayload(VIEW_RECOMMEND_ACTION).mode).toBe('view_recommendations')

@@ -74,6 +74,11 @@ export interface ChatMessage {
   replyActions?: ReplyActions | null
   /** Status note (report progress / ready). Does not replace the active question. */
   notice?: boolean
+  /**
+   * SSE／stream follow-up failed: keep this bubble with an error tip + retry CTA.
+   * Do not silently discard (run15); never invent assistant reply copy.
+   */
+  streamFailed?: boolean
 }
 
 export function chatMessageText(message: { parts: Array<{ type: string, text?: string }> }): string {
@@ -192,7 +197,8 @@ export function snapshotChatMessage(message: ChatMessage): ChatMessage {
           }))
         } }
       : {}),
-    ...(message.notice ? { notice: true } : {})
+    ...(message.notice ? { notice: true } : {}),
+    ...(message.streamFailed ? { streamFailed: true } : {})
   }
 }
 
