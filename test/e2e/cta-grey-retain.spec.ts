@@ -598,4 +598,188 @@ test.describe('CTA grey retain (design B v3)', () => {
       })
     })
   }
+
+  test('older vitals keypad locks when a newer message arrives; latest stays interactive', async ({
+    page,
+    goto
+  }) => {
+    // run21 item 3: weight keypad must not stay inputtable under the diet turn.
+    // Also covers answered→historical locked card and live unanswered keypad.
+    test.setTimeout(90_000)
+    const conversationId = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
+    await mockCandorAuth(page, { asMember: true, replyActions: 'none' })
+    await page.setViewportSize({ width: 390, height: 844 })
+
+    await page.route(`**/api/v1/conversation/${conversationId}/messages`, async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback()
+        return
+      }
+      if (route.request().url().includes('/messages/stream')) {
+        await route.fallback()
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            conversation_id: conversationId,
+            path: 'b',
+            messages: [
+              {
+                id: 'asst-weight-answered',
+                role: 'assistant',
+                content: '請問你的體重？',
+                reply_actions: {
+                  schema_version: '0.1',
+                  interaction: {
+                    round_status: 'historical',
+                    outcome: 'option_selected'
+                  },
+                  actions: [{
+                    type: 'ask_vitals',
+                    payload: {
+                      fields: ['weight'],
+                      gap_code: 'weight',
+                      status: 'selected',
+                      has_stored_value: true,
+                      stored_value: 70
+                    }
+                  }]
+                }
+              },
+              { id: 'u-weight', role: 'user', content: '70' },
+              {
+                // Core lag: still stamped current after diet turn arrived — FE must lock.
+                id: 'asst-weight-stale-current',
+                role: 'assistant',
+                content: '再確認一次體重？',
+                reply_actions: {
+                  schema_version: '0.1',
+                  interaction: {
+                    round_status: 'current',
+                    outcome: null
+                  },
+                  actions: [{
+                    type: 'ask_vitals',
+                    payload: {
+                      fields: ['weight'],
+                      gap_code: 'weight',
+                      status: 'current'
+                    }
+                  }]
+                }
+              },
+              { id: 'u-skip', role: 'user', content: '先跳過' },
+              {
+                id: 'asst-diet',
+                role: 'assistant',
+                content: '平常飲食習慣大概是？',
+                reply_actions: {
+                  schema_version: '0.1',
+                  interaction: {
+                    round_status: 'current',
+                    outcome: null
+                  },
+                  actions: [{
+                    type: 'choose_option',
+                    payload: {
+                      kind: 'profile',
+                      gap_code: 'diet',
+                      answer_type: 'enum',
+                      mode: 'single',
+                      confirm: false,
+                      options: [
+                        { code: 'balanced', label: '均衡', status: 'current' },
+                        { code: 'vegetarian', label: '素食', status: 'current' }
+                      ]
+                    }
+                  }]
+                }
+              },
+              {
+                id: 'asst-height-live',
+                role: 'assistant',
+                content: '請問你的身高？',
+                reply_actions: {
+                  schema_version: '0.1',
+                  interaction: {
+                    round_status: 'current',
+                    outcome: null
+                  },
+                  actions: [{
+                    type: 'ask_vitals',
+                    payload: {
+                      fields: ['height'],
+                      gap_code: 'height',
+                      status: 'current'
+                    }
+                  }]
+                }
+              }
+            ]
+          }
+        })
+      })
+    })
+
+    await page.addInitScript((journey) => {
+      localStorage.setItem('candor.unpaid.journey', JSON.stringify(journey))
+    }, {
+      conversationId,
+      messages: [{
+        id: 'stale',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'stale' }]
+      }],
+      hasAnalysis: false,
+      selectedPackageCode: null,
+      reportId: null,
+      reportDockOpen: false,
+      reportDockCollapsed: true,
+      reportInterpretSent: false,
+      selectedPackage: null,
+      packageConfirmed: false,
+      goalSelectActive: false,
+      goalOptions: [],
+      selectedCodes: [],
+      quizActive: false,
+      activeQuestion: null,
+      postQuizGuided: false,
+      profileGaps: [],
+      clarifyingGoals: [],
+      expertReviewStatus: 'none',
+      conversationPath: 'B'
+    })
+
+    await goto('/chat', { waitUntil: 'hydration' })
+
+    // Answered weight → historical locked card with stored value (not a live numpad).
+    const answeredCard = page.locator(
+      '[data-testid="chat-vitals-card"][data-vitals-field="weight"][data-vitals-status="selected"]'
+    ).first()
+    await expect(answeredCard).toBeVisible({ timeout: 15_000 })
+    await expect(answeredCard).toContainText('70')
+    await expect(answeredCard.locator('[data-testid="chat-vitals-numpad"]')).toHaveCount(0)
+
+    // Stale current weight on a non-latest bubble → frozen historical, no inputtable keypad.
+    const staleWeight = page.locator(
+      '[data-testid="chat-vitals-card"][data-vitals-field="weight"][data-vitals-status="disabled"]'
+    ).first()
+    await expect(staleWeight).toBeVisible()
+    await expect(staleWeight.locator('[data-testid="chat-vitals-numpad"]')).toHaveCount(0)
+    await expect(staleWeight.locator('[data-testid="chat-vitals-key-7"]')).toHaveCount(0)
+
+    // Path chips on older historical rounds stay visible but greyed (unchanged design B).
+    // Latest unanswered height vitals stay interactive.
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last).toContainText('請問你的身高？', { timeout: 15_000 })
+    const liveCard = last.getByTestId('chat-vitals-card')
+    await expect(liveCard).toHaveAttribute('data-vitals-status', 'current')
+    await expect(liveCard.getByTestId('chat-vitals-numpad')).toBeVisible()
+    await expect(liveCard.getByTestId('chat-vitals-key-7')).toBeEnabled()
+    await expect(liveCard.getByTestId('chat-vitals-confirm')).toBeVisible()
+  })
 })

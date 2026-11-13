@@ -7,6 +7,7 @@ import {
   completionCtaJourneyAllows,
   type ConversationPath
 } from './path-contract'
+import { coerceRetainedStatusForNonLatest } from './cta-interaction'
 import {
   hasCtaInteractionMeta,
   hasReplyActionsColumn,
@@ -314,6 +315,33 @@ export interface TurnActionsVisibility {
   /** Exclusive chip codes when choose_option drives selection. */
   exclusiveCodes: string[]
   replyProjection: ReplyActionsCtaProjection | null
+}
+
+/**
+ * Design B / run21: older bubbles may keep CTAs visible, but keypad／chips
+ * must not remain `current`. Preserve selected tones; force round historical.
+ */
+export function freezeNonLatestRetainedVisibility(
+  visibility: TurnActionsVisibility
+): TurnActionsVisibility {
+  const vitalsPreferSelected = visibility.vitalsStatus === 'selected'
+    || (visibility.vitalsHasStoredValue && visibility.vitalsStoredValue != null)
+  return {
+    ...visibility,
+    choices: visibility.choices.map(choice => ({
+      ...choice,
+      status: coerceRetainedStatusForNonLatest(choice.status)
+    })),
+    vitalsStatus: visibility.vitalsFields.length
+      ? coerceRetainedStatusForNonLatest(visibility.vitalsStatus, {
+          preferSelected: vitalsPreferSelected
+        })
+      : visibility.vitalsStatus,
+    confirmStatus: visibility.showConfirm
+      ? coerceRetainedStatusForNonLatest(visibility.confirmStatus)
+      : visibility.confirmStatus,
+    roundStatus: 'historical'
+  }
 }
 
 function emptyReplyExtras(): Pick<
@@ -675,6 +703,12 @@ export function buildTurnActionsVisibility(input: {
       fromReplyActions: true,
       exclusiveCodes: own.projection.exclusiveCodes,
       replyProjection: own.projection
+    }
+
+    // Non-latest retained CTAs stay visible (design B) but must never stay
+    // inputtable — coerce lingering `current` (hydrate／core lag) to historical.
+    if (!latest) {
+      return freezeNonLatestRetainedVisibility(visibility)
     }
 
     // Historical rounds skip journey overlays that would hide retained CTAs.

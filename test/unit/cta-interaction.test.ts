@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { CandorApiError } from '../../app/utils/candor-api'
 import {
+  coerceRetainedStatusForNonLatest,
   isStaleCtaError,
   resolveEntryPathSwitchResolution,
   resolveOptionControlStatus,
@@ -9,7 +10,10 @@ import {
 } from '../../app/utils/cta-interaction'
 import type { ChatMessage } from '../../app/utils/first-order'
 import { parseReplyActions } from '../../app/utils/reply-actions'
-import { buildTurnActionsVisibility } from '../../app/utils/chat-turn-actions'
+import {
+  buildTurnActionsVisibility,
+  freezeNonLatestRetainedVisibility
+} from '../../app/utils/chat-turn-actions'
 import type { ChatTurnUiContext } from '../../app/utils/chat-turn-actions'
 
 const baseCtx = (lastId: string): ChatTurnUiContext => ({
@@ -65,6 +69,8 @@ describe('cta-interaction helpers', () => {
     expect(resolveOptionControlStatus('current', 'current')).toBe('current')
     expect(resolveOptionControlStatus('selected', 'historical')).toBe('selected')
     expect(resolveOptionControlStatus(null, 'historical')).toBe('disabled')
+    // Lingering `current` on a historical round must grey out (run21).
+    expect(resolveOptionControlStatus('current', 'historical')).toBe('disabled')
     expect(resolveOptionControlStatus('current', 'current', { forceDisabled: true })).toBe('disabled')
   })
 
@@ -346,5 +352,138 @@ describe('buildTurnActionsVisibility — grey retain', () => {
     expect(visibility.vitalsStatus).toBe('disabled')
     expect(visibility.vitalsHasStoredValue).toBe(false)
     expect(visibility.vitalsStoredValue).toBeNull()
+  })
+
+  it('non-latest lingering current ask_vitals freezes to historical／non-interactive', () => {
+    // Core lag／hydrate may leave round_status current on an older weight card
+    // after the diet question arrives — FE must still lock the keypad (run21).
+    const ra = parseReplyActions({
+      schema_version: '0.1',
+      interaction: { round_status: 'current', outcome: null },
+      actions: [{
+        type: 'ask_vitals',
+        payload: {
+          fields: ['weight'],
+          gap_code: 'weight',
+          status: 'current'
+        }
+      }]
+    })!
+    const older = {
+      id: 'weight-1',
+      role: 'assistant' as const,
+      parts: [{ type: 'text' as const, text: '請問體重？' }],
+      replyActions: ra
+    }
+    const visibility = buildTurnActionsVisibility({
+      message: older,
+      ctx: baseCtx('diet-1'),
+      goalOptions: [],
+      needsMultiConfirm: false
+    })
+    expect(visibility.vitalsFields).toEqual(['weight'])
+    expect(visibility.roundStatus).toBe('historical')
+    expect(visibility.vitalsStatus).toBe('disabled')
+  })
+
+  it('answered non-latest vitals keep selected＋stored; latest unanswered stays current', () => {
+    const answeredRa = parseReplyActions({
+      schema_version: '0.1',
+      interaction: { round_status: 'historical', outcome: 'option_selected' },
+      actions: [{
+        type: 'ask_vitals',
+        payload: {
+          fields: ['weight'],
+          gap_code: 'weight',
+          status: 'selected',
+          has_stored_value: true,
+          stored_value: 70
+        }
+      }]
+    })!
+    const liveRa = parseReplyActions({
+      schema_version: '0.1',
+      interaction: { round_status: 'current', outcome: null },
+      actions: [{
+        type: 'ask_vitals',
+        payload: {
+          fields: ['height'],
+          gap_code: 'height',
+          status: 'current'
+        }
+      }]
+    })!
+    const answered = buildTurnActionsVisibility({
+      message: {
+        id: 'weight-done',
+        role: 'assistant',
+        parts: [{ type: 'text', text: '體重？' }],
+        replyActions: answeredRa
+      },
+      ctx: baseCtx('height-live'),
+      goalOptions: [],
+      needsMultiConfirm: false
+    })
+    expect(answered.roundStatus).toBe('historical')
+    expect(answered.vitalsStatus).toBe('selected')
+    expect(answered.vitalsStoredValue).toBe(70)
+
+    const live = buildTurnActionsVisibility({
+      message: {
+        id: 'height-live',
+        role: 'assistant',
+        parts: [{ type: 'text', text: '身高？' }],
+        replyActions: liveRa
+      },
+      ctx: baseCtx('height-live'),
+      goalOptions: [],
+      needsMultiConfirm: false
+    })
+    expect(live.roundStatus).toBe('current')
+    expect(live.vitalsStatus).toBe('current')
+    expect(live.vitalsFields).toEqual(['height'])
+  })
+
+  it('freezeNonLatestRetainedVisibility greys chips without changing selected', () => {
+    expect(coerceRetainedStatusForNonLatest('current')).toBe('disabled')
+    expect(coerceRetainedStatusForNonLatest('selected')).toBe('selected')
+    const frozen = freezeNonLatestRetainedVisibility({
+      choices: [
+        { code: 'a', label: 'A', status: 'current' },
+        { code: 'b', label: 'B', status: 'selected' }
+      ],
+      showConfirm: true,
+      showUpload: false,
+      showCheckup: false,
+      showFullTest: false,
+      showExpertBooking: false,
+      showWantMoreTests: false,
+      showRecommend: false,
+      showSubmitReview: false,
+      showViewRecommend: false,
+      showRetry: false,
+      vitalsFields: ['weight'],
+      vitalsGapCode: 'weight',
+      vitalsStatus: 'current',
+      vitalsHasStoredValue: true,
+      vitalsStoredValue: 70,
+      confirmStatus: 'current',
+      roundStatus: 'current',
+      checkupUrlOverride: null,
+      fullTestUrlOverride: null,
+      fullTestLabelOverride: null,
+      fullTestCopyOverride: null,
+      fullTestMarkerCount: null,
+      expertBookingPathOverride: null,
+      expertBookingLabelOverride: null,
+      fromReplyActions: true,
+      exclusiveCodes: [],
+      replyProjection: null
+    })
+    expect(frozen.roundStatus).toBe('historical')
+    expect(frozen.choices.find(c => c.code === 'a')?.status).toBe('disabled')
+    expect(frozen.choices.find(c => c.code === 'b')?.status).toBe('selected')
+    expect(frozen.vitalsStatus).toBe('selected')
+    expect(frozen.confirmStatus).toBe('disabled')
   })
 })

@@ -35,13 +35,35 @@ export function resolveOptionControlStatus(
   if (opts?.forceDisabled) {
     return 'disabled'
   }
-  if (optionStatus === 'selected' || optionStatus === 'disabled' || optionStatus === 'current') {
-    return optionStatus
+  if (optionStatus === 'selected') {
+    return 'selected'
   }
+  if (optionStatus === 'disabled') {
+    return 'disabled'
+  }
+  // Historical rounds never stay interactive — even if a payload still says `current`
+  // (hydrate before core stamps, or non-latest ask_vitals left live; run21 / design B).
   if (roundStatus === 'historical') {
     return 'disabled'
   }
+  if (optionStatus === 'current') {
+    return 'current'
+  }
   return 'current'
+}
+
+/**
+ * Coerce a retained CTA status for a non-latest bubble.
+ * `selected` stays selected; everything else becomes disabled (never `current`).
+ */
+export function coerceRetainedStatusForNonLatest(
+  status: CtaControlStatus | null | undefined,
+  opts?: { preferSelected?: boolean }
+): CtaControlStatus {
+  if (status === 'selected' || opts?.preferSelected) {
+    return 'selected'
+  }
+  return 'disabled'
 }
 
 export function resolveConfirmControlStatus(
