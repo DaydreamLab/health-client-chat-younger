@@ -439,6 +439,7 @@ import {
   chooseOptionPayload,
   detectPathRuleCopyKind,
   hasAskReportAction,
+  hasCtaInteractionMeta,
   hasReplyActionsColumn,
   hasReportRequiredAsk,
   CONTINUE_CONSULT_I18N_KEY,
@@ -812,6 +813,7 @@ function appendCoreAssistantTurn(turn: ConversationGreeting) {
     applyReplyActionsInteraction(msg, ra)
   }
   journey.messages.push(msg)
+  greyRetainUnstampedPriorAssistants(msg.id)
   return msg
 }
 
@@ -1286,8 +1288,8 @@ async function syncConversationPath(
   if (!conversationId) {
     return null
   }
-  // On any error: re-fetch so FE path／CTAs match core (e.g. 422 path_switch_too_early).
-  // Do not keep the requested path locally when the POST is rejected.
+  // On any error (incl. HTTP 400 path_switch_too_early): re-fetch so FE path／CTAs
+  // match core. Do not keep the requested path locally when the POST is rejected.
   try {
     const ack = await candor.setConversationPath(conversationId, {
       path: toApiConversationPath(path),
@@ -1302,6 +1304,30 @@ async function syncConversationPath(
     }
     await hydrateConversationHistory(conversationId)
     return null
+  }
+}
+
+/**
+ * Design B: when a newer assistant becomes the live turn, prior bubbles that still
+ * hold usable RA but were never stamped historical must grey-retain — otherwise
+ * non-latest without interaction meta drops CTAs until reload (run19 Path C
+ * await_upload). Already-historical selected／disabled stamps are left alone.
+ */
+function greyRetainUnstampedPriorAssistants(keepCurrentId?: string | null) {
+  for (const message of journey.messages) {
+    if (message.role !== 'assistant' || message.id === keepCurrentId) {
+      continue
+    }
+    if (!message.replyActions || !isUsableReplyActions(message.replyActions)) {
+      continue
+    }
+    if (
+      hasCtaInteractionMeta(message.replyActions)
+      && message.replyActions.interaction?.round_status === 'historical'
+    ) {
+      continue
+    }
+    retainOrClearHostActions(message, { outcome: 'free_text' })
   }
 }
 
@@ -2027,8 +2053,6 @@ function applyStreamMeta(assistantId: string, result: {
   // SSE done.path when present overwrites FE (null → treat as A; never POST back).
   applyServerConversationPath(result)
   const message = journey.messages.find(item => item.id === assistantId)
-  const usableRa = isUsableReplyActions(result.reply_actions)
-  const raColumn = hasReplyActionsColumn(result.reply_actions)
   if (message) {
     const serverId = typeof result.message_id === 'string' ? result.message_id.trim() : ''
     if (serverId && message.id !== serverId) {
@@ -2038,8 +2062,15 @@ function applyStreamMeta(assistantId: string, result: {
     message.turnType = result.turn.type as ChatMessage['turnType']
     message.profileQuestion = result.profile_question ?? null
     message.profileGaps = result.profile_gaps
+    // Keep existing usable RA when done omits／sends unusable actions (run19 flicker;
+    // core may still be fixing empty done — FE must not drop actions it already has).
     if (result.reply_actions) {
-      message.replyActions = result.reply_actions
+      if (
+        isUsableReplyActions(result.reply_actions)
+        || !isUsableReplyActions(message.replyActions)
+      ) {
+        message.replyActions = result.reply_actions
+      }
     }
     // Never dual-write legacy upload_offer / checkupOffer onto the bubble.
     // Cache checkup URL from stream meta when present (dock / offer_checkup).
@@ -2047,15 +2078,19 @@ function applyStreamMeta(assistantId: string, result: {
     if (url) {
       resolvedCheckupUrl.value = url
       checkupUrlLoaded.value = true
-    } else if (!raColumn) {
+    } else if (!hasReplyActionsColumn(message.replyActions)) {
       applyCheckupOffer(message, result)
     }
   }
   profileGaps.value = result.profile_gaps
   selectedCodes.value = []
 
-  if (message && raColumn) {
-    applyReplyActionsInteraction(message, result.reply_actions!)
+  const effectiveRa = message?.replyActions
+  const usableRa = isUsableReplyActions(effectiveRa)
+  const raColumn = hasReplyActionsColumn(effectiveRa)
+
+  if (message && raColumn && effectiveRa) {
+    applyReplyActionsInteraction(message, effectiveRa)
     applyPathRuleCopy(message)
     if (usableRa) {
       const override = turnActionsFor(message).checkupUrlOverride
@@ -2258,6 +2293,7 @@ async function streamPending(): Promise<{ ok: boolean, assistantId: string | nul
     ensureLiveAssistant()
     streamMessageLookupId = applyStreamMeta(assistantId, result)
     failedStreamRetry.value = null
+    greyRetainUnstampedPriorAssistants(streamMessageLookupId)
 
     // Interpret 外連改吃 stream reply_actions offer_checkup（#20）；勿 FE 硬設 wantMoreTestsOffer.
     if (intent === 'interpret' && !checkupUrlLoaded.value) {
@@ -2584,9 +2620,19 @@ function onChoice(option: GreetingOption) {
     }
   }
 
-  // Free-form message options
+  // Path A open_question_reply／free chips: stamp the tapped code as selected
+  // (not free_text — that painted the chosen chip as disabled like peers; run19 6a).
+  const choiceHost = intakeMessage.value
+  if (choiceHost?.replyActions && isUsableReplyActions(choiceHost.replyActions)) {
+    retainOrClearHostActions(choiceHost, {
+      outcome: 'option_selected',
+      selectedCodes: [option.code]
+    })
+  }
   clearLastAssistantOptions()
-  return sendText(option.label)
+  appendMessage('user', option.label)
+  pendingUserContent.value = option.label
+  return streamPending()
 }
 
 async function confirmMultiSelection() {

@@ -101,6 +101,96 @@ describe('cta-interaction helpers', () => {
     expect(options.find(o => o.code === 'a')?.status).toBe('disabled')
   })
 
+  it('Path A open_question_reply chip tap stamps selected (not free_text disabled)', () => {
+    const message: ChatMessage = {
+      id: 'asst-a',
+      role: 'assistant',
+      parts: [{ type: 'text', text: '睡眠怎麼樣？' }],
+      replyActions: parseReplyActions({
+        schema_version: '0.1',
+        source: 'rule',
+        adaptor: 'rule',
+        degraded: false,
+        error: null,
+        interaction: { round_status: 'current', outcome: null },
+        actions: [{
+          type: 'choose_option',
+          payload: {
+            kind: 'open_question_reply',
+            mode: 'single',
+            confirm: false,
+            options: [
+              { code: 'sleep', label: '睡眠品質' },
+              { code: 'insomnia', label: '入睡困難，躺很久才睡得著' }
+            ],
+            selected: [],
+            gap_code: null,
+            answer_type: null,
+            exclusive_codes: []
+          }
+        }]
+      })
+    }
+    resolveReplyActionsAsHistorical(message, {
+      outcome: 'option_selected',
+      selectedCodes: ['sleep']
+    })
+    expect(selectedCodesFromReplyActions(message.replyActions)).toEqual(['sleep'])
+    const visibility = buildTurnActionsVisibility({
+      message,
+      ctx: { ...baseCtx('later'), conversationPath: 'A' },
+      goalOptions: [],
+      needsMultiConfirm: false
+    })
+    expect(visibility.choices.find(c => c.code === 'sleep')?.status).toBe('selected')
+    expect(visibility.choices.find(c => c.code === 'insomnia')?.status).toBe('disabled')
+  })
+
+  it('Path C await_upload free_text grey-retain keeps chips when non-latest', () => {
+    const message: ChatMessage = {
+      id: 'await-upload',
+      role: 'assistant',
+      parts: [{ type: 'text', text: '請上傳血檢或健檢報告' }],
+      replyActions: parseReplyActions({
+        schema_version: '0.1',
+        source: 'rule',
+        adaptor: 'rule',
+        degraded: false,
+        error: null,
+        actions: [
+          { type: 'ask_report', payload: {} },
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'path_switch',
+              mode: 'single',
+              confirm: false,
+              options: [
+                { code: 'a', label: '我想聊聊' },
+                { code: 'b', label: '我想諮詢健康方案' }
+              ],
+              selected: [],
+              gap_code: null,
+              answer_type: null,
+              exclusive_codes: []
+            }
+          }
+        ]
+      })
+    }
+    resolveReplyActionsAsHistorical(message, { outcome: 'free_text' })
+    const visibility = buildTurnActionsVisibility({
+      message,
+      ctx: { ...baseCtx('newer'), conversationPath: 'C', hasReportAnalysis: true },
+      goalOptions: [],
+      needsMultiConfirm: false
+    })
+    expect(visibility.choices.map(c => c.code)).toEqual(['a', 'b'])
+    expect(visibility.choices.every(c => c.status === 'disabled')).toBe(true)
+    expect(visibility.showUpload).toBe(true)
+    expect(visibility.roundStatus).toBe('historical')
+  })
+
   it('resolveEntryPathSwitchResolution: chip A／C selected; free text all grey', () => {
     expect(resolveEntryPathSwitchResolution('a')).toEqual({
       outcome: 'option_selected',

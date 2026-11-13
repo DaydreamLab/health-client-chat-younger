@@ -189,9 +189,9 @@ export type CandorMockOptions = {
    */
   goalsAlreadySet?: boolean
   /**
-   * Reject POST …/path when reason=guide_switch with HTTP 422
-   * `path_switch_too_early` (core before 10 turns). Entry path POSTs still
-   * succeed; mockEntryPath is not updated on the rejected switch.
+   * Reject POST …/path when reason=guide_switch with HTTP 400
+   * `path_switch_too_early` (core before 10 turns; run19 confirmed 400 not 422).
+   * Entry path POSTs still succeed; mockEntryPath is not updated on the rejected switch.
    */
   rejectGuideSwitchTooEarly?: boolean
   /**
@@ -1565,7 +1565,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
     const reason = typeof body?.reason === 'string' ? body.reason : ''
     if (options.rejectGuideSwitchTooEarly && reason === 'guide_switch') {
       await route.fulfill({
-        status: 422,
+        status: 400,
         contentType: 'application/json',
         body: JSON.stringify({
           status: 'failed',
