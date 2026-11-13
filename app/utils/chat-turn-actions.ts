@@ -439,7 +439,7 @@ function isNonGapChoosePayload(choose: ChooseOptionPayload): boolean {
   return Boolean(choose.kind && NON_GAP_CHOOSE_OPTION_KINDS.has(choose.kind))
 }
 
-/** Companion path_switch／continue_consultation chips when another choose_option is primary. */
+/** Companion path_switch／continue_consultation／continue_chat chips when another choose_option is primary. */
 function companionNonGapChoices(projection: ReplyActionsCtaProjection): ChatMessageOption[] {
   const extras: ChatMessageOption[] = []
   if (projection.pathSwitch && projection.chooseOption?.kind !== 'path_switch') {
@@ -448,6 +448,9 @@ function companionNonGapChoices(projection: ReplyActionsCtaProjection): ChatMess
   if (projection.continueConsultation
     && projection.chooseOption?.kind !== 'continue_consultation') {
     extras.push(...(projection.continueConsultation.options ?? []))
+  }
+  if (projection.continueChat && projection.chooseOption?.kind !== 'continue_chat') {
+    extras.push(...(projection.continueChat.options ?? []))
   }
   return extras
 }
