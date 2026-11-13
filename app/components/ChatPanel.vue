@@ -224,7 +224,7 @@
                 :pending="pending"
                 :flow="isStandardFlow ? 'standard' : undefined"
                 :vitals-fields="vitalsFieldsFor(message)"
-                :vitals-disabled="pending || readonly || escalated"
+                :vitals-disabled="pending || readonly || escalated || message.id !== lastAssistantId"
                 :vitals-status="vitalsStatusFor(message)"
                 :vitals-has-stored-value="vitalsHasStoredValueFor(message)"
                 :vitals-stored-value="vitalsStoredValueFor(message)"
