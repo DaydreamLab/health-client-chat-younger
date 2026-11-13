@@ -389,4 +389,213 @@ test.describe('CTA grey retain (design B v3)', () => {
     await expect(page.getByTestId('chat-quiz-option-M')).toBeDisabled()
     expect(historyLoads).toBeGreaterThan(1)
   })
+
+  for (const route of [
+    { path: 'A' as const, code: 'a', label: '我想聊聊' },
+    { path: 'C' as const, code: 'c', label: '幫我看報告' }
+  ]) {
+    test(`route ${route.path}: opening chips retained after settle (selected＋grey)`, async ({
+      page,
+      goto
+    }) => {
+      test.setTimeout(90_000)
+      await mockCandorAuth(page, {
+        asMember: true,
+        conversationPath: null,
+        basicProfileComplete: true,
+        replyActions: 'none'
+      })
+      await page.setViewportSize({ width: 390, height: 844 })
+      await goto('/', { waitUntil: 'hydration' })
+      await page.evaluate(() => {
+        localStorage.removeItem('candor.unpaid.journey')
+      })
+      await goto('/chat', { waitUntil: 'hydration' })
+      await expect(page.getByTestId('chat-quiz-option-a')).toBeVisible({ timeout: 15_000 })
+
+      await page.getByTestId(`chat-quiz-option-${route.code}`).click()
+
+      const retained = page.locator(
+        '[data-testid="chat-turn-actions"][data-round-status="historical"]'
+      )
+      const selected = retained.getByTestId(`chat-quiz-option-${route.code}`)
+      await expect(selected).toBeVisible({ timeout: 15_000 })
+      await expect(selected).toHaveAttribute('data-cta-status', 'selected')
+      await expect(selected).toBeDisabled()
+      await expect(selected).toHaveText(route.label)
+
+      for (const other of ['a', 'b', 'c'].filter(code => code !== route.code)) {
+        await expect(retained.getByTestId(`chat-quiz-option-${other}`)).toHaveAttribute(
+          'data-cta-status',
+          'disabled'
+        )
+        await expect(retained.getByTestId(`chat-quiz-option-${other}`)).toBeDisabled()
+      }
+
+      await retained.scrollIntoViewIfNeeded()
+      await page.screenshot({
+        path: `/opt/cursor/artifacts/cta-grey-retain-route-${route.code}-settled.png`,
+        fullPage: false
+      })
+    })
+
+    test(`route ${route.path}: opening chips retained after reload`, async ({
+      page,
+      goto
+    }) => {
+      test.setTimeout(90_000)
+      // Avoid mock-candor-auth's fixed conversationId (aaaaaaaa-…).
+      const conversationId = route.path === 'A'
+        ? 'aa111111-aaaa-4aaa-8aaa-aaaaaaaaaaa1'
+        : 'cc333333-cccc-4ccc-8ccc-ccccccccccc3'
+      await mockCandorAuth(page, { asMember: true, replyActions: 'none' })
+      await page.setViewportSize({ width: 390, height: 844 })
+
+      await page.route(`**/api/v1/conversation/${conversationId}/messages`, async (routeReq) => {
+        if (routeReq.request().method() !== 'GET') {
+          await routeReq.fallback()
+          return
+        }
+        if (routeReq.request().url().includes('/messages/stream')) {
+          await routeReq.fallback()
+          return
+        }
+        await routeReq.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            status: 'success',
+            data: {
+              conversation_id: conversationId,
+              path: route.code,
+              messages: [
+                {
+                  id: `asst-open-${route.code}`,
+                  role: 'assistant',
+                  content: '想先從哪裡開始？',
+                  reply_actions: {
+                    schema_version: '0.1',
+                    source: 'path_entry',
+                    adaptor: 'fake',
+                    degraded: false,
+                    error: null,
+                    interaction: {
+                      round_status: 'historical',
+                      outcome: 'option_selected'
+                    },
+                    actions: [{
+                      type: 'choose_option',
+                      payload: {
+                        kind: 'path_switch',
+                        mode: 'single',
+                        confirm: false,
+                        options: [
+                          {
+                            code: 'a',
+                            label: '我想聊聊',
+                            status: route.code === 'a' ? 'selected' : 'disabled'
+                          },
+                          {
+                            code: 'b',
+                            label: '我想諮詢健康方案',
+                            status: 'disabled'
+                          },
+                          {
+                            code: 'c',
+                            label: '幫我看報告',
+                            status: route.code === 'c' ? 'selected' : 'disabled'
+                          }
+                        ]
+                      }
+                    }]
+                  }
+                },
+                {
+                  id: `u-open-${route.code}`,
+                  role: 'user',
+                  content: route.label
+                },
+                {
+                  id: `asst-follow-${route.code}`,
+                  role: 'assistant',
+                  content: route.path === 'C'
+                    ? '請上傳血檢或健檢報告。'
+                    : '好的，我們先聊聊。',
+                  reply_actions: {
+                    schema_version: '0.1',
+                    interaction: { round_status: 'current', outcome: null },
+                    actions: route.path === 'C'
+                      ? [
+                          { type: 'ask_report', payload: { option_codes: ['upload'] } },
+                          {
+                            type: 'choose_option',
+                            payload: {
+                              kind: 'path_switch',
+                              mode: 'single',
+                              confirm: false,
+                              options: [
+                                { code: 'a', label: '我想聊聊', status: 'current' },
+                                { code: 'b', label: '我想諮詢健康方案', status: 'current' }
+                              ]
+                            }
+                          }
+                        ]
+                      : [{ type: 'none', payload: {} }]
+                  }
+                }
+              ]
+            }
+          })
+        })
+      })
+
+      await page.addInitScript((journey) => {
+        localStorage.setItem('candor.unpaid.journey', JSON.stringify(journey))
+      }, {
+        conversationId,
+        messages: [{
+          id: 'stale',
+          role: 'assistant',
+          parts: [{ type: 'text', text: 'stale' }]
+        }],
+        hasAnalysis: false,
+        selectedPackageCode: null,
+        reportId: null,
+        reportDockOpen: false,
+        reportDockCollapsed: true,
+        reportInterpretSent: false,
+        selectedPackage: null,
+        packageConfirmed: false,
+        goalSelectActive: false,
+        goalOptions: [],
+        selectedCodes: [],
+        quizActive: false,
+        activeQuestion: null,
+        postQuizGuided: false,
+        profileGaps: [],
+        clarifyingGoals: [],
+        expertReviewStatus: 'none',
+        conversationPath: route.path
+      })
+
+      await goto('/chat', { waitUntil: 'hydration' })
+
+      const retained = page.locator(
+        '[data-testid="chat-turn-actions"][data-round-status="historical"]'
+      )
+      const selected = retained.getByTestId(`chat-quiz-option-${route.code}`)
+      await expect(selected).toBeVisible({ timeout: 15_000 })
+      await expect(selected).toHaveAttribute('data-cta-status', 'selected')
+      await expect(selected).toBeDisabled()
+      await expect(retained.getByTestId('chat-quiz-option-a')).toBeVisible()
+      await expect(retained.getByTestId('chat-quiz-option-b')).toBeVisible()
+      await expect(retained.getByTestId('chat-quiz-option-c')).toBeVisible()
+
+      await retained.scrollIntoViewIfNeeded()
+      await page.screenshot({
+        path: `/opt/cursor/artifacts/cta-grey-retain-route-${route.code}-reload.png`,
+        fullPage: false
+      })
+    })
+  }
 })

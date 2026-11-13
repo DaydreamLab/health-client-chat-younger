@@ -57,9 +57,13 @@ async function selectEntryPath(page: Page, path: 'A' | 'B' | 'C') {
   const chip = page.getByTestId(`chat-quiz-option-${code}`)
   await expect(chip).toBeVisible({ timeout: 15_000 })
   await chip.click()
-  // onChoice fires void selectConversationPath — wait until entry `c` chip clears
-  // (path POST done). Path C flow_prompt may still show a／b switch chips.
-  await expect(page.getByTestId('chat-quiz-option-c')).toHaveCount(0, { timeout: 15_000 })
+  // Design B v3: opening chips stay (selected／grey). Wait until the chosen
+  // entry chip is stamped historical selected (path POST + retain done).
+  const retained = page
+    .locator('[data-testid="chat-turn-actions"][data-round-status="historical"]')
+    .getByTestId(`chat-quiz-option-${code}`)
+  await expect(retained).toHaveAttribute('data-cta-status', 'selected', { timeout: 15_000 })
+  await expect(retained).toBeDisabled()
 }
 
 async function finishGoalSelect(page: Page) {
@@ -140,7 +144,7 @@ test.describe('path contract (A／B／C)', () => {
     await expect(page.getByTestId('chat-quiz-option-sleep')).toHaveCount(0)
   })
 
-  test('訪客開場不點選項、直接打字 Enter → 隱式路徑 A、訊息送出、三鈕收起', async ({ page, goto }) => {
+  test('訪客開場不點選項、直接打字 Enter → 隱式路徑 A、訊息送出、三鈕全灰保留', async ({ page, goto }) => {
     test.setTimeout(90_000)
     await mockCandorAuth(page, {
       asMember: false,
@@ -181,10 +185,24 @@ test.describe('path contract (A／B／C)', () => {
     await pathPost
     await streamPost
     await expect(transcript).toContainText(typed, { timeout: 15_000 })
-    // 三鈕收起（含 entry c；path A 不會再掛 path_switch c）
-    await expect(page.getByTestId('chat-quiz-option-a')).toHaveCount(0, { timeout: 15_000 })
-    await expect(page.getByTestId('chat-quiz-option-b')).toHaveCount(0)
-    await expect(page.getByTestId('chat-quiz-option-c')).toHaveCount(0)
+    // Design B v3: free-text entry keeps opening chips all grey (not stripped).
+    const retained = page.locator(
+      '[data-testid="chat-turn-actions"][data-round-status="historical"]'
+    )
+    await expect(retained.getByTestId('chat-quiz-option-a')).toBeVisible({ timeout: 15_000 })
+    await expect(retained.getByTestId('chat-quiz-option-a')).toHaveAttribute(
+      'data-cta-status',
+      'disabled'
+    )
+    await expect(retained.getByTestId('chat-quiz-option-b')).toHaveAttribute(
+      'data-cta-status',
+      'disabled'
+    )
+    await expect(retained.getByTestId('chat-quiz-option-c')).toHaveAttribute(
+      'data-cta-status',
+      'disabled'
+    )
+    await expect(retained.getByTestId('chat-quiz-option-a')).toBeDisabled()
     // 真的送出後才清；不可無故殘留或誤清後什麼都沒送
     await expect(input).toHaveValue('')
   })

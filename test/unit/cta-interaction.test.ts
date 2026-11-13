@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { CandorApiError } from '../../app/utils/candor-api'
 import {
   isStaleCtaError,
+  resolveEntryPathSwitchResolution,
   resolveOptionControlStatus,
   resolveReplyActionsAsHistorical,
   selectedCodesFromReplyActions
@@ -98,6 +99,45 @@ describe('cta-interaction helpers', () => {
     }>
     expect(options.find(o => o.code === 'b')?.status).toBe('selected')
     expect(options.find(o => o.code === 'a')?.status).toBe('disabled')
+  })
+
+  it('resolveEntryPathSwitchResolution: chip A／C selected; free text all grey', () => {
+    expect(resolveEntryPathSwitchResolution('a')).toEqual({
+      outcome: 'option_selected',
+      selectedCodes: ['a']
+    })
+    expect(resolveEntryPathSwitchResolution('c')).toEqual({
+      outcome: 'option_selected',
+      selectedCodes: ['c']
+    })
+    expect(resolveEntryPathSwitchResolution('a', 'free_text')).toEqual({
+      outcome: 'free_text'
+    })
+  })
+
+  it('route A／C opening path_switch stays visible after historical stamp', () => {
+    for (const code of ['a', 'c'] as const) {
+      const message: ChatMessage = {
+        id: `asst-${code}`,
+        role: 'assistant',
+        parts: [{ type: 'text', text: '想先從哪裡開始？' }],
+        replyActions: pathSwitchRa({ round_status: 'current', outcome: null })
+      }
+      resolveReplyActionsAsHistorical(
+        message,
+        resolveEntryPathSwitchResolution(code)
+      )
+      const visibility = buildTurnActionsVisibility({
+        message,
+        ctx: { ...baseCtx('later'), conversationPath: code.toUpperCase() as 'A' | 'C' },
+        goalOptions: [],
+        needsMultiConfirm: false
+      })
+      expect(visibility.choices.map(c => c.code)).toEqual(['a', 'b', 'c'])
+      expect(visibility.choices.find(c => c.code === code)?.status).toBe('selected')
+      expect(visibility.choices.filter(c => c.code !== code).every(c => c.status === 'disabled')).toBe(true)
+      expect(visibility.roundStatus).toBe('historical')
+    }
   })
 })
 
