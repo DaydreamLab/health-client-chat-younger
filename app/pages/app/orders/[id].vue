@@ -486,7 +486,6 @@ definePageMeta({
 
 const route = useRoute()
 const localePath = useLocalePath()
-const nuxtApp = useNuxtApp()
 const { t } = useI18n()
 const auth = useAuthStore()
 const journey = useJourneyStore()
@@ -503,11 +502,7 @@ const actionPending = ref(false)
 const actionError = ref('')
 const refundActionError = ref('')
 const refundConfirmOpen = ref(false)
-const gateLocked = ref(nuxtApp.isHydrating || !auth.isMember)
-
-function syncGate() {
-  gateLocked.value = !auth.isMember
-}
+const { memberGateLocked: gateLocked, sync: syncGate } = useAuthClientSync()
 
 const planDisplayName = computed(() =>
   normalizePlanDisplayName(order.value?.packageName) ?? ''
@@ -794,12 +789,12 @@ async function loadOrder() {
 }
 
 onMounted(() => {
-  syncGate()
-  void loadOrder()
+  void syncGate().then(() => {
+    void loadOrder()
+  })
 })
 
 watch(() => auth.isMember, (member) => {
-  syncGate()
   if (member) {
     void loadOrder()
   } else {

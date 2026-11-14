@@ -205,16 +205,9 @@ definePageMeta({
 })
 
 const { t } = useI18n()
-const nuxtApp = useNuxtApp()
 const auth = useAuthStore()
 const candor = useCandorApi()
-
-// SSR paints the guest gate; sync after hydration so members are not stuck behind it.
-const gateLocked = ref(nuxtApp.isHydrating || !auth.isMember)
-
-function syncGate() {
-  gateLocked.value = !auth.isMember
-}
+const { memberGateLocked: gateLocked, sync: syncGate } = useAuthClientSync()
 
 const email = ref('')
 const displayName = ref('')
@@ -376,12 +369,14 @@ async function onSave() {
 }
 
 onMounted(() => {
-  syncGate()
-  void loadProfile()
+  void syncGate().then(() => {
+    if (auth.isMember) {
+      void loadProfile()
+    }
+  })
 })
 
 watch(() => auth.isMember, (member) => {
-  syncGate()
   if (member) {
     void loadProfile()
   }

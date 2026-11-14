@@ -127,12 +127,11 @@ definePageMeta({
 type FilterMode = 'all' | 'unread'
 
 const localePath = useLocalePath()
-const nuxtApp = useNuxtApp()
 const auth = useAuthStore()
 const notifications = useNotificationsStore()
+const { memberGateLocked: gateLocked, sync: syncGate } = useAuthClientSync()
 
 const filter = ref<FilterMode>('all')
-const gateLocked = ref(nuxtApp.isHydrating || !auth.isMember)
 
 const list = computed(() => notifications.items)
 const loading = computed(() => notifications.loading)
@@ -145,10 +144,6 @@ const visibleList = computed(() => {
   }
   return list.value
 })
-
-function syncGate() {
-  gateLocked.value = !auth.isMember
-}
 
 async function loadInbox() {
   if (!auth.isMember) {
@@ -169,12 +164,12 @@ async function onOpen(item: NotificationItem) {
 }
 
 onMounted(() => {
-  syncGate()
-  void loadInbox()
+  void syncGate().then(() => {
+    void loadInbox()
+  })
 })
 
 watch(() => auth.isMember, (member) => {
-  syncGate()
   if (member) {
     void loadInbox()
   } else {

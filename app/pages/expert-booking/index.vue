@@ -357,13 +357,11 @@ definePageMeta({
 })
 
 const localePath = useLocalePath()
-const nuxtApp = useNuxtApp()
 const { t, locale } = useI18n()
 const auth = useAuthStore()
 const bookingStore = useExpertBookingStore()
 const bookingApi = useExpertBookingApi()
-
-const gateLocked = ref(nuxtApp.isHydrating || !auth.isMember)
+const { memberGateLocked: gateLocked, sync: syncGate } = useAuthClientSync()
 const formError = ref('')
 const uploadError = ref('')
 const uploadPending = ref(false)
@@ -412,10 +410,6 @@ const pageTitle = computed(() =>
 const loginTo = computed(() =>
   `${localePath('/login')}?redirect=${encodeURIComponent(localePath('/expert-booking'))}&mode=login`
 )
-
-function syncGate() {
-  gateLocked.value = !auth.isMember
-}
 
 function seedFormFromStore() {
   bookingStore.hydrate()
@@ -519,8 +513,7 @@ async function loadProduct() {
 }
 
 onMounted(async () => {
-  await auth.ensureSession()
-  syncGate()
+  await syncGate()
   if (!gateLocked.value) {
     seedFormFromStore()
     await loadProduct()
@@ -528,7 +521,6 @@ onMounted(async () => {
 })
 
 watch(() => auth.isMember, async (isMember) => {
-  syncGate()
   if (isMember) {
     seedFormFromStore()
     if (productState.value === 'idle' || productState.value === 'error') {

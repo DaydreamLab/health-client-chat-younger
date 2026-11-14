@@ -24,6 +24,9 @@ export default defineNuxtConfig({
     storageKey: 'younger-color-mode'
   },
 
+  // Empty #__nuxt on CSR shells (/chat, /200.html) until the bundle mounts.
+  spaLoadingTemplate: true,
+
   runtimeConfig: {
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:8080/api/v1',
@@ -45,11 +48,13 @@ export default defineNuxtConfig({
   buildDir: process.env.NUXT_TEST_BUILD_DIR || '.nuxt',
 
   routeRules: {
-    // Chat is interactive / auth-heavy; keep out of the static crawl.
-    '/chat': { prerender: false },
-    '/en/chat': { prerender: false },
-    '/chat-ai': { prerender: false },
-    '/en/chat-ai': { prerender: false }
+    // Chat is auth-heavy: emit a CSR shell (ssr:false) so S3 has
+    // chat/index.html for CloudFront `<path>/index.html` rewrites. Do not use
+    // prerender:false + ignore — that left only /200.html and a blank first paint.
+    '/chat': { ssr: false },
+    '/en/chat': { ssr: false },
+    '/chat-ai': { ssr: false },
+    '/en/chat-ai': { ssr: false }
     // Do NOT set `/app/**` or `/en/app/**` to prerender:false.
     // crawlLinks already emits their index.html with data-src → `_payload.json`;
     // prerender:false skipped only the payload file and caused console 404s on
@@ -61,8 +66,14 @@ export default defineNuxtConfig({
   nitro: {
     prerender: {
       crawlLinks: true,
-      routes: ['/', '/en'],
-      ignore: ['/chat', '/en/chat', '/chat-ai', '/en/chat-ai']
+      routes: [
+        '/',
+        '/en',
+        '/chat',
+        '/en/chat',
+        '/chat-ai',
+        '/en/chat-ai'
+      ]
     }
   },
 

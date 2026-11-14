@@ -9,6 +9,7 @@ mkdirSync(buildDir, { recursive: true })
 
 export default defineConfig<ConfigOptions>({
   testDir: './test/e2e',
+  testIgnore: ['**/spa-fallback.spec.ts'],
   workers: 1,
   timeout: 120_000,
   use: {

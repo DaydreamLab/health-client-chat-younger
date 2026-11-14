@@ -1,3 +1,4 @@
+import { skipHydrate } from 'pinia'
 import type { UserBrief, UserMe, UserSession } from '~/utils/candor-api'
 import { CandorApiError } from '~/utils/candor-api'
 import { shouldSlideSession } from '~/utils/session-slide'
@@ -33,10 +34,12 @@ function toBrief(user: UserBrief | UserMe): UserBrief {
 
 export const useAuthStore = defineStore('auth', () => {
   const api = useCandorApi()
-  const user = ref<UserBrief | null>(null)
-  const expiresAt = ref<number | null>(null)
-  const issuedAt = ref<number | null>(null)
-  const ready = ref(false)
+  // Never revive generate-time guest snapshot into the client — token lives in
+  // localStorage and must be re-read via ensureSession after mount.
+  const user = skipHydrate(ref<UserBrief | null>(null))
+  const expiresAt = skipHydrate(ref<number | null>(null))
+  const issuedAt = skipHydrate(ref<number | null>(null))
+  const ready = skipHydrate(ref(false))
   const bootstrapping = ref(false)
   let refreshInFlight: Promise<void> | null = null
 
@@ -234,6 +237,8 @@ export const useAuthStore = defineStore('auth', () => {
         }
       }
 
+      // Final guard: never mint guest over an existing token (member refresh /
+      // direct open of prerendered /app). Only clear+guest on confirmed 401.
       if (hasSession.value || api.readToken()) {
         return
       }
@@ -242,6 +247,9 @@ export const useAuthStore = defineStore('auth', () => {
         useJourneyStore().clearSession()
       }
       const beforeGuest = api.readToken()
+      if (beforeGuest) {
+        return
+      }
       try {
         const session = await api.guest()
         // Discard if login wrote a member token while guest mint was in flight.
