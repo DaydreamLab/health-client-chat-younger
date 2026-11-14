@@ -231,7 +231,7 @@
                 :confirm-status="confirmStatusFor(message)"
                 :round-status="roundStatusFor(message)"
                 :composer-typing="composerTyping && message.id === lastAssistantId"
-                @choice="onChoice"
+                @choice="option => onChoice(option, message)"
                 @confirm="confirmMultiSelection"
                 @upload="openAttachMenu"
                 @recommend="goViewRecommend"
@@ -2016,6 +2016,20 @@ function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyA
     return
   }
 
+  // Solo／primary continue_chat (e.g. offer_recommend + 繼續聊聊): same chip host
+  // as continue_consultation. Companion continue_chat beside profile is merged into
+  // visibility.choices by projectReplyActionsToCtas (run22).
+  if (choose?.kind === 'continue_chat'
+    && (visibility.choices.length || choose.options?.length)) {
+    message.options = visibility.choices.length ? visibility.choices : (choose.options ?? [])
+    message.turnType = 'message'
+    message.profileQuestion = null
+    quizActive.value = false
+    activeQuestion.value = null
+    goalSelectActive.value = false
+    return
+  }
+
   // free／open_question_reply: chips from projection (may include companion
   // path_switch／continue_consultation). kind=free mode=single → single-tap.
   if ((choose?.kind === 'free' || choose?.kind === 'open_question_reply')
@@ -2537,12 +2551,16 @@ function submitContinueHealthConsultationLabel(label: string) {
   return sendText(label)
 }
 
-/** Soft continue_chat chip beside profile ask — stream label; grey-retain selected. */
-function submitContinueChatLabel(label: string) {
+/**
+ * Soft continue_chat chip — stream the option label (core ships「繼續聊聊」／locale
+ * label); grey-retain selected. Used beside profile ask (run22) and as primary
+ * chip with offer_recommend (interpret／pre-completion).
+ */
+function submitContinueChatLabel(label: string, hostMessage?: ChatMessage) {
   if (pending.value || readonly.value || escalated.value) {
     return
   }
-  const host = intakeMessage.value
+  const host = hostMessage ?? intakeMessage.value
   if (host) {
     retainOrClearHostActions(host, {
       outcome: 'option_selected',
@@ -2555,7 +2573,7 @@ function submitContinueChatLabel(label: string) {
   return sendText(label)
 }
 
-function onChoice(option: GreetingOption) {
+function onChoice(option: GreetingOption, hostMessage?: ChatMessage) {
   if (pending.value) {
     return
   }
@@ -2593,12 +2611,18 @@ function onChoice(option: GreetingOption) {
   }
 
   const intake = intakeMessage.value
+  // Prefer the bubble that owned the click (offer_recommend + continue_chat has
+  // no profile options → intake may miss it); fall back to intake for companions.
+  const continueChatHost = hostMessage
+    && isContinueChatOption(hostMessage.replyActions, option.code)
+    ? hostMessage
+    : (intake && isContinueChatOption(intake.replyActions, option.code) ? intake : undefined)
   if (intake && isContinueConsultationOption(intake.replyActions, option.code)) {
     return submitContinueHealthConsultationLabel(option.label)
   }
-  // Soft「繼續聊聊」beside profile ask — stream label; never POST /profile/answers (run22).
-  if (intake && isContinueChatOption(intake.replyActions, option.code)) {
-    return submitContinueChatLabel(option.label)
+  // Soft「繼續聊聊」— stream label; never POST /profile/answers (run22 + offer_recommend).
+  if (continueChatHost) {
+    return submitContinueChatLabel(option.label, continueChatHost)
   }
 
   // LabFollowup maps_to: upload UI or checkup外連 — never POST /profile/answers (#22).

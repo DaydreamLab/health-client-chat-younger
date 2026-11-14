@@ -921,6 +921,71 @@ describe('projectReplyActionsToCtas', () => {
     expect(projection.flags.choices.map(c => c.code)).toEqual(['M', 'F', 'continue_chat'])
   })
 
+  it('offer_recommend + continue_chat: continue_chat is primary chip; recommend slot stays', () => {
+    // Prod interpret／pre-completion: view-recommend + soft「繼續聊聊」(ensureContinueChatChip).
+    const replyActions = ra({
+      actions: [
+        VIEW_RECOMMEND_ACTION,
+        {
+          type: 'choose_option',
+          payload: {
+            hint: 'continue_chat',
+            kind: 'continue_chat',
+            mode: 'single',
+            confirm: false,
+            options: [{ code: 'continue_chat', label: '繼續聊聊' }],
+            gap_code: null,
+            selected: [],
+            answer_type: null,
+            exclusive_codes: []
+          }
+        }
+      ]
+    })
+    const projection = projectReplyActionsToCtas({
+      replyActions,
+      canShowRecommendSlot: true,
+      canShowUpload: false,
+      canShowCheckup: false,
+      canShowVitals: false,
+      expertReviewStatus: 'none'
+    })
+    expect(projection.chooseOption?.kind).toBe('continue_chat')
+    expect(projection.continueChat?.kind).toBe('continue_chat')
+    expect(projection.flags.choices.map(c => c.code)).toEqual(['continue_chat'])
+    expect(projection.flags.choices.map(c => c.label)).toEqual(['繼續聊聊'])
+    expect(projection.flags.showViewRecommend).toBe(true)
+    expect(isContinueChatOption(replyActions, 'continue_chat')).toBe(true)
+
+    const visibility = buildTurnActionsVisibility({
+      message: {
+        id: 'asst-offer-continue',
+        role: 'assistant',
+        parts: [{ type: 'text', text: '好的，以下是一些睡眠改善的一般性建議…' }],
+        replyActions
+      },
+      ctx: {
+        readonlyMode: false,
+        escalated: false,
+        pending: false,
+        goalSelectActive: false,
+        reportAskActive: false,
+        hasReportAnalysis: false,
+        reportRetry: false,
+        checkupLinkReady: true,
+        lastAssistantId: 'asst-offer-continue',
+        conversationPath: 'B',
+        openProfileGaps: [],
+        pathEntryPending: false
+      },
+      goalOptions: [],
+      needsMultiConfirm: false
+    })
+    expect(visibility.choices.map(c => c.code)).toEqual(['continue_chat'])
+    expect(visibility.choices.map(c => c.label)).toEqual(['繼續聊聊'])
+    expect(visibility.showViewRecommend).toBe(true)
+  })
+
   it('profile / lab_followup + path_switch: primary kind unchanged; switch appended', () => {
     const profile = projectReplyActionsToCtas({
       replyActions: ra({

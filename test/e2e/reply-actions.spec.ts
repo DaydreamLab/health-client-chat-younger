@@ -1293,4 +1293,167 @@ test.describe('reply_actions v0.1 CTAs', () => {
       timeout: 15_000
     })
   })
+
+  test('offer_recommend + continue_chat: click 繼續聊聊 streams content label', async ({
+    page,
+    goto
+  }) => {
+    // Prod: interpret／pre-completion ships view-recommend + soft continue_chat chip.
+    // Click must sendText('繼續聊聊') — not silent, not profile/answers.
+    test.setTimeout(90_000)
+    const conversationId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+    await mockCandorAuth(page, {
+      asMember: true,
+      replyActions: 'none',
+      conversationPath: 'B'
+    })
+    await seedNoExpertCase(page)
+    await page.setViewportSize({ width: 390, height: 844 })
+
+    const offerContinueRa = {
+      schema_version: '0.1',
+      source: 'semantic_judgment',
+      adaptor: 'fake',
+      degraded: false,
+      error: null,
+      interaction: { round_status: 'current', outcome: null },
+      actions: [
+        {
+          type: 'offer_recommend',
+          payload: {
+            mode: 'view_recommendations',
+            path: '/app/recommendations',
+            label: '查看推薦方案'
+          }
+        },
+        {
+          type: 'choose_option',
+          payload: {
+            hint: 'continue_chat',
+            kind: 'continue_chat',
+            mode: 'single',
+            confirm: false,
+            options: [{ code: 'continue_chat', label: '繼續聊聊', status: 'current' }],
+            gap_code: null,
+            selected: [],
+            answer_type: null,
+            exclusive_codes: []
+          }
+        }
+      ]
+    }
+
+    await page.route(`**/api/v1/conversation/${conversationId}/messages`, async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback()
+        return
+      }
+      if (route.request().url().includes('/messages/stream')) {
+        await route.fallback()
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            conversation_id: conversationId,
+            path: 'b',
+            messages: [
+              {
+                id: 'asst-sleep-tips',
+                role: 'assistant',
+                content: '好的，以下是一些睡眠改善的一般性建議。',
+                reply_actions: offerContinueRa
+              }
+            ]
+          }
+        })
+      })
+    })
+
+    await page.route(`**/api/v1/conversation/${conversationId}/messages/stream`, async (route) => {
+      const body = route.request().postData() || ''
+      expect(body).toContain('繼續聊聊')
+      const content = '好的，想聊聊哪一方面呢？'
+      const donePayload = {
+        message_id: `msg-offer-continue-${Date.now()}`,
+        claim_guard: 'passed',
+        content,
+        options: [],
+        turn: { type: 'message' },
+        profile_question: null,
+        profile_gaps: [],
+        reply_actions: {
+          schema_version: '0.1',
+          degraded: false,
+          error: null,
+          actions: [{ type: 'none', payload: {} }]
+        }
+      }
+      const sse = [
+        'event: delta',
+        `data: ${JSON.stringify({ text: content })}`,
+        '',
+        'event: done',
+        `data: ${JSON.stringify(donePayload)}`,
+        '',
+        ''
+      ].join('\n')
+      await route.fulfill({ status: 200, contentType: 'text/event-stream', body: sse })
+    })
+
+    await page.addInitScript((journey) => {
+      localStorage.setItem('candor.unpaid.journey', JSON.stringify(journey))
+    }, {
+      conversationId,
+      conversationPath: 'B',
+      messages: [{
+        id: 'stale',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'stale' }]
+      }],
+      hasAnalysis: false,
+      selectedPackageCode: null,
+      reportId: null,
+      reportDockOpen: false,
+      reportDockCollapsed: true,
+      reportInterpretSent: false,
+      selectedPackage: null,
+      packageConfirmed: false,
+      goalSelectActive: false,
+      goalOptions: [],
+      selectedCodes: [],
+      quizActive: false,
+      activeQuestion: null,
+      postQuizGuided: false,
+      profileGaps: [],
+      clarifyingGoals: ['睡眠'],
+      expertReviewStatus: 'none'
+    })
+
+    await goto('/chat', { waitUntil: 'hydration' })
+
+    const last = page.getByTestId('chat-last-reply')
+    await expect(last).toContainText('睡眠改善的一般性建議', { timeout: 15_000 })
+    await expect(last.getByTestId('chat-view-recommend')).toHaveText('查看推薦方案')
+    await expect(last.getByTestId('chat-quiz-option-continue_chat')).toHaveText('繼續聊聊')
+    await expect(last.getByTestId('chat-quiz-option-continue_chat')).toBeEnabled()
+
+    const streamReq = page.waitForRequest((req) => {
+      if (req.method() !== 'POST' || !req.url().includes('/messages/stream')) {
+        return false
+      }
+      return (req.postData() || '').includes('繼續聊聊')
+    }, { timeout: 20_000 })
+
+    await last.getByTestId('chat-quiz-option-continue_chat').click()
+    const stream = await streamReq
+    expect(stream.postDataJSON()).toMatchObject({ content: '繼續聊聊' })
+    await expect(page.getByTestId('chat-transcript')).toContainText('繼續聊聊', { timeout: 15_000 })
+    await expect(page.getByTestId('chat-last-reply')).toContainText('想聊聊哪一方面', {
+      timeout: 15_000
+    })
+  })
 })

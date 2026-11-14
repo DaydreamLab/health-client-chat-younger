@@ -34,4 +34,41 @@ describe('findIntakeAssistantMessage', () => {
       turnChoicesForMessage(interpret, intake, true, goals).map(o => o.code)
     ).toEqual(['sleep', 'weight'])
   })
+
+  it('finds offer_recommend + continue_chat host once options are applied', () => {
+    // applyReplyActionsInteraction must write message.options for primary continue_chat
+    // so intake resolves to that bubble (not an older free／profile turn).
+    const tips = assistant('asst-sleep-tips', {
+      options: [{ code: 'continue_chat', label: '繼續聊聊' }]
+    })
+    const list = [
+      assistant('asst-free', {
+        options: [
+          { code: 'opt_1', label: '是，現在開始' },
+          { code: 'opt_3', label: '我想先了解睡眠改善的一般建議' }
+        ]
+      }),
+      tips
+    ]
+    const intake = findIntakeAssistantMessage(list, {
+      goalSelectActive: false,
+      lastAssistantId: 'asst-sleep-tips'
+    })
+    expect(intake?.id).toBe('asst-sleep-tips')
+    expect(turnChoicesForMessage(tips, intake, false, []).map(o => o.code)).toEqual([
+      'continue_chat'
+    ])
+  })
+
+  it('misses continue_chat host when options were never written', () => {
+    const tips = assistant('asst-sleep-tips', { options: [] })
+    const older = assistant('asst-free', {
+      options: [{ code: 'opt_3', label: '我想先了解睡眠改善的一般建議' }]
+    })
+    const intake = findIntakeAssistantMessage([older, tips], {
+      goalSelectActive: false,
+      lastAssistantId: 'asst-sleep-tips'
+    })
+    expect(intake?.id).toBe('asst-free')
+  })
 })
