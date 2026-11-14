@@ -31,8 +31,10 @@ describe('nuxt prerender allows /app HTML + payload', () => {
     expect(source).not.toMatch(/ignore:\s*\[[\s\S]*?['"]\/chat['"]/)
     expect(source).toMatch(/routes:\s*\[[\s\S]*?['"]\/chat['"]/)
     expect(source).toMatch(/routes:\s*\[[\s\S]*?['"]\/login['"]/)
-    expect(source).toMatch(/routes:\s*\[[\s\S]*?['"]\/dashboard['"]/)
-    expect(source).toMatch(/routes:\s*\[[\s\S]*?['"]\/en\/dashboard['"]/)
+    expect(source).toMatch(/routes:\s*\[[\s\S]*?['"]\/app['"]/)
+    expect(source).toMatch(/routes:\s*\[[\s\S]*?['"]\/en\/app['"]/)
+    expect(source).not.toMatch(/['"]\/dashboard['"]/)
+    expect(source).not.toMatch(/['"]\/en\/dashboard['"]/)
   })
 
   it('seeds dynamic path-param CSR shells via static-route-shells', () => {

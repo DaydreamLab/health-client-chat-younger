@@ -361,12 +361,15 @@ test.describe('CloudFront-like static SPA fallback', () => {
     await expect(page.getByRole('heading', { name: /登入|Log in/i })).toBeVisible()
   })
 
-  test('guest direct-open /app keeps auth gate', async ({ page }) => {
+  test('guest direct-open /app shows in-page login form', async ({ page }) => {
     await seedGuest(page)
     await page.goto(`${ORIGIN}/app`, { waitUntil: 'networkidle' })
-    await expect(page.getByTestId('health-auth-gate')).toBeVisible({
+    await expect(page.getByTestId('app-login')).toBeVisible({
       timeout: 20_000
     })
+    await expect(page.getByTestId('login-form')).toBeVisible()
+    await expect(page.getByTestId('health-auth-gate')).toHaveCount(0)
+    await expect(page.getByTestId('health-body')).toHaveCount(0)
   })
 })
 
