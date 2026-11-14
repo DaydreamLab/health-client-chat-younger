@@ -12,7 +12,7 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 | `/privacy` | default | 隱私權政策（Markdown）；首訪 Cookie 同意橫幅鍵結 `version` | `GET /legal/privacy-policy`（公開，無需 token） |
 | `/about` | default | 關於坦見（靜態 placeholder Markdown；無 version meta） | 無（第一波不走 `legal_documents`） |
 | `/terms` | default | 服務條款（靜態 placeholder Markdown；顯示更新日期 · 版本） | 無（第一波不走 `legal_documents`） |
-| `/login` | default | 登入／註冊 | `POST /auth/login`、`/auth/register` |
+| `/login` | default（CSR 殼，`ssr: false`） | 登入／註冊；已登入 member 於 client sync 後導向 `/app`。訪客 soft-nav 必須進表單，不得因 `hasSession`（guest）被導走 | `POST /auth/login`、`/auth/register`；`GET /users/me`／`POST /auth/refresh` 經 `ensureSession`（單飛） |
 | `/chat` | `user` + `chat-layout` | 對話 SSE、目標／價格帶；上傳報告僅 member（guest 導向登入）。推薦槽在尚未建案時為「提交專家判讀」 | guest 可對話；`POST /health-reports` 需 member；會員「提交專家判讀」為 `POST /conversation/{id}/expert-review` |
 | `/chat-ai` | `user` + `chat-layout` | 與 `/chat` 共用對話。標準流程（畫面「標準」）推薦槽為「查看推薦方案」，進入 `/app/recommendations?flow=standard` | 同 `/chat` 對話；建議只打 `POST /recommendations` 後結帳，不呼叫 expert-review |
 | `/app` | `user` + `auth` | 我的健康：profile 摘要卡＋報告列表（`GET /health-reports?limit=5&offset=` 分頁；`total > 5` 顯示上一頁／下一頁；**無**專家判讀記錄列、**無**頁首「查看推薦方案」CTA） | `GET /profile`；`GET /health-reports` |

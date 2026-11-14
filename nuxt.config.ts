@@ -59,6 +59,12 @@ export default defineNuxtConfig({
     '/en/chat': { ssr: false },
     '/chat-ai': { ssr: false },
     '/en/chat-ai': { ssr: false },
+    // Login is auth-gated client-side (member → /app). CSR shell so soft-nav
+    // from home does not depend on a prerendered /login payload — when CloudFront
+    // lacks the index rewrite, that payload/HTML is often the homepage and the
+    // router appears to "stay on /". Hard-open still needs the CF Function.
+    '/login': { ssr: false },
+    '/en/login': { ssr: false },
     // Dynamic `[param]` shells at `/…/_` — see docs/cloudfront-www-index-rewrite.md.
     ...dynamicShellRouteRules()
     // Do NOT set `/app/**` or `/en/app/**` to prerender:false.
@@ -79,6 +85,8 @@ export default defineNuxtConfig({
         '/en/chat',
         '/chat-ai',
         '/en/chat-ai',
+        '/login',
+        '/en/login',
         // CSR framework pages for path-param routes (CloudFront rewrites IDs → `_`).
         ...dynamicShellPrerenderRoutes()
       ]

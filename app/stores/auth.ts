@@ -1,6 +1,7 @@
 import { skipHydrate } from 'pinia'
 import type { UserBrief, UserMe, UserSession } from '~/utils/candor-api'
 import { CandorApiError } from '~/utils/candor-api'
+import { readJwtTimes } from '~/utils/jwt-times'
 import { shouldSlideSession } from '~/utils/session-slide'
 
 function nameFromEmail(email: string) {
@@ -40,7 +41,7 @@ export const useAuthStore = defineStore('auth', () => {
   const expiresAt = skipHydrate(ref<number | null>(null))
   const issuedAt = skipHydrate(ref<number | null>(null))
   const ready = skipHydrate(ref(false))
-  const bootstrapping = ref(false)
+  let ensureInFlight: Promise<void> | null = null
   let refreshInFlight: Promise<void> | null = null
 
   const hasSession = computed(() => Boolean(api.readToken() && user.value))
@@ -73,8 +74,20 @@ export const useAuthStore = defineStore('auth', () => {
     expiresAt.value = now + session.expires_in * 1000
   }
 
-  function applyMe(me: UserMe) {
+  function applyMe(me: UserMe, token?: string | null) {
     user.value = toBrief(me)
+    const raw = token ?? api.readToken()
+    if (!raw) {
+      return
+    }
+    // Seed slide timers from JWT claims so cold load does not force refresh.
+    if (issuedAt.value == null || expiresAt.value == null) {
+      const times = readJwtTimes(raw)
+      if (times) {
+        issuedAt.value = times.issuedAt
+        expiresAt.value = times.expiresAt
+      }
+    }
   }
 
   function clearSession() {
@@ -112,6 +125,9 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     const requestedToken = token
+    // Do not clear on refresh 401: /users/me may still accept this JWT
+    // (core issues a new token without invalidating the old one; concurrent
+    // refresh races or transient 401 must not wipe a verified member).
     refreshInFlight = (async () => {
       try {
         const session = await api.refresh()
@@ -120,11 +136,6 @@ export const useAuthStore = defineStore('auth', () => {
           return
         }
         applySession(session)
-      } catch (error) {
-        if (error instanceof CandorApiError && error.statusCode === 401) {
-          clearSessionIfToken(requestedToken)
-        }
-        throw error
       } finally {
         refreshInFlight = null
       }
@@ -133,39 +144,26 @@ export const useAuthStore = defineStore('auth', () => {
     await refreshInFlight
   }
 
-  async function waitWhileBootstrapping() {
-    while (bootstrapping.value) {
-      await new Promise(resolve => setTimeout(resolve, 20))
-    }
-  }
-
-  async function ensureSession() {
-    if (bootstrapping.value) {
-      await waitWhileBootstrapping()
-      // Previous bootstrap may have exited early after a login token swap.
-      if (hasSession.value) {
-        return
-      }
-    }
-
+  async function ensureSessionBody() {
     /** True when an existing identity was dropped on 401 and we will mint a fresh guest. */
     let clearJourneyBeforeGuest = false
 
     if (ready.value && hasSession.value) {
+      let refreshUnauthorized = false
       try {
         await refreshIfNeeded()
       } catch (error) {
-        // refreshIfNeeded clears on 401 only if that token is still current
+        // Keep the in-memory identity; only /users/me 401 clears the token.
         if (error instanceof CandorApiError && error.statusCode === 401) {
-          clearJourneyBeforeGuest = !hasSession.value
+          refreshUnauthorized = true
         }
       }
-      if (hasSession.value) {
+      if (hasSession.value && api.readToken() && !refreshUnauthorized) {
         return
       }
+      // refresh 401 → fall through and re-validate with /users/me
     }
 
-    bootstrapping.value = true
     try {
       let token = api.readToken()
       if (token) {
@@ -183,9 +181,9 @@ export const useAuthStore = defineStore('auth', () => {
             if (api.readToken() !== token) {
               return
             }
-            user.value = toBrief(latest)
+            applyMe(latest, token)
           } else {
-            user.value = toBrief(me)
+            applyMe(me, token)
           }
           try {
             await refreshIfNeeded()
@@ -195,7 +193,7 @@ export const useAuthStore = defineStore('auth', () => {
           if (api.readToken() && user.value) {
             return
           }
-          // Refresh 401 cleared this token — never mint guest over a concurrent login.
+          // Never mint guest over a concurrent login token.
           if (hasSession.value || api.readToken()) {
             return
           }
@@ -223,7 +221,7 @@ export const useAuthStore = defineStore('auth', () => {
           if (api.readToken() !== leftover) {
             return
           }
-          user.value = toBrief(me)
+          applyMe(me, leftover)
           if (hasSession.value) {
             return
           }
@@ -261,9 +259,25 @@ export const useAuthStore = defineStore('auth', () => {
         // Core down: stay anonymous. Plugin/middleware must not 500 the page.
       }
     } finally {
-      bootstrapping.value = false
       ready.value = true
     }
+  }
+
+  async function ensureSession() {
+    if (ensureInFlight) {
+      await ensureInFlight
+      return
+    }
+
+    ensureInFlight = (async () => {
+      try {
+        await ensureSessionBody()
+      } finally {
+        ensureInFlight = null
+      }
+    })()
+
+    await ensureInFlight
   }
 
   async function login(email: string, password: string) {
@@ -289,13 +303,14 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await refreshIfNeeded()
     } catch {
-      // 401 already drops the session; transient errors keep the current token.
+      // Refresh failure alone must not drop a still-valid token; me() clears on 401.
     }
   }
 
   return {
     user,
     expiresAt,
+    issuedAt,
     ready,
     hasSession,
     isMember,

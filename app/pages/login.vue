@@ -9,6 +9,7 @@
 
     <form
       class="mt-8 space-y-4"
+      data-testid="login-form"
       @submit.prevent="onSubmit"
     >
       <label class="block">

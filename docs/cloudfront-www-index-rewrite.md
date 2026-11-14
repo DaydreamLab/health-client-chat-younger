@@ -4,6 +4,8 @@
 
 `/200.html` 只當 **最後的 404／403 備援**（自訂錯誤回應），不要當成一般內頁的正常來源。
 
+`/login`、`/en/login` 與 `/chat` 一樣是 **CSR 殼**（`ssr: false`，generate 仍產出 `login/index.html`）。硬開／F5 仍靠 Function 改寫到該物件；從首頁 soft-nav 點「登入」不應依賴錯誤的首頁 HTML／payload。未掛 Function 時硬開 `/login` 仍會落到首頁——那是託管問題，不是 `ensureSession` 把訪客當會員。
+
 本文件是 Function 程式碼與動態路由框架頁的 **repo 權威說明**。線上變更由 ops／Terraform 執行；**本 repo 的 CI／agent 不得改 AWS**。
 
 相關：handoff 查核 `/cursor/stores/bot/handoff/route-refresh/`（`AUDIT.md`、`OPS_FIX.md`、`S3_PAGES.md`）。本機模擬：`scripts/cf-static-server.mjs`（與下列 Function 同規則）。
