@@ -1,5 +1,9 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { fileURLToPath } from 'node:url'
+import {
+  dynamicShellPrerenderRoutes,
+  dynamicShellRouteRules
+} from './app/utils/static-route-shells'
 
 export default defineNuxtConfig({
   modules: [
@@ -54,7 +58,9 @@ export default defineNuxtConfig({
     '/chat': { ssr: false },
     '/en/chat': { ssr: false },
     '/chat-ai': { ssr: false },
-    '/en/chat-ai': { ssr: false }
+    '/en/chat-ai': { ssr: false },
+    // Dynamic `[param]` shells at `/…/_` — see docs/cloudfront-www-index-rewrite.md.
+    ...dynamicShellRouteRules()
     // Do NOT set `/app/**` or `/en/app/**` to prerender:false.
     // crawlLinks already emits their index.html with data-src → `_payload.json`;
     // prerender:false skipped only the payload file and caused console 404s on
@@ -72,7 +78,9 @@ export default defineNuxtConfig({
         '/chat',
         '/en/chat',
         '/chat-ai',
-        '/en/chat-ai'
+        '/en/chat-ai',
+        // CSR framework pages for path-param routes (CloudFront rewrites IDs → `_`).
+        ...dynamicShellPrerenderRoutes()
       ]
     }
   },

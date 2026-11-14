@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 /**
  * Serve `.output/public` like prod CloudFront www:
- * - extensionless paths → `<path>/index.html` (viewer-request Function)
- * - trailing slash → `<path>index.html`
- * - any missing object (incl. .json) → `/200.html` with HTTP 200
+ * - viewer-request: candor-www-index-rewrite (see docs/cloudfront-www-index-rewrite.md)
+ * - custom error: any missing object → `/200.html` with HTTP 200
  */
 import { createReadStream, existsSync, statSync } from 'node:fs'
 import { createServer } from 'node:http'
@@ -27,6 +26,16 @@ const TYPES = {
   '.webmanifest': 'application/manifest+json'
 }
 
+/** Keep in sync with docs/cloudfront-www-index-rewrite.md Function source. */
+const DYNAMIC_SHELLS = [
+  { prefix: '/app/orders/', reserved: ['paid', 'pay-failed', '_'] },
+  { prefix: '/en/app/orders/', reserved: ['paid', 'pay-failed', '_'] },
+  { prefix: '/app/expert-cases/', reserved: ['_'] },
+  { prefix: '/en/app/expert-cases/', reserved: ['_'] },
+  { prefix: '/app/wearables/', reserved: ['_'] },
+  { prefix: '/en/app/wearables/', reserved: ['_'] }
+]
+
 function safeJoin(base, requestPath) {
   const decoded = decodeURIComponent(requestPath.split('?')[0] || '/')
   const cleaned = normalize(decoded).replace(/^(\.\.(\/|\\|$))+/, '')
@@ -37,8 +46,29 @@ function safeJoin(base, requestPath) {
   return full
 }
 
-/** Mirror candor-www-index-rewrite CloudFront Function. */
+/**
+ * Mirror candor-www-index-rewrite CloudFront Function (viewer-request).
+ * Dynamic path params → `/…/_/index.html`; else extensionless → `/…/index.html`.
+ */
 function rewriteUri(uri) {
+  if (uri !== '/' && uri.endsWith('/')) {
+    uri = uri.slice(0, -1)
+  }
+
+  for (const rule of DYNAMIC_SHELLS) {
+    if (!uri.startsWith(rule.prefix)) {
+      continue
+    }
+    const rest = uri.slice(rule.prefix.length)
+    if (!rest || rest.includes('/')) {
+      continue
+    }
+    if (rule.reserved.includes(rest)) {
+      break
+    }
+    return `${rule.prefix}_/index.html`
+  }
+
   if (uri.endsWith('/')) {
     return `${uri}index.html`
   }

@@ -1,9 +1,9 @@
 /**
  * Static hosting smoke tests against `pnpm generate` output.
- * Simulates CloudFront: extensionless → `<path>/index.html`, miss → `/200.html`.
+ * Simulates CloudFront: extensionless → index.html / dynamic → `_` shell,
+ * miss → `/200.html`. Mock API only — no real model or prod backend.
  *
- * Run: pnpm generate && node scripts/cf-static-server.mjs &
- *      pnpm exec playwright test -c playwright.spa.config.ts
+ * Run: pnpm generate && pnpm test:e2e:spa
  */
 import { spawn } from 'node:child_process'
 import type { ChildProcess } from 'node:child_process'
@@ -12,9 +12,34 @@ import type { Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
+import type { Page } from '@playwright/test'
 
 const TOKEN_KEY = 'candor.guest.token'
 const PRIVACY_KEY = 'candor.privacy.consent.version'
+const ORIGIN = 'http://127.0.0.1:4173'
+
+/** Dynamic routes that use CloudFront → `/…/_/index.html` shells. */
+const DYNAMIC_PATHS = [
+  {
+    name: 'orders',
+    path: '/app/orders/ord-spa-1',
+    guestTestId: 'order-detail-auth-gate',
+    memberTestId: 'order-detail'
+  },
+  {
+    name: 'expert-cases',
+    path: '/app/expert-cases/ec-spa-1',
+    // Guest/member both hydrate the case shell; mock returns awaiting_review.
+    guestTestId: 'expert-case-awaiting',
+    memberTestId: 'expert-case-awaiting'
+  },
+  {
+    name: 'wearables',
+    path: '/app/wearables/apple-watch',
+    guestTestId: 'wearables-detail',
+    memberTestId: 'wearables-detail'
+  }
+] as const
 
 function ok<T>(data: T) {
   return { status: 'success' as const, data }
@@ -137,25 +162,44 @@ async function listenApi(): Promise<{ server: Server, port: number }> {
       return
     }
 
-    if (/\/orders\/[^/]+$/.test(url.pathname)) {
+    // Core uses singular `/order/{id}` (see useCandorApi.getOrder).
+    if (/\/order\/[^/]+$/.test(url.pathname)) {
       json(ok({
-        id: 'ord-1',
-        order_no: 'O-1',
+        id: 'ord-spa-1',
+        order_no: 'O-SPA-1',
         status: 'paid',
         payment_status: 'paid',
         amount_total: 1990,
-        package_plan_name: '基礎',
         package_amount: 1990,
-        created_at: '2026-01-01T00:00:00Z',
-        items: [],
-        product_codes: [],
-        product_names: []
+        addon_amount: 0,
+        package_plan_name: '基礎保養',
+        package: {
+          id: 'pkg-1',
+          package_plan_code: 'basic',
+          package_plan_name: '基礎保養',
+          package_plan_price: 1990,
+          period_days: 30,
+          composition_hash: 'sha256:basic',
+          used_amount: 1990,
+          remaining: 0,
+          components: []
+        },
+        lines: [{ kind: 'package', package_plan_code: 'basic' }],
+        bottle_addons: [],
+        recipient: {
+          name: 'Guest',
+          phone: '0912345678',
+          address: '台北市',
+          email: 'guest@example.com'
+        },
+        invoice_type: 'member',
+        created_at: '2026-01-01T00:00:00Z'
       }))
       return
     }
 
-    if (url.pathname.includes('/orders')) {
-      json(ok({ items: [], total: 0 }))
+    if (url.pathname.includes('/orders') || url.pathname.endsWith('/order')) {
+      json(ok({ orders: [], items: [], total: 0 }))
       return
     }
 
@@ -176,9 +220,10 @@ async function listenApi(): Promise<{ server: Server, port: number }> {
     if (url.pathname.includes('/expert-case')
       || url.pathname.includes('/expert-review')) {
       json(ok({
-        id: 'ec-1',
+        id: 'ec-spa-1',
         status: 'awaiting_review',
-        items: []
+        items: [],
+        packages: []
       }))
       return
     }
@@ -225,17 +270,22 @@ test.afterAll(async () => {
   await new Promise<void>(resolve => api?.close(() => resolve()))
 })
 
-async function seedMember(page: import('@playwright/test').Page) {
+async function seedMember(page: Page) {
   await page.addInitScript(({ tokenKey, privacyKey }) => {
     localStorage.setItem(tokenKey, 'e2e-member-token')
     localStorage.setItem(privacyKey, '2026-10-24')
   }, { tokenKey: TOKEN_KEY, privacyKey: PRIVACY_KEY })
 }
 
-async function seedGuest(page: import('@playwright/test').Page) {
+async function seedGuest(page: Page) {
   await page.addInitScript(({ privacyKey }) => {
     localStorage.setItem(privacyKey, '2026-10-24')
   }, { privacyKey: PRIVACY_KEY })
+}
+
+async function assertNotHome(page: Page, path: string) {
+  await expect(page).toHaveURL(new RegExp(`${path.replace(/\//g, '\\/')}\\/?$`))
+  await expect(page.getByTestId('error-page')).toHaveCount(0)
 }
 
 test.describe('CloudFront-like static SPA fallback', () => {
@@ -243,15 +293,30 @@ test.describe('CloudFront-like static SPA fallback', () => {
     await seedGuest(page)
     const errors: string[] = []
     page.on('pageerror', err => errors.push(err.message))
-    await page.goto('http://127.0.0.1:4173/chat', { waitUntil: 'networkidle' })
+    await page.goto(`${ORIGIN}/chat`, { waitUntil: 'networkidle' })
     await expect(page.getByTestId('user-sidebar')).toBeVisible({ timeout: 20_000 })
     await expect(page.locator('h1')).toContainText(/諮詢|Consult/)
     expect(errors.filter(e => !e.includes('toLocaleString'))).toEqual([])
   })
 
+  test('handoff is a real shell then client-redirects to /chat', async ({ page }) => {
+    await seedGuest(page)
+    // Static HTML must be a Nuxt shell (check:static-pages rejects meta-refresh stubs).
+    const html = await page.request.get(`${ORIGIN}/app/handoff`)
+    expect(html.ok()).toBeTruthy()
+    const body = await html.text()
+    expect(body.length).toBeGreaterThan(512)
+    expect(body).toMatch(/#__nuxt|__NUXT__/i)
+    expect(body).not.toMatch(/http-equiv\s*=\s*["']?refresh/i)
+
+    await page.goto(`${ORIGIN}/app/handoff`, { waitUntil: 'networkidle' })
+    await expect(page).toHaveURL(/\/chat\/?$/, { timeout: 20_000 })
+    await expect(page.getByTestId('user-sidebar')).toBeVisible({ timeout: 20_000 })
+  })
+
   test('unknown route shows branded 404 page', async ({ page }) => {
     await seedGuest(page)
-    await page.goto('http://127.0.0.1:4173/not-exist-xyz', {
+    await page.goto(`${ORIGIN}/not-exist-xyz`, {
       waitUntil: 'networkidle'
     })
     await expect(page.getByTestId('error-page')).toBeVisible({ timeout: 20_000 })
@@ -264,35 +329,74 @@ test.describe('CloudFront-like static SPA fallback', () => {
 
   test('member direct-open /app and /app/me after hydrate', async ({ page }) => {
     await seedMember(page)
-    await page.goto('http://127.0.0.1:4173/app', { waitUntil: 'networkidle' })
+    await page.goto(`${ORIGIN}/app`, { waitUntil: 'networkidle' })
     await expect(page.getByTestId('health-body')).toBeVisible({ timeout: 20_000 })
     await expect(page.getByTestId('health-auth-gate')).toHaveCount(0)
 
-    await page.goto('http://127.0.0.1:4173/app/me', { waitUntil: 'networkidle' })
+    await page.goto(`${ORIGIN}/app/me`, { waitUntil: 'networkidle' })
     await expect(page.getByTestId('profile-form')).toBeVisible({ timeout: 20_000 })
     await expect(page.getByTestId('profile-auth-gate')).toHaveCount(0)
   })
 
   test('member direct-open /login redirects to /app', async ({ page }) => {
     await seedMember(page)
-    await page.goto('http://127.0.0.1:4173/login', { waitUntil: 'networkidle' })
+    await page.goto(`${ORIGIN}/login`, { waitUntil: 'networkidle' })
     await expect(page).toHaveURL(/\/app\/?$/, { timeout: 20_000 })
   })
 
   test('guest direct-open /app keeps auth gate', async ({ page }) => {
     await seedGuest(page)
-    await page.goto('http://127.0.0.1:4173/app', { waitUntil: 'networkidle' })
+    await page.goto(`${ORIGIN}/app`, { waitUntil: 'networkidle' })
     await expect(page.getByTestId('health-auth-gate')).toBeVisible({
       timeout: 20_000
     })
   })
-
-  test('dynamic order id renders via 200.html fallback', async ({ page }) => {
-    await seedMember(page)
-    await page.goto('http://127.0.0.1:4173/app/orders/ord-spa-1', {
-      waitUntil: 'networkidle'
-    })
-    await expect(page.getByTestId('user-sidebar')).toBeVisible({ timeout: 20_000 })
-    await expect(page).toHaveURL(/\/app\/orders\/ord-spa-1/)
-  })
 })
+
+for (const dyn of DYNAMIC_PATHS) {
+  test.describe(`dynamic ${dyn.name} static shell`, () => {
+    test(`guest direct-open ${dyn.path}`, async ({ page }) => {
+      await seedGuest(page)
+      await page.goto(`${ORIGIN}${dyn.path}`, { waitUntil: 'networkidle' })
+      await assertNotHome(page, dyn.path)
+      await expect(page.getByTestId(dyn.guestTestId)).toBeVisible({
+        timeout: 20_000
+      })
+    })
+
+    test(`guest F5 on ${dyn.path}`, async ({ page }) => {
+      await seedGuest(page)
+      await page.goto(`${ORIGIN}${dyn.path}`, { waitUntil: 'networkidle' })
+      await expect(page.getByTestId(dyn.guestTestId)).toBeVisible({
+        timeout: 20_000
+      })
+      await page.reload({ waitUntil: 'networkidle' })
+      await assertNotHome(page, dyn.path)
+      await expect(page.getByTestId(dyn.guestTestId)).toBeVisible({
+        timeout: 20_000
+      })
+    })
+
+    test(`member direct-open ${dyn.path}`, async ({ page }) => {
+      await seedMember(page)
+      await page.goto(`${ORIGIN}${dyn.path}`, { waitUntil: 'networkidle' })
+      await assertNotHome(page, dyn.path)
+      await expect(page.getByTestId(dyn.memberTestId)).toBeVisible({
+        timeout: 20_000
+      })
+    })
+
+    test(`member F5 on ${dyn.path}`, async ({ page }) => {
+      await seedMember(page)
+      await page.goto(`${ORIGIN}${dyn.path}`, { waitUntil: 'networkidle' })
+      await expect(page.getByTestId(dyn.memberTestId)).toBeVisible({
+        timeout: 20_000
+      })
+      await page.reload({ waitUntil: 'networkidle' })
+      await assertNotHome(page, dyn.path)
+      await expect(page.getByTestId(dyn.memberTestId)).toBeVisible({
+        timeout: 20_000
+      })
+    })
+  })
+}
