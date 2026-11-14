@@ -29,4 +29,18 @@ describe('nuxt prerender allows /app HTML + payload', () => {
     expect(source).not.toMatch(/ignore:\s*\[[\s\S]*?['"]\/chat['"]/)
     expect(source).toMatch(/routes:\s*\[[\s\S]*?['"]\/chat['"]/)
   })
+
+  it('seeds dynamic path-param CSR shells via static-route-shells', () => {
+    const source = readFileSync(resolve('nuxt.config.ts'), 'utf8')
+    expect(source).toMatch(/dynamicShellPrerenderRoutes/)
+    expect(source).toMatch(/dynamicShellRouteRules/)
+    const shells = readFileSync(
+      resolve('app/utils/static-route-shells.ts'),
+      'utf8'
+    )
+    expect(shells).toMatch(/\/app\/orders/)
+    expect(shells).toMatch(/\/app\/expert-cases/)
+    expect(shells).toMatch(/\/app\/wearables/)
+    expect(shells).toMatch(/STATIC_ROUTE_SHELL_PARAM\s*=\s*['_"]_['_"]/)
+  })
 })

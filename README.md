@@ -40,6 +40,7 @@ git push origin beta
 | [docs/spec/11-api-client.md](docs/spec/11-api-client.md) | CandorApi、token、SSE |
 | [docs/figjam-mvp-flow.md](docs/figjam-mvp-flow.md) | FigJam 產品流快照 |
 | [docs/color-inventory.md](docs/color-inventory.md) | 品牌色 |
+| [docs/cloudfront-www-index-rewrite.md](docs/cloudfront-www-index-rewrite.md) | 正式站 CloudFront 靜態頁改寫（含完整 Function） |
 | [AGENTS.md](AGENTS.md) | AI／貢獻者硬規則 |
 | [.cursor/rules/ui-principles.mdc](.cursor/rules/ui-principles.mdc) | UI 原則：少標籤、靠排版 |
 
@@ -59,10 +60,15 @@ Core 側：串接進度 [04](https://github.com/DaydreamLab/candor-core/blob/mai
 cp .env.example .env   # NUXT_PUBLIC_API_BASE=http://localhost:8080/api/v1
 pnpm install
 pnpm dev
-pnpm generate          # 靜態站（GitHub Pages）
+pnpm generate          # 靜態站（GitHub Pages／S3）
+pnpm check:static-pages  # generate 後：每個路由須有靜態 HTML
 pnpm run lint && pnpm run typecheck
 pnpm test
 pnpm test:e2e
+pnpm test:e2e:spa      # generate 產物＋CloudFront 模擬（mock API）
 ```
+
+正式站 S3＋CloudFront 路徑改寫與本機／beta 驗收說明見 [docs/cloudfront-www-index-rewrite.md](docs/cloudfront-www-index-rewrite.md)。
+
 
 開發網址：http://localhost:3000

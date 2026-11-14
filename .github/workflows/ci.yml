@@ -32,3 +32,24 @@ jobs:
 
       - name: Typecheck
         run: pnpm run typecheck
+
+      - name: Unit
+        run: pnpm test
+
+      - name: Generate static site
+        run: pnpm generate
+        env:
+          NUXT_APP_BASE_URL: /
+          # Mock／placeholder only — do not call a real model or prod API in CI.
+          NUXT_PUBLIC_API_BASE: http://127.0.0.1:8080/api/v1
+          NUXT_PUBLIC_FE_SHA: ${{ github.sha }}
+          NUXT_PUBLIC_APP_VERSION: ci
+
+      - name: Check static pages for every route
+        run: pnpm check:static-pages
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install chromium --with-deps
+
+      - name: SPA static e2e (mock API, CloudFront-like server)
+        run: pnpm test:e2e:spa
