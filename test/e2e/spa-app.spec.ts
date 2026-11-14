@@ -1,5 +1,5 @@
 /**
- * /dashboard static SPA: skeleton → login or my-health after ensureSession.
+ * /app static SPA: skeleton → login or my-health after ensureSession.
  * Mock API only — no real model or prod backend.
  *
  * Run: pnpm generate && pnpm test:e2e:spa
@@ -247,20 +247,20 @@ async function installFlashProbe(page: Page) {
       gate: boolean
       health: boolean
     }
-    const g = globalThis as typeof globalThis & { __dashFlash?: Flash }
+    const g = globalThis as typeof globalThis & { __appFlash?: Flash }
     const flash: Flash = {
       skeleton: false,
       login: false,
       gate: false,
       health: false
     }
-    g.__dashFlash = flash
+    g.__appFlash = flash
 
     const tick = () => {
-      if (document.querySelector('[data-testid="dashboard-skeleton"]')) {
+      if (document.querySelector('[data-testid="app-skeleton"]')) {
         flash.skeleton = true
       }
-      if (document.querySelector('[data-testid="dashboard-login"]')) {
+      if (document.querySelector('[data-testid="app-login"]')) {
         flash.login = true
       }
       if (document.querySelector('[data-testid="health-auth-gate"]')) {
@@ -291,21 +291,21 @@ async function readFlash(page: Page) {
   // Final sync tick so the settled DOM is always reflected.
   return page.evaluate(() => {
     const g = globalThis as typeof globalThis & {
-      __dashFlash?: {
+      __appFlash?: {
         skeleton: boolean
         login: boolean
         gate: boolean
         health: boolean
       }
     }
-    const flash = g.__dashFlash
+    const flash = g.__appFlash
     if (!flash) {
       throw new Error('flash probe missing — installFlashProbe before navigation')
     }
-    if (document.querySelector('[data-testid="dashboard-skeleton"]')) {
+    if (document.querySelector('[data-testid="app-skeleton"]')) {
       flash.skeleton = true
     }
-    if (document.querySelector('[data-testid="dashboard-login"]')) {
+    if (document.querySelector('[data-testid="app-login"]')) {
       flash.login = true
     }
     if (document.querySelector('[data-testid="health-auth-gate"]')) {
@@ -322,14 +322,14 @@ async function assertStaticSkeleton(path: string) {
   const res = await fetch(`${ORIGIN}${path}`)
   expect(res.ok).toBeTruthy()
   const html = await res.text()
-  expect(html).toMatch(/dashboard-skeleton/)
-  expect(html).not.toMatch(/dashboard-login/)
+  expect(html).toMatch(/app-skeleton/)
+  expect(html).not.toMatch(/app-login/)
   expect(html).not.toMatch(/health-auth-gate/)
   expect(html).not.toMatch(/health-body/)
   expect(html).not.toMatch(/login-form/)
 }
 
-test.describe.serial('spa dashboard', () => {
+test.describe.serial('spa app', () => {
   let api: Awaited<ReturnType<typeof listenApi>>
   let staticProc: ChildProcess
 
@@ -343,19 +343,19 @@ test.describe.serial('spa dashboard', () => {
     await new Promise<void>(resolve => api.server.close(() => resolve()))
   })
 
-  test('static HTML for /dashboard and /en/dashboard is skeleton only', async () => {
-    await assertStaticSkeleton('/dashboard')
-    await assertStaticSkeleton('/en/dashboard')
+  test('static HTML for /app and /en/app is skeleton only', async () => {
+    await assertStaticSkeleton('/app')
+    await assertStaticSkeleton('/en/app')
   })
 
-  for (const path of ['/dashboard', '/en/dashboard'] as const) {
+  for (const path of ['/app', '/en/app'] as const) {
     test(`guest direct-open ${path}: skeleton → login form`, async ({ page }) => {
       await rewriteApi(page)
       await seedGuest(page)
       await installFlashProbe(page)
       await page.goto(`${ORIGIN}${path}`, { waitUntil: 'networkidle' })
       await expect(page).toHaveURL(new RegExp(`${path.replace(/\//g, '\\/')}\\/?$`))
-      await expect(page.getByTestId('dashboard-login')).toBeVisible({ timeout: 20_000 })
+      await expect(page.getByTestId('app-login')).toBeVisible({ timeout: 20_000 })
       await expect(page.getByTestId('login-form')).toBeVisible()
       await expect(page.getByTestId('health-body')).toHaveCount(0)
       await expect(page.getByTestId('health-auth-gate')).toHaveCount(0)
@@ -370,11 +370,11 @@ test.describe.serial('spa dashboard', () => {
       await rewriteApi(page)
       await seedGuest(page)
       await page.goto(`${ORIGIN}${path}`, { waitUntil: 'networkidle' })
-      await expect(page.getByTestId('dashboard-login')).toBeVisible({ timeout: 20_000 })
+      await expect(page.getByTestId('app-login')).toBeVisible({ timeout: 20_000 })
       await installFlashProbe(page)
       await page.reload({ waitUntil: 'networkidle' })
       await expect(page).toHaveURL(new RegExp(`${path.replace(/\//g, '\\/')}\\/?$`))
-      await expect(page.getByTestId('dashboard-login')).toBeVisible({ timeout: 20_000 })
+      await expect(page.getByTestId('app-login')).toBeVisible({ timeout: 20_000 })
       await expect(page.getByTestId('health-auth-gate')).toHaveCount(0)
       const flash = await readFlash(page)
       expect(flash.gate).toBe(false)
@@ -391,7 +391,7 @@ test.describe.serial('spa dashboard', () => {
       await page.getByTestId('login-form').locator('button[type="submit"]').click()
       await expect(page.getByTestId('health-body')).toBeVisible({ timeout: 20_000 })
       await expect(page).toHaveURL(new RegExp(`${path.replace(/\//g, '\\/')}\\/?$`))
-      await expect(page.getByTestId('dashboard-login')).toHaveCount(0)
+      await expect(page.getByTestId('app-login')).toHaveCount(0)
       await expect(page.getByTestId('health-auth-gate')).toHaveCount(0)
     })
 
@@ -402,7 +402,7 @@ test.describe.serial('spa dashboard', () => {
       await page.goto(`${ORIGIN}${path}`, { waitUntil: 'networkidle' })
       await expect(page).toHaveURL(new RegExp(`${path.replace(/\//g, '\\/')}\\/?$`))
       await expect(page.getByTestId('health-body')).toBeVisible({ timeout: 20_000 })
-      await expect(page.getByTestId('dashboard-login')).toHaveCount(0)
+      await expect(page.getByTestId('app-login')).toHaveCount(0)
       await expect(page.getByTestId('health-auth-gate')).toHaveCount(0)
       const flash = await readFlash(page)
       // Skeleton may be replaced before the probe attaches; static HTML test covers it.
@@ -420,7 +420,7 @@ test.describe.serial('spa dashboard', () => {
       await page.reload({ waitUntil: 'networkidle' })
       await expect(page).toHaveURL(new RegExp(`${path.replace(/\//g, '\\/')}\\/?$`))
       await expect(page.getByTestId('health-body')).toBeVisible({ timeout: 20_000 })
-      await expect(page.getByTestId('dashboard-login')).toHaveCount(0)
+      await expect(page.getByTestId('app-login')).toHaveCount(0)
       await expect(page.getByTestId('health-auth-gate')).toHaveCount(0)
       const flash = await readFlash(page)
       expect(flash.login).toBe(false)
