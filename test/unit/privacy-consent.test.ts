@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PRIVACY_CONSENT_VERSION_KEY } from '../../app/utils/candor-api'
 import {
   needsPrivacyConsent,
+  normalizePrivacyVersion,
   readConsentedPrivacyVersion,
   writeConsentedPrivacyVersion
 } from '../../app/utils/privacy-consent'
@@ -22,6 +23,21 @@ describe('needsPrivacyConsent', () => {
   it('does not prompt when current version is missing', () => {
     expect(needsPrivacyConsent(null, null)).toBe(false)
     expect(needsPrivacyConsent('  ', '2026-10-24')).toBe(false)
+  })
+
+  it('treats numeric API version as equal to stored string', () => {
+    expect(needsPrivacyConsent(1, '1')).toBe(false)
+    expect(needsPrivacyConsent(1, null)).toBe(true)
+    expect(needsPrivacyConsent(2, '1')).toBe(true)
+  })
+})
+
+describe('normalizePrivacyVersion', () => {
+  it('stringifies numbers and trims strings', () => {
+    expect(normalizePrivacyVersion(1)).toBe('1')
+    expect(normalizePrivacyVersion('  v2  ')).toBe('v2')
+    expect(normalizePrivacyVersion(null)).toBeNull()
+    expect(normalizePrivacyVersion('   ')).toBeNull()
   })
 })
 
@@ -58,5 +74,12 @@ describe('privacy consent localStorage', () => {
   it('trims version before write and read', () => {
     writeConsentedPrivacyVersion('  v2  ')
     expect(readConsentedPrivacyVersion()).toBe('v2')
+  })
+
+  it('writes numeric version as string so stored 1 matches API 1', () => {
+    writeConsentedPrivacyVersion(1)
+    expect(memory.get(PRIVACY_CONSENT_VERSION_KEY)).toBe('1')
+    expect(readConsentedPrivacyVersion()).toBe('1')
+    expect(needsPrivacyConsent(1, readConsentedPrivacyVersion())).toBe(false)
   })
 })

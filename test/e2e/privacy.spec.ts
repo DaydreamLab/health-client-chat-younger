@@ -16,7 +16,11 @@ test('privacy page renders title and markdown from the public API', async ({ pag
 })
 
 test('cookie consent banner appears on first visit and persists by policy version', async ({ page, goto }) => {
-  await mockCandorAuth(page, { privacyConsentVersion: false })
+  // Mimic beta／prod: core returns integer `version: 1` (not a string).
+  await mockCandorAuth(page, {
+    privacyConsentVersion: false,
+    privacyPolicyVersion: 1
+  })
 
   await goto('/', { waitUntil: 'hydration' })
 
@@ -28,7 +32,7 @@ test('cookie consent banner appears on first visit and persists by policy versio
   await expect(banner).toHaveCount(0)
 
   const stored = await page.evaluate(key => localStorage.getItem(key), CONSENT_KEY)
-  expect(stored).toBe('2026-10-24')
+  expect(stored).toBe('1')
 
   await goto('/', { waitUntil: 'hydration' })
   await expect(page.getByTestId('cookie-consent-banner')).toHaveCount(0)

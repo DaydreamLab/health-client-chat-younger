@@ -35,6 +35,7 @@
 <script setup lang="ts">
 import {
   needsPrivacyConsent,
+  normalizePrivacyVersion,
   readConsentedPrivacyVersion,
   writeConsentedPrivacyVersion
 } from '~/utils/privacy-consent'
@@ -52,9 +53,11 @@ async function refresh() {
 
   try {
     const policy = await candor.getPrivacyPolicy()
-    policyVersion.value = policy.version
+    // core may return integer `1`; normalize before compare / localStorage.
+    const version = normalizePrivacyVersion(policy.version)
+    policyVersion.value = version
     visible.value = needsPrivacyConsent(
-      policy.version,
+      version,
       readConsentedPrivacyVersion()
     )
   } catch {
