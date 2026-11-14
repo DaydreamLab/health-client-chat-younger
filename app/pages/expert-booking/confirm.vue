@@ -216,7 +216,6 @@ definePageMeta({
 })
 
 const localePath = useLocalePath()
-const nuxtApp = useNuxtApp()
 const { t, locale } = useI18n()
 const auth = useAuthStore()
 const journey = useJourneyStore()
@@ -224,7 +223,7 @@ const bookingStore = useExpertBookingStore()
 const bookingApi = useExpertBookingApi()
 const ordersApi = useFirstOrderApi()
 
-const gateLocked = ref(nuxtApp.isHydrating || !auth.isMember)
+const { memberGateLocked: gateLocked, sync: syncGate } = useAuthClientSync()
 const pending = ref(false)
 const submitError = ref('')
 const submitUnavailable = ref(false)
@@ -273,10 +272,6 @@ const slotLabels = computed(() =>
     slotDraftToPreferredLabel(slot, locale.value)
   )
 )
-
-function syncGate() {
-  gateLocked.value = !auth.isMember
-}
 
 async function refreshProduct() {
   bookingStore.setProductLoading()
@@ -351,13 +346,10 @@ async function onSubmit() {
 }
 
 onMounted(async () => {
-  await auth.ensureSession()
+  await syncGate()
   bookingStore.hydrate()
-  syncGate()
   if (!gateLocked.value && hasDraft.value) {
     await refreshProduct()
   }
 })
-
-watch(() => auth.isMember, syncGate)
 </script>

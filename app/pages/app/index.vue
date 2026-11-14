@@ -414,21 +414,15 @@ const REPORTS_PAGE_SIZE = 5
 
 const localePath = useLocalePath()
 const route = useRoute()
-const nuxtApp = useNuxtApp()
 const { t, locale } = useI18n()
 const auth = useAuthStore()
-// SSR paints the guest gate; sync after hydration so members are not stuck behind it.
-const previewLocked = ref(nuxtApp.isHydrating || !auth.isMember)
+const { memberGateLocked: previewLocked, sync: syncPreviewLock } = useAuthClientSync()
 
 const showWearablesReportReference = computed(() => {
   const raw = route.query.wearables_report
   const value = Array.isArray(raw) ? raw[0] : raw
   return value === '1' || value === 'demo'
 })
-
-function syncPreviewLock() {
-  previewLocked.value = !auth.isMember
-}
 const journey = useJourneyStore()
 const ordersStore = useOrdersStore()
 const candor = useCandorApi()
@@ -729,12 +723,14 @@ function loadHealth() {
 }
 
 onMounted(() => {
-  syncPreviewLock()
-  loadHealth()
+  void syncPreviewLock().then(() => {
+    if (auth.isMember) {
+      loadHealth()
+    }
+  })
 })
 
 watch(() => auth.isMember, (member) => {
-  previewLocked.value = !member
   if (member) {
     loadHealth()
   }

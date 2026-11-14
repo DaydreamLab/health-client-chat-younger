@@ -83,6 +83,7 @@ const localePath = useLocalePath()
 const route = useRoute()
 const auth = useAuthStore()
 const { t } = useI18n()
+const { sync: syncAuth } = useAuthClientSync()
 
 const email = ref('')
 const password = ref('')
@@ -91,6 +92,19 @@ const pending = ref(false)
 const mode = ref<'login' | 'register'>(
   route.query.mode === 'register' ? 'register' : 'login'
 )
+
+function redirectTarget() {
+  return typeof route.query.redirect === 'string'
+    ? route.query.redirect
+    : localePath('/app')
+}
+
+onMounted(async () => {
+  await syncAuth()
+  if (auth.isMember) {
+    await navigateTo(redirectTarget())
+  }
+})
 
 function toggleMode() {
   mode.value = mode.value === 'login' ? 'register' : 'login'
@@ -116,12 +130,7 @@ async function onSubmit() {
       await auth.register(result.data.email, result.data.password)
     }
     await nextTick()
-
-    const redirect = typeof route.query.redirect === 'string'
-      ? route.query.redirect
-      : '/app'
-
-    await navigateTo(redirect)
+    await navigateTo(redirectTarget())
   } catch (err) {
     if (err instanceof CandorApiError) {
       if (err.errorCode === 'already_member') {

@@ -128,26 +128,19 @@ definePageMeta({
 
 const localePath = useLocalePath()
 const route = useRoute()
-const nuxtApp = useNuxtApp()
 const auth = useAuthStore()
 const api = useFirstOrderApi()
 const list = ref<OrderRecord[]>([])
 const loading = ref(true)
 const loadError = ref(false)
 const usingDemo = ref(false)
-
-// SSR paints the guest gate; sync after hydration so members are not stuck behind it.
-const gateLocked = ref(nuxtApp.isHydrating || !auth.isMember)
+const { memberGateLocked: gateLocked, sync: syncGate } = useAuthClientSync()
 
 const demoMode = computed(() => {
   const raw = route.query[ORDERS_DEMO_QUERY]
   const value = Array.isArray(raw) ? raw[0] : raw
   return parseOrdersDemoMode(typeof value === 'string' ? value : undefined)
 })
-
-function syncGate() {
-  gateLocked.value = !auth.isMember
-}
 
 async function loadOrders() {
   if (!auth.isMember) {
@@ -185,12 +178,12 @@ async function loadOrders() {
 }
 
 onMounted(() => {
-  syncGate()
-  void loadOrders()
+  void syncGate().then(() => {
+    void loadOrders()
+  })
 })
 
 watch(() => auth.isMember, (member) => {
-  syncGate()
   if (member) {
     void loadOrders()
   } else {

@@ -23,16 +23,16 @@
         <LocaleSwitch />
         <ColorModeSwitch />
         <AccountUser
-          v-if="auth.isMember"
+          v-if="showMember"
           avatar-only
         />
         <GuestLoginControl
-          v-else-if="auth.ready"
+          v-else-if="showGuest"
           variant="rail"
           test-id="guest-login-rail"
         />
         <div
-          v-if="auth.isMember"
+          v-if="showMember"
           class="w-full"
           data-testid="nav-logout"
         >
@@ -101,11 +101,11 @@
           <LocaleSwitch />
           <ColorModeSwitch />
           <AccountUser
-            v-if="auth.isMember"
+            v-if="showMember"
             avatar-only
           />
           <GuestLoginControl
-            v-else-if="auth.ready"
+            v-else-if="showGuest"
             variant="chip"
             test-id="guest-login-header"
           />
@@ -151,7 +151,7 @@
           </span>
         </AppButton>
         <AppButton
-          v-if="auth.isMember"
+          v-if="showMember"
           variant="ghost"
           class="justify-start"
           data-testid="nav-logout-mobile"
@@ -160,7 +160,7 @@
           {{ $t('nav.logout') }}
         </AppButton>
         <GuestLoginControl
-          v-else-if="auth.ready"
+          v-else-if="showGuest"
           variant="drawer"
           test-id="guest-login-drawer"
         />
@@ -189,6 +189,7 @@ interface UserNavItem extends NavigationMenuItem {
 
 const localePath = useLocalePath()
 const auth = useAuthStore()
+const { showMember, showGuest } = useAuthClientSync()
 const journey = useJourneyStore()
 const notifications = useNotificationsStore()
 const { notificationBadgeLabel } = useMemberNavExtension()

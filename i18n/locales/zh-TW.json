@@ -3,6 +3,13 @@
     "title": "坦見",
     "description": "看懂身體數據，再決定怎麼補。選方案後先進諮詢，需要時再轉專人客服。"
   },
+  "error": {
+    "notFoundTitle": "找不到這個頁面",
+    "notFoundBody": "網址可能打錯，或頁面已經搬走。回到首頁再找一次。",
+    "genericTitle": "出了點問題",
+    "genericBody": "暫時無法顯示這個頁面，請稍後再試或回到首頁。",
+    "backHome": "回到首頁"
+  },
   "brand": "坦見",
   "brandMark": "C",
   "nav": {

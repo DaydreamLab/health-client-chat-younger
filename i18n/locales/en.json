@@ -3,6 +3,13 @@
     "title": "Candor",
     "description": "Understand your data before you supplement. Pick a plan, chat first, and bring in a specialist when you need one."
   },
+  "error": {
+    "notFoundTitle": "Page not found",
+    "notFoundBody": "That address may be mistyped, or the page has moved. Head home and try again.",
+    "genericTitle": "Something went wrong",
+    "genericBody": "This page is unavailable right now. Please try again later or go home.",
+    "backHome": "Back home"
+  },
   "brand": "Candor",
   "brandMark": "C",
   "nav": {

@@ -70,7 +70,7 @@
             </AppButton>
           </nav>
           <AccountUser
-            v-if="auth.isMember"
+            v-if="showMember"
             avatar-only
           />
           <LocaleSwitch />
@@ -262,6 +262,7 @@
 <script setup lang="ts">
 const localePath = useLocalePath()
 const auth = useAuthStore()
+const { settled: authSettled, showMember } = useAuthClientSync()
 const route = useRoute()
 const { t } = useI18n()
 const config = useRuntimeConfig()
@@ -353,6 +354,10 @@ const homeNavItems = computed(() => {
     { label: t('nav.plans'), to: `${localePath('/')}#plans` },
     { label: t('nav.chat'), to: localePath('/chat') }
   ]
+
+  if (!authSettled.value) {
+    return items
+  }
 
   if (auth.hasSession) {
     items.push({ label: t('nav.member'), to: localePath('/app') })
