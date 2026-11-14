@@ -87,6 +87,8 @@ export default defineNuxtConfig({
         '/en/chat-ai',
         '/login',
         '/en/login',
+        '/dashboard',
+        '/en/dashboard',
         // CSR framework pages for path-param routes (CloudFront rewrites IDs → `_`).
         ...dynamicShellPrerenderRoutes()
       ]
