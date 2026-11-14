@@ -889,7 +889,8 @@ export interface AnonymizeAccepted {
 export interface PrivacyPolicy {
   title: string
   body: string
-  version: string
+  /** core may return an integer (e.g. `1`) or a string label. */
+  version: string | number
   updated_at: string
 }
 

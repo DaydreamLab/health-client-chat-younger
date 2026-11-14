@@ -137,6 +137,12 @@ export type CandorMockOptions = {
    */
   privacyConsentVersion?: string | false
   /**
+   * Override `GET /legal/privacy-policy` `data.version`.
+   * Default is the string `2026-10-24`. Pass a number (e.g. `1`) to mimic
+   * beta／prod core payloads that JSON-encode version as an integer.
+   */
+  privacyPolicyVersion?: string | number
+  /**
    * Attach reply_actions v0.1 on SSE `done` (plus conflicting legacy fields)
    * so FE dedupe / CTA projection can be asserted in e2e.
    *
@@ -389,9 +395,12 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
   const asMember = Boolean(options.asMember)
   let sessionUser = asMember ? memberUser : guestUser
 
+  const privacyPolicyVersion = options.privacyPolicyVersion ?? MOCK_PRIVACY_POLICY_VERSION
+
   // Keep cookie banner out of unrelated flows unless a test opts out / seeds a stale version.
   if (options.privacyConsentVersion !== false) {
-    const version = options.privacyConsentVersion ?? MOCK_PRIVACY_POLICY_VERSION
+    const version = options.privacyConsentVersion
+      ?? String(privacyPolicyVersion)
     await page.addInitScript(({ key, value }) => {
       localStorage.setItem(key, value)
     }, { key: PRIVACY_CONSENT_STORAGE_KEY, value: version })
@@ -482,7 +491,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         data: {
           title: '隱私權政策',
           body: '## 我們如何使用資料\n\n本服務使用**必要 Cookie** 與本機儲存以維持登入狀態。\n\n詳見版本說明。',
-          version: MOCK_PRIVACY_POLICY_VERSION,
+          version: privacyPolicyVersion,
           updated_at: '2026-10-24T00:00:00Z'
         }
       })
