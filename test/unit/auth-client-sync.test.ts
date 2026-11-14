@@ -9,6 +9,14 @@ describe('auth client sync after prerender', () => {
     expect(source).toMatch(/never mint guest over an existing token/i)
   })
 
+  it('single-flights ensureSession and does not clear on refresh 401 alone', () => {
+    const source = readFileSync(resolve('app/stores/auth.ts'), 'utf8')
+    expect(source).toMatch(/ensureInFlight/)
+    expect(source).toMatch(/Do not clear on refresh 401/)
+    expect(source).not.toMatch(/clearSessionIfToken\(requestedToken\)/)
+    expect(source).toMatch(/readJwtTimes/)
+  })
+
   it('keeps auth-session plugin non-blocking for SPA shells', () => {
     const source = readFileSync(
       resolve('app/plugins/auth-session.client.ts'),

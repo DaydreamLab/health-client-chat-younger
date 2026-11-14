@@ -344,6 +344,23 @@ test.describe('CloudFront-like static SPA fallback', () => {
     await expect(page).toHaveURL(/\/app\/?$/, { timeout: 20_000 })
   })
 
+  test('guest home nav Login soft-navs to login form', async ({ page }) => {
+    await seedGuest(page)
+    await page.goto(`${ORIGIN}/`, { waitUntil: 'networkidle' })
+    await expect(page.getByTestId('nav-login')).toBeVisible({ timeout: 20_000 })
+    await page.getByTestId('nav-login').click()
+    await expect(page).toHaveURL(/\/login\/?$/, { timeout: 20_000 })
+    await expect(page.getByTestId('login-form')).toBeVisible({ timeout: 20_000 })
+  })
+
+  test('guest direct-open /login shows login form (not home)', async ({ page }) => {
+    await seedGuest(page)
+    await page.goto(`${ORIGIN}/login`, { waitUntil: 'networkidle' })
+    await expect(page).toHaveURL(/\/login\/?$/, { timeout: 20_000 })
+    await expect(page.getByTestId('login-form')).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByRole('heading', { name: /登入|Log in/i })).toBeVisible()
+  })
+
   test('guest direct-open /app keeps auth gate', async ({ page }) => {
     await seedGuest(page)
     await page.goto(`${ORIGIN}/app`, { waitUntil: 'networkidle' })

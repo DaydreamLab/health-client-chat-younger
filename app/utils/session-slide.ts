@@ -13,8 +13,10 @@ export function shouldSlideSession(input: {
   if (input.force) {
     return true
   }
+  // Cold load after skipHydrate leaves issuedAt/expiresAt null — that must not
+  // force a refresh. Hydrate via /users/me first; slide only when we know timing.
   if (input.issuedAt == null || input.expiresAt == null) {
-    return true
+    return false
   }
   if (input.expiresAt - input.now <= SESSION_EXPIRY_SKEW_MS) {
     return true

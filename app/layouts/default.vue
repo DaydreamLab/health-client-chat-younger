@@ -65,6 +65,7 @@
               :key="item.label"
               :to="item.to"
               variant="ghost"
+              :data-testid="item.testId"
             >
               {{ item.label }}
             </AppButton>
@@ -98,6 +99,7 @@
           :to="item.to"
           variant="ghost"
           class="justify-start"
+          :data-testid="item.testId ? `${item.testId}-mobile` : undefined"
         >
           {{ item.label }}
         </AppButton>
@@ -350,7 +352,7 @@ onBeforeUnmount(() => {
 })
 
 const homeNavItems = computed(() => {
-  const items = [
+  const items: Array<{ label: string, to: string, testId?: string }> = [
     { label: t('nav.plans'), to: `${localePath('/')}#plans` },
     { label: t('nav.chat'), to: localePath('/chat') }
   ]
@@ -360,11 +362,21 @@ const homeNavItems = computed(() => {
   }
 
   if (auth.hasSession) {
-    items.push({ label: t('nav.member'), to: localePath('/app') })
+    items.push({
+      label: t('nav.member'),
+      to: localePath('/app'),
+      testId: 'nav-member'
+    })
   }
 
+  // Guests (and anonymous) must reach /login — never treat hasSession alone as
+  // member. Redirect-away is only login.vue when auth.isMember.
   if (!auth.isMember) {
-    items.push({ label: t('nav.login'), to: localePath('/login') })
+    items.push({
+      label: t('nav.login'),
+      to: localePath('/login'),
+      testId: 'nav-login'
+    })
   }
 
   return items

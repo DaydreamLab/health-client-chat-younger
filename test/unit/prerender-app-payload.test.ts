@@ -19,15 +19,18 @@ describe('nuxt prerender allows /app HTML + payload', () => {
     expect(source).not.toMatch(/ignore:\s*\[[\s\S]*?['"]\/en\/app\/\*\*['"]/)
   })
 
-  it('emits CSR shells for chat instead of prerender:false + ignore', () => {
+  it('emits CSR shells for chat and login instead of prerender:false + ignore', () => {
     const source = readFileSync(resolve('nuxt.config.ts'), 'utf8')
     expect(source).toMatch(/['"]\/chat['"]\s*:\s*\{\s*ssr:\s*false\s*\}/)
     expect(source).toMatch(/['"]\/en\/chat['"]\s*:\s*\{\s*ssr:\s*false\s*\}/)
     expect(source).toMatch(/['"]\/chat-ai['"]\s*:\s*\{\s*ssr:\s*false\s*\}/)
     expect(source).toMatch(/['"]\/en\/chat-ai['"]\s*:\s*\{\s*ssr:\s*false\s*\}/)
+    expect(source).toMatch(/['"]\/login['"]\s*:\s*\{\s*ssr:\s*false\s*\}/)
+    expect(source).toMatch(/['"]\/en\/login['"]\s*:\s*\{\s*ssr:\s*false\s*\}/)
     expect(source).not.toMatch(/['"]\/chat['"]\s*:\s*\{\s*prerender:\s*false/)
     expect(source).not.toMatch(/ignore:\s*\[[\s\S]*?['"]\/chat['"]/)
     expect(source).toMatch(/routes:\s*\[[\s\S]*?['"]\/chat['"]/)
+    expect(source).toMatch(/routes:\s*\[[\s\S]*?['"]\/login['"]/)
   })
 
   it('seeds dynamic path-param CSR shells via static-route-shells', () => {

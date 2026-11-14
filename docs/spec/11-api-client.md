@@ -18,7 +18,7 @@
 - Storage 鍵：`candor.guest.token`（常數 `TOKEN_STORAGE_KEY`）。
 - guest 與 member 共用同一 user JWT 管道；註冊可原地升級同一 `user_id`。
 - 只寫 `localStorage`；禁止 query／hash／log。
-- `POST /auth/refresh` 在過期前換票；401 後停止重試風暴並清 session。
+- `POST /auth/refresh` 在過期前換票（core 簽新 JWT，舊票仍有效至自身 `exp`，無 refresh-token 家族）；401 時停止重試，但**不可**只因 refresh 401 就清掉仍被 `/users/me` 接受的會員 token。整頁載入後 `ensureSession` 必須單飛；`issuedAt` 因 `skipHydrate` 為空時不得強制 refresh。
 
 ## 隱私權政策（公開）
 

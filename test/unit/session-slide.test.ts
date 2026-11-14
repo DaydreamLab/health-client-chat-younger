@@ -5,11 +5,25 @@ describe('shouldSlideSession', () => {
   const issuedAt = 1_000_000
   const expiresAt = issuedAt + 86_400_000
 
-  it('slides when the issue time is unknown', () => {
+  it('does not slide when issue time is unknown (cold load / skipHydrate)', () => {
     expect(shouldSlideSession({
       now: issuedAt + 1_000,
       issuedAt: null,
       expiresAt
+    })).toBe(false)
+    expect(shouldSlideSession({
+      now: issuedAt + 1_000,
+      issuedAt,
+      expiresAt: null
+    })).toBe(false)
+  })
+
+  it('slides when force is set even without timers', () => {
+    expect(shouldSlideSession({
+      now: issuedAt,
+      issuedAt: null,
+      expiresAt: null,
+      force: true
     })).toBe(true)
   })
 
