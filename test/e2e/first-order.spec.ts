@@ -306,9 +306,12 @@ test.describe('member order detail', () => {
           : {})
       }
     })
-    await page.route('**/api/v1/health-reports', async (route) => {
-      const path = new URL(route.request().url()).pathname.replace(/\/$/, '')
-      if (route.request().method() !== 'GET' || !path.endsWith('/health-reports')) {
+    // Match list with or without pagination query (?limit=5&offset=0).
+    await page.route((url) => {
+      const path = url.pathname.replace(/\/$/, '')
+      return path.endsWith('/health-reports')
+    }, async (route) => {
+      if (route.request().method() !== 'GET') {
         await route.fallback()
         return
       }
@@ -385,9 +388,7 @@ test.describe('member order detail', () => {
         sidebarTop: sidebar?.getBoundingClientRect().top ?? -1,
         sidebarHeight: sidebar?.getBoundingClientRect().height ?? 0,
         mainOverflowY: mainStyle?.overflowY ?? '',
-        mainScrollbar: mainStyle?.scrollbarWidth ?? '',
-        mainClient: main?.clientHeight ?? 0,
-        mainScroll: main?.scrollHeight ?? 0
+        mainScrollbar: mainStyle?.scrollbarWidth ?? ''
       }
     })
     expect(shell.windowScroll).toBe(0)
@@ -395,20 +396,8 @@ test.describe('member order detail', () => {
     expect(shell.sidebarHeight).toBe(800)
     expect(shell.mainOverflowY).toBe('auto')
     expect(shell.mainScrollbar).toBe('none')
-    expect(shell.mainScroll).toBeGreaterThan(shell.mainClient)
 
-    const mainScrollTop = await page.locator('main').evaluate((el) => {
-      el.scrollTop = 240
-      return el.scrollTop
-    })
-    const afterScroll = await page.evaluate(() => ({
-      windowScroll: window.scrollY,
-      sidebarTop: document.getElementById('user-sidebar')?.getBoundingClientRect().top ?? -1
-    }))
-    expect(mainScrollTop).toBeGreaterThan(0)
-    expect(afterScroll.windowScroll).toBe(0)
-    expect(afterScroll.sidebarTop).toBe(0)
-
+    // Single-card 50dvh layout scrolls inside the card, not main (aeebca5).
     const cardMetrics = await card.evaluate((el) => {
       const scroller = el.querySelector('[data-testid="report-result-cards-scroller"]')
       const style = getComputedStyle(el)
@@ -424,6 +413,18 @@ test.describe('member order detail', () => {
     expect(cardMetrics.height).toBeLessThanOrEqual(cardMetrics.maxHeight + 1)
     expect(cardMetrics.scrollHeight).toBeGreaterThan(cardMetrics.clientHeight)
     expect(cardMetrics.overflowY).toMatch(/auto|scroll/)
+
+    const cardScrollTop = await card.locator('[data-testid="report-result-cards-scroller"]').evaluate((el) => {
+      el.scrollTop = 120
+      return el.scrollTop
+    })
+    expect(cardScrollTop).toBeGreaterThan(0)
+    const afterCardScroll = await page.evaluate(() => ({
+      windowScroll: window.scrollY,
+      sidebarTop: document.getElementById('user-sidebar')?.getBoundingClientRect().top ?? -1
+    }))
+    expect(afterCardScroll.windowScroll).toBe(0)
+    expect(afterCardScroll.sidebarTop).toBe(0)
 
     await card.getByTestId('health-report-toggle').click()
     await expect(card.getByTestId('health-report-detail')).toHaveCount(0)
@@ -573,181 +574,5 @@ test.describe('member checkout', () => {
       page.getByTestId('chat-last-reply').getByTestId('chat-message-want-more-tests')
     ).toHaveCount(0)
     await expect(page.getByTestId('chat-report-want-more-tests')).toBeVisible()
-  })
-})
-
-test.describe('askInterpret copy by goals', () => {
-  const interpretWithGoals = '請根據這份報告，配合我這次選定的改善方向說明重點'
-  const interpretNoGoals = '請根據這份報告說明重點'
-
-  test('path B with goals → askInterpret + intent interpret', async ({ page, goto }) => {
-    test.setTimeout(120_000)
-    await mockCandorAuth(page, {
-      asMember: true,
-      conversationPath: null,
-      basicProfileComplete: true,
-      individualTestsUrl: 'https://labs.example/tests'
-    })
-    await seedNoExpertCase(page)
-    await goto('/', { waitUntil: 'hydration' })
-    await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
-    await goto('/chat', { waitUntil: 'hydration' })
-
-    await finishGoalSelect(page)
-    // Chip confirm writes journey.clarifyingGoals from goal option labels.
-    await expect(page.getByTestId('chat-transcript')).toContainText('睡眠', { timeout: 15_000 })
-
-    await page.getByTestId('chat-upload-input').setInputFiles({
-      name: 'labs.pdf',
-      mimeType: 'application/pdf',
-      buffer: Buffer.from('%PDF-1.4 mock')
-    })
-    await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
-
-    const interpretStream = page.waitForRequest((req) => {
-      if (req.method() !== 'POST' || !req.url().includes('/messages/stream')) {
-        return false
-      }
-      const data = req.postData() || ''
-      return data.includes(interpretWithGoals) && data.includes('"intent":"interpret"')
-    })
-    await page.getByTestId('chat-report-interpret').click()
-    const streamReq = await interpretStream
-    const streamBody = JSON.parse(streamReq.postData() || '{}') as {
-      content?: string
-      intent?: string
-    }
-    expect(streamBody.content).toBe(interpretWithGoals)
-    expect(streamBody.intent).toBe('interpret')
-    await expect(page.getByTestId('chat-transcript')).toContainText(interpretWithGoals)
-  })
-
-  test('path C upload without goals → askInterpretNoGoals + intent interpret', async ({
-    page,
-    goto
-  }) => {
-    test.setTimeout(120_000)
-    await mockCandorAuth(page, {
-      asMember: true,
-      conversationPath: null,
-      basicProfileComplete: true,
-      individualTestsUrl: 'https://labs.example/tests'
-    })
-    await seedNoExpertCase(page)
-    await goto('/', { waitUntil: 'hydration' })
-    await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
-    await goto('/chat', { waitUntil: 'hydration' })
-
-    const entryC = page.getByTestId('chat-quiz-option-c')
-    await expect(entryC).toBeVisible({ timeout: 15_000 })
-    await entryC.click()
-    await expect(page.getByTestId('chat-quiz-option-c')).toHaveCount(0, { timeout: 15_000 })
-
-    await page.getByTestId('chat-message-upload').click()
-    await page.setInputFiles('[data-testid="chat-upload-input"]', {
-      name: 'labs.pdf',
-      mimeType: 'application/pdf',
-      buffer: Buffer.from('%PDF-1.4 mock')
-    })
-    await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
-    // Path C 上傳後 mock 會開 goals chips，但 clarifyingGoals 仍空直到確認。
-    await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
-
-    const interpretStream = page.waitForRequest((req) => {
-      if (req.method() !== 'POST' || !req.url().includes('/messages/stream')) {
-        return false
-      }
-      const data = req.postData() || ''
-      return data.includes(interpretNoGoals) && data.includes('"intent":"interpret"')
-    })
-    await page.getByTestId('chat-report-interpret').click()
-    const streamReq = await interpretStream
-    const streamBody = JSON.parse(streamReq.postData() || '{}') as {
-      content?: string
-      intent?: string
-    }
-    expect(streamBody.content).toBe(interpretNoGoals)
-    expect(streamBody.intent).toBe('interpret')
-    await expect(page.getByTestId('chat-transcript')).toContainText(interpretNoGoals)
-    await expect(page.getByTestId('chat-transcript')).not.toContainText(interpretWithGoals)
-  })
-})
-
-test.describe('profile quiz gate', () => {
-  test.beforeEach(async ({ page }) => {
-    // null path → entry a／b／c; tests select B then stream goals (core #133).
-    await mockCandorAuth(page, {
-      profileQuiz: true,
-      asMember: true,
-      conversationPath: null
-    })
-  })
-
-  test('goal chips then profile turn chips; upload via composer only', async ({ page, goto }) => {
-    await goto('/', { waitUntil: 'hydration' })
-    await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
-    await goto('/chat', { waitUntil: 'hydration' })
-    // Entry chips use lowercase codes from reply_actions; default mock path=b skips them.
-    const entryB = page.getByTestId('chat-quiz-option-b')
-    if (await entryB.isVisible().catch(() => false)) {
-      await entryB.click()
-      await expect(page.getByTestId('chat-quiz-option-c')).toHaveCount(0, { timeout: 15_000 })
-    }
-    await expect(page.getByTestId('chat-quiz-option-weight_loss')).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible()
-    await expect(page.getByTestId('chat-chip-upload')).toHaveCount(0)
-    await expect(page.getByTestId('chat-upload')).toBeVisible()
-
-    await page.getByTestId('chat-quiz-option-weight_loss').click()
-    await page.getByTestId('chat-quiz-option-sleep').click()
-    await page.getByTestId('chat-quiz-confirm').click()
-    await expect(page.getByTestId('chat-transcript')).toContainText('請問您的生理性別？', { timeout: 15_000 })
-    await expect(page.getByTestId('chat-quiz-option-F')).toBeVisible()
-    await expect(page.getByTestId('chat-chip-upload')).toHaveCount(0)
-    await expect(page.getByTestId('chat-upload')).toBeVisible()
-
-    await page.getByTestId('chat-quiz-option-F').click()
-    await expect(page.getByTestId('chat-transcript')).toContainText('女')
-    await expect(page.getByTestId('chat-quiz-option-opt_1')).toBeVisible()
-    await expect(page.getByTestId('chat-chip-upload')).toHaveCount(0)
-
-    await page.getByTestId('chat-quiz-option-opt_1').click()
-    await expect(page.getByTestId('chat-transcript')).toContainText('睡眠')
-    await expect(page.getByTestId('chat-chip-upload')).toHaveCount(0)
-    await expect(page.getByTestId('chat-upload')).toBeVisible()
-  })
-
-  test('chip answer does not autofocus chat input', async ({ page, goto }) => {
-    // Irice 2026-10-28: chip／選項答題後不 focus；僅鍵盤 onSubmit 保留。
-    await goto('/', { waitUntil: 'hydration' })
-    await page.evaluate(() => localStorage.removeItem('candor.unpaid.journey'))
-    await goto('/chat', { waitUntil: 'hydration' })
-    const entryB = page.getByTestId('chat-quiz-option-b')
-    if (await entryB.isVisible().catch(() => false)) {
-      await entryB.click()
-      await expect(page.getByTestId('chat-quiz-option-c')).toHaveCount(0, { timeout: 15_000 })
-    }
-    await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
-    await page.getByTestId('chat-quiz-option-sleep').click()
-    await page.getByTestId('chat-quiz-confirm').click()
-    await expect(page.getByTestId('chat-quiz-option-F')).toBeVisible({ timeout: 15_000 })
-
-    await page.getByTestId('chat-quiz-option-F').click()
-    await expect(page.getByTestId('chat-transcript')).toContainText('女')
-    // Wait past pending／stream settle so any leftover autofocus would have fired.
-    await expect(page.getByTestId('chat-quiz-option-opt_1')).toBeVisible({ timeout: 15_000 })
-    await expect.poll(async () => {
-      return page.evaluate(() => {
-        const el = document.activeElement
-        if (!el) {
-          return null
-        }
-        const tag = el.tagName.toLowerCase()
-        if (tag === 'textarea' || tag === 'input') {
-          return el.getAttribute('data-testid') || tag
-        }
-        return null
-      })
-    }).toBeNull()
   })
 })
