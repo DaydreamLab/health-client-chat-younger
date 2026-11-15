@@ -1102,5 +1102,72 @@
       "cancelled": "已取消",
       "unknown": "—"
     }
+  },
+  "homeV2": {
+    "meta": {
+      "description": "看懂身體數據，再決定怎麼補。聊聊、填問卷或上傳健檢報告，取得專屬保健品組合。"
+    },
+    "hero": {
+      "eyebrow": "你的專屬健康顧問（非醫生）",
+      "title": "想看清楚自己的健康？\n先聊聊，或上傳一份健檢報告。",
+      "description": "隨意聊聊、回答幾題健康問卷，或上傳報告讓 AI 免費解析。\n限時早鳥：專案價 **NT$4,500**（價值 **NT$6,000**）帶走 30 天份保健品組合。\n需要更細的建議時，可另約 Younger 顧問。",
+      "ctaChat": "開始諮詢",
+      "ctaPlans": "查看方案"
+    },
+    "steps": {
+      "title": "三步驟，從了解到改善",
+      "oneTitle": "選一種方式開始",
+      "oneHint": "隨意聊聊、填健康問卷，或上傳健檢報告。",
+      "twoTitle": "看懂你的狀態",
+      "twoHint": "AI 整理問卷與報告重點，每項指標標出最佳、提醒、警戒。",
+      "threeTitle": "取得推薦方案",
+      "threeHint": "核心保健品＋補充品組合，寄送到府；也可以預約 Younger 顧問為你定稿。",
+      "oneFrameUser": "我想諮詢健康方案",
+      "oneFrameAssistant": "好的，先了解你的基本狀況。",
+      "twoFrameOk": "最佳",
+      "twoFrameWarn": "提醒",
+      "twoFrameAlert": "警戒",
+      "threeFrameStatus": "查看推薦方案"
+    },
+    "promo": {
+      "title": "依你的數據挑選保健品",
+      "body": "不盲目補充。依你的問卷與報告搭配保健品，例如鐵、綜合 B 群。"
+    },
+    "plans": {
+      "title": "挑選您的健康訂製計畫",
+      "earlyBirdBadge": "限時早鳥",
+      "billingCycle": "／30 天份",
+      "feature1": "AI 免費解析報告",
+      "feature2": "核心保健品＋補充品組合，依你的問卷與報告搭配",
+      "feature3": "30 天份，寄送到府",
+      "cta": "用這個方案開始",
+      "advisorTitle": "預約 Younger 顧問",
+      "advisorDescription": "Younger 顧問一對一檢視你的健康資料",
+      "advisorPrice": "NT$6,000 起",
+      "advisorBilling": "",
+      "advisorFeature1": "一對一檢視問卷與報告",
+      "advisorFeature2": "約一個工作天內提供專屬方案",
+      "advisorCta": "預約 Younger 顧問",
+      "disclaimer": "坦見是健康顧問，非醫生；建議僅供健康管理參考，不提供醫療診斷。",
+      "loading": "載入方案中…",
+      "loadError": "方案暫時無法載入，請稍後再試。"
+    },
+    "trust": {
+      "title": "為什麼可以把健康數據交給我們",
+      "dataTitle": "報告 AI 免費解析",
+      "dataHint": "有健檢報告就上傳，AI 幫你整理每項指標；沒有報告也能先聊。",
+      "paceTitle": "需要時有 Younger 顧問",
+      "paceHint": "想要更細的建議，可以預約 Younger 顧問檢視你的資料。",
+      "advisorTitle": "沒有報告也能補上",
+      "advisorHint": "需要檢查時，可以前往合作的 Younger 預約檢測。",
+      "recordTitle": "跟著你的資料走",
+      "recordHint": "對談紀錄、健檢報告與專屬方案，安全留存在你的帳號裡。",
+      "wearableTitle": "穿戴裝置",
+      "wearableHint": "即將上線"
+    },
+    "reviews": {
+      "cta": "開始諮詢",
+      "ctaPlans": "查看方案"
+    }
   }
 }

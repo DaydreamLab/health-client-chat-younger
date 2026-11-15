@@ -81,6 +81,8 @@ export default defineNuxtConfig({
       routes: [
         '/',
         '/en',
+        '/index2',
+        '/en/index2',
         '/chat',
         '/en/chat',
         '/chat-ai',
