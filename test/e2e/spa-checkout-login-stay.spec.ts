@@ -128,8 +128,15 @@ function listenApi(): Promise<{
     }
 
     if (url.pathname.endsWith('/users/me')) {
-      // Guest tokens must 200 with guest user — 401 clears journey (auth ensureSession).
+      // Align with candor-core GET /users/me:
+      // - no/invalid Bearer → 401 (AuthMiddleware.php:26-32)
+      // - guest JWT → 200 + role=guest (UserAuthService::me L211-221, userMePayload L396;
+      //   docs/spec/24-identity-and-auth.md L178-180)
       later(() => {
+        if (!token) {
+          json(fail('unauthorized'), 401)
+          return
+        }
         if (isMember) {
           json(ok(MEMBER))
           return
