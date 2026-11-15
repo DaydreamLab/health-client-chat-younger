@@ -37,7 +37,8 @@ test('index2 books Younger advisor, drops goals, sets noindex; home unchanged', 
 
   await expect(page.getByTestId('index2-disclaimer')).toContainText('不提供醫療診斷')
   await expect(page.getByTestId('index2-footer')).toBeVisible()
-  await expect(page.getByText('service@candor.example')).toHaveCount(0)
+  // Dev / CI leave NUXT_PUBLIC_SUPPORT_EMAIL unset → no support inbox line.
+  await expect(page.getByTestId('support-email')).toHaveCount(0)
   await expect(page.getByLabel('Instagram')).toHaveCount(0)
 
   await goto('/', { waitUntil: 'hydration' })
@@ -45,7 +46,7 @@ test('index2 books Younger advisor, drops goals, sets noindex; home unchanged', 
   await expect(page.getByRole('heading', { name: '你想先改善哪裡' })).toBeVisible()
   await expect(page.getByTestId('package-advisor-booking')).toHaveCount(0)
   await expect(page.locator('meta[name="robots"]')).toHaveCount(0)
-  await expect(page.getByText('service@candor.example')).toBeVisible()
+  await expect(page.getByTestId('support-email')).toHaveCount(0)
 })
 
 test('EN index2 advisor card links to /en/expert-booking', async ({ page, goto }) => {

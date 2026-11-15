@@ -148,6 +148,10 @@
                   </NuxtLink>
                 </li>
               </ul>
+              <SupportEmailLink
+                v-if="column.showSupportEmail"
+                class="mt-4 block"
+              />
             </div>
           </div>
         </div>
@@ -184,6 +188,7 @@ type FooterItem = {
 type FooterColumn = {
   title: string
   items: FooterItem[]
+  showSupportEmail?: boolean
 }
 
 const footerColumns = computed((): FooterColumn[] => [
@@ -215,7 +220,8 @@ const footerColumns = computed((): FooterColumn[] => [
         to: localePath('/app/orders'),
         testId: 'footer-support-orders'
       }
-    ]
+    ],
+    showSupportEmail: true
   },
   {
     title: t('footer.about'),

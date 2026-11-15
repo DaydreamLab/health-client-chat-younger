@@ -173,9 +173,7 @@
                 v-if="column.contact"
                 class="mt-4 space-y-1"
               >
-                <p class="text-sm text-white/70">
-                  {{ $t('footer.email') }}
-                </p>
+                <SupportEmailLink class="block" />
                 <p class="text-sm text-white/70">
                   {{ $t('footer.hours') }}
                 </p>

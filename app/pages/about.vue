@@ -58,12 +58,35 @@
       >
         <ChatMarkdown :text="bodyMarkdown" />
       </div>
+
+      <div
+        class="about-body mt-8 text-base text-highlighted"
+        data-testid="about-contact"
+      >
+        <h2>{{ contactHeading }}</h2>
+        <p>
+          <SupportEmailLink
+            link-class="text-highlighted underline-offset-2 hover:underline"
+          />
+          <template v-if="supportEmail">
+            <br>
+          </template>
+          {{ contactHours }}
+        </p>
+        <p class="text-muted">
+          {{ contactNote }}
+        </p>
+      </div>
     </article>
   </div>
 </template>
 
 <script setup lang="ts">
+import { normalizeSupportEmail } from '~/utils/support-email'
+
 const { t, locale } = useI18n()
+const config = useRuntimeConfig()
+const supportEmail = computed(() => normalizeSupportEmail(config.public.supportEmail))
 
 useSeoMeta({
   title: () => t('about.metaTitle')
@@ -78,14 +101,7 @@ Candor（坦見）由 Daydream Lab 打造，協助你把檢驗與穿戴數據轉
 
 - 健康／營養相關諮詢對話與個人化建議流程
 - 報告上傳、解讀與追蹤
-- 方案瀏覽與需要時的專人協助
-
-## 聯絡我們
-
-Email：service@candor.example
-服務時間：週一至週五 10:00–18:00
-
-（placeholder 文案 · 待營運審）`
+- 方案瀏覽與需要時的專人協助`
 
 const BODY_EN = `## Who we are
 
@@ -95,16 +111,19 @@ Candor is built by Daydream Lab to turn lab and wearable data into understandabl
 
 - Health and nutrition consult flows with personalized guidance
 - Report upload, interpretation, and follow-up
-- Plan browsing and specialist handoff when needed
-
-## Contact
-
-Email: service@candor.example
-Hours: Mon–Fri 10:00–18:00
-
-(placeholder copy · pending ops review)`
+- Plan browsing and specialist handoff when needed`
 
 const bodyMarkdown = computed(() => locale.value === 'en' ? BODY_EN : BODY_ZH)
+
+const contactHeading = computed(() => locale.value === 'en' ? 'Contact' : '聯絡我們')
+const contactHours = computed(() =>
+  locale.value === 'en' ? 'Hours: Mon–Fri 10:00–18:00' : '服務時間：週一至週五 10:00–18:00'
+)
+const contactNote = computed(() =>
+  locale.value === 'en'
+    ? '(placeholder copy · pending ops review)'
+    : '（placeholder 文案 · 待營運審）'
+)
 
 const pending = ref(false)
 const loadError = ref(false)
@@ -119,5 +138,17 @@ function load() {
 .about-body :deep(.chat-md) {
   font-size: 1rem;
   line-height: 1.7;
+}
+
+.about-body :deep(h2) {
+  margin: 1.5em 0 0.5em;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.about-body > h2 {
+  margin: 1.5em 0 0.5em;
+  font-size: 1.25rem;
+  font-weight: 600;
 }
 </style>
