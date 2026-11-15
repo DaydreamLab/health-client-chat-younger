@@ -6,11 +6,11 @@
           {{ $t('notifications.title') }}
         </h1>
         <p class="mt-1 text-sm text-muted">
-          {{ gateLocked ? $t('notifications.guestSubtitle') : $t('notifications.subtitle') }}
+          {{ showGuest ? $t('notifications.guestSubtitle') : $t('notifications.subtitle') }}
         </p>
       </div>
       <button
-        v-if="!gateLocked && !loading && !loadError && unreadCount > 0"
+        v-if="showMember && !loading && !loadError && unreadCount > 0"
         type="button"
         class="shrink-0 rounded-lg px-2.5 py-1.5 text-sm font-bold text-primary hover:bg-primary/10"
         data-testid="notifications-mark-all-read"
@@ -20,18 +20,18 @@
       </button>
     </div>
 
-    <MemberAuthGate
-      v-if="gateLocked"
+    <MemberAuthShell
+      skeleton-variant="list"
+      skeleton-test-id="notifications-auth-skeleton"
       :title="$t('notifications.guestRequired')"
       :hint="$t('notifications.guestRequiredHint')"
       icon="i-lucide-bell"
-      test-id="notifications-auth-gate"
+      gate-test-id="notifications-auth-gate"
       login-test-id="notifications-login"
       register-test-id="notifications-register"
       back-to-chat-test-id="notifications-back-chat"
-    />
-
-    <template v-else>
+      test-id="notifications-auth-shell"
+    >
       <MemberLoadingState
         v-if="loading && !list.length"
         :message="$t('notifications.loading')"
@@ -112,7 +112,7 @@
           </li>
         </ul>
       </template>
-    </template>
+    </MemberAuthShell>
   </div>
 </template>
 
@@ -129,7 +129,7 @@ type FilterMode = 'all' | 'unread'
 const localePath = useLocalePath()
 const auth = useAuthStore()
 const notifications = useNotificationsStore()
-const { memberGateLocked: gateLocked, sync: syncGate } = useAuthClientSync()
+const { showMember, showGuest, sync: syncGate } = useAuthClientSync()
 
 const filter = ref<FilterMode>('all')
 

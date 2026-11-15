@@ -32,17 +32,23 @@ describe('/app page shares my-health + login form', () => {
 
   it('/app starts as skeleton until auth settled, then login or my-health', () => {
     const page = readFileSync(resolve('app/pages/app/index.vue'), 'utf8')
+    const shell = readFileSync(
+      resolve('app/components/member/MemberAuthShell.vue'),
+      'utf8'
+    )
     expect(existsSync(resolve('app/pages/dashboard.vue'))).toBe(false)
-    expect(page).toMatch(/data-testid="app-skeleton"/)
+    expect(page).toMatch(/MemberAuthShell/)
+    expect(page).toMatch(/skeleton-test-id="app-skeleton"/)
     expect(page).toMatch(/data-testid="app-login"/)
-    expect(page).toMatch(/!settled/)
-    expect(page).toMatch(/!auth\.isMember/)
     expect(page).toMatch(/MemberMyHealth/)
     expect(page).toMatch(/AuthLoginForm/)
     expect(page).toMatch(/\bstay\b/)
     expect(page).not.toMatch(/MemberAuthGate/)
-    expect(page).toMatch(/useAuthClientSync/)
     expect(page).toMatch(/layout:\s*['"]user['"]/)
+    expect(shell).toMatch(/!settled/)
+    expect(shell).toMatch(/!auth\.isMember/)
+    expect(shell).toMatch(/MemberPageSkeleton/)
+    expect(shell).toMatch(/useAuthClientSync/)
   })
 
   it('does not keep a /dashboard page or nav entry', () => {

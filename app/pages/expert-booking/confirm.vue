@@ -15,189 +15,195 @@
       {{ $t('expertBooking.edit') }}
     </NuxtLink>
 
-    <div
-      v-if="gateLocked"
-      class="mt-10 text-center"
+    <MemberAuthShell
+      class="mt-6"
+      skeleton-variant="form"
+      skeleton-test-id="expert-booking-confirm-auth-skeleton"
+      test-id="expert-booking-confirm-auth-shell"
     >
-      <p class="font-semibold text-highlighted">
-        {{ $t('expertBooking.guestRequired') }}
-      </p>
-      <AppButton
-        class="mt-4"
-        :to="loginTo"
-      >
-        {{ $t('expertBooking.goLogin') }}
-      </AppButton>
-    </div>
-
-    <div
-      v-else-if="!hasDraft"
-      class="mt-10 space-y-4 text-center"
-      data-testid="expert-booking-confirm-empty"
-    >
-      <p class="text-muted">
-        {{ $t('expertBooking.confirmEmpty') }}
-      </p>
-      <AppButton :to="localePath('/expert-booking')">
-        {{ $t('expertBooking.backToForm') }}
-      </AppButton>
-    </div>
-
-    <div
-      v-else
-      class="mt-6 space-y-6"
-    >
-      <h1 class="text-2xl font-semibold text-highlighted">
-        {{ $t('expertBooking.confirmTitle') }}
-      </h1>
+      <template #guest>
+        <div class="mt-4 text-center">
+          <p class="font-semibold text-highlighted">
+            {{ $t('expertBooking.guestRequired') }}
+          </p>
+          <AppButton
+            class="mt-4"
+            :to="loginTo"
+          >
+            {{ $t('expertBooking.goLogin') }}
+          </AppButton>
+        </div>
+      </template>
 
       <div
-        v-if="productState === 'unavailable' || submitUnavailable"
-        class="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-5"
-        data-testid="expert-booking-unavailable"
+        v-if="!hasDraft"
+        class="mt-4 space-y-4 text-center"
+        data-testid="expert-booking-confirm-empty"
       >
-        <p class="font-semibold text-highlighted">
-          {{ $t('expertBooking.unavailable') }}
+        <p class="text-muted">
+          {{ $t('expertBooking.confirmEmpty') }}
         </p>
-        <p class="mt-2 text-sm leading-6 text-muted">
-          {{ $t('expertBooking.unavailableHint') }}
-        </p>
+        <AppButton :to="localePath('/expert-booking')">
+          {{ $t('expertBooking.backToForm') }}
+        </AppButton>
       </div>
 
-      <section
+      <div
         v-else
-        class="rounded-2xl border border-default bg-elevated p-5"
-        data-testid="expert-booking-confirm-summary"
+        class="mt-6 space-y-6"
       >
-        <dl class="space-y-3 text-sm">
-          <div class="flex justify-between gap-3">
-            <dt class="text-muted">
-              {{ $t('expertBooking.item') }}
-            </dt>
-            <dd
-              class="font-medium text-highlighted"
-              data-testid="expert-booking-confirm-item"
-            >
-              {{ productName }}
-            </dd>
-          </div>
-          <div class="flex justify-between gap-3">
-            <dt class="text-muted">
-              {{ $t('expertBooking.amount') }}
-            </dt>
-            <dd
-              class="font-semibold tabular-nums text-primary"
-              data-testid="expert-booking-confirm-amount"
-            >
-              <template v-if="productPrice != null">
-                {{ formatTwd(productPrice) }}
-              </template>
-              <template v-else>
-                {{ $t('expertBooking.amountPending') }}
-              </template>
-            </dd>
-          </div>
-          <div class="flex justify-between gap-3">
-            <dt class="text-muted">
-              {{ $t('expertBooking.contactName') }}
-            </dt>
-            <dd class="text-highlighted">
-              {{ draft.contactName }}
-            </dd>
-          </div>
-          <div class="flex justify-between gap-3">
-            <dt class="text-muted">
-              {{ $t('expertBooking.phone') }}
-            </dt>
-            <dd class="text-highlighted">
-              {{ draft.phone }}
-            </dd>
-          </div>
-          <div class="flex justify-between gap-3">
-            <dt class="text-muted">
-              {{ $t('expertBooking.email') }}
-            </dt>
-            <dd class="text-highlighted">
-              {{ draft.email }}
-            </dd>
-          </div>
-          <div class="flex justify-between gap-3">
-            <dt class="text-muted">
-              {{ $t('expertBooking.lineId') }}
-            </dt>
-            <dd
-              class="text-highlighted"
-              data-testid="expert-booking-confirm-line"
-            >
-              {{ draft.lineId || $t('expertBooking.notFilled') }}
-            </dd>
-          </div>
-          <div class="flex justify-between gap-3">
-            <dt class="shrink-0 text-muted">
-              {{ $t('expertBooking.preferredSlots') }}
-            </dt>
-            <dd class="space-y-1 text-end text-highlighted">
-              <p
-                v-for="(slot, index) in slotLabels"
-                :key="index"
+        <h1 class="text-2xl font-semibold text-highlighted">
+          {{ $t('expertBooking.confirmTitle') }}
+        </h1>
+
+        <div
+          v-if="productState === 'unavailable' || submitUnavailable"
+          class="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-5"
+          data-testid="expert-booking-unavailable"
+        >
+          <p class="font-semibold text-highlighted">
+            {{ $t('expertBooking.unavailable') }}
+          </p>
+          <p class="mt-2 text-sm leading-6 text-muted">
+            {{ $t('expertBooking.unavailableHint') }}
+          </p>
+        </div>
+
+        <section
+          v-else
+          class="rounded-2xl border border-default bg-elevated p-5"
+          data-testid="expert-booking-confirm-summary"
+        >
+          <dl class="space-y-3 text-sm">
+            <div class="flex justify-between gap-3">
+              <dt class="text-muted">
+                {{ $t('expertBooking.item') }}
+              </dt>
+              <dd
+                class="font-medium text-highlighted"
+                data-testid="expert-booking-confirm-item"
               >
-                {{ slot }}
-              </p>
-            </dd>
-          </div>
-          <div class="flex justify-between gap-3">
-            <dt class="shrink-0 text-muted">
-              {{ $t('expertBooking.requirements') }}
-            </dt>
-            <dd class="text-end text-highlighted">
-              {{ draft.requirements || $t('expertBooking.notFilled') }}
-            </dd>
-          </div>
-          <div
-            v-if="draft.attachments.length"
-            class="flex justify-between gap-3"
-            data-testid="expert-booking-confirm-attachments"
-          >
-            <dt class="shrink-0 text-muted">
-              {{ $t('expertBooking.attachment') }}
-            </dt>
-            <dd class="space-y-1 text-end text-highlighted">
-              <p
-                v-for="file in draft.attachments"
-                :key="file.key"
+                {{ productName }}
+              </dd>
+            </div>
+            <div class="flex justify-between gap-3">
+              <dt class="text-muted">
+                {{ $t('expertBooking.amount') }}
+              </dt>
+              <dd
+                class="font-semibold tabular-nums text-primary"
+                data-testid="expert-booking-confirm-amount"
               >
-                {{ file.filename }}
-              </p>
-            </dd>
-          </div>
-        </dl>
-      </section>
+                <template v-if="productPrice != null">
+                  {{ formatTwd(productPrice) }}
+                </template>
+                <template v-else>
+                  {{ $t('expertBooking.amountPending') }}
+                </template>
+              </dd>
+            </div>
+            <div class="flex justify-between gap-3">
+              <dt class="text-muted">
+                {{ $t('expertBooking.contactName') }}
+              </dt>
+              <dd class="text-highlighted">
+                {{ draft.contactName }}
+              </dd>
+            </div>
+            <div class="flex justify-between gap-3">
+              <dt class="text-muted">
+                {{ $t('expertBooking.phone') }}
+              </dt>
+              <dd class="text-highlighted">
+                {{ draft.phone }}
+              </dd>
+            </div>
+            <div class="flex justify-between gap-3">
+              <dt class="text-muted">
+                {{ $t('expertBooking.email') }}
+              </dt>
+              <dd class="text-highlighted">
+                {{ draft.email }}
+              </dd>
+            </div>
+            <div class="flex justify-between gap-3">
+              <dt class="text-muted">
+                {{ $t('expertBooking.lineId') }}
+              </dt>
+              <dd
+                class="text-highlighted"
+                data-testid="expert-booking-confirm-line"
+              >
+                {{ draft.lineId || $t('expertBooking.notFilled') }}
+              </dd>
+            </div>
+            <div class="flex justify-between gap-3">
+              <dt class="shrink-0 text-muted">
+                {{ $t('expertBooking.preferredSlots') }}
+              </dt>
+              <dd class="space-y-1 text-end text-highlighted">
+                <p
+                  v-for="(slot, index) in slotLabels"
+                  :key="index"
+                >
+                  {{ slot }}
+                </p>
+              </dd>
+            </div>
+            <div class="flex justify-between gap-3">
+              <dt class="shrink-0 text-muted">
+                {{ $t('expertBooking.requirements') }}
+              </dt>
+              <dd class="text-end text-highlighted">
+                {{ draft.requirements || $t('expertBooking.notFilled') }}
+              </dd>
+            </div>
+            <div
+              v-if="draft.attachments.length"
+              class="flex justify-between gap-3"
+              data-testid="expert-booking-confirm-attachments"
+            >
+              <dt class="shrink-0 text-muted">
+                {{ $t('expertBooking.attachment') }}
+              </dt>
+              <dd class="space-y-1 text-end text-highlighted">
+                <p
+                  v-for="file in draft.attachments"
+                  :key="file.key"
+                >
+                  {{ file.filename }}
+                </p>
+              </dd>
+            </div>
+          </dl>
+        </section>
 
-      <p
-        v-if="!submitUnavailable && productState !== 'unavailable'"
-        class="text-sm leading-6 text-muted"
-      >
-        {{ $t('expertBooking.submitHint') }}
-      </p>
+        <p
+          v-if="!submitUnavailable && productState !== 'unavailable'"
+          class="text-sm leading-6 text-muted"
+        >
+          {{ $t('expertBooking.submitHint') }}
+        </p>
 
-      <p
-        v-if="submitError"
-        class="text-sm text-error"
-        data-testid="expert-booking-submit-error"
-      >
-        {{ submitError }}
-      </p>
+        <p
+          v-if="submitError"
+          class="text-sm text-error"
+          data-testid="expert-booking-submit-error"
+        >
+          {{ submitError }}
+        </p>
 
-      <AppButton
-        class="w-full"
-        variant="outline"
-        :disabled="pending || !canSubmit"
-        data-testid="expert-booking-submit-pay"
-        @click="onSubmit"
-      >
-        {{ pending ? $t('expertBooking.submitting') : $t('expertBooking.submitPay') }}
-      </AppButton>
-    </div>
+        <AppButton
+          class="w-full"
+          variant="outline"
+          :disabled="pending || !canSubmit"
+          data-testid="expert-booking-submit-pay"
+          @click="onSubmit"
+        >
+          {{ pending ? $t('expertBooking.submitting') : $t('expertBooking.submitPay') }}
+        </AppButton>
+      </div>
+    </MemberAuthShell>
   </div>
 </template>
 
@@ -223,7 +229,7 @@ const bookingStore = useExpertBookingStore()
 const bookingApi = useExpertBookingApi()
 const ordersApi = useFirstOrderApi()
 
-const { memberGateLocked: gateLocked, sync: syncGate } = useAuthClientSync()
+const { showMember, sync: syncGate } = useAuthClientSync()
 const pending = ref(false)
 const submitError = ref('')
 const submitUnavailable = ref(false)
@@ -348,7 +354,7 @@ async function onSubmit() {
 onMounted(async () => {
   await syncGate()
   bookingStore.hydrate()
-  if (!gateLocked.value && hasDraft.value) {
+  if (showMember.value && hasDraft.value) {
     await refreshProduct()
   }
 })

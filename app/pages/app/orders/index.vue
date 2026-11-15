@@ -23,18 +23,18 @@
       {{ $t('orders.demoHint') }}
     </p>
 
-    <MemberAuthGate
-      v-if="gateLocked"
+    <MemberAuthShell
+      skeleton-variant="list"
+      skeleton-test-id="orders-auth-skeleton"
       :title="$t('orders.guestRequired')"
       :hint="$t('orders.guestRequiredHint')"
       icon="i-lucide-package"
-      test-id="orders-auth-gate"
+      gate-test-id="orders-auth-gate"
       login-test-id="orders-login"
       register-test-id="orders-register"
       back-to-chat-test-id="orders-back-chat"
-    />
-
-    <template v-else>
+      test-id="orders-auth-shell"
+    >
       <MemberLoadingState
         v-if="loading"
         :message="$t('orders.loading')"
@@ -108,7 +108,7 @@
           </NuxtLink>
         </li>
       </ul>
-    </template>
+    </MemberAuthShell>
   </div>
 </template>
 
@@ -134,7 +134,7 @@ const list = ref<OrderRecord[]>([])
 const loading = ref(true)
 const loadError = ref(false)
 const usingDemo = ref(false)
-const { memberGateLocked: gateLocked, sync: syncGate } = useAuthClientSync()
+const { showMember, sync: syncGate } = useAuthClientSync()
 
 const demoMode = computed(() => {
   const raw = route.query[ORDERS_DEMO_QUERY]
@@ -195,7 +195,7 @@ watch(() => auth.isMember, (member) => {
 })
 
 watch(demoMode, () => {
-  if (auth.isMember && !gateLocked.value) {
+  if (showMember.value) {
     void loadOrders()
   }
 })

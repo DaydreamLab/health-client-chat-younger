@@ -6,7 +6,7 @@ import { defineConfig, devices } from '@playwright/test'
  */
 export default defineConfig({
   testDir: './test/e2e',
-  testMatch: /spa-(fallback|auth-session|app)\.spec\.ts/,
+  testMatch: /spa-(fallback|auth-session|app|member-auth-gate)\.spec\.ts/,
   workers: 1,
   timeout: 120_000,
   use: {

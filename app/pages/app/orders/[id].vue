@@ -1,465 +1,468 @@
 <template>
-  <MemberAuthGate
-    v-if="gateLocked"
+  <MemberAuthShell
+    skeleton-variant="detail"
+    skeleton-test-id="order-detail-auth-skeleton"
     :title="$t('orders.guestRequired')"
     :hint="$t('orders.guestRequiredHint')"
     icon="i-lucide-package"
-    test-id="order-detail-auth-gate"
+    gate-test-id="order-detail-auth-gate"
     login-test-id="order-detail-login"
     register-test-id="order-detail-register"
     back-to-chat-test-id="order-detail-back-chat"
-  />
-  <MemberLoadingState
-    v-else-if="loading"
-    :message="$t('orders.loading')"
-    test-id="order-detail-loading"
-  />
-  <MemberErrorState
-    v-else-if="loadError"
-    :message="$t('orders.emptyError')"
-    test-id="order-detail-error"
-    retry-test-id="order-detail-retry"
-    @retry="loadOrder"
-  />
-  <MemberEmptyState
-    v-else-if="!order"
-    :message="$t('orders.empty')"
-    test-id="order-detail-empty"
-    :cta-label="$t('orders.back')"
-    :cta-to="localePath('/app/orders')"
-    cta-test-id="order-detail-back-list"
-  />
-  <div
-    v-else
-    class="space-y-6"
-    data-testid="order-detail"
+    test-id="order-detail-auth-shell"
   >
-    <div>
-      <NuxtLink
-        :to="localePath('/app/orders')"
-        class="inline-flex items-center gap-1 text-sm font-medium text-primary"
-        data-testid="order-detail-back"
-      >
-        {{ $t('orders.back') }}
-      </NuxtLink>
-      <div class="mt-3 flex flex-wrap items-center gap-2">
-        <h1
-          class="text-2xl font-semibold text-highlighted"
-          data-testid="order-number"
-        >
-          {{ $t('orders.detailTitle', { number: order.number }) }}
-        </h1>
-        <OrdersStatusPill :order="order" />
-        <span
-          v-if="usingDemo"
-          class="app-badge app-badge-demo"
-          data-testid="orders-sample-badge"
-        >
-          {{ $t('orders.sampleData') }}
-        </span>
-      </div>
-    </div>
-
-    <div
-      v-if="expertProcessingBanner"
-      class="rounded-2xl border border-primary/30 bg-primary/5 p-5"
-      data-testid="order-expert-processing-banner"
-    >
-      <p class="font-semibold text-highlighted">
-        {{ $t('orders.expert_processing.title') }}
-      </p>
-      <p class="mt-1 text-sm text-muted">
-        {{ $t('orders.expert_processing.body') }}
-      </p>
-    </div>
-
-    <ExpertBookingOrderSection
-      v-if="order.expertBooking || order.hasExpertBookingLine"
-      :booking="order.expertBooking || fallbackExpertBooking"
-      :amount="order.amount"
+    <MemberLoadingState
+      v-if="loading"
+      :message="$t('orders.loading')"
+      test-id="order-detail-loading"
     />
-
+    <MemberErrorState
+      v-else-if="loadError"
+      :message="$t('orders.emptyError')"
+      test-id="order-detail-error"
+      retry-test-id="order-detail-retry"
+      @retry="loadOrder"
+    />
+    <MemberEmptyState
+      v-else-if="!order"
+      :message="$t('orders.empty')"
+      test-id="order-detail-empty"
+      :cta-label="$t('orders.back')"
+      :cta-to="localePath('/app/orders')"
+      cta-test-id="order-detail-back-list"
+    />
     <div
-      v-if="refundRejectedBanner"
-      class="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5"
-      data-testid="order-refund-rejected-banner"
+      v-else
+      class="space-y-6"
+      data-testid="order-detail"
     >
-      <p class="font-semibold text-highlighted">
-        {{ $t('orders.refundRejectedTitle') }}
-      </p>
-      <p class="mt-2 text-sm text-highlighted">
-        {{ $t('orders.refundRejectedReasonLabel') }}{{ order.refundRejectionReason || order.refundRejectReason || '—' }}
-      </p>
-      <p class="mt-2 text-sm text-muted">
-        {{ $t('orders.refundRejectedNoRetry') }}
-      </p>
-    </div>
-
-    <section
-      v-if="!order.hasExpertBookingLine && !order.expertBooking"
-      class="rounded-2xl border border-default bg-elevated p-5"
-      data-testid="order-package-items"
-    >
-      <h2 class="text-sm font-semibold text-muted">
-        {{ $t('orders.sectionItems') }}
-      </h2>
-      <div
-        v-if="planDisplayName"
-        class="mt-3"
-        data-testid="order-plan-header"
-      >
-        <span
-          class="app-badge"
-          :class="order.hasExpertPlanLine ? 'app-badge-demo' : 'app-badge-pending'"
-          data-testid="order-plan-label"
+      <div>
+        <NuxtLink
+          :to="localePath('/app/orders')"
+          class="inline-flex items-center gap-1 text-sm font-medium text-primary"
+          data-testid="order-detail-back"
         >
-          {{ order.hasExpertPlanLine ? $t('orders.planLabelExpert') : $t('orders.planLabelAi') }}
-        </span>
-        <div class="mt-2 flex items-start justify-between gap-3">
-          <p
-            class="min-w-0 flex-1 break-words text-base font-semibold text-highlighted"
-            data-testid="order-plan-name"
+          {{ $t('orders.back') }}
+        </NuxtLink>
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <h1
+            class="text-2xl font-semibold text-highlighted"
+            data-testid="order-number"
           >
-            {{ planDisplayName }}
-          </p>
-          <p
+            {{ $t('orders.detailTitle', { number: order.number }) }}
+          </h1>
+          <OrdersStatusPill :order="order" />
+          <span
+            v-if="usingDemo"
+            class="app-badge app-badge-demo"
+            data-testid="orders-sample-badge"
+          >
+            {{ $t('orders.sampleData') }}
+          </span>
+        </div>
+      </div>
+
+      <div
+        v-if="expertProcessingBanner"
+        class="rounded-2xl border border-primary/30 bg-primary/5 p-5"
+        data-testid="order-expert-processing-banner"
+      >
+        <p class="font-semibold text-highlighted">
+          {{ $t('orders.expert_processing.title') }}
+        </p>
+        <p class="mt-1 text-sm text-muted">
+          {{ $t('orders.expert_processing.body') }}
+        </p>
+      </div>
+
+      <ExpertBookingOrderSection
+        v-if="order.expertBooking || order.hasExpertBookingLine"
+        :booking="order.expertBooking || fallbackExpertBooking"
+        :amount="order.amount"
+      />
+
+      <div
+        v-if="refundRejectedBanner"
+        class="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5"
+        data-testid="order-refund-rejected-banner"
+      >
+        <p class="font-semibold text-highlighted">
+          {{ $t('orders.refundRejectedTitle') }}
+        </p>
+        <p class="mt-2 text-sm text-highlighted">
+          {{ $t('orders.refundRejectedReasonLabel') }}{{ order.refundRejectionReason || order.refundRejectReason || '—' }}
+        </p>
+        <p class="mt-2 text-sm text-muted">
+          {{ $t('orders.refundRejectedNoRetry') }}
+        </p>
+      </div>
+
+      <section
+        v-if="!order.hasExpertBookingLine && !order.expertBooking"
+        class="rounded-2xl border border-default bg-elevated p-5"
+        data-testid="order-package-items"
+      >
+        <h2 class="text-sm font-semibold text-muted">
+          {{ $t('orders.sectionItems') }}
+        </h2>
+        <div
+          v-if="planDisplayName"
+          class="mt-3"
+          data-testid="order-plan-header"
+        >
+          <span
+            class="app-badge"
+            :class="order.hasExpertPlanLine ? 'app-badge-demo' : 'app-badge-pending'"
+            data-testid="order-plan-label"
+          >
+            {{ order.hasExpertPlanLine ? $t('orders.planLabelExpert') : $t('orders.planLabelAi') }}
+          </span>
+          <div class="mt-2 flex items-start justify-between gap-3">
+            <p
+              class="min-w-0 flex-1 break-words text-base font-semibold text-highlighted"
+              data-testid="order-plan-name"
+            >
+              {{ planDisplayName }}
+            </p>
+            <p
+              class="shrink-0 text-base font-semibold tabular-nums text-primary"
+              data-testid="order-plan-price"
+            >
+              {{ formatTwd(packageDisplayAmount) }}
+            </p>
+          </div>
+        </div>
+        <ul
+          v-if="orderItems.length"
+          class="mt-3 space-y-3"
+        >
+          <li
+            v-for="item in orderItems"
+            :key="item.code"
+            class="flex items-start gap-3"
+            :data-testid="`order-item-${item.code}`"
+          >
+            <span class="min-w-0 font-medium text-highlighted">
+              {{ item.name }}
+            </span>
+          </li>
+        </ul>
+        <div
+          v-if="!planDisplayName && orderItems.length"
+          class="mt-3 flex items-start justify-end"
+        >
+          <span
             class="shrink-0 text-base font-semibold tabular-nums text-primary"
             data-testid="order-plan-price"
           >
             {{ formatTwd(packageDisplayAmount) }}
-          </p>
-        </div>
-      </div>
-      <ul
-        v-if="orderItems.length"
-        class="mt-3 space-y-3"
-      >
-        <li
-          v-for="item in orderItems"
-          :key="item.code"
-          class="flex items-start gap-3"
-          :data-testid="`order-item-${item.code}`"
-        >
-          <span class="min-w-0 font-medium text-highlighted">
-            {{ item.name }}
           </span>
-        </li>
-      </ul>
-      <div
-        v-if="!planDisplayName && orderItems.length"
-        class="mt-3 flex items-start justify-end"
-      >
-        <span
-          class="shrink-0 text-base font-semibold tabular-nums text-primary"
-          data-testid="order-plan-price"
+        </div>
+        <div
+          v-else-if="!planDisplayName"
+          class="mt-3 flex items-start justify-between gap-3"
         >
-          {{ formatTwd(packageDisplayAmount) }}
-        </span>
-      </div>
-      <div
-        v-else-if="!planDisplayName"
-        class="mt-3 flex items-start justify-between gap-3"
-      >
-        <span class="font-medium text-highlighted">
-          {{ orderProductSummary(order) || $t('orders.itemsEmpty') }}
-        </span>
-        <span
-          class="shrink-0 text-base font-semibold tabular-nums text-primary"
-          data-testid="order-plan-price"
-        >
-          {{ formatTwd(packageDisplayAmount) }}
-        </span>
-      </div>
-    </section>
+          <span class="font-medium text-highlighted">
+            {{ orderProductSummary(order) || $t('orders.itemsEmpty') }}
+          </span>
+          <span
+            class="shrink-0 text-base font-semibold tabular-nums text-primary"
+            data-testid="order-plan-price"
+          >
+            {{ formatTwd(packageDisplayAmount) }}
+          </span>
+        </div>
+      </section>
 
-    <section
-      v-if="bottleAddonRows.length > 0"
-      class="rounded-2xl border border-default bg-elevated p-5"
-      data-testid="order-bottle-addons"
-    >
-      <h2 class="text-sm font-semibold text-muted">
-        {{ $t('orders.sectionBottleAddons') }}
-      </h2>
-      <ul class="mt-3 space-y-3">
-        <li
-          v-for="addon in bottleAddonRows"
-          :key="addon.code"
-          class="flex items-start justify-between gap-3"
-          :data-testid="`order-bottle-addon-${addon.code}`"
-        >
-          <span class="min-w-0">
-            <span class="block font-medium text-highlighted">
-              {{ addon.name }}
+      <section
+        v-if="bottleAddonRows.length > 0"
+        class="rounded-2xl border border-default bg-elevated p-5"
+        data-testid="order-bottle-addons"
+      >
+        <h2 class="text-sm font-semibold text-muted">
+          {{ $t('orders.sectionBottleAddons') }}
+        </h2>
+        <ul class="mt-3 space-y-3">
+          <li
+            v-for="addon in bottleAddonRows"
+            :key="addon.code"
+            class="flex items-start justify-between gap-3"
+            :data-testid="`order-bottle-addon-${addon.code}`"
+          >
+            <span class="min-w-0">
+              <span class="block font-medium text-highlighted">
+                {{ addon.name }}
+              </span>
+              <span class="mt-0.5 block text-xs text-muted">
+                {{ $t('orders.bottleAddonQty', { count: addon.qty }) }}
+              </span>
             </span>
-            <span class="mt-0.5 block text-xs text-muted">
-              {{ $t('orders.bottleAddonQty', { count: addon.qty }) }}
+            <span class="shrink-0 text-base font-semibold tabular-nums text-primary">
+              {{ formatTwd(addon.lineTotal) }}
             </span>
-          </span>
-          <span class="shrink-0 text-base font-semibold tabular-nums text-primary">
-            {{ formatTwd(addon.lineTotal) }}
-          </span>
-        </li>
-      </ul>
-      <p
-        class="mt-3 text-xs text-muted"
-        data-testid="order-refund-whole-order-note"
-      >
-        {{ $t('orders.refundWholeOrderNote') }}
-      </p>
-    </section>
-
-    <section
-      class="rounded-2xl border border-default bg-elevated p-5"
-      data-testid="order-payment-section"
-    >
-      <h2 class="text-sm font-semibold text-muted">
-        {{ $t('orders.sectionPayment') }}
-      </h2>
-      <div class="mt-3 flex flex-wrap items-start justify-between gap-3">
-        <div class="min-w-0">
-          <p
-            class="text-highlighted"
-            data-testid="order-payment-status"
-          >
-            {{ paymentProviderLabel }} / {{ paymentStatusLabel }}
-          </p>
-          <p
-            v-if="refundExtraLine"
-            class="mt-1 text-sm font-medium text-highlighted"
-            data-testid="order-refund-status-line"
-          >
-            {{ refundExtraLine }}
-          </p>
-        </div>
-        <p class="text-base font-semibold tabular-nums text-highlighted">
-          {{ formatTwd(order.amount) }}
-        </p>
-      </div>
-
-      <div
-        v-if="showRepay || showCancel || refundUi.showButton || showViewFinalPlan"
-        class="mt-5 flex flex-col gap-2"
-      >
-        <div class="flex flex-wrap items-center gap-3">
-          <AppButton
-            v-if="showRepay"
-            data-testid="order-repay"
-            :disabled="actionPending"
-            @click="onRepay"
-          >
-            {{ $t('orders.repay') }}
-          </AppButton>
-          <AppButton
-            v-if="showCancel && !cancelOpen"
-            variant="outline"
-            data-testid="order-cancel"
-            :disabled="actionPending"
-            @click="cancelOpen = true"
-          >
-            {{ $t('orders.cancel') }}
-          </AppButton>
-          <AppButton
-            v-if="refundUi.showButton"
-            variant="outline"
-            data-testid="order-refund-request"
-            :disabled="actionPending || usingDemo || !refundUi.enabled"
-            @click="refundConfirmOpen = true"
-          >
-            {{ $t('orders.refundRequest') }}
-          </AppButton>
-          <AppButton
-            v-if="showViewFinalPlan"
-            variant="outline"
-            data-testid="order-view-final-plan"
-            @click="onViewFinalPlan"
-          >
-            {{ $t('orders.viewFinalPlan') }}
-          </AppButton>
-        </div>
+          </li>
+        </ul>
         <p
-          v-if="refundBlockHint"
-          class="text-sm text-muted"
-          data-testid="order-refund-block-hint"
+          class="mt-3 text-xs text-muted"
+          data-testid="order-refund-whole-order-note"
         >
-          {{ refundBlockHint }}
+          {{ $t('orders.refundWholeOrderNote') }}
         </p>
-        <p
-          v-if="refundActionError"
-          class="text-sm text-red-600 dark:text-red-400"
-          data-testid="order-refund-action-error"
-        >
-          {{ refundActionError }}
-        </p>
-      </div>
-      <div
-        v-if="cancelOpen"
-        class="mt-4 rounded-xl border border-default bg-default p-4"
-        data-testid="order-cancel-panel"
-      >
-        <p class="text-sm font-medium text-highlighted">
-          {{ $t('orders.cancelTitle') }}
-        </p>
-        <p class="mt-1 text-sm text-muted">
-          {{ $t('orders.cancelHint') }}
-        </p>
-        <textarea
-          v-model="cancelReason"
-          class="mt-3 w-full rounded-lg border border-default bg-elevated px-3 py-2 text-sm"
-          rows="2"
-          :placeholder="$t('orders.cancelReasonPlaceholder')"
-          data-testid="order-cancel-reason"
-        />
-        <div class="mt-3 flex flex-wrap gap-2">
-          <AppButton
-            data-testid="order-cancel-confirm"
-            :disabled="actionPending"
-            @click="onCancelConfirm"
-          >
-            {{ $t('orders.cancelConfirm') }}
-          </AppButton>
-          <AppButton
-            variant="ghost"
-            :disabled="actionPending"
-            @click="cancelOpen = false; cancelReason = ''; actionError = ''"
-          >
-            {{ $t('orders.cancelDismiss') }}
-          </AppButton>
-        </div>
-      </div>
-      <p
-        v-if="actionError"
-        class="mt-3 text-sm text-red-600 dark:text-red-400"
-        data-testid="order-action-error"
-      >
-        {{ actionError }}
-      </p>
-    </section>
+      </section>
 
-    <section
-      class="rounded-2xl border border-default bg-elevated p-5"
-      data-testid="order-invoice-section"
-    >
-      <h2 class="text-sm font-semibold text-muted">
-        {{ $t('orders.sectionInvoice') }}
-      </h2>
-      <p class="mt-3 text-highlighted">
-        {{ invoiceSummary }}
-      </p>
-      <p
-        v-if="order.invoiceNumber"
-        class="mt-1 text-sm tabular-nums text-muted"
+      <section
+        class="rounded-2xl border border-default bg-elevated p-5"
+        data-testid="order-payment-section"
       >
-        {{ $t('orders.invoiceNumber') }}：{{ order.invoiceNumber }}
-      </p>
-    </section>
-
-    <section
-      class="rounded-2xl border border-default bg-elevated p-5"
-      data-testid="order-shipping-section"
-    >
-      <h2 class="text-sm font-semibold text-muted">
-        {{ $t('orders.sectionShipping') }}
-      </h2>
-      <dl class="mt-3 space-y-2 text-sm">
-        <div>
-          <dt class="inline text-muted">
-            {{ $t('orders.recipient') }}：
-          </dt>
-          <dd class="inline text-highlighted">
-            {{ order.recipient.name || '—' }}
-          </dd>
-        </div>
-        <div>
-          <dt class="inline text-muted">
-            {{ $t('orders.address') }}：
-          </dt>
-          <dd class="inline text-highlighted">
-            {{ order.recipient.address || '—' }}
-          </dd>
-        </div>
-        <div v-if="order.trackingNumber">
-          <dt class="inline text-muted">
-            {{ $t('orders.trackingNumber') }}：
-          </dt>
-          <dd class="inline">
-            <a
-              v-if="order.trackingUrl"
-              :href="order.trackingUrl"
-              class="inline-flex items-center gap-1 font-medium text-primary"
-              target="_blank"
-              rel="noopener noreferrer"
-              data-testid="order-tracking-link"
+        <h2 class="text-sm font-semibold text-muted">
+          {{ $t('orders.sectionPayment') }}
+        </h2>
+        <div class="mt-3 flex flex-wrap items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p
+              class="text-highlighted"
+              data-testid="order-payment-status"
             >
-              <span class="tabular-nums">{{ order.trackingNumber }}</span>
-              <UIcon
-                name="i-lucide-external-link"
-                class="size-3.5"
-                aria-hidden="true"
-              />
-            </a>
-            <span
-              v-else
-              class="tabular-nums text-highlighted"
-              data-testid="order-tracking-number"
+              {{ paymentProviderLabel }} / {{ paymentStatusLabel }}
+            </p>
+            <p
+              v-if="refundExtraLine"
+              class="mt-1 text-sm font-medium text-highlighted"
+              data-testid="order-refund-status-line"
             >
-              {{ order.trackingNumber }}
-            </span>
-          </dd>
-        </div>
-      </dl>
-    </section>
-
-    <AppButton
-      variant="outline"
-      data-testid="order-view-chat"
-      @click="chatOpen = true"
-    >
-      {{ $t('orders.viewChat') }}
-    </AppButton>
-
-    <OrderChatModal
-      :open="chatOpen"
-      :order-id="order.id"
-      :order-number="order.number"
-      @close="chatOpen = false"
-    />
-
-    <Teleport to="body">
-      <div
-        v-if="refundConfirmOpen"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-        data-testid="order-refund-confirm-modal"
-        role="dialog"
-        aria-modal="true"
-      >
-        <article class="w-full max-w-sm rounded-2xl border border-default bg-elevated p-5 shadow-xl">
-          <h2 class="text-lg font-semibold text-highlighted">
-            {{ $t('orders.refundConfirmTitle') }}
-          </h2>
-          <p class="mt-2 text-sm text-muted">
-            {{ $t('orders.refundConfirmBody') }}
+              {{ refundExtraLine }}
+            </p>
+          </div>
+          <p class="text-base font-semibold tabular-nums text-highlighted">
+            {{ formatTwd(order.amount) }}
           </p>
-          <div class="mt-6 flex flex-wrap gap-2">
+        </div>
+
+        <div
+          v-if="showRepay || showCancel || refundUi.showButton || showViewFinalPlan"
+          class="mt-5 flex flex-col gap-2"
+        >
+          <div class="flex flex-wrap items-center gap-3">
             <AppButton
-              variant="ghost"
-              data-testid="order-refund-confirm-dismiss"
+              v-if="showRepay"
+              data-testid="order-repay"
               :disabled="actionPending"
-              @click="refundConfirmOpen = false"
+              @click="onRepay"
             >
-              {{ $t('orders.refundConfirmDismiss') }}
+              {{ $t('orders.repay') }}
             </AppButton>
             <AppButton
-              data-testid="order-refund-confirm-submit"
+              v-if="showCancel && !cancelOpen"
+              variant="outline"
+              data-testid="order-cancel"
               :disabled="actionPending"
-              @click="onRefundConfirm"
+              @click="cancelOpen = true"
             >
-              {{ $t('orders.refundConfirmSubmit') }}
+              {{ $t('orders.cancel') }}
+            </AppButton>
+            <AppButton
+              v-if="refundUi.showButton"
+              variant="outline"
+              data-testid="order-refund-request"
+              :disabled="actionPending || usingDemo || !refundUi.enabled"
+              @click="refundConfirmOpen = true"
+            >
+              {{ $t('orders.refundRequest') }}
+            </AppButton>
+            <AppButton
+              v-if="showViewFinalPlan"
+              variant="outline"
+              data-testid="order-view-final-plan"
+              @click="onViewFinalPlan"
+            >
+              {{ $t('orders.viewFinalPlan') }}
             </AppButton>
           </div>
-        </article>
-      </div>
-    </Teleport>
-  </div>
+          <p
+            v-if="refundBlockHint"
+            class="text-sm text-muted"
+            data-testid="order-refund-block-hint"
+          >
+            {{ refundBlockHint }}
+          </p>
+          <p
+            v-if="refundActionError"
+            class="text-sm text-red-600 dark:text-red-400"
+            data-testid="order-refund-action-error"
+          >
+            {{ refundActionError }}
+          </p>
+        </div>
+        <div
+          v-if="cancelOpen"
+          class="mt-4 rounded-xl border border-default bg-default p-4"
+          data-testid="order-cancel-panel"
+        >
+          <p class="text-sm font-medium text-highlighted">
+            {{ $t('orders.cancelTitle') }}
+          </p>
+          <p class="mt-1 text-sm text-muted">
+            {{ $t('orders.cancelHint') }}
+          </p>
+          <textarea
+            v-model="cancelReason"
+            class="mt-3 w-full rounded-lg border border-default bg-elevated px-3 py-2 text-sm"
+            rows="2"
+            :placeholder="$t('orders.cancelReasonPlaceholder')"
+            data-testid="order-cancel-reason"
+          />
+          <div class="mt-3 flex flex-wrap gap-2">
+            <AppButton
+              data-testid="order-cancel-confirm"
+              :disabled="actionPending"
+              @click="onCancelConfirm"
+            >
+              {{ $t('orders.cancelConfirm') }}
+            </AppButton>
+            <AppButton
+              variant="ghost"
+              :disabled="actionPending"
+              @click="cancelOpen = false; cancelReason = ''; actionError = ''"
+            >
+              {{ $t('orders.cancelDismiss') }}
+            </AppButton>
+          </div>
+        </div>
+        <p
+          v-if="actionError"
+          class="mt-3 text-sm text-red-600 dark:text-red-400"
+          data-testid="order-action-error"
+        >
+          {{ actionError }}
+        </p>
+      </section>
+
+      <section
+        class="rounded-2xl border border-default bg-elevated p-5"
+        data-testid="order-invoice-section"
+      >
+        <h2 class="text-sm font-semibold text-muted">
+          {{ $t('orders.sectionInvoice') }}
+        </h2>
+        <p class="mt-3 text-highlighted">
+          {{ invoiceSummary }}
+        </p>
+        <p
+          v-if="order.invoiceNumber"
+          class="mt-1 text-sm tabular-nums text-muted"
+        >
+          {{ $t('orders.invoiceNumber') }}：{{ order.invoiceNumber }}
+        </p>
+      </section>
+
+      <section
+        class="rounded-2xl border border-default bg-elevated p-5"
+        data-testid="order-shipping-section"
+      >
+        <h2 class="text-sm font-semibold text-muted">
+          {{ $t('orders.sectionShipping') }}
+        </h2>
+        <dl class="mt-3 space-y-2 text-sm">
+          <div>
+            <dt class="inline text-muted">
+              {{ $t('orders.recipient') }}：
+            </dt>
+            <dd class="inline text-highlighted">
+              {{ order.recipient.name || '—' }}
+            </dd>
+          </div>
+          <div>
+            <dt class="inline text-muted">
+              {{ $t('orders.address') }}：
+            </dt>
+            <dd class="inline text-highlighted">
+              {{ order.recipient.address || '—' }}
+            </dd>
+          </div>
+          <div v-if="order.trackingNumber">
+            <dt class="inline text-muted">
+              {{ $t('orders.trackingNumber') }}：
+            </dt>
+            <dd class="inline">
+              <a
+                v-if="order.trackingUrl"
+                :href="order.trackingUrl"
+                class="inline-flex items-center gap-1 font-medium text-primary"
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="order-tracking-link"
+              >
+                <span class="tabular-nums">{{ order.trackingNumber }}</span>
+                <UIcon
+                  name="i-lucide-external-link"
+                  class="size-3.5"
+                  aria-hidden="true"
+                />
+              </a>
+              <span
+                v-else
+                class="tabular-nums text-highlighted"
+                data-testid="order-tracking-number"
+              >
+                {{ order.trackingNumber }}
+              </span>
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <AppButton
+        variant="outline"
+        data-testid="order-view-chat"
+        @click="chatOpen = true"
+      >
+        {{ $t('orders.viewChat') }}
+      </AppButton>
+
+      <OrderChatModal
+        :open="chatOpen"
+        :order-id="order.id"
+        :order-number="order.number"
+        @close="chatOpen = false"
+      />
+
+      <Teleport to="body">
+        <div
+          v-if="refundConfirmOpen"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          data-testid="order-refund-confirm-modal"
+          role="dialog"
+          aria-modal="true"
+        >
+          <article class="w-full max-w-sm rounded-2xl border border-default bg-elevated p-5 shadow-xl">
+            <h2 class="text-lg font-semibold text-highlighted">
+              {{ $t('orders.refundConfirmTitle') }}
+            </h2>
+            <p class="mt-2 text-sm text-muted">
+              {{ $t('orders.refundConfirmBody') }}
+            </p>
+            <div class="mt-6 flex flex-wrap gap-2">
+              <AppButton
+                variant="ghost"
+                data-testid="order-refund-confirm-dismiss"
+                :disabled="actionPending"
+                @click="refundConfirmOpen = false"
+              >
+                {{ $t('orders.refundConfirmDismiss') }}
+              </AppButton>
+              <AppButton
+                data-testid="order-refund-confirm-submit"
+                :disabled="actionPending"
+                @click="onRefundConfirm"
+              >
+                {{ $t('orders.refundConfirmSubmit') }}
+              </AppButton>
+            </div>
+          </article>
+        </div>
+      </Teleport>
+    </div>
+  </MemberAuthShell>
 </template>
 
 <script setup lang="ts">
@@ -502,7 +505,7 @@ const actionPending = ref(false)
 const actionError = ref('')
 const refundActionError = ref('')
 const refundConfirmOpen = ref(false)
-const { memberGateLocked: gateLocked, sync: syncGate } = useAuthClientSync()
+const { sync: syncGate } = useAuthClientSync()
 
 const planDisplayName = computed(() =>
   normalizePlanDisplayName(order.value?.packageName) ?? ''
