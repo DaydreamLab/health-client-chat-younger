@@ -1756,9 +1756,24 @@ async function maybeSaveDefaultAddress(
   }
 }
 
+/** True after first mount sync — ignores middleware false→true before onMounted (avoids double preview). */
+const checkoutMountReady = ref(false)
+
 onMounted(async () => {
   await syncAuth()
+  // Soft-nav / cold-open member: load here. Guest→member during sync also lands here.
   await loadCheckoutPreview()
+  checkoutMountReady.value = true
+})
+
+/** In-page AuthLoginForm stay: guest → member must reload preview (onMounted will not re-run). */
+watch(() => auth.isMember, async (isMember, wasMember) => {
+  if (!checkoutMountReady.value) {
+    return
+  }
+  if (isMember && wasMember === false) {
+    await loadCheckoutPreview()
+  }
 })
 
 watch(
@@ -1768,7 +1783,9 @@ watch(
     journey.conversationId
   ] as const,
   async (next, prev) => {
-    if (!prev) {
+    // Array source always has a prev after dep collection — gate on mountReady
+    // so cold-open route／journey settle does not double-fetch with onMounted.
+    if (!checkoutMountReady.value || !prev) {
       return
     }
     if (next[0] === prev[0] && next[1] === prev[1] && next[2] === prev[2]) {
@@ -1779,7 +1796,7 @@ watch(
 )
 
 watch(selectedBottleAddonCodes, async (codes) => {
-  if (skipAddonSelectionWatch.value || isExpertPlan.value) {
+  if (!checkoutMountReady.value || skipAddonSelectionWatch.value || isExpertPlan.value) {
     return
   }
   // May cancel or restore codes from the first-selected catalog — not add outside it.

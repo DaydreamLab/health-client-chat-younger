@@ -47,4 +47,20 @@ describe('member auth shell on gated pages', () => {
     expect(source).not.toMatch(/MemberAuthGate/)
     expect(source).not.toMatch(/auth\.ready\s*&&\s*!auth\.isMember/)
   })
+
+  it('checkout and confirm reload member data when isMember becomes true', () => {
+    const checkout = readFileSync(resolve('app/pages/app/checkout.vue'), 'utf8')
+    const confirm = readFileSync(
+      resolve('app/pages/expert-booking/confirm.vue'),
+      'utf8'
+    )
+    expect(checkout).toMatch(/watch\(\(\) => auth\.isMember/)
+    expect(checkout).toMatch(/loadCheckoutPreview/)
+    expect(checkout).toMatch(/wasMember === false/)
+    expect(checkout).toMatch(/checkoutMountReady/)
+    expect(confirm).toMatch(/watch\(\(\) => auth\.isMember/)
+    expect(confirm).toMatch(/refreshProduct/)
+    expect(confirm).toMatch(/wasMember === false/)
+    expect(confirm).toMatch(/confirmMountReady/)
+  })
 })
