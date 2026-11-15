@@ -384,6 +384,186 @@ describe('orderMessagesToChatMessages / order transcript CTAs', () => {
     expect(visibility.choices.find(c => c.code === 'c')?.status).toBe('disabled')
   })
 
+  /**
+   * Beta ORD-261115 shape: multi＋confirm with selected_codes only (no confirm_status).
+   * Order transcript and /chat history must both paint confirm as selected.
+   */
+  const historicalMultiNoConfirmStatus = {
+    schema_version: '0.1',
+    source: 'rule',
+    adaptor: 'fake',
+    degraded: false,
+    error: null,
+    interaction: {
+      round_status: 'historical',
+      outcome: 'option_selected'
+    },
+    actions: [{
+      type: 'choose_option',
+      payload: {
+        kind: 'consultation_goals',
+        mode: 'multi',
+        confirm: true,
+        answer_type: 'multi_enum',
+        options: [
+          { code: 'sleep', label: '睡眠', status: 'selected' },
+          { code: 'weight_loss', label: '減重', status: 'disabled' },
+          { code: 'immune_boost', label: '免疫提升', status: 'disabled' },
+          { code: 'cognitive_function', label: '認知功能', status: 'disabled' },
+          { code: 'gastrointestinal', label: '腸胃道', status: 'disabled' }
+        ],
+        selected: ['sleep']
+      }
+    }]
+  }
+
+  const historicalSingleLab = {
+    schema_version: '0.1',
+    source: 'rule',
+    adaptor: 'fake',
+    degraded: false,
+    error: null,
+    interaction: {
+      round_status: 'historical',
+      outcome: 'option_selected'
+    },
+    actions: [{
+      type: 'choose_option',
+      payload: {
+        kind: 'lab_report',
+        mode: 'single',
+        confirm: false,
+        options: [
+          { code: 'within_6m', label: '半年內', status: 'disabled' },
+          { code: 'within_1y', label: '一年內', status: 'disabled' },
+          { code: 'none', label: '無', status: 'selected' }
+        ],
+        selected: ['none']
+      }
+    }, {
+      type: 'ask_report',
+      payload: {}
+    }]
+  }
+
+  const historicalVitals = {
+    schema_version: '0.1',
+    source: 'rule',
+    adaptor: 'fake',
+    degraded: false,
+    error: null,
+    interaction: {
+      round_status: 'historical',
+      outcome: 'option_selected'
+    },
+    actions: [{
+      type: 'ask_vitals',
+      payload: {
+        fields: ['age'],
+        gap_code: 'age',
+        has_stored_value: true,
+        stored_value: 35
+        // status omitted — hydrate should stamp selected
+      }
+    }]
+  }
+
+  it('order＋/chat history: multi without confirm_status → confirm selected', () => {
+    const orderMapped = orderMessagesToChatMessages([
+      {
+        id: 'om-goals',
+        role: 'assistant',
+        content: '優先改善方向？',
+        reply_actions: historicalMultiNoConfirmStatus
+      },
+      { id: 'om-user-goals', role: 'user', content: '睡眠' }
+    ])
+    const orderVis = buildOrderTranscriptTurnActions(orderMapped[0]!, orderMapped)
+    expect(orderVis.confirmStatus).toBe('selected')
+    expect(orderVis.showConfirm).toBe(true)
+    expect(orderVis.choices.find(c => c.code === 'sleep')?.status).toBe('selected')
+    expect(orderVis.choices.find(c => c.code === 'weight_loss')?.status).toBe('disabled')
+
+    const chatMapped = historyMessageToChatMessage(parseHistoryMessage({
+      id: 'chat-goals',
+      role: 'assistant',
+      content: '優先改善方向？',
+      reply_actions: historicalMultiNoConfirmStatus
+    })!)
+    const chatVis = buildTurnActionsVisibility({
+      message: chatMapped,
+      ctx: {
+        readonlyMode: false,
+        escalated: false,
+        pending: false,
+        goalSelectActive: false,
+        reportAskActive: false,
+        hasReportAnalysis: false,
+        reportRetry: false,
+        checkupLinkReady: true,
+        lastAssistantId: 'later',
+        conversationPath: 'B'
+      },
+      goalOptions: [],
+      needsMultiConfirm: true
+    })
+    expect(chatVis.confirmStatus).toBe('selected')
+    expect(chatVis.showConfirm).toBe(true)
+    expect(chatVis.choices.find(c => c.code === 'sleep')?.status).toBe('selected')
+  })
+
+  it('CTA parity: single／vitals／upload align on order transcript and /chat history', () => {
+    const singleOrder = orderMessagesToChatMessages([
+      { id: 's1', role: 'assistant', content: '血檢？', reply_actions: historicalSingleLab },
+      { id: 's2', role: 'user', content: '無' }
+    ])
+    const singleOrderVis = buildOrderTranscriptTurnActions(singleOrder[0]!, singleOrder)
+    expect(singleOrderVis.showConfirm).toBe(false)
+    expect(singleOrderVis.choices.find(c => c.code === 'none')?.status).toBe('selected')
+    expect(singleOrderVis.choices.find(c => c.code === 'within_6m')?.status).toBe('disabled')
+    expect(singleOrderVis.showUpload).toBe(true)
+
+    const singleChat = historyMessageToChatMessage(parseHistoryMessage({
+      id: 's1',
+      role: 'assistant',
+      content: '血檢？',
+      reply_actions: historicalSingleLab
+    })!)
+    const singleChatVis = buildTurnActionsVisibility({
+      message: singleChat,
+      ctx: baseCtx({ lastAssistantId: 'later', conversationPath: 'B' }),
+      goalOptions: [],
+      needsMultiConfirm: false
+    })
+    expect(singleChatVis.showConfirm).toBe(false)
+    expect(singleChatVis.choices.find(c => c.code === 'none')?.status).toBe('selected')
+    expect(singleChatVis.showUpload).toBe(true)
+
+    const vitalsOrder = orderMessagesToChatMessages([
+      { id: 'v1', role: 'assistant', content: '年紀？', reply_actions: historicalVitals },
+      { id: 'v2', role: 'user', content: '35' }
+    ])
+    const vitalsOrderVis = buildOrderTranscriptTurnActions(vitalsOrder[0]!, vitalsOrder)
+    expect(vitalsOrderVis.vitalsStatus).toBe('selected')
+    expect(vitalsOrderVis.vitalsHasStoredValue).toBe(true)
+    expect(vitalsOrderVis.vitalsStoredValue).toBe(35)
+
+    const vitalsChat = historyMessageToChatMessage(parseHistoryMessage({
+      id: 'v1',
+      role: 'assistant',
+      content: '年紀？',
+      reply_actions: historicalVitals
+    })!)
+    const vitalsChatVis = buildTurnActionsVisibility({
+      message: vitalsChat,
+      ctx: baseCtx({ lastAssistantId: 'later', conversationPath: 'B' }),
+      goalOptions: [],
+      needsMultiConfirm: false
+    })
+    expect(vitalsChatVis.vitalsStatus).toBe('selected')
+    expect(vitalsChatVis.vitalsStoredValue).toBe(35)
+  })
+
   it('omits reply_actions when API row has none (no invented CTAs)', () => {
     const mapped = orderMessagesToChatMessages([
       { id: 'plain', role: 'assistant', content: '純文字' }

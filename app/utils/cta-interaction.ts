@@ -253,6 +253,42 @@ export function vitalsDisplayFromReplyActions(ra: ReplyActions | null | undefine
 }
 
 /**
+ * History／order transcript hydrate: re-run the same design-B stamp as live settle.
+ *
+ * Core `cta_resolution` may only persist `selected_codes` (no `confirm_status`).
+ * GET messages then return historical RA with option statuses／`selected` but
+ * missing `confirm_status`, and projectGates falls back to disabled. Call this
+ * after parse so /chat reload and order transcript share one path.
+ */
+export function hydrateHistoricalReplyActions(message: ChatMessage): void {
+  const ra = message.replyActions
+  if (!ra || !Array.isArray(ra.actions) || ra.actions.length === 0) {
+    return
+  }
+  if (ra.interaction?.round_status !== 'historical') {
+    return
+  }
+  const outcome = ra.interaction.outcome
+  if (outcome !== 'option_selected' && outcome !== 'free_text') {
+    return
+  }
+  const selectedCodes = selectedCodesFromReplyActions(ra)
+  const vitalsInfo = vitalsDisplayFromReplyActions(ra)
+  const vitalsStored = vitalsInfo
+    && vitalsInfo.hasStoredValue
+    && vitalsInfo.storedValue != null
+    && Number.isFinite(vitalsInfo.storedValue)
+    ? { value: vitalsInfo.storedValue }
+    : null
+
+  resolveReplyActionsAsHistorical(message, {
+    outcome,
+    ...(outcome === 'option_selected' ? { selectedCodes } : {}),
+    vitalsStored
+  })
+}
+
+/**
  * Entry path_switch settle resolution (design B v3).
  * Chip tap → selected code + others grey; free-typed entry → all grey.
  */

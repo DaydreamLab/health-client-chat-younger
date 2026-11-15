@@ -3,6 +3,7 @@
  * Same CTA / dedupe rules as SSE `done` via message.replyActions → buildTurnActionsVisibility.
  */
 
+import { hydrateHistoricalReplyActions } from './cta-interaction'
 import type { ChatMessage, ChatMessageOption } from './first-order'
 import { chatMessageText } from './first-order'
 import { parseReplyActions } from './reply-actions'
@@ -168,6 +169,8 @@ export function historyMessageToChatMessage(row: ConversationHistoryMessage): Ch
   }
   if (replyActions) {
     message.replyActions = replyActions
+    // Same stamp as live settle — fills confirm_status when core only stored selected_codes.
+    hydrateHistoricalReplyActions(message)
   }
   return message
 }
@@ -253,6 +256,7 @@ export function normalizeStoredChatMessage(raw: unknown): ChatMessage | null {
   const replyActions = parseReplyActions(replyRaw)
   if (replyActions) {
     message.replyActions = replyActions
+    hydrateHistoricalReplyActions(message)
   }
   return message
 }
