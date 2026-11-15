@@ -65,13 +65,19 @@ test('EN home at 390px: promo titles fully visible and pace last line shown', as
 
   await page.getByTestId('home-trust').scrollIntoViewIfNeeded()
   await page.mouse.move(0, 0)
-  await page.evaluate(() => {
-    const el = document.querySelector('.app-trust-progress')
-    el?.dispatchEvent(new AnimationEvent('animationend', {
-      animationName: 'app-trust-progress',
-      bubbles: true
-    }))
-  })
+  for (let i = 0; i < 8; i++) {
+    const key = await page.getByTestId('home-trust-slide').getAttribute('data-trust-key')
+    if (key === 'pace') {
+      break
+    }
+    await page.evaluate(() => {
+      document.querySelector('.app-trust-progress')
+        ?.dispatchEvent(new AnimationEvent('animationend', {
+          animationName: 'app-trust-progress',
+          bubbles: true
+        }))
+    })
+  }
   await expect(page.getByTestId('home-trust-slide')).toHaveAttribute('data-trust-key', 'pace')
   const pace = page.getByTestId('home-trust-swatch')
   await expect(pace).toHaveAttribute('data-trust-frame', 'pace')

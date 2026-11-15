@@ -267,7 +267,7 @@
         :prev="{ color: 'neutral', variant: 'solid' }"
         :next="{ color: 'neutral', variant: 'solid' }"
         :ui="{
-          item: 'basis-full ps-0',
+          item: 'basis-full overflow-hidden ps-0',
           container: 'ms-0',
           prev: 'start-3 sm:start-4',
           next: 'end-3 sm:end-4',
