@@ -39,21 +39,30 @@ const photoObjectClass = computed(() => {
   <!--
     EN: below ~sm stack photo above copy so title/audience/detail stay fully
     visible at 360–430px; sm+ keeps side panel over the photo half.
+    Mobile photo is zoomed/clipped to the lifestyle half so baked Chinese
+    copy in the source JPG does not peek into the frame.
   -->
   <div
     v-else
     class="home-promo-en relative w-full overflow-hidden bg-white max-sm:flex max-sm:flex-col sm:aspect-[3840/1300]"
     data-testid="home-promo-slide"
   >
-    <img
-      :src="src"
-      alt=""
-      width="3840"
-      height="1300"
-      class="home-promo-en-photo pointer-events-none select-none max-sm:aspect-[16/10] max-sm:w-full max-sm:object-cover sm:absolute sm:inset-0 sm:size-full sm:object-cover"
-      :class="photoObjectClass"
-      aria-hidden="true"
+    <div
+      class="home-promo-en-photo-frame relative max-sm:aspect-[16/10] max-sm:w-full max-sm:overflow-hidden sm:absolute sm:inset-0 sm:size-full"
     >
+      <img
+        :src="src"
+        alt=""
+        width="3840"
+        height="1300"
+        class="home-promo-en-photo pointer-events-none select-none max-sm:absolute max-sm:top-1/2 max-sm:h-[132%] max-sm:w-auto max-sm:max-w-none max-sm:-translate-y-1/2 sm:size-full sm:object-cover"
+        :class="[
+          photoObjectClass,
+          textSide === 'right' ? 'max-sm:left-0' : 'max-sm:right-0'
+        ]"
+        aria-hidden="true"
+      >
+    </div>
     <div
       class="home-promo-en-copy z-10 flex flex-col justify-center gap-2 bg-white px-4 py-4 max-sm:relative max-sm:w-full sm:absolute sm:inset-y-0 sm:w-[54%] sm:gap-3 sm:px-5 sm:py-0 md:gap-4 md:px-10 lg:px-14"
       :class="textSide === 'right' ? 'sm:right-0' : 'sm:left-0'"
