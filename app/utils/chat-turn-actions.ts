@@ -561,6 +561,34 @@ function suppressGuidanceIfNeeded(
 }
 
 /**
+ * Order modal is paint-only + readonly. Core may still mark the open-head
+ * completion bubble as `interaction.round_status=current` when
+ * `cta_resolution` was never written (e.g.「查看推薦方案」only called
+ * recordCompletionChoice). Without forcing historical paint, that path hits
+ * `recommendSlotVisible` → `completionCtaJourneyAllows` (blocks on readonly)
+ * and drops `offer_recommend` while `continue_consultation` still shows.
+ */
+export function messageForOrderTranscriptPaint(message: ChatMessage): ChatMessage {
+  const replyActions = message.replyActions
+  if (!replyActions) {
+    return message
+  }
+  if (replyActions.interaction?.round_status === 'historical') {
+    return message
+  }
+  return {
+    ...message,
+    replyActions: {
+      ...replyActions,
+      interaction: {
+        round_status: 'historical',
+        outcome: replyActions.interaction?.outcome ?? 'free_text'
+      }
+    }
+  }
+}
+
+/**
  * Paint-only TurnActions for order transcript／readonly order chat.
  * Reuses the same replyActions → buildTurnActionsVisibility path as /chat,
  * then freezes every bubble (including the last) so CTAs stay selected／grey.
@@ -570,8 +598,9 @@ export function buildOrderTranscriptTurnActions(
   messages: readonly ChatMessage[]
 ): TurnActionsVisibility {
   const lastAssistantId = [...messages].reverse().find(row => row.role === 'assistant')?.id
+  const paintMessage = messageForOrderTranscriptPaint(message)
   const visibility = buildTurnActionsVisibility({
-    message,
+    message: paintMessage,
     ctx: {
       readonlyMode: true,
       escalated: false,
@@ -583,8 +612,8 @@ export function buildOrderTranscriptTurnActions(
       checkupLinkReady: true,
       lastAssistantId
     },
-    intake: message,
-    goalOptions: message.options ?? [],
+    intake: paintMessage,
+    goalOptions: paintMessage.options ?? [],
     needsMultiConfirm: true,
     expertReviewStatus: 'none'
   })
