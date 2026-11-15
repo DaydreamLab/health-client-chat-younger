@@ -808,6 +808,12 @@ export function offerRecommendPayload(action: ReplyAction): Partial<OfferRecomme
   }
 }
 
+/** Whole-action CTA paint status (offer_* / ask_report / …) from payload.status. */
+export function wholeActionControlStatus(action: ReplyAction): CtaControlStatus | null {
+  const p = isRecord(action.payload) ? action.payload : {}
+  return parseCtaControlStatus(p.status)
+}
+
 export function isViewRecommendationsOfferAction(action: ReplyAction): boolean {
   if (action.type !== 'offer_recommend') {
     return false
@@ -870,6 +876,8 @@ export interface ReplyActionsCtaProjection {
   vitalsHasStoredValue: boolean
   vitalsStoredValue: number | null
   confirmStatus: CtaControlStatus | null
+  /** offer_recommend payload.status (selected when core selected_action_types). */
+  viewRecommendStatus: CtaControlStatus | null
   roundStatus: ReplyActionsRoundStatus | null
   checkupUrlOverride: string | null
   /** offer_full_test payload.url when set; else OFFER_FULL_TEST_DEFAULT_URL. */
@@ -916,7 +924,8 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
 
   const chooseActions = actions.filter(a => a.type === 'choose_option')
   const askGoalAction = actions.find(a => a.type === 'ask_goal')
-  const hasRecommend = actions.some(isViewRecommendationsOfferAction)
+  const recommendAction = actions.find(isViewRecommendationsOfferAction)
+  const hasRecommend = Boolean(recommendAction)
   const hasReport = actions.some(a => a.type === 'ask_report')
   const vitalsAction = actions.find(a => a.type === 'ask_vitals')
   const checkupAction = actions.find(a => a.type === 'offer_checkup')
@@ -1054,6 +1063,10 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
     ?? (showConfirm && roundStatus === 'historical' ? 'disabled' : null)
   const vitalsStatus = vitals?.status
     ?? (vitals && roundStatus === 'historical' ? 'disabled' : null)
+  const viewRecommendStatus = recommendAction
+    ? (wholeActionControlStatus(recommendAction)
+      ?? (roundStatus === 'historical' ? 'disabled' : null))
+    : null
 
   return {
     flags: {
@@ -1079,6 +1092,7 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
     vitalsHasStoredValue: vitals?.has_stored_value === true,
     vitalsStoredValue: vitals?.stored_value ?? null,
     confirmStatus,
+    viewRecommendStatus,
     roundStatus,
     checkupUrlOverride: checkup?.url?.trim() || null,
     fullTestUrlOverride: fullTestUrl || (fullTestAction ? OFFER_FULL_TEST_DEFAULT_URL : null),

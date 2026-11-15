@@ -34,6 +34,8 @@ const props = defineProps<{
   showWantMoreTests: boolean
   wantMoreTestsUrl: string
   showViewRecommend: boolean
+  /** offer_recommend payload.status — selected when core selected_action_types. */
+  viewRecommendStatus?: CtaControlStatus | null
   showRetry: boolean
   /** Backend／caller label; empty → i18n chat.reportRetry. */
   retryLabel?: string | null
@@ -209,6 +211,33 @@ const primaryToneClass = computed(() =>
   secondaryCtaLocked.value ? 'turn-primary-cta is-disabled-tone' : 'turn-primary-cta'
 )
 
+/** Prefer per-action status so offer_recommend selected is not blanket-grey. */
+const resolvedViewRecommendStatus = computed(() =>
+  resolveOptionControlStatus(
+    props.viewRecommendStatus,
+    props.roundStatus,
+    { forceDisabled: forceDisabled.value }
+  )
+)
+
+const viewRecommendToneClass = computed(() => {
+  if (resolvedViewRecommendStatus.value === 'selected') {
+    return 'turn-primary-cta is-selected'
+  }
+  if (resolvedViewRecommendStatus.value === 'disabled'
+    || (resolvedViewRecommendStatus.value === 'current' && forceDisabled.value)
+    || secondaryCtaLocked.value) {
+    return 'turn-primary-cta is-disabled-tone'
+  }
+  return 'turn-primary-cta'
+})
+
+const viewRecommendLocked = computed(() =>
+  props.pending
+  || forceDisabled.value
+  || !isCtaControlInteractive(resolvedViewRecommendStatus.value)
+)
+
 function onVitalsFieldSubmit(value: number) {
   const field = activeVitalsField.value
   if (!field || props.vitalsDisabled || props.pending) {
@@ -321,10 +350,11 @@ const hasActions = computed(() =>
         </AppButton>
         <AppButton
           v-if="showViewRecommend"
-          :class="primaryToneClass"
+          :class="viewRecommendToneClass"
           data-testid="chat-view-recommend"
+          :data-cta-status="resolvedViewRecommendStatus"
           :data-flow="flow === 'standard' ? 'standard' : undefined"
-          :disabled="secondaryCtaLocked"
+          :disabled="viewRecommendLocked"
           @click="emit('recommend')"
         >
           {{ $t('chat.viewRecommend') }}
