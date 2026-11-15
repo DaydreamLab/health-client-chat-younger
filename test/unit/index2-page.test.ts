@@ -48,6 +48,16 @@ describe('/index2 homepage v2 contract', () => {
     expect(defaultLayout).toMatch(/socialInstagram/)
   })
 
+  it('shows a 30-day billing cycle and keeps plan cards aligned without extra description', () => {
+    expect(zh).toMatch(/"billingCycle": "／30 天份"/)
+    expect(en).toMatch(/"billingCycle": "\/ 30-day set"/)
+    expect(zh).not.toMatch(/homeV2[\s\S]*月付/)
+    expect(page).toMatch(/priceWrapper:\s*'flex flex-wrap items-baseline gap-1'/)
+    expect(page).toMatch(/billing:\s*'order-2 shrink-0'/)
+    expect(page).toMatch(/billingCycle:\s*'text-muted text-xs font-medium whitespace-nowrap'/)
+    expect(page).not.toMatch(/description:\s*t\('homeV2\.plans\.advisorDescription'\)/)
+  })
+
   it('prerenders /index2 and /en/index2', () => {
     expect(nuxtConfig).toMatch(/'\/index2'/)
     expect(nuxtConfig).toMatch(/'\/en\/index2'/)

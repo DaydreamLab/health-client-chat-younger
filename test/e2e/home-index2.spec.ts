@@ -26,6 +26,15 @@ test('index2 books Younger advisor, drops goals, sets noindex; home unchanged', 
   await expect(page.getByTestId('hero-cta-upload')).toHaveCount(0)
   await expect(page.getByTestId('package-advisor-booking')).toBeVisible()
   await expect(page.getByTestId('package-advisor-booking')).toHaveAttribute('href', /\/expert-booking\/?$/)
+  await expect(page.getByTestId('index2-pricing-plans')).not.toContainText('Younger 顧問一對一檢視你的健康資料')
+
+  await page.setViewportSize({ width: 1280, height: 900 })
+  const billing = page.locator('[data-testid="index2-pricing-plans"] [data-slot="billingCycle"]')
+  await expect(billing.first()).toBeVisible()
+  await expect(billing.first()).toHaveText(/／30 天份/)
+  const billingBox = await billing.first().boundingBox()
+  expect(billingBox?.width ?? 0).toBeGreaterThan(24)
+
   await expect(page.getByTestId('index2-disclaimer')).toContainText('不提供醫療診斷')
   await expect(page.getByTestId('index2-footer')).toBeVisible()
   await expect(page.getByText('service@candor.example')).toHaveCount(0)

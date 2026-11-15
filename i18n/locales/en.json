@@ -1110,7 +1110,7 @@
     "hero": {
       "eyebrow": "Your personal health advisor (not a doctor)",
       "title": "See your health clearly —\nchat, or upload a health report.",
-      "description": "Chat freely, answer a short health questionnaire, or upload a report for a free AI reading.\nLimited early-bird: project price **NT$4,500** (value **NT$6,000**) for a 30-day supplement set.\nFor a closer look, you can book a Younger advisor separately.",
+      "description": "Chat freely, answer a short health questionnaire, or upload a report for a free AI reading.\nLimited early-bird: project price **NT$4,500** (value **NT$6,000**)\nfor a 30-day supplement set.\nFor a closer look, you can book a Younger advisor separately.",
       "ctaChat": "Start consult",
       "ctaPlans": "See plans"
     },
@@ -1141,7 +1141,7 @@
       "feature2": "Core + addon supplements matched to your questionnaire and report",
       "feature3": "30-day set, shipped to you",
       "cta": "Start with this plan",
-      "advisorTitle": "Book a Younger advisor",
+      "advisorTitle": "Younger advisor",
       "advisorDescription": "A Younger advisor reviews your health data one-on-one",
       "advisorPrice": "From NT$6,000",
       "advisorBilling": "",

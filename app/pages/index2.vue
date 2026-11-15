@@ -380,9 +380,12 @@ const pricingPlans = computed<PricingPlanProps[]>(() => {
       ui: {
         featureTitle: 'whitespace-normal overflow-visible text-clip text-pretty',
         root: highlight ? 'ring-[3px]' : 'ring-2',
+        title: 'whitespace-normal text-pretty',
+        priceWrapper: 'flex flex-wrap items-baseline gap-1',
         price: 'order-1',
-        discount: 'order-2',
-        billing: 'order-3'
+        billing: 'order-2 shrink-0',
+        discount: 'order-3',
+        billingCycle: 'text-muted text-xs font-medium whitespace-nowrap'
       },
       badge: t('homeV2.plans.earlyBirdBadge'),
       highlight,
@@ -399,15 +402,17 @@ const pricingPlans = computed<PricingPlanProps[]>(() => {
   const advisorBilling = t('homeV2.plans.advisorBilling').trim()
   const advisorPlan: PricingPlanProps = {
     title: t('homeV2.plans.advisorTitle'),
-    description: t('homeV2.plans.advisorDescription'),
     price: t('homeV2.plans.advisorPrice'),
     billingCycle: advisorBilling || undefined,
     features: advisorFeatureKeys.map(key => t(`homeV2.plans.${key}`)),
     ui: {
       featureTitle: 'whitespace-normal overflow-visible text-clip text-pretty',
       root: 'ring-2',
+      title: 'whitespace-normal text-pretty',
+      priceWrapper: 'flex flex-wrap items-baseline gap-1',
       price: 'order-1',
-      billing: 'order-3'
+      billing: 'order-2 shrink-0',
+      billingCycle: 'text-muted text-xs font-medium whitespace-nowrap'
     },
     highlight: false,
     button: {
