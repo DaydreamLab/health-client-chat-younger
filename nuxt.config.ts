@@ -40,6 +40,11 @@ export default defineNuxtConfig({
       individualTestsUrl: process.env.NUXT_PUBLIC_INDIVIDUAL_TESTS_URL
         || 'https://www.younger.tw/collections/individual-tests',
       /**
+       * Support inbox（build-time）. Empty → hide the contact line entirely
+       * (no fallback address). Beta sets NUXT_PUBLIC_SUPPORT_EMAIL; prod omits.
+       */
+      supportEmail: process.env.NUXT_PUBLIC_SUPPORT_EMAIL || '',
+      /**
        * Conversation path contract (A／B／C). When true: entry three-choice,
        * completion CTA gates, upload→C, A turn guides. Set
        * NUXT_PUBLIC_PATH_CONTRACT=0 to disable without rebuild of defaults.

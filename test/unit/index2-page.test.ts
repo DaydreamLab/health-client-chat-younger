@@ -16,7 +16,7 @@ describe('/index2 homepage v2 contract', () => {
     expect(existsSync(resolve('app/layouts/index2.vue'))).toBe(true)
     expect(home).toMatch(/data-testid="home-goals"/)
     expect(home).toMatch(/你想先改善哪裡|homeGoals\.title/)
-    expect(defaultLayout).toMatch(/service@candor\.example|footer\.email/)
+    expect(defaultLayout).toMatch(/SupportEmailLink/)
   })
 
   it('books Younger advisor via /expert-booking and omits goals section', () => {
@@ -37,14 +37,15 @@ describe('/index2 homepage v2 contract', () => {
     expect(en).not.toMatch(/homeV2[\s\S]*specialist when you need one/)
   })
 
-  it('uses an index2-only footer without fake email or social icons', () => {
+  it('uses an index2-only footer with optional support email and without social icons', () => {
     expect(page).toMatch(/layout:\s*['"]index2['"]/)
     expect(layout).toMatch(/data-testid="index2-footer"/)
-    expect(layout).not.toMatch(/footer\.email/)
+    expect(layout).toMatch(/SupportEmailLink/)
+    expect(layout).toMatch(/showSupportEmail/)
     expect(layout).not.toMatch(/socialInstagram|socialFacebook|socialLine/)
     expect(layout).toMatch(/footer-explore-plans/)
     expect(layout).toMatch(/footer-support-orders/)
-    expect(defaultLayout).toMatch(/footer\.email/)
+    expect(defaultLayout).toMatch(/SupportEmailLink/)
     expect(defaultLayout).toMatch(/socialInstagram/)
   })
 
