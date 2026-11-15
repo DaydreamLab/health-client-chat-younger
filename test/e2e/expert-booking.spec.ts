@@ -266,16 +266,16 @@ test.describe('預約專家 F-01～F-08', () => {
     await expect(page.getByTestId('expert-booking-form-shell')).toBeVisible()
   })
 
-  test('F-02：未登入會員進 /expert-booking → 登入門檻', async ({ page, goto }) => {
+  test('F-02：未登入會員進 /expert-booking → 頁內登入表單', async ({ page, goto }) => {
     test.setTimeout(60_000)
     await mockCandorAuth(page, { asMember: false })
     await page.setViewportSize({ width: 390, height: 844 })
     await goto('/expert-booking', { waitUntil: 'hydration' })
 
-    await expect(page.getByTestId('expert-booking-auth-gate')).toBeVisible({ timeout: 15_000 })
-    const login = page.getByTestId('expert-booking-go-login')
-    await expect(login).toBeVisible()
-    await expect(login).toHaveAttribute('href', /\/login\?.*redirect=.*expert-booking/)
+    await expect(page.getByTestId('expert-booking-login')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('login-form')).toBeVisible()
+    await expect(page.getByTestId('expert-booking-auth-gate')).toHaveCount(0)
+    await expect(page.getByTestId('expert-booking-form-shell')).toHaveCount(0)
   })
 
   test('F-03／F-04／F-05：表單（含 LINE／附件）→ 確認 → 付款成功 → 訂單區塊', async ({ page, goto }) => {

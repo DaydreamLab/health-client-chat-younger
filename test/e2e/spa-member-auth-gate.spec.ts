@@ -1,5 +1,6 @@
 /**
  * Member surfaces: skeleton while ensureSession is in flight; no guest/login flash.
+ * Guest sees shared AuthLoginForm (stay); login keeps URL and shows page content.
  * Mock API only — no real model or prod backend.
  *
  * Run: pnpm generate && pnpm test:e2e:spa
@@ -38,41 +39,128 @@ const GUEST = {
   display_name: null
 }
 
+/** Pages that use MemberAuthShell (or checkout equivalent) with inline AuthLoginForm. */
 const PAGES = [
   {
     path: '/app/orders',
     skeleton: 'orders-auth-skeleton',
-    gate: 'orders-auth-gate',
+    login: 'orders-login',
     memberIds: ['orders-list', 'orders-empty'],
     shot: 'orders'
   },
   {
     path: '/app/me',
     skeleton: 'profile-auth-skeleton',
-    gate: 'profile-auth-gate',
+    login: 'profile-login',
     memberIds: ['profile-form'],
     shot: 'me'
   },
   {
     path: '/app/notifications',
     skeleton: 'notifications-auth-skeleton',
-    gate: 'notifications-auth-gate',
+    login: 'notifications-login',
     memberIds: ['notifications-empty', 'notifications-list'],
     shot: 'notifications'
   },
   {
     path: '/app',
     skeleton: 'app-skeleton',
-    gate: 'app-login',
+    login: 'app-login',
     memberIds: ['health-body'],
     shot: 'app'
   },
   {
+    path: '/app/checkout',
+    skeleton: 'checkout-auth-skeleton',
+    login: 'checkout-login',
+    // Default kind is expert_plan; without conversation member sees list error (not the guest login shell).
+    memberIds: ['expert-plans-error', 'checkout-conversation-missing'],
+    shot: 'checkout'
+  },
+  {
+    path: '/expert-booking',
+    skeleton: 'expert-booking-auth-skeleton',
+    login: 'expert-booking-login',
+    memberIds: ['expert-booking-form-shell'],
+    shot: 'expert-booking'
+  },
+  {
+    path: '/expert-booking/confirm',
+    skeleton: 'expert-booking-confirm-auth-skeleton',
+    login: 'expert-booking-confirm-login',
+    memberIds: ['expert-booking-confirm-empty'],
+    shot: 'expert-booking-confirm'
+  },
+  {
     path: '/en/app/orders',
     skeleton: 'orders-auth-skeleton',
-    gate: 'orders-auth-gate',
+    login: 'orders-login',
     memberIds: ['orders-list', 'orders-empty'],
     shot: 'en-orders'
+  },
+  {
+    path: '/en/app/me',
+    skeleton: 'profile-auth-skeleton',
+    login: 'profile-login',
+    memberIds: ['profile-form'],
+    shot: 'en-me'
+  }
+] as const
+
+/**
+ * CSR dynamic shells (`app/orders/_`): static HTML has no page skeleton.
+ * Client still mounts MemberAuthShell; skeleton flashes ~1 frame after auth
+ * middleware already awaited ensureSession — assert via flash probe (same
+ * strength as #89 flash.skeleton), not Playwright toBeVisible on skeleton.
+ */
+const DYNAMIC_ORDER_DETAIL_PAGES = [
+  {
+    path: '/app/orders/ord-spa-auth-1',
+    skeleton: 'order-detail-auth-skeleton',
+    login: 'order-detail-login',
+    memberIds: ['order-detail', 'order-detail-empty', 'order-detail-error', 'order-detail-loading'],
+    shot: 'order-detail'
+  },
+  {
+    path: '/en/app/orders/ord-spa-auth-1',
+    skeleton: 'order-detail-auth-skeleton',
+    login: 'order-detail-login',
+    memberIds: ['order-detail', 'order-detail-empty', 'order-detail-error', 'order-detail-loading'],
+    shot: 'en-order-detail'
+  }
+] as const
+
+/** Subset used for in-page login stay assertions (incl. /en). */
+const LOGIN_STAY_PAGES = [
+  {
+    path: '/app/orders',
+    login: 'orders-login',
+    memberIds: ['orders-list', 'orders-empty']
+  },
+  {
+    path: '/app/me',
+    login: 'profile-login',
+    memberIds: ['profile-form']
+  },
+  {
+    path: '/en/app/orders',
+    login: 'orders-login',
+    memberIds: ['orders-list', 'orders-empty']
+  },
+  {
+    path: '/en/app/me',
+    login: 'profile-login',
+    memberIds: ['profile-form']
+  },
+  {
+    path: '/app/orders/ord-spa-auth-1',
+    login: 'order-detail-login',
+    memberIds: ['order-detail', 'order-detail-empty', 'order-detail-error', 'order-detail-loading']
+  },
+  {
+    path: '/en/app/orders/ord-spa-auth-1',
+    login: 'order-detail-login',
+    memberIds: ['order-detail', 'order-detail-empty', 'order-detail-error', 'order-detail-loading']
   }
 ] as const
 
@@ -204,6 +292,25 @@ function listenApi(): Promise<{ server: Server, port: number }> {
       return
     }
 
+    if (url.pathname.includes('/expert-booking-product')) {
+      json(ok({
+        code: 'expert_booking',
+        name_zh: '專家諮詢',
+        name_en: 'Expert consult',
+        description: 'desc',
+        description_en: 'desc',
+        price: 6500,
+        currency: 'TWD',
+        active: true
+      }))
+      return
+    }
+
+    if (url.pathname.includes('/checkout/preview')) {
+      json(fail('conversation required', 'invalid_request'), 422)
+      return
+    }
+
     if (url.pathname.includes('/legal/privacy-policy')) {
       json(ok({ version: '2026-10-24', content_md: 'privacy' }))
       return
@@ -263,37 +370,40 @@ async function rewriteApi(page: Page, apiPort: number) {
 async function seedMember(page: Page) {
   await page.addInitScript(({ tokenKey, privacyKey }) => {
     localStorage.setItem(tokenKey, 'e2e-member-token')
-    localStorage.setItem(privacyKey, '1')
+    localStorage.setItem(privacyKey, '2026-10-24')
   }, { tokenKey: TOKEN_KEY, privacyKey: PRIVACY_KEY })
 }
 
 async function seedGuest(page: Page) {
   await page.addInitScript(({ tokenKey, privacyKey }) => {
     localStorage.setItem(tokenKey, 'e2e-guest-token')
-    localStorage.setItem(privacyKey, '1')
+    localStorage.setItem(privacyKey, '2026-10-24')
   }, { tokenKey: TOKEN_KEY, privacyKey: PRIVACY_KEY })
 }
 
 async function installFlashProbe(
   page: Page,
-  ids: { skeleton: string, gate: string, memberIds: readonly string[] }
+  ids: { skeleton: string, login: string, memberIds: readonly string[] }
 ) {
-  await page.addInitScript(({ skeleton, gate, memberIds }) => {
+  await page.addInitScript(({ skeleton, login, memberIds }) => {
     type Flash = {
       skeleton: boolean
-      gate: boolean
+      login: boolean
       member: boolean
     }
     const g = globalThis as typeof globalThis & { __memberAuthFlash?: Flash }
-    const flash: Flash = { skeleton: false, gate: false, member: false }
+    const flash: Flash = { skeleton: false, login: false, member: false }
     g.__memberAuthFlash = flash
 
     const tick = () => {
       if (document.querySelector(`[data-testid="${skeleton}"]`)) {
         flash.skeleton = true
       }
-      if (document.querySelector(`[data-testid="${gate}"]`)) {
-        flash.gate = true
+      if (
+        document.querySelector(`[data-testid="${login}"]`)
+        || document.querySelector('[data-testid="login-form"]')
+      ) {
+        flash.login = true
       }
       if (memberIds.some(id => document.querySelector(`[data-testid="${id}"]`))) {
         flash.member = true
@@ -321,7 +431,7 @@ async function readFlash(page: Page) {
     const g = globalThis as typeof globalThis & {
       __memberAuthFlash?: {
         skeleton: boolean
-        gate: boolean
+        login: boolean
         member: boolean
       }
     }
@@ -333,13 +443,35 @@ async function readFlash(page: Page) {
   })
 }
 
-async function assertStaticSkeleton(path: string, skeletonId: string, gateId: string) {
+async function assertStaticSkeleton(path: string, skeletonId: string, loginId: string) {
   const res = await fetch(`${ORIGIN}${path}`)
   expect(res.ok).toBeTruthy()
   const html = await res.text()
   expect(html).toMatch(new RegExp(skeletonId))
-  expect(html).not.toMatch(new RegExp(gateId))
+  expect(html).not.toMatch(new RegExp(loginId))
   expect(html).not.toMatch(/login-form/)
+}
+
+/** Dynamic CSR shells: no prerendered page skeleton; only assert no login UI leaked. */
+async function assertStaticNoLoginForm(path: string) {
+  const res = await fetch(`${ORIGIN}${path}`)
+  expect(res.ok).toBeTruthy()
+  const html = await res.text()
+  expect(html).not.toMatch(/login-form/)
+  expect(html).not.toMatch(/order-detail-login/)
+}
+
+function memberLocator(page: Page, ids: readonly string[]) {
+  let loc = page.getByTestId(ids[0]!)
+  for (const id of ids.slice(1)) {
+    loc = loc.or(page.getByTestId(id))
+  }
+  return loc.first()
+}
+
+function pathRegex(path: string) {
+  const escaped = path.replace(/\//g, '\\/')
+  return new RegExp(`${escaped}\\/?(\\?.*)?$`)
 }
 
 test.describe.serial('spa member auth gate', () => {
@@ -359,26 +491,17 @@ test.describe.serial('spa member auth gate', () => {
 
   for (const pageDef of PAGES) {
     test(`static HTML for ${pageDef.path} is skeleton only`, async () => {
-      await assertStaticSkeleton(pageDef.path, pageDef.skeleton, pageDef.gate)
+      await assertStaticSkeleton(pageDef.path, pageDef.skeleton, pageDef.login)
     })
   }
 
-  function memberLocator(page: Page, ids: readonly string[]) {
-    let loc = page.getByTestId(ids[0]!)
-    for (const id of ids.slice(1)) {
-      loc = loc.or(page.getByTestId(id))
-    }
-    // Empty + filters can both be present; first match is enough.
-    return loc.first()
-  }
-
   for (const pageDef of PAGES) {
-    test(`member direct-open ${pageDef.path}: skeleton → member, no gate flash`, async ({ page }) => {
+    test(`member direct-open ${pageDef.path}: skeleton → member, no login flash`, async ({ page }) => {
       await rewriteApi(page, api.port)
       await seedMember(page)
       await installFlashProbe(page, {
         skeleton: pageDef.skeleton,
-        gate: pageDef.gate,
+        login: pageDef.login,
         memberIds: pageDef.memberIds
       })
       await page.goto(`${ORIGIN}${pageDef.path}`, { waitUntil: 'domcontentloaded' })
@@ -388,11 +511,13 @@ test.describe.serial('spa member auth gate', () => {
         path: e2eArtifactPath(`auth-gate-after-${pageDef.shot}-mid.png`),
         fullPage: true
       })
-      await expect(page.getByTestId(pageDef.gate)).toHaveCount(0)
+      await expect(page.getByTestId(pageDef.login)).toHaveCount(0)
+      await expect(page.getByTestId('login-form')).toHaveCount(0)
 
       const settled = memberLocator(page, pageDef.memberIds)
       await expect(settled).toBeVisible({ timeout: 20_000 })
-      await expect(page.getByTestId(pageDef.gate)).toHaveCount(0)
+      await expect(page.getByTestId(pageDef.login)).toHaveCount(0)
+      await expect(page.getByTestId('login-form')).toHaveCount(0)
       await page.screenshot({
         path: e2eArtifactPath(`auth-gate-after-${pageDef.shot}-settled.png`),
         fullPage: true
@@ -400,11 +525,11 @@ test.describe.serial('spa member auth gate', () => {
 
       const flash = await readFlash(page)
       expect(flash.skeleton).toBe(true)
-      expect(flash.gate).toBe(false)
+      expect(flash.login).toBe(false)
       expect(flash.member).toBe(true)
     })
 
-    test(`member F5 on ${pageDef.path}: no gate flash`, async ({ page }) => {
+    test(`member F5 on ${pageDef.path}: no login flash`, async ({ page }) => {
       await rewriteApi(page, api.port)
       await seedMember(page)
       await page.goto(`${ORIGIN}${pageDef.path}`, { waitUntil: 'networkidle' })
@@ -413,28 +538,120 @@ test.describe.serial('spa member auth gate', () => {
 
       await installFlashProbe(page, {
         skeleton: pageDef.skeleton,
-        gate: pageDef.gate,
+        login: pageDef.login,
         memberIds: pageDef.memberIds
       })
       await page.reload({ waitUntil: 'domcontentloaded' })
-      await expect(page.getByTestId(pageDef.gate)).toHaveCount(0)
+      await expect(page.getByTestId(pageDef.login)).toHaveCount(0)
+      await expect(page.getByTestId('login-form')).toHaveCount(0)
       await expect(settled).toBeVisible({ timeout: 20_000 })
       const flash = await readFlash(page)
-      expect(flash.gate).toBe(false)
+      expect(flash.login).toBe(false)
     })
 
-    test(`guest direct-open ${pageDef.path}: skeleton → login gate`, async ({ page }) => {
+    test(`guest direct-open ${pageDef.path}: skeleton → login form`, async ({ page }) => {
       await rewriteApi(page, api.port)
       await seedGuest(page)
       await page.goto(`${ORIGIN}${pageDef.path}`, { waitUntil: 'domcontentloaded' })
       await expect(page.getByTestId(pageDef.skeleton)).toBeVisible({ timeout: 5_000 })
-      await expect(page.getByTestId(pageDef.gate)).toBeVisible({ timeout: 20_000 })
+      await expect(page.getByTestId(pageDef.login)).toBeVisible({ timeout: 20_000 })
+      await expect(page.getByTestId('login-form')).toBeVisible()
       for (const id of pageDef.memberIds) {
         if (id.endsWith('-loading')) {
           continue
         }
         await expect(page.getByTestId(id)).toHaveCount(0)
       }
+    })
+  }
+
+  for (const pageDef of LOGIN_STAY_PAGES) {
+    test(`guest in-page login on ${pageDef.path} stays and shows content`, async ({ page }) => {
+      await rewriteApi(page, api.port)
+      await seedGuest(page)
+      await page.goto(`${ORIGIN}${pageDef.path}`, { waitUntil: 'networkidle' })
+      await expect(page.getByTestId('login-form')).toBeVisible({ timeout: 20_000 })
+      await page.locator('input[type="email"]').fill('guest@example.com')
+      await page.locator('input[type="password"]').fill('password12345')
+      await page.getByTestId('login-form').locator('button[type="submit"]').click()
+      const settled = memberLocator(page, pageDef.memberIds)
+      await expect(settled).toBeVisible({ timeout: 20_000 })
+      await expect(page).toHaveURL(pathRegex(pageDef.path))
+      await expect(page.getByTestId(pageDef.login)).toHaveCount(0)
+      await expect(page.getByTestId('login-form')).toHaveCount(0)
+    })
+  }
+
+  for (const pageDef of DYNAMIC_ORDER_DETAIL_PAGES) {
+    test(`static HTML for ${pageDef.path} has no login-form`, async () => {
+      await assertStaticNoLoginForm(pageDef.path)
+    })
+
+    test(`member direct-open ${pageDef.path}: flash skeleton → member, no login flash`, async ({ page }) => {
+      await rewriteApi(page, api.port)
+      await seedMember(page)
+      await installFlashProbe(page, {
+        skeleton: pageDef.skeleton,
+        login: pageDef.login,
+        memberIds: pageDef.memberIds
+      })
+      await page.goto(`${ORIGIN}${pageDef.path}`, { waitUntil: 'domcontentloaded' })
+
+      const settled = memberLocator(page, pageDef.memberIds)
+      await expect(settled).toBeVisible({ timeout: 20_000 })
+      await expect(page.getByTestId(pageDef.login)).toHaveCount(0)
+      await expect(page.getByTestId('login-form')).toHaveCount(0)
+      await page.screenshot({
+        path: e2eArtifactPath(`auth-gate-after-${pageDef.shot}-settled.png`),
+        fullPage: true
+      })
+
+      const flash = await readFlash(page)
+      expect(flash.skeleton).toBe(true)
+      expect(flash.login).toBe(false)
+      expect(flash.member).toBe(true)
+    })
+
+    test(`member F5 on ${pageDef.path}: no login flash`, async ({ page }) => {
+      await rewriteApi(page, api.port)
+      await seedMember(page)
+      await page.goto(`${ORIGIN}${pageDef.path}`, { waitUntil: 'networkidle' })
+      const settled = memberLocator(page, pageDef.memberIds)
+      await expect(settled).toBeVisible({ timeout: 20_000 })
+
+      await installFlashProbe(page, {
+        skeleton: pageDef.skeleton,
+        login: pageDef.login,
+        memberIds: pageDef.memberIds
+      })
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await expect(page.getByTestId(pageDef.login)).toHaveCount(0)
+      await expect(page.getByTestId('login-form')).toHaveCount(0)
+      await expect(settled).toBeVisible({ timeout: 20_000 })
+      const flash = await readFlash(page)
+      expect(flash.login).toBe(false)
+    })
+
+    test(`guest direct-open ${pageDef.path}: login form, no member flash`, async ({ page }) => {
+      await rewriteApi(page, api.port)
+      await seedGuest(page)
+      await installFlashProbe(page, {
+        skeleton: pageDef.skeleton,
+        login: pageDef.login,
+        memberIds: pageDef.memberIds
+      })
+      await page.goto(`${ORIGIN}${pageDef.path}`, { waitUntil: 'domcontentloaded' })
+      await expect(page.getByTestId(pageDef.login)).toBeVisible({ timeout: 20_000 })
+      await expect(page.getByTestId('login-form')).toBeVisible()
+      for (const id of pageDef.memberIds) {
+        if (id.endsWith('-loading')) {
+          continue
+        }
+        await expect(page.getByTestId(id)).toHaveCount(0)
+      }
+      const flash = await readFlash(page)
+      expect(flash.member).toBe(false)
+      expect(flash.login).toBe(true)
     })
   }
 })

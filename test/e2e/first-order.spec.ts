@@ -159,9 +159,9 @@ test.describe('guest session', () => {
     // Guest checkout gate is on /app/checkout after「前往結帳」.
     await page.getByTestId('recommendation-go-checkout').click()
     await expect(page).toHaveURL(/\/app\/checkout/)
-    await expect(page.getByTestId('checkout-auth-gate')).toBeVisible()
     await expect(page.getByTestId('checkout-login')).toBeVisible()
-    await expect(page.getByTestId('checkout-register')).toBeVisible()
+    await expect(page.getByTestId('login-form')).toBeVisible()
+    await expect(page.getByTestId('checkout-auth-gate')).toHaveCount(0)
   })
 
   test('visiting recommendations without report keeps empty report dock on chat', async ({ page, goto }) => {
@@ -185,19 +185,23 @@ test.describe('guest session', () => {
     await expect(page.getByTestId('chat-report-dock-upload')).toHaveText('上傳報告')
   })
 
-  test('guest sees auth gate on orders with return path and chat exit', async ({ page, goto }) => {
+  test('guest sees in-page login on orders and stays after sign-in', async ({ page, goto }) => {
+    await mockCandorAuth(page, { asMember: false })
     await goto('/app/orders', { waitUntil: 'hydration' })
     await expect(page.getByRole('heading', { name: '我的訂單' })).toBeVisible()
     await expect(page.getByTestId('nav-orders')).toBeVisible()
-    await expect(page.getByTestId('orders-auth-gate')).toBeVisible()
-    await expect(page.getByTestId('orders-empty')).toHaveCount(0)
     await expect(page.getByTestId('orders-login')).toBeVisible()
-    await expect(page.getByTestId('orders-register')).toBeVisible()
-    await expect(page.getByTestId('orders-back-chat')).toBeVisible()
-    await page.getByTestId('orders-login').click()
-    await expect(page).toHaveURL(/\/login/)
-    expect(page.url()).toContain('redirect=')
-    expect(decodeURIComponent(new URL(page.url()).searchParams.get('redirect') || '')).toMatch(/\/app\/orders/)
+    await expect(page.getByTestId('login-form')).toBeVisible()
+    await expect(page.getByTestId('orders-empty')).toHaveCount(0)
+    await expect(page.getByTestId('orders-auth-gate')).toHaveCount(0)
+    await page.locator('input[type="email"]').fill('guest@example.com')
+    await page.locator('input[type="password"]').fill('password12345')
+    await page.getByTestId('login-form').locator('button[type="submit"]').click()
+    await expect(page.getByTestId('orders-list').or(page.getByTestId('orders-empty'))).toBeVisible({
+      timeout: 20_000
+    })
+    await expect(page).toHaveURL(/\/app\/orders\/?/)
+    await expect(page.getByTestId('login-form')).toHaveCount(0)
   })
 })
 

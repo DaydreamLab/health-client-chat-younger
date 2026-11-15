@@ -19,22 +19,9 @@
       class="mt-6"
       skeleton-variant="form"
       skeleton-test-id="expert-booking-confirm-auth-skeleton"
+      login-test-id="expert-booking-confirm-login"
       test-id="expert-booking-confirm-auth-shell"
     >
-      <template #guest>
-        <div class="mt-4 text-center">
-          <p class="font-semibold text-highlighted">
-            {{ $t('expertBooking.guestRequired') }}
-          </p>
-          <AppButton
-            class="mt-4"
-            :to="loginTo"
-          >
-            {{ $t('expertBooking.goLogin') }}
-          </AppButton>
-        </div>
-      </template>
-
       <div
         v-if="!hasDraft"
         class="mt-4 space-y-4 text-center"
@@ -229,7 +216,7 @@ const bookingStore = useExpertBookingStore()
 const bookingApi = useExpertBookingApi()
 const ordersApi = useFirstOrderApi()
 
-const { showMember, sync: syncGate } = useAuthClientSync()
+const { sync: syncGate } = useAuthClientSync()
 const pending = ref(false)
 const submitError = ref('')
 const submitUnavailable = ref(false)
@@ -351,10 +338,26 @@ async function onSubmit() {
   }
 }
 
+/** True after first mount sync — ignores middleware false→true before onMounted (avoids double fetch). */
+const confirmMountReady = ref(false)
+
 onMounted(async () => {
-  await syncGate()
+  // Hydrate before sync so member path sees draft.
   bookingStore.hydrate()
-  if (showMember.value && hasDraft.value) {
+  await syncGate()
+  // Soft-nav / cold-open member: load here. Guest→member during sync also lands here.
+  if (auth.isMember && hasDraft.value) {
+    await refreshProduct()
+  }
+  confirmMountReady.value = true
+})
+
+/** In-page AuthLoginForm stay: guest → member must refresh product (onMounted will not re-run). */
+watch(() => auth.isMember, async (isMember, wasMember) => {
+  if (!confirmMountReady.value) {
+    return
+  }
+  if (isMember && wasMember === false && hasDraft.value) {
     await refreshProduct()
   }
 })
