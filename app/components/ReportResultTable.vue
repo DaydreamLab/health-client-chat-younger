@@ -8,7 +8,7 @@ import {
   hasResultInterpretation,
   resultGaugePct,
   resultStatusClass,
-  resultStatusLabel
+  resultStatusLabelKey
 } from '~/utils/report-result-status'
 
 withDefaults(defineProps<{
@@ -90,7 +90,7 @@ defineEmits<{
               <i
                 class="yr-dot"
                 :class="resultStatusClass(row)"
-              />{{ resultStatusLabel(resultStatusClass(row)) }}
+              />{{ $t(resultStatusLabelKey(resultStatusClass(row))) }}
             </td>
             <td class="border-b border-dashed border-default px-2.5 py-2.5 text-highlighted">
               <div class="flex items-start gap-2">

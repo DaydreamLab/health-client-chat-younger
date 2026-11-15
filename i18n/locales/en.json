@@ -297,23 +297,23 @@
     "oneGoal": "Improve sleep",
     "one": "The conversation made the report clear, so I knew what to look at next.",
     "oneBy": "Taipei · Mr. Zhang",
-    "oneInitial": "張",
+    "oneInitial": "Z",
     "twoGoal": "Improve weight",
     "two": "I could talk through my questions before deciding whether to get a blood test.",
     "twoBy": "Hsinchu · Ms. Chen",
-    "twoInitial": "陳",
+    "twoInitial": "C",
     "threeGoal": "Improve immunity",
     "three": "The same report stays on the account and opens in the same layout later.",
     "threeBy": "Taichung · Mr. Lin",
-    "threeInitial": "林",
+    "threeInitial": "L",
     "fourGoal": "Improve cognition",
     "four": "I named what I wanted to work on, and the chat followed that direction.",
     "fourBy": "Kaohsiung · Ms. Wu",
-    "fourInitial": "吳",
+    "fourInitial": "W",
     "fiveGoal": "Improve digestion",
     "five": "The steps were clear before I decided whether to pick a plan.",
     "fiveBy": "Tainan · Mr. Huang",
-    "fiveInitial": "黃"
+    "fiveInitial": "H"
   },
   "trust": {
     "title": "Why you can trust us with your health data",
@@ -614,7 +614,9 @@
     "vitalsSubmitting": "Sending",
     "vitalsSubmitted": "Saved: {value} {unit}",
     "vitalsBackspace": "Backspace",
-    "expertBooking": "Book expert consultation"
+    "expertBooking": "Book expert consultation",
+    "packagePricePerMonth": "{price} / mo",
+    "streamStartFallback": "Start"
   },
   "labChart": {
     "title": "Lab values",
@@ -649,7 +651,8 @@
     "correct": "Correct",
     "correctConfirm": "Confirm",
     "correctInvalid": "Enter a valid number.",
-    "correctError": "Could not save the correction. Please try again."
+    "correctError": "Could not save the correction. Please try again.",
+    "statusUnknown": "Pending"
   },
   "recommendation": {
     "title": "Recommended plan",
@@ -670,13 +673,13 @@
     "itemKindFunctional": "Functional",
     "doseLocked": "{count} capsule / day",
     "packagePick": "Recommended plan",
-    "pathChoicePrompt": "請選擇一種方式",
-    "pathAiTitle": "AI 建議方案",
-    "pathAiBody": "依您的問卷與報告，由 AI 搭配保健品方案，可自行更換",
-    "pathExpertTitle": "專家預約",
-    "pathExpertPrice": "NT$6,000 起",
-    "pathExpertBody": "由專家檢視您的狀況，約一個工作天內提供專屬方案",
-    "goCheckout": "前往結帳",
+    "pathChoicePrompt": "Choose one option",
+    "pathAiTitle": "AI recommended plan",
+    "pathAiBody": "Based on your questionnaire and report, AI assembles a supplement plan you can still change",
+    "pathExpertTitle": "Book an expert",
+    "pathExpertPrice": "From NT$6,000",
+    "pathExpertBody": "An expert reviews your situation and provides a tailored plan in about one business day",
+    "goCheckout": "Go to checkout",
     "perMonth": "{price} / mo",
     "itemCountHint": "{count} items",
     "close": "Close",
@@ -684,7 +687,8 @@
     "bottleAddonTitle": "Whole-bottle add-ons",
     "bottleAddonHint": "Recommended with your plan. Add-on cost is outside the plan budget and is not auto-renewed.",
     "switchToExpertConfirm": "You are viewing an AI plan. Switch to expert booking? Selected add-ons will be kept for when you return to the AI plan.",
-    "addonsDroppedHint": "After refreshing recommendations, these add-ons are no longer suggested and were unchecked: {names}"
+    "addonsDroppedHint": "After refreshing recommendations, these add-ons are no longer suggested and were unchecked: {names}",
+    "rationaleSuggest": "Suggested {ingredient} support:"
   },
   "shop": {
     "title": "Recommended plan",
@@ -813,7 +817,7 @@
     "paymentComingSoon": "Coming soon",
     "expert_plan_inactive": "This plan is no longer available",
     "expert_plan_inactive_body": "This expert plan has been delisted. Please choose another plan.",
-    "conversationMissing": "TODO: checkout.conversationMissing",
+    "conversationMissing": "We could not find your consult. Please return to the chat and finish your health consultation first.",
     "questionnaireIncomplete": "Please complete your basic information before checkout.",
     "conversationAlreadyOrdered": "This conversation already has an order. Please check its progress on the order page.",
     "conversationAlreadyOrderedCtaOrder": "View order",
@@ -858,8 +862,8 @@
     "sectionBottleAddons": "Whole-bottle add-ons",
     "bottleAddonQty": "Qty {count}",
     "refundWholeOrderNote": "Orders with add-ons can only be refunded in full — not add-ons or the plan alone.",
-    "planLabelAi": "TODO: orders.planLabelAi",
-    "planLabelExpert": "TODO: orders.planLabelExpert",
+    "planLabelAi": "AI recommended plan",
+    "planLabelExpert": "Expert plan",
     "sectionPayment": "Payment",
     "sectionInvoice": "Invoice",
     "sectionShipping": "Shipping",
@@ -938,9 +942,9 @@
       "picking_started": "Picking has started, so refunds are no longer available. Contact support if you need help.",
       "already_shipped": "This order has shipped, so refunds are no longer available. Contact support if you need help.",
       "refund_rejected": "You cannot request a refund again for this order.",
-      "refund_request_exists": "TODO: orders.refund_blocked.refund_request_exists"
+      "refund_request_exists": "A refund request is already in progress, so you cannot submit another."
     },
-    "refundBlockGeneric": "TODO: orders.refundBlockGeneric",
+    "refundBlockGeneric": "Refunds are not available right now. Contact support if you need help.",
     "expert_processing": {
       "title": "Expert review in progress",
       "body": "Your expert will finalize your plan within about one business day."
@@ -950,7 +954,8 @@
     "refundRejectedTitle": "Refund request declined",
     "refundRejectedReasonLabel": "Reason: ",
     "refundRejectedNoRetry": "You cannot request another refund for this order.",
-    "viewFinalPlan": "View finalized plan"
+    "viewFinalPlan": "View finalized plan",
+    "refundRequestPending": "Refund request in progress"
   },
   "expertPlans": {
     "title": "Checkout",
@@ -965,16 +970,16 @@
     "conversationRequired": "Start a consult conversation before checkout.",
     "caseExists": "You already have an expert case in progress. Return to chat for status.",
     "checkoutLocked": "This order was already submitted and cannot be changed.",
-    "checkoutLockedOrderSubmitted": "TODO: expertPlans.checkoutLockedOrderSubmitted",
-    "checkoutLockedCaseFinalized": "TODO: expertPlans.checkoutLockedCaseFinalized",
+    "checkoutLockedOrderSubmitted": "This order was already submitted. Check it on the orders page.",
+    "checkoutLockedCaseFinalized": "The expert has finalized this plan, so the order can no longer be changed.",
     "backToChat": "Back to chat",
     "delistedTitle": "This plan is no longer available",
     "delistedBody": "This expert plan has been delisted. Please choose another plan.",
     "delistedReselect": "Choose again",
     "changePackage": "Change plan",
     "packageSection": "Plan",
-    "paidAwaitingBody": "TODO: expertPlans.paidAwaitingBody",
-    "resultReadonlyHint": "專家已完成您的方案，內容無法再修改。",
+    "paidAwaitingBody": "Payment received. An expert will finish your plan in about one business day and notify you when it is ready.",
+    "resultReadonlyHint": "Your expert plan is complete and can no longer be edited.",
     "openOrder": "View order"
   },
   "privacy": {
@@ -992,7 +997,11 @@
     "loadError": "Could not load About Candor. Please try again later.",
     "retry": "Retry",
     "leadStrong": "Your physiological data advisor.",
-    "leadRest": "Understand your body data before you decide what to add. After you pick a plan, start with a consult; escalate to specialists when needed."
+    "leadRest": "Understand your body data before you decide what to add. After you pick a plan, start with a consult; escalate to specialists when needed.",
+    "body": "## Who we are\n\nCandor is built by Daydream Lab to turn lab and wearable data into understandable next steps—not a wall of numbers.\n\n## What we do\n\n- Health and nutrition consult flows with personalized guidance\n- Report upload, interpretation, and follow-up\n- Plan browsing and specialist handoff when needed",
+    "contactHeading": "Contact",
+    "contactHours": "Hours: Mon–Fri 10:00–18:00",
+    "contactNote": "(placeholder copy · pending ops review)"
   },
   "terms": {
     "metaTitle": "Terms of service",
@@ -1001,7 +1010,8 @@
     "loadError": "Could not load the terms of service. Please try again later.",
     "retry": "Retry",
     "updatedAt": "Updated {date}",
-    "version": "Version {version}"
+    "version": "Version {version}",
+    "body": "Welcome to Candor. By using this service you agree to the following terms. (placeholder · pending legal/ops review)\n\n## 1. Scope\n\nThese terms cover the website, membership, consult chat, report features, and checkout.\n\n## 2. Account and security\n\nProvide accurate information and keep credentials safe; do not share your account.\n\n## 3. Service description\n\nConsults and suggestions are general information only and are not medical diagnosis or prescriptions. Seek care if you feel unwell.\n\n## 4. Prohibited use\n\n- Infringing others' rights or posting illegal content\n- Interfering with systems or unauthorized access\n- Abusive automated scraping\n\n## 5. Intellectual property\n\nUI, copy, trademarks, and software belong to the operator or rightful licensors.\n\n## 6. Disclaimer and limitation\n\nTo the extent allowed by law, we are not liable for indirect damages; service may pause for maintenance.\n\n## 7. Governing law\n\nLaws of the Republic of China (Taiwan); Taipei District Court as court of first instance (placeholder)."
   },
   "cookieConsent": {
     "ariaLabel": "Cookie and privacy consent",
@@ -1168,5 +1178,11 @@
       "cta": "Start consult",
       "ctaPlans": "See plans"
     }
+  },
+  "localeSwitch": {
+    "labelEn": "Language: EN",
+    "labelZh": "中文",
+    "ariaEn": "Language: EN",
+    "ariaZh": "語言：繁中"
   }
 }

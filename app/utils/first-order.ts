@@ -738,7 +738,7 @@ export function orderRecordFromCandorDetail(
     ?? null
   const expertPlanName = expertPlanNameFromDetail(detail)
   const packageName = hasExpertBooking
-    ? (fallback.packageName ?? '預約專家')
+    ? (fallback.packageName ?? '')
     : resolveOrderPlanName({
         hasExpertPlanLine: hasExpertPlan,
         expertPlanName,

@@ -74,7 +74,7 @@
           <p class="text-sm font-medium text-highlighted">
             {{ selectedPackage.name_zh }}
             <span class="text-muted">（{{ selectedPackage.package_plan_code }}）</span>
-            <span class="text-muted">／ {{ selectedPackage.price }} 元／月</span>
+            <span class="text-muted">／ {{ $t('chat.packagePricePerMonth', { price: selectedPackage.price }) }}</span>
           </p>
           <p class="mt-0.5 text-xs text-muted">
             {{ packageConfirmed ? $t('chat.packageConfirmed') : $t('chat.packagePending') }}
@@ -427,6 +427,7 @@ import {
   reportDockBarVisibility,
   resolveEffectiveGoalOptions
 } from '~/utils/chat-turn-actions'
+import { defaultConsultationGoalOptions } from '~/utils/consultation-goal-defaults'
 import {
   isRequiredBasicGapCode,
   normalizeConversationPath,
@@ -674,7 +675,8 @@ const choiceOptions = computed((): GreetingOption[] => {
       goalSelectActive: true,
       goalOptions: goalOptions.value,
       intake: intakeMessage.value,
-      message: last
+      message: last,
+      fallbackOptions: defaultConsultationGoalOptions(code => t(`homeGoals.${code}`))
     })
   }
   return intakeMessage.value?.options ?? []
@@ -2385,7 +2387,7 @@ async function retryFailedStream(message: ChatMessage) {
 async function runProfileThenStream() {
   if (!pendingUserContent.value) {
     const lastUser = [...journey.messages].reverse().find(message => message.role === 'user')
-    pendingUserContent.value = lastUser ? messageText(lastUser) : '開始'
+    pendingUserContent.value = lastUser ? messageText(lastUser) : t('chat.streamStartFallback')
   }
   await streamPending()
 }

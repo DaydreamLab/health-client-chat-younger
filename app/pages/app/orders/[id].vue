@@ -583,7 +583,8 @@ const refundExtraLine = computed(() => {
   }
   return refundRequestDisplayText({
     status: order.value.refundStatus ?? order.value.refundRequestStatus,
-    display: order.value.refundRequestDisplay
+    display: order.value.refundRequestDisplay,
+    fallback: t('orders.refundRequestPending')
   })
 })
 
@@ -724,7 +725,7 @@ async function onRefundConfirm() {
       refundRequestStatus: status,
       refundStatus: status,
       refundRequestDisplay: created.refund_request_display
-        ?? (status === 'requested' ? '退款申請中' : null),
+        ?? (status === 'requested' ? t('orders.refundRequestPending') : null),
       refundBlockedReason: 'refund_request_exists'
     }
     refundConfirmOpen.value = false

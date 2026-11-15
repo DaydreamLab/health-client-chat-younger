@@ -143,14 +143,22 @@ export function canShowRefundRequest(input: Parameters<typeof refundRequestUi>[0
   return refundRequestUi(input).enabled
 }
 
-/** Prefer core `refund_request_display` (「退款申請中」); never invent other copy. */
+/**
+ * Prefer core `refund_request_display`; when core omits it, use `fallback`
+ * (caller should pass the localized `orders.refundRequestPending` string).
+ */
 export function refundRequestDisplayText(input: {
   status?: RefundRequestStatus | null
   display?: string | null
+  fallback?: string | null
 }): string | null {
   if (input.status === 'requested') {
     const fromCore = input.display?.trim()
-    return fromCore || '退款申請中'
+    if (fromCore) {
+      return fromCore
+    }
+    const fallback = input.fallback?.trim()
+    return fallback || null
   }
   return null
 }
