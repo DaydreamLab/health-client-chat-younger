@@ -221,8 +221,15 @@
             {{ $t('expertPlans.lead') }}
           </p>
 
+          <MemberPageSkeleton
+            v-if="!settled"
+            class="mt-6"
+            variant="form"
+            test-id="checkout-auth-skeleton"
+          />
+
           <MemberAuthGate
-            v-if="auth.ready && !auth.isMember"
+            v-else-if="!auth.isMember"
             class="mt-6"
             :title="$t('checkout.memberRequired')"
             :hint="$t('checkout.memberRequiredHint')"
@@ -787,6 +794,7 @@ const auth = useAuthStore()
 const journey = useJourneyStore()
 const api = useFirstOrderApi()
 const candor = useCandorApi()
+const { settled, sync: syncAuth } = useAuthClientSync()
 
 type PageGate
   = 'none'
@@ -1749,6 +1757,7 @@ async function maybeSaveDefaultAddress(
 }
 
 onMounted(async () => {
+  await syncAuth()
   await loadCheckoutPreview()
 })
 

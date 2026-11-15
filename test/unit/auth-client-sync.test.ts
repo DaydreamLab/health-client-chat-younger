@@ -32,6 +32,23 @@ describe('auth client sync after prerender', () => {
       'utf8'
     )
     expect(source).toMatch(/memberGateLocked/)
+    expect(source).toMatch(/authPending/)
     expect(source).toMatch(/ensureSession/)
+    // Gate lock must wait for settle — otherwise members flash guest UI.
+    expect(source).toMatch(
+      /memberGateLocked\s*=\s*computed\(\s*\(\)\s*=>\s*settled\.value\s*&&\s*!auth\.isMember/
+    )
+  })
+
+  it('MemberAuthShell shows skeleton before guest gate or member slot', () => {
+    const shell = readFileSync(
+      resolve('app/components/member/MemberAuthShell.vue'),
+      'utf8'
+    )
+    expect(shell).toMatch(/MemberPageSkeleton/)
+    expect(shell).toMatch(/!settled/)
+    expect(shell).toMatch(/!auth\.isMember/)
+    expect(shell).toMatch(/MemberAuthGate/)
+    expect(shell).toMatch(/name="guest"/)
   })
 })
