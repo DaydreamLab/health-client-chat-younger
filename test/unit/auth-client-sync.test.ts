@@ -40,7 +40,7 @@ describe('auth client sync after prerender', () => {
     )
   })
 
-  it('MemberAuthShell shows skeleton before guest gate or member slot', () => {
+  it('MemberAuthShell shows skeleton before AuthLoginForm or member slot', () => {
     const shell = readFileSync(
       resolve('app/components/member/MemberAuthShell.vue'),
       'utf8'
@@ -48,7 +48,9 @@ describe('auth client sync after prerender', () => {
     expect(shell).toMatch(/MemberPageSkeleton/)
     expect(shell).toMatch(/!settled/)
     expect(shell).toMatch(/!auth\.isMember/)
-    expect(shell).toMatch(/MemberAuthGate/)
+    expect(shell).toMatch(/AuthLoginForm/)
+    expect(shell).toMatch(/\bstay\b/)
+    expect(shell).not.toMatch(/MemberAuthGate/)
     expect(shell).toMatch(/name="guest"/)
   })
 })

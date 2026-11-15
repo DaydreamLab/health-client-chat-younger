@@ -8,17 +8,16 @@
 
     <template v-else-if="!auth.isMember">
       <slot name="guest">
-        <MemberAuthGate
-          :title="title"
-          :hint="hint"
-          :icon="icon"
-          :variant="gateVariant"
-          :test-id="gateTestId"
-          :login-test-id="loginTestId"
-          :register-test-id="registerTestId"
-          :back-to-chat-test-id="backToChatTestId"
-          :show-back-to-chat="showBackToChat"
-        />
+        <div
+          class="mx-auto w-full max-w-md"
+          :data-testid="loginTestId"
+        >
+          <AuthLoginForm
+            stay
+            :show-description="false"
+            :show-guest-link="false"
+          />
+        </div>
       </slot>
     </template>
 
@@ -29,34 +28,19 @@
 <script setup lang="ts">
 /**
  * Shared auth gate for member surfaces:
- * prerender / first paint → skeleton; after ensureSession → guest gate or member slot.
+ * prerender / first paint → skeleton; after ensureSession → inline AuthLoginForm
+ * (stay on page) or member slot. Do not flash login while !settled.
  */
 withDefaults(defineProps<{
-  title?: string
-  hint?: string
-  icon?: string
   skeletonVariant?: 'dashboard' | 'list' | 'form' | 'detail' | 'default'
   testId?: string
   skeletonTestId?: string
-  gateTestId?: string
   loginTestId?: string
-  registerTestId?: string
-  backToChatTestId?: string
-  showBackToChat?: boolean
-  gateVariant?: 'card' | 'overlay'
 }>(), {
-  title: '',
-  hint: '',
-  icon: 'i-lucide-lock',
   skeletonVariant: 'default',
   testId: 'member-auth-shell',
   skeletonTestId: 'member-auth-skeleton',
-  gateTestId: 'member-auth-gate',
-  loginTestId: 'member-auth-login',
-  registerTestId: 'member-auth-register',
-  backToChatTestId: 'member-auth-back-chat',
-  showBackToChat: true,
-  gateVariant: 'card'
+  loginTestId: 'member-auth-login'
 })
 
 const auth = useAuthStore()

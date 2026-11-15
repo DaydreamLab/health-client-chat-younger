@@ -23,13 +23,7 @@
     <MemberAuthShell
       skeleton-variant="list"
       skeleton-test-id="notifications-auth-skeleton"
-      :title="$t('notifications.guestRequired')"
-      :hint="$t('notifications.guestRequiredHint')"
-      icon="i-lucide-bell"
-      gate-test-id="notifications-auth-gate"
       login-test-id="notifications-login"
-      register-test-id="notifications-register"
-      back-to-chat-test-id="notifications-back-chat"
       test-id="notifications-auth-shell"
     >
       <MemberLoadingState
