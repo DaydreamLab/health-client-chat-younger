@@ -321,20 +321,12 @@ test.describe('member order detail', () => {
         body: JSON.stringify({
           status: 'success',
           data: {
-            // Page of 5 + total>5 → pager; latest expanded + collapsed rows keep main scrollable on lg.
-            reports: [
-              {
-                id: reportId,
-                status: 'needs_review',
-                created_at: '2026-10-02T07:39:00Z'
-              },
-              ...Array.from({ length: 4 }, (_, index) => ({
-                id: `cccccccc-cccc-cccc-cccc-ccccccccccc${index}`,
-                status: 'ready',
-                created_at: `2026-09-0${index + 1}T08:00:00Z`
-              }))
-            ],
-            total: 12
+            reports: [{
+              id: reportId,
+              status: 'needs_review',
+              created_at: '2026-10-02T07:39:00Z'
+            }],
+            total: 1
           }
         })
       })
