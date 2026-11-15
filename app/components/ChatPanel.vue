@@ -219,6 +219,7 @@
                 :show-want-more-tests="showWantMoreTestsCta(message)"
                 :want-more-tests-url="checkupLinkUrl"
                 :show-view-recommend="showViewRecommendCta(message)"
+                :view-recommend-status="viewRecommendStatusFor(message)"
                 :show-retry="showRetryCta(message)"
                 :retry-label="retryLabelFor(message)"
                 :pending="pending"
@@ -739,6 +740,7 @@ function turnActionsFor(message: ChatMessage) {
       vitalsHasStoredValue: false,
       vitalsStoredValue: null,
       confirmStatus: null,
+      viewRecommendStatus: null,
       roundStatus: null,
       checkupUrlOverride: null,
       fullTestUrlOverride: null,
@@ -860,6 +862,10 @@ function showConfirmFor(message: ChatMessage) {
 
 function confirmStatusFor(message: ChatMessage) {
   return turnActionsFor(message).confirmStatus
+}
+
+function viewRecommendStatusFor(message: ChatMessage) {
+  return turnActionsFor(message).viewRecommendStatus
 }
 
 function roundStatusFor(message: ChatMessage) {

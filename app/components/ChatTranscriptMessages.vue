@@ -82,6 +82,7 @@ const rows = computed<TranscriptRow[]>(() =>
           :show-want-more-tests="false"
           want-more-tests-url=""
           :show-view-recommend="row.actions.showViewRecommend"
+          :view-recommend-status="row.actions.viewRecommendStatus"
           :show-retry="false"
           :pending="true"
           :vitals-fields="row.actions.vitalsFields"

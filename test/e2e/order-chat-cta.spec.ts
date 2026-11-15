@@ -222,6 +222,106 @@ test.describe('order chat CTA history (align /chat)', () => {
   })
 
   /**
+   * Core #197：cta_resolution.selected_action_types=["offer_recommend"] →
+   * GET order messages stamp offer_recommend status=selected.
+   * Order modal must paint selected（not blanket grey／disabled-tone）.
+   */
+  test('offer_recommend selected paints is-selected (not grey)', async ({
+    page,
+    goto
+  }) => {
+    test.setTimeout(90_000)
+    await mockCandorAuth(page, { asMember: true, withOrder: true })
+    await page.setViewportSize({ width: 390, height: 844 })
+
+    const historicalOfferSelectedRa = {
+      schema_version: '0.1',
+      source: 'semantic_judgment',
+      adaptor: 'fake',
+      degraded: false,
+      error: null,
+      interaction: {
+        round_status: 'historical',
+        outcome: 'option_selected'
+      },
+      actions: [
+        {
+          type: 'offer_recommend',
+          payload: {
+            mode: 'view_recommendations',
+            label: '查看推薦方案',
+            path: '/app/recommendations',
+            status: 'selected'
+          }
+        },
+        {
+          type: 'choose_option',
+          payload: {
+            kind: 'continue_consultation',
+            mode: 'single',
+            confirm: false,
+            options: [
+              { code: 'continue', label: '繼續健康諮詢', status: 'disabled' }
+            ]
+          }
+        }
+      ]
+    }
+
+    await page.route(`**/api/v1/order/${ORDER_ID}/message**`, async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback()
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            conversation_id: 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+            messages: [
+              {
+                id: 'om-asst-offer-selected',
+                role: 'assistant',
+                content: '推薦輪訊息（已選查看推薦方案）。',
+                reply_actions: historicalOfferSelectedRa
+              },
+              {
+                id: 'om-user-reco',
+                role: 'user',
+                content: '查看推薦方案'
+              }
+            ]
+          }
+        })
+      })
+    })
+
+    await goto(`/app/orders/${ORDER_ID}`, { waitUntil: 'hydration' })
+    await expect(page.getByTestId('order-detail')).toBeVisible({ timeout: 15_000 })
+    await page.getByTestId('order-view-chat').click()
+    await expect(page.getByTestId('order-chat-modal')).toBeVisible()
+    await expect(page.getByTestId('order-chat-messages')).toBeVisible({ timeout: 15_000 })
+
+    const viewReco = page.getByTestId('chat-view-recommend')
+    await expect(viewReco).toBeVisible()
+    await expect(viewReco).toHaveAttribute('data-cta-status', 'selected')
+    await expect(viewReco).toHaveClass(/is-selected/)
+    await expect(viewReco).not.toHaveClass(/is-disabled-tone/)
+    await expect(viewReco).toBeDisabled()
+
+    await expect(page.getByTestId('chat-quiz-option-continue'))
+      .toHaveAttribute('data-cta-status', 'disabled')
+
+    await viewReco.scrollIntoViewIfNeeded()
+    await page.screenshot({
+      path: e2eArtifactPath('order-chat-offer-recommend-selected.png'),
+      fullPage: false
+    })
+  })
+
+  /**
    * Reproduce beta ORD truncate: completion open-head still `current` after
    *「繼續健康諮詢」— order modal must still show「查看推薦方案」, and later
    * recommend／checkout turns from the fixture must all render.

@@ -7,6 +7,7 @@ import {
   resolveEntryPathSwitchResolution,
   resolveOptionControlStatus,
   resolveReplyActionsAsHistorical,
+  selectedActionTypesFromReplyActions,
   selectedCodesFromReplyActions
 } from '../../app/utils/cta-interaction'
 import type { ChatMessage } from '../../app/utils/first-order'
@@ -592,6 +593,7 @@ describe('buildTurnActionsVisibility — grey retain', () => {
       vitalsHasStoredValue: true,
       vitalsStoredValue: 70,
       confirmStatus: 'current',
+      viewRecommendStatus: null,
       roundStatus: 'current',
       checkupUrlOverride: null,
       fullTestUrlOverride: null,
@@ -609,5 +611,154 @@ describe('buildTurnActionsVisibility — grey retain', () => {
     expect(frozen.choices.find(c => c.code === 'b')?.status).toBe('selected')
     expect(frozen.vitalsStatus).toBe('selected')
     expect(frozen.confirmStatus).toBe('disabled')
+  })
+
+  it('hydrateHistoricalReplyActions keeps offer_recommend selected (core selected_action_types)', () => {
+    // Core CtaInteractionHydrator stamps payload.status=selected from
+    // cta_resolution.selected_action_types=["offer_recommend"]; FE must not wipe it.
+    const message: ChatMessage = {
+      id: 'asst-offer',
+      role: 'assistant',
+      parts: [{ type: 'text', text: '完成輪' }],
+      replyActions: parseReplyActions({
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'rule',
+        degraded: false,
+        error: null,
+        interaction: {
+          round_status: 'historical',
+          outcome: 'option_selected'
+        },
+        actions: [
+          {
+            type: 'offer_recommend',
+            payload: {
+              mode: 'view_recommendations',
+              label: '查看推薦方案',
+              path: '/app/recommendations',
+              status: 'selected'
+            }
+          },
+          {
+            type: 'choose_option',
+            payload: {
+              kind: 'continue_consultation',
+              mode: 'single',
+              confirm: false,
+              options: [
+                { code: 'continue', label: '繼續健康諮詢', status: 'disabled' }
+              ]
+            }
+          }
+        ]
+      })
+    }
+
+    expect(selectedActionTypesFromReplyActions(message.replyActions)).toEqual([
+      'offer_recommend'
+    ])
+    hydrateHistoricalReplyActions(message)
+    expect(
+      (message.replyActions!.actions[0]!.payload as { status?: string }).status
+    ).toBe('selected')
+    expect(
+      (message.replyActions!.actions[1]!.payload as {
+        options?: Array<{ status?: string }>
+      }).options?.[0]?.status
+    ).toBe('disabled')
+
+    const visibility = buildTurnActionsVisibility({
+      message,
+      ctx: { ...baseCtx('later'), conversationPath: 'B' },
+      goalOptions: [],
+      needsMultiConfirm: false
+    })
+    expect(visibility.showViewRecommend).toBe(true)
+    expect(visibility.viewRecommendStatus).toBe('selected')
+    expect(visibility.roundStatus).toBe('historical')
+  })
+
+  it('hydrateHistoricalReplyActions: unselected historical offer_recommend stays disabled', () => {
+    const message: ChatMessage = {
+      id: 'asst-offer-grey',
+      role: 'assistant',
+      parts: [{ type: 'text', text: '完成輪（未點推薦）' }],
+      replyActions: parseReplyActions({
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'rule',
+        degraded: false,
+        error: null,
+        interaction: {
+          round_status: 'historical',
+          outcome: 'free_text'
+        },
+        actions: [
+          {
+            type: 'offer_recommend',
+            payload: {
+              mode: 'view_recommendations',
+              label: '查看推薦方案',
+              path: '/app/recommendations',
+              status: 'disabled'
+            }
+          }
+        ]
+      })
+    }
+    hydrateHistoricalReplyActions(message)
+    expect(
+      (message.replyActions!.actions[0]!.payload as { status?: string }).status
+    ).toBe('disabled')
+    const visibility = buildTurnActionsVisibility({
+      message,
+      ctx: { ...baseCtx('later'), conversationPath: 'B' },
+      goalOptions: [],
+      needsMultiConfirm: false
+    })
+    expect(visibility.showViewRecommend).toBe(true)
+    expect(visibility.viewRecommendStatus).toBe('disabled')
+  })
+
+  it('resolveReplyActionsAsHistorical honors selectedActionTypes for offer_recommend', () => {
+    const message: ChatMessage = {
+      id: 'asst-live-settle',
+      role: 'assistant',
+      parts: [{ type: 'text', text: '完成' }],
+      replyActions: parseReplyActions({
+        schema_version: '0.1',
+        source: 'semantic_judgment',
+        adaptor: 'rule',
+        degraded: false,
+        error: null,
+        interaction: { round_status: 'current', outcome: null },
+        actions: [
+          {
+            type: 'offer_recommend',
+            payload: {
+              mode: 'view_recommendations',
+              label: '查看推薦方案',
+              path: '/app/recommendations',
+              status: 'current'
+            }
+          },
+          {
+            type: 'ask_report',
+            payload: { label: '上傳報告', status: 'current' }
+          }
+        ]
+      })
+    }
+    resolveReplyActionsAsHistorical(message, {
+      outcome: 'option_selected',
+      selectedActionTypes: ['offer_recommend']
+    })
+    expect(
+      (message.replyActions!.actions[0]!.payload as { status?: string }).status
+    ).toBe('selected')
+    expect(
+      (message.replyActions!.actions[1]!.payload as { status?: string }).status
+    ).toBe('disabled')
   })
 })

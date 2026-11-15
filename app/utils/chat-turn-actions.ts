@@ -300,6 +300,8 @@ export interface TurnActionsVisibility {
   vitalsHasStoredValue: boolean
   vitalsStoredValue: number | null
   confirmStatus: CtaControlStatus | null
+  /** offer_recommend payload.status (selected when core selected_action_types). */
+  viewRecommendStatus: CtaControlStatus | null
   roundStatus: ReplyActionsRoundStatus | null
   /** offer_checkup payload.url when set; else use journey default. */
   checkupUrlOverride: string | null
@@ -340,6 +342,9 @@ export function freezeNonLatestRetainedVisibility(
     confirmStatus: visibility.showConfirm
       ? coerceRetainedStatusForNonLatest(visibility.confirmStatus)
       : visibility.confirmStatus,
+    viewRecommendStatus: visibility.showViewRecommend
+      ? coerceRetainedStatusForNonLatest(visibility.viewRecommendStatus)
+      : visibility.viewRecommendStatus,
     roundStatus: 'historical'
   }
 }
@@ -352,6 +357,7 @@ function emptyReplyExtras(): Pick<
   | 'vitalsHasStoredValue'
   | 'vitalsStoredValue'
   | 'confirmStatus'
+  | 'viewRecommendStatus'
   | 'roundStatus'
   | 'checkupUrlOverride'
   | 'fullTestUrlOverride'
@@ -371,6 +377,7 @@ function emptyReplyExtras(): Pick<
     vitalsHasStoredValue: false,
     vitalsStoredValue: null,
     confirmStatus: null,
+    viewRecommendStatus: null,
     roundStatus: null,
     checkupUrlOverride: null,
     fullTestUrlOverride: null,
@@ -755,6 +762,7 @@ export function buildTurnActionsVisibility(input: {
       vitalsHasStoredValue: own.projection.vitalsHasStoredValue,
       vitalsStoredValue: own.projection.vitalsStoredValue,
       confirmStatus: own.projection.confirmStatus,
+      viewRecommendStatus: own.projection.viewRecommendStatus,
       roundStatus: own.projection.roundStatus,
       checkupUrlOverride: own.projection.checkupUrlOverride,
       fullTestUrlOverride: own.projection.fullTestUrlOverride,

@@ -118,6 +118,11 @@ export function resolveReplyActionsAsHistorical(
   resolution: {
     outcome: Exclude<ReplyActionsOutcome, null>
     selectedCodes?: readonly string[]
+    /**
+     * Whole-action CTA types clicked (core `cta_resolution.selected_action_types`,
+     * e.g. `offer_recommend`). Marks those actions `selected`; others `disabled`.
+     */
+    selectedActionTypes?: readonly string[]
     vitalsStored?: { value: number } | null
   }
 ): void {
@@ -126,6 +131,7 @@ export function resolveReplyActionsAsHistorical(
     return
   }
   const selected = new Set(resolution.selectedCodes ?? [])
+  const selectedTypes = new Set(resolution.selectedActionTypes ?? [])
   const actions = (Array.isArray(ra.actions) ? ra.actions : []).map((action) => {
     if (action.type === 'choose_option') {
       const payload = asPayload(action)
@@ -181,13 +187,19 @@ export function resolveReplyActionsAsHistorical(
         }
       }
     }
-    // offer_* / ask_report / ask_goal → whole control disabled when round resolves
+    // offer_* / ask_report / ask_goal → selected when in selected_action_types
+    // (core CtaInteractionHydrator::wholeActionStatus); else disabled.
     const payload = asPayload(action)
+    const keepSelected = resolution.outcome === 'option_selected'
+      && (
+        selectedTypes.has(action.type)
+        || parseCtaControlStatus(payload.status) === 'selected'
+      )
     return {
       ...action,
       payload: {
         ...payload,
-        status: 'disabled'
+        status: keepSelected ? 'selected' : 'disabled'
       }
     }
   })
@@ -221,6 +233,29 @@ export function selectedCodesFromReplyActions(ra: ReplyActions | null | undefine
     // Fallback: payload.selected when status missing (partial hydrate)
     if (out.length === 0 && payload.selected?.length) {
       out.push(...payload.selected)
+    }
+  }
+  return out
+}
+
+/**
+ * Whole-action types already stamped `selected` on the wire
+ * (core folds `cta_resolution.selected_action_types` into payload.status).
+ */
+export function selectedActionTypesFromReplyActions(
+  ra: ReplyActions | null | undefined
+): string[] {
+  if (!ra || !Array.isArray(ra.actions)) {
+    return []
+  }
+  const out: string[] = []
+  for (const action of ra.actions) {
+    if (!action.type || action.type === 'choose_option' || action.type === 'ask_vitals') {
+      continue
+    }
+    const payload = asPayload(action)
+    if (parseCtaControlStatus(payload.status) === 'selected') {
+      out.push(action.type)
     }
   }
   return out
@@ -273,6 +308,7 @@ export function hydrateHistoricalReplyActions(message: ChatMessage): void {
     return
   }
   const selectedCodes = selectedCodesFromReplyActions(ra)
+  const selectedActionTypes = selectedActionTypesFromReplyActions(ra)
   const vitalsInfo = vitalsDisplayFromReplyActions(ra)
   const vitalsStored = vitalsInfo
     && vitalsInfo.hasStoredValue
@@ -283,7 +319,9 @@ export function hydrateHistoricalReplyActions(message: ChatMessage): void {
 
   resolveReplyActionsAsHistorical(message, {
     outcome,
-    ...(outcome === 'option_selected' ? { selectedCodes } : {}),
+    ...(outcome === 'option_selected'
+      ? { selectedCodes, selectedActionTypes }
+      : {}),
     vitalsStored
   })
 }

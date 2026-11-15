@@ -645,4 +645,60 @@ describe('orderMessagesToChatMessages / order transcript CTAs', () => {
     expect(continueChip).toBeTruthy()
     expect(continueChip?.status).toBe('disabled')
   })
+
+  /**
+   * After core #197 backfill: cta_resolution.selected_action_types=["offer_recommend"]
+   * → MessagePresenter stamps offer_recommend payload.status=selected.
+   * Order transcript must paint selected (not blanket grey).
+   */
+  it('order transcript: offer_recommend selected stays selected after hydrate', () => {
+    const mapped = orderMessagesToChatMessages([
+      {
+        id: 'om-complete-selected',
+        role: 'assistant',
+        content: '推薦輪已選過查看推薦方案。',
+        reply_actions: {
+          schema_version: '0.1',
+          source: 'semantic_judgment',
+          adaptor: 'rule',
+          degraded: false,
+          error: null,
+          interaction: {
+            round_status: 'historical',
+            outcome: 'option_selected'
+          },
+          actions: [
+            {
+              type: 'offer_recommend',
+              payload: {
+                mode: 'view_recommendations',
+                label: '查看推薦方案',
+                path: '/app/recommendations',
+                status: 'selected'
+              }
+            },
+            {
+              type: 'choose_option',
+              payload: {
+                kind: 'continue_consultation',
+                mode: 'single',
+                confirm: false,
+                options: [
+                  { code: 'continue', label: '繼續健康諮詢', status: 'disabled' }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ])
+    expect(
+      (mapped[0]!.replyActions!.actions[0]!.payload as { status?: string }).status
+    ).toBe('selected')
+
+    const visibility = buildOrderTranscriptTurnActions(mapped[0]!, mapped)
+    expect(visibility.showViewRecommend).toBe(true)
+    expect(visibility.viewRecommendStatus).toBe('selected')
+    expect(visibility.roundStatus).toBe('historical')
+  })
 })
