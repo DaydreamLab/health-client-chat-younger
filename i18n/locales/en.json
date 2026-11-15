@@ -1102,5 +1102,72 @@
       "cancelled": "Cancelled",
       "unknown": "—"
     }
+  },
+  "homeV2": {
+    "meta": {
+      "description": "Understand your body data before you supplement. Chat, answer a short questionnaire, or upload a health report to get a supplement set made for you."
+    },
+    "hero": {
+      "eyebrow": "Your personal health advisor (not a doctor)",
+      "title": "See your health clearly —\nchat, or upload a health report.",
+      "description": "Chat freely, answer a short health questionnaire, or upload a report for a free AI reading.\nLimited early-bird: project price **NT$4,500** (value **NT$6,000**)\nfor a 30-day supplement set.\nFor a closer look, you can book a Younger advisor separately.",
+      "ctaChat": "Start consult",
+      "ctaPlans": "See plans"
+    },
+    "steps": {
+      "title": "Three steps from understanding to action",
+      "oneTitle": "Pick a way to start",
+      "oneHint": "Chat freely, fill a health questionnaire, or upload a health report.",
+      "twoTitle": "Understand your status",
+      "twoHint": "AI organizes questionnaire and report highlights, marking optimal, caution, and alert on each marker.",
+      "threeTitle": "Get a recommended plan",
+      "threeHint": "A core-plus-addon supplement set shipped to you — or book a Younger advisor to finalize it.",
+      "oneFrameUser": "I want a health plan consult",
+      "oneFrameAssistant": "Sure — let’s cover your basics first.",
+      "twoFrameOk": "Optimal",
+      "twoFrameWarn": "Caution",
+      "twoFrameAlert": "Alert",
+      "threeFrameStatus": "View recommendations"
+    },
+    "promo": {
+      "title": "Supplements matched to your data",
+      "body": "No blind stacking. Match supplements to your questionnaire and report — for example iron or a B-complex."
+    },
+    "plans": {
+      "title": "Choose your health plan",
+      "earlyBirdBadge": "Limited early-bird",
+      "billingCycle": "/ 30-day set",
+      "feature1": "Free AI report reading",
+      "feature2": "Core + addon supplements matched to your questionnaire and report",
+      "feature3": "30-day set, shipped to you",
+      "cta": "Start with this plan",
+      "advisorTitle": "Younger advisor",
+      "advisorDescription": "A Younger advisor reviews your health data one-on-one",
+      "advisorPrice": "From NT$6,000",
+      "advisorBilling": "",
+      "advisorFeature1": "One-on-one review of questionnaire and report",
+      "advisorFeature2": "A dedicated plan within about one business day",
+      "advisorCta": "Book a Younger advisor",
+      "disclaimer": "Candor is a health advisor, not a doctor. Suggestions are for health management only and are not a medical diagnosis.",
+      "loading": "Loading plans…",
+      "loadError": "Plans are temporarily unavailable. Please try again later."
+    },
+    "trust": {
+      "title": "Why you can trust us with your health data",
+      "dataTitle": "Free AI report reading",
+      "dataHint": "Upload a health report and AI organizes each marker; or start with a chat if you don’t have one.",
+      "paceTitle": "A Younger advisor when you need one",
+      "paceHint": "For a closer look, book a Younger advisor to review your data.",
+      "advisorTitle": "Get labs if you need them",
+      "advisorHint": "When a check is needed, you can book testing with our partner Younger.",
+      "recordTitle": "Your data stays with you",
+      "recordHint": "Chat history, health reports, and your plan stay safely in your account.",
+      "wearableTitle": "Wearables",
+      "wearableHint": "Coming soon"
+    },
+    "reviews": {
+      "cta": "Start consult",
+      "ctaPlans": "See plans"
+    }
   }
 }
