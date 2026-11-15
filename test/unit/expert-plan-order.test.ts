@@ -70,6 +70,12 @@ describe('expert-plan-order helpers', () => {
       status: 'requested',
       display: '退款申請中'
     })).toBe('退款申請中')
+    expect(refundRequestDisplayText({
+      status: 'requested',
+      display: null,
+      fallback: 'Refund request in progress'
+    })).toBe('Refund request in progress')
+    expect(refundRequestDisplayText({ status: 'requested', display: null })).toBe(null)
     expect(refundRequestDisplayText({ status: 'rejected', display: null })).toBe(null)
   })
 

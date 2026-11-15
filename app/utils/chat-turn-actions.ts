@@ -21,6 +21,7 @@ import {
   type ReplyActionsRoundStatus,
   type VitalsField
 } from './reply-actions'
+import { defaultConsultationGoalOptions } from './consultation-goal-defaults'
 
 /**
  * Chat bubble TurnActions visibility rules (single source of truth).
@@ -67,14 +68,9 @@ export interface ChatTurnUiContext {
   pathEntryPending?: boolean
 }
 
-/** Mirrors core ConsultationGoal::defaultCatalog() for empty stream options. */
-export const DEFAULT_CONSULTATION_GOAL_OPTIONS: ChatMessageOption[] = [
-  { code: 'sleep', label: '睡眠' },
-  { code: 'weight_loss', label: '減重' },
-  { code: 'immune_boost', label: '免疫提升' },
-  { code: 'cognitive_function', label: '認知功能' },
-  { code: 'gastrointestinal', label: '腸胃道' }
-]
+/** @deprecated Prefer `defaultConsultationGoalOptions(t)`. Kept for unit tests. */
+export const DEFAULT_CONSULTATION_GOAL_OPTIONS: ChatMessageOption[]
+  = defaultConsultationGoalOptions()
 
 const MIN_GOAL_CHIPS = 2
 
@@ -83,6 +79,7 @@ export function resolveEffectiveGoalOptions(input: {
   goalOptions: ChatMessageOption[]
   intake?: ChatMessage
   message?: ChatMessage
+  fallbackOptions?: ChatMessageOption[]
 }): ChatMessageOption[] {
   if (!input.goalSelectActive) {
     return input.goalOptions
@@ -91,7 +88,7 @@ export function resolveEffectiveGoalOptions(input: {
     input.goalOptions,
     input.message?.options ?? [],
     input.intake?.options ?? [],
-    DEFAULT_CONSULTATION_GOAL_OPTIONS
+    input.fallbackOptions ?? defaultConsultationGoalOptions()
   ]
   for (const list of candidates) {
     if (list.length >= MIN_GOAL_CHIPS) {

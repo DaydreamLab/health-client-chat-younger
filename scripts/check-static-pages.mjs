@@ -11,12 +11,26 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { assertLocalesConsistent } from './check-i18n-locales.mjs'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const pagesDir = join(root, 'app/pages')
 const publicDir = join(root, '.output/public')
 const SHELL = '_'
 const EN = 'en'
+
+/**
+ * Visible CJK on `/en` static HTML that is intentional FE chrome.
+ * Matched as whole substrings after stripping script/style/SVG.
+ * Keep in sync with PR description whitelist.
+ */
+const EN_HTML_CJK_WHITELIST = [
+  '中文',
+  '語言：繁中',
+  '繁中'
+]
+
+const CJK_RE = /[\u4e00-\u9fff]/u
 
 /** Sibling .vue / dirs next to a dynamic segment that keep their own HTML. */
 function reservedSiblings(dir) {
@@ -250,7 +264,93 @@ function assertSupportEmailInGeneratedHtml() {
   }
 }
 
+/**
+ * Strip non-visible / bundled payload so we only flag FE-owned SSR text.
+ * Nuxt may embed both locale JSONs inside `<script>` — those are not page copy.
+ */
+function visibleHtmlText(raw) {
+  return raw
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&[a-z]+;/gi, ' ')
+    .replace(/\s+/g, ' ')
+}
+
+function applyCjkWhitelist(text) {
+  let out = text
+  for (const token of EN_HTML_CJK_WHITELIST) {
+    out = out.split(token).join(' ')
+  }
+  return out
+}
+
+function assertNoCjkInEnStaticHtml(routes) {
+  const failures = []
+  for (const entry of routes) {
+    if (!entry.route.startsWith(`/${EN}`)) {
+      continue
+    }
+    const abs = join(publicDir, entry.file)
+    if (!existsSync(abs)) {
+      continue
+    }
+    const raw = readFileSync(abs, 'utf8')
+    const visible = applyCjkWhitelist(visibleHtmlText(raw))
+    const match = visible.match(CJK_RE)
+    if (match) {
+      const idx = visible.indexOf(match[0])
+      const snippet = visible.slice(Math.max(0, idx - 24), idx + 48).trim()
+      failures.push(`${entry.route}: CJK ${JSON.stringify(match[0])} near ${JSON.stringify(snippet)}`)
+    }
+  }
+
+  if (failures.length) {
+    console.error('CJK found in /en static HTML (frontend-owned visible text):')
+    for (const f of failures) {
+      console.error(`  ${f}`)
+    }
+    console.error(
+      'Whitelist intentional switcher copy in EN_HTML_CJK_WHITELIST; core API Chinese must not appear in generate HTML.'
+    )
+    process.exit(1)
+  }
+  console.log('OK: no unexpected CJK in /en static HTML visible text.')
+}
+
+function assertNoSpaFallbackOnly(routes) {
+  const spa = join(publicDir, '200.html')
+  if (!existsSync(spa)) {
+    return
+  }
+  const spaRaw = readFileSync(spa, 'utf8')
+  const failures = []
+  for (const entry of routes) {
+    const abs = join(publicDir, entry.file)
+    if (!existsSync(abs)) {
+      failures.push(`${entry.route}: missing (would rely on 200.html)`)
+      continue
+    }
+    const raw = readFileSync(abs, 'utf8')
+    // Identical tiny stub pointing at SPA fallback is not a real page.
+    if (raw === spaRaw && entry.kind === 'static') {
+      failures.push(`${entry.route}: identical to 200.html SPA fallback`)
+    }
+  }
+  if (failures.length) {
+    console.error('Routes must have real generated HTML, not 200.html fallback:')
+    for (const f of failures) {
+      console.error(`  ${f}`)
+    }
+    process.exit(1)
+  }
+}
+
 function main() {
+  assertLocalesConsistent()
+
   if (!existsSync(publicDir)) {
     console.error(`Missing ${publicDir}. Run \`pnpm generate\` first.`)
     process.exit(1)
@@ -296,6 +396,8 @@ function main() {
   }
 
   console.log(`OK: ${rows.length} routes have static HTML (incl. dynamic shells + /en).`)
+  assertNoSpaFallbackOnly(routes)
+  assertNoCjkInEnStaticHtml(routes)
   assertNoHardcodedSupportEmailsInSource()
   assertSupportEmailInGeneratedHtml()
 }

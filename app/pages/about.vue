@@ -63,7 +63,7 @@
         class="about-body mt-8 text-base text-highlighted"
         data-testid="about-contact"
       >
-        <h2>{{ contactHeading }}</h2>
+        <h2>{{ $t('about.contactHeading') }}</h2>
         <p>
           <SupportEmailLink
             link-class="text-highlighted underline-offset-2 hover:underline"
@@ -71,10 +71,10 @@
           <template v-if="supportEmail">
             <br>
           </template>
-          {{ contactHours }}
+          {{ $t('about.contactHours') }}
         </p>
         <p class="text-muted">
-          {{ contactNote }}
+          {{ $t('about.contactNote') }}
         </p>
       </div>
     </article>
@@ -84,7 +84,7 @@
 <script setup lang="ts">
 import { normalizeSupportEmail } from '~/utils/support-email'
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
 const config = useRuntimeConfig()
 const supportEmail = computed(() => normalizeSupportEmail(config.public.supportEmail))
 
@@ -92,38 +92,7 @@ useSeoMeta({
   title: () => t('about.metaTitle')
 })
 
-/** Static placeholder body（第一波不走 legal_documents）。 */
-const BODY_ZH = `## 我們是誰
-
-Candor（坦見）由 Daydream Lab 打造，協助你把檢驗與穿戴數據轉成可理解的下一步——而不是一堆難懂的數值。
-
-## 我們做什麼
-
-- 健康／營養相關諮詢對話與個人化建議流程
-- 報告上傳、解讀與追蹤
-- 方案瀏覽與需要時的專人協助`
-
-const BODY_EN = `## Who we are
-
-Candor is built by Daydream Lab to turn lab and wearable data into understandable next steps—not a wall of numbers.
-
-## What we do
-
-- Health and nutrition consult flows with personalized guidance
-- Report upload, interpretation, and follow-up
-- Plan browsing and specialist handoff when needed`
-
-const bodyMarkdown = computed(() => locale.value === 'en' ? BODY_EN : BODY_ZH)
-
-const contactHeading = computed(() => locale.value === 'en' ? 'Contact' : '聯絡我們')
-const contactHours = computed(() =>
-  locale.value === 'en' ? 'Hours: Mon–Fri 10:00–18:00' : '服務時間：週一至週五 10:00–18:00'
-)
-const contactNote = computed(() =>
-  locale.value === 'en'
-    ? '(placeholder copy · pending ops review)'
-    : '（placeholder 文案 · 待營運審）'
-)
+const bodyMarkdown = computed(() => t('about.body'))
 
 const pending = ref(false)
 const loadError = ref(false)

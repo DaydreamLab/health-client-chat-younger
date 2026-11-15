@@ -196,7 +196,7 @@
                 data-testid="rationale-entry"
               >
                 <div class="flex flex-wrap items-center gap-2 text-sm text-muted">
-                  <span>- 建議補充{{ entry.ingredient_label }}成份：</span>
+                  <span>- {{ $t('recommendation.rationaleSuggest', { ingredient: entry.ingredient_label }) }}</span>
                   <span
                     class="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
                     data-testid="rationale-product-badge"

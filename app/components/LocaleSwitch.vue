@@ -15,7 +15,7 @@
 <script setup lang="ts">
 type LocaleCode = 'zh-TW' | 'en'
 
-const { locale, setLocale } = useI18n({ useScope: 'global' })
+const { locale, setLocale, t } = useI18n({ useScope: 'global' })
 const switchLocalePath = useSwitchLocalePath()
 const route = useRoute()
 
@@ -34,7 +34,9 @@ const currentLocale = computed<LocaleCode>(() => {
 })
 
 const localeLabel = computed(() => {
-  return currentLocale.value === 'en' ? 'Language: EN' : '語言：繁中'
+  return currentLocale.value === 'en'
+    ? t('localeSwitch.ariaEn')
+    : t('localeSwitch.ariaZh')
 })
 
 watch(locale, (value) => {

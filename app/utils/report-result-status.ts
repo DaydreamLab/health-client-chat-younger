@@ -40,17 +40,18 @@ export function resultStatusClass(r: HealthReportResult): ResultStatusClass {
   return r.needs_review ? 'warn' : 'unknown'
 }
 
-export function resultStatusLabel(cls: ResultStatusClass) {
+/** i18n key under `labChart.*` for a result status class. */
+export function resultStatusLabelKey(cls: ResultStatusClass): string {
   if (cls === 'ok') {
-    return '最佳值'
+    return 'labChart.statusOptimal'
   }
   if (cls === 'warn') {
-    return '提醒值'
+    return 'labChart.statusCaution'
   }
   if (cls === 'alert') {
-    return '警戒值'
+    return 'labChart.statusAlert'
   }
-  return '待確認'
+  return 'labChart.statusUnknown'
 }
 
 export function formatResultRef(r: HealthReportResult) {

@@ -5,6 +5,7 @@
 
 import type { OfferRecommendPayload } from './candor-api'
 import type { ChatMessageOption } from './first-order'
+import { defaultConsultationGoalOptions } from './consultation-goal-defaults'
 
 export const REPLY_ACTIONS_SCHEMA_VERSION = '0.1'
 
@@ -170,13 +171,7 @@ const ACTIONABLE_TYPES = new Set<string>([
 ])
 
 /** Fallback goal chips when ask_goal has no/insufficient goal_codes (mirrors chat-turn-actions). */
-const FALLBACK_GOAL_OPTIONS: ChatMessageOption[] = [
-  { code: 'sleep', label: '睡眠' },
-  { code: 'weight_loss', label: '減重' },
-  { code: 'immune_boost', label: '免疫提升' },
-  { code: 'cognitive_function', label: '認知功能' },
-  { code: 'gastrointestinal', label: '腸胃道' }
-]
+const FALLBACK_GOAL_OPTIONS: ChatMessageOption[] = defaultConsultationGoalOptions()
 
 const loggedUnknownTypes = new Set<string>()
 
