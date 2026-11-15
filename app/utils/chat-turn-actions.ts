@@ -560,6 +560,37 @@ function suppressGuidanceIfNeeded(
   }
 }
 
+/**
+ * Paint-only TurnActions for order transcript／readonly order chat.
+ * Reuses the same replyActions → buildTurnActionsVisibility path as /chat,
+ * then freezes every bubble (including the last) so CTAs stay selected／grey.
+ */
+export function buildOrderTranscriptTurnActions(
+  message: ChatMessage,
+  messages: readonly ChatMessage[]
+): TurnActionsVisibility {
+  const lastAssistantId = [...messages].reverse().find(row => row.role === 'assistant')?.id
+  const visibility = buildTurnActionsVisibility({
+    message,
+    ctx: {
+      readonlyMode: true,
+      escalated: false,
+      pending: false,
+      goalSelectActive: false,
+      reportAskActive: false,
+      hasReportAnalysis: false,
+      reportRetry: false,
+      checkupLinkReady: true,
+      lastAssistantId
+    },
+    intake: message,
+    goalOptions: message.options ?? [],
+    needsMultiConfirm: true,
+    expertReviewStatus: 'none'
+  })
+  return freezeNonLatestRetainedVisibility(visibility)
+}
+
 export function buildTurnActionsVisibility(input: {
   message: ChatMessage
   ctx: ChatTurnUiContext
