@@ -280,13 +280,14 @@
           :to="plansHref"
           class="block"
         >
-          <img
+          <HomePromoSlide
             :src="item.src"
             :alt="item.alt"
-            width="3840"
-            height="1300"
-            class="aspect-[3840/1300] w-full object-cover"
-          >
+            :text-side="item.textSide"
+            :title-key="item.titleKey"
+            :audience-key="item.audienceKey"
+            :detail-key="item.detailKey"
+          />
         </NuxtLink>
       </UCarousel>
     </section>
@@ -354,14 +355,11 @@
           data-testid="home-trust-slide"
           :data-trust-key="currentTrust.key"
         >
-          <img
+          <HomeTrustSwatch
             :key="currentTrust.key"
+            :trust-key="currentTrust.key"
             :src="currentTrust.src"
-            alt=""
-            class="app-trust-slide aspect-[2/1] h-auto w-full rounded-2xl object-cover lg:-translate-x-6"
-            data-testid="home-trust-swatch"
-            aria-hidden="true"
-          >
+          />
           <div>
             <h2 class="text-2xl font-bold text-highlighted sm:text-3xl">
               {{ $t('trust.title') }}
@@ -595,9 +593,30 @@ async function loadLabsHref() {
 
 const plansHref = computed(() => `${localePath('/')}#plans`)
 const promoSlides = computed(() => [
-  { src: publicAsset('home/hemagenics-iron.jpg'), alt: t('promo.hemagenics') },
-  { src: publicAsset('home/iron-glycinate.jpg'), alt: t('promo.glycinate') },
-  { src: publicAsset('home/active-b-complex.jpg'), alt: t('promo.bComplex') }
+  {
+    src: publicAsset('home/hemagenics-iron.jpg'),
+    alt: t('promo.hemagenics'),
+    textSide: 'right' as const,
+    titleKey: 'promo.hemagenics',
+    audienceKey: 'promo.hemagenicsAudience',
+    detailKey: 'promo.hemagenicsDetail'
+  },
+  {
+    src: publicAsset('home/iron-glycinate.jpg'),
+    alt: t('promo.glycinate'),
+    textSide: 'left' as const,
+    titleKey: 'promo.glycinate',
+    audienceKey: 'promo.glycinateAudience',
+    detailKey: 'promo.glycinateDetail'
+  },
+  {
+    src: publicAsset('home/active-b-complex.jpg'),
+    alt: t('promo.bComplex'),
+    textSide: 'right' as const,
+    titleKey: 'promo.bComplex',
+    audienceKey: 'promo.bComplexAudience',
+    detailKey: 'promo.bComplexDetail'
+  }
 ])
 
 const packages = ref<PublicPackage[]>([])

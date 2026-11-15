@@ -128,6 +128,7 @@ test('guest home page loads', async ({ page, goto }) => {
 })
 
 test('EN switch keeps selected style and translates plans', async ({ page, goto }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
   await goto('/', { waitUntil: 'hydration' })
 
   await page.getByRole('button', { name: '語言：繁中' }).click()
@@ -145,6 +146,18 @@ test('EN switch keeps selected style and translates plans', async ({ page, goto 
   await expect(page.getByRole('link', { name: 'Plans', exact: true })).toBeVisible()
   await expect(page.getByText('Basic Care').first()).toBeVisible()
   await expect(page.getByText('Full Tune').first()).toBeVisible()
+  await expect(page.getByTestId('home-carousel')).toBeVisible()
+  await expect(page.getByTestId('home-promo-slide').first()).toContainText('Hemagenics iron protein complex')
+  await expect(page.getByTestId('home-promo-slide').first()).toContainText('Iron-deficiency anemia')
+  await expect(page.getByTestId('home-promo-slide').first()).not.toContainText('鐵蛋白')
+  const trustSlide = page.getByTestId('home-trust-slide')
+  await expect(page.getByTestId('home-trust-swatch')).toHaveAttribute('src', /\/home\/trust-data\.png$/)
+  await expect.poll(async () => trustSlide.getAttribute('data-trust-key'), { timeout: 8000 }).toBe('pace')
+  await expect(page.getByTestId('home-trust-swatch')).toHaveAttribute('data-trust-frame', 'pace')
+  await expect(page.getByTestId('home-trust-swatch')).toContainText('Do you have a blood test or checkup report?')
+  await expect(page.getByTestId('home-trust-swatch')).toContainText('Get a checkup, see the markers')
+  await expect(page.getByTestId('home-trust-swatch')).toContainText('Trouble falling asleep')
+  await expect(page.getByTestId('home-trust-swatch')).not.toContainText('血檢')
 })
 
 test('hero labs CTA opens configured checkup URL', async ({ page, goto }) => {

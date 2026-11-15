@@ -224,8 +224,14 @@
     "title": "Custom functional medical supplements",
     "body": "Skip guessing. From your labs and conversation, we match medical-grade formulas (such as Hemagenics iron protein and an active B complex) to what you actually need.",
     "hemagenics": "Hemagenics iron protein complex",
+    "hemagenicsAudience": "Iron-deficiency anemia · low ferritin",
+    "hemagenicsDetail": "With Metafolin® patented active folate for high uptake and red-cell maturation — amino-acid chelated iron, gentler on the gut.",
     "glycinate": "Iron glycinate",
-    "bComplex": "Active B complex"
+    "glycinateAudience": "Long-term vegetarians · pregnancy and lactation",
+    "glycinateDetail": "High absorption, gentle amino-acid–shielded iron — support a healthy, rosy complexion without the usual constipation.",
+    "bComplex": "Active B complex",
+    "bComplexAudience": "High stress · low energy · uneven diet · for most adults",
+    "bComplexDetail": "Bioavailable active forms with Quatrefolic® active folate, MecobalActive® B12, and benfotiamine — for carbohydrate metabolism, antioxidant support, and inflammation balance."
   },
   "youngerLabs": {
     "title": "No blood test on hand? Leave it to the Younger team.",
@@ -326,7 +332,16 @@
     "recordTitle": "Tied to your record",
     "recordHint": "Reports and plans stay on your account, so later charts and items match the same person.",
     "wearableTitle": "All-day wearable health tracking",
-    "wearableHint": "Coming soon. Support for wearable devices, daily health data, reminders, and **OCR reading** as your health assistant."
+    "wearableHint": "Coming soon. Support for wearable devices, daily health data, reminders, and **OCR reading** as your health assistant.",
+    "frameAllergyQ": "Any of these food allergies? (multiple choice)",
+    "frameAllergyA": "Peanuts, shellfish, fish",
+    "frameBloodQ": "Do you have a blood test or checkup report?",
+    "frameBloodHint": "A checkup makes each marker clearer afterward.",
+    "frameBloodCta": "Get a checkup, see the markers",
+    "frameBloodA": "None",
+    "frameSleepIntro": "Thanks for sharing. You chose sleep as a focus — I’d like to understand your situation a bit more.",
+    "frameSleepQ": "What is your main sleep concern right now?",
+    "frameSleepA": "Trouble falling asleep"
   },
   "login": {
     "title": "Log in so we can match your records",

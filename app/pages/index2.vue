@@ -207,14 +207,11 @@
           data-testid="home-trust-slide"
           :data-trust-key="currentTrust.key"
         >
-          <img
+          <HomeTrustSwatch
             :key="currentTrust.key"
+            :trust-key="currentTrust.key"
             :src="currentTrust.src"
-            alt=""
-            class="app-trust-slide aspect-[2/1] h-auto w-full rounded-2xl object-cover lg:-translate-x-6"
-            data-testid="home-trust-swatch"
-            aria-hidden="true"
-          >
+          />
           <div>
             <h2 class="text-2xl font-bold text-highlighted sm:text-3xl">
               {{ $t('homeV2.trust.title') }}
