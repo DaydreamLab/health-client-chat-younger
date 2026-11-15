@@ -388,9 +388,7 @@ test.describe('member order detail', () => {
         sidebarTop: sidebar?.getBoundingClientRect().top ?? -1,
         sidebarHeight: sidebar?.getBoundingClientRect().height ?? 0,
         mainOverflowY: mainStyle?.overflowY ?? '',
-        mainScrollbar: mainStyle?.scrollbarWidth ?? '',
-        mainClient: main?.clientHeight ?? 0,
-        mainScroll: main?.scrollHeight ?? 0
+        mainScrollbar: mainStyle?.scrollbarWidth ?? ''
       }
     })
     expect(shell.windowScroll).toBe(0)
@@ -398,20 +396,8 @@ test.describe('member order detail', () => {
     expect(shell.sidebarHeight).toBe(800)
     expect(shell.mainOverflowY).toBe('auto')
     expect(shell.mainScrollbar).toBe('none')
-    expect(shell.mainScroll).toBeGreaterThan(shell.mainClient)
 
-    const mainScrollTop = await page.locator('main').evaluate((el) => {
-      el.scrollTop = 240
-      return el.scrollTop
-    })
-    const afterScroll = await page.evaluate(() => ({
-      windowScroll: window.scrollY,
-      sidebarTop: document.getElementById('user-sidebar')?.getBoundingClientRect().top ?? -1
-    }))
-    expect(mainScrollTop).toBeGreaterThan(0)
-    expect(afterScroll.windowScroll).toBe(0)
-    expect(afterScroll.sidebarTop).toBe(0)
-
+    // Single-card 50dvh layout scrolls inside the card, not main (aeebca5).
     const cardMetrics = await card.evaluate((el) => {
       const scroller = el.querySelector('[data-testid="report-result-cards-scroller"]')
       const style = getComputedStyle(el)
@@ -427,6 +413,18 @@ test.describe('member order detail', () => {
     expect(cardMetrics.height).toBeLessThanOrEqual(cardMetrics.maxHeight + 1)
     expect(cardMetrics.scrollHeight).toBeGreaterThan(cardMetrics.clientHeight)
     expect(cardMetrics.overflowY).toMatch(/auto|scroll/)
+
+    const cardScrollTop = await card.locator('[data-testid="report-result-cards-scroller"]').evaluate((el) => {
+      el.scrollTop = 120
+      return el.scrollTop
+    })
+    expect(cardScrollTop).toBeGreaterThan(0)
+    const afterCardScroll = await page.evaluate(() => ({
+      windowScroll: window.scrollY,
+      sidebarTop: document.getElementById('user-sidebar')?.getBoundingClientRect().top ?? -1
+    }))
+    expect(afterCardScroll.windowScroll).toBe(0)
+    expect(afterCardScroll.sidebarTop).toBe(0)
 
     await card.getByTestId('health-report-toggle').click()
     await expect(card.getByTestId('health-report-detail')).toHaveCount(0)
