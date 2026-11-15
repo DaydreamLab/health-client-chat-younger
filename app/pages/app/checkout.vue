@@ -525,7 +525,7 @@
                     :key="city"
                     :value="city"
                   >
-                    {{ city }}
+                    {{ cityLabel(city) }}
                   </option>
                 </select>
               </label>
@@ -761,7 +761,8 @@ import {
 import {
   TAIWAN_CITIES,
   composeTaiwanAddress,
-  districtsForCity
+  districtsForCity,
+  taiwanCityLabel
 } from '~/utils/taiwan-regions'
 import {
   addonCodesQueryValue,
@@ -854,6 +855,7 @@ const addressDetail = ref('')
 const saveAsDefaultAddress = ref(false)
 const hydratingAddress = ref(false)
 const taiwanCities = TAIWAN_CITIES
+const cityLabel = (city: string) => taiwanCityLabel(city, locale.value)
 const addressDistricts = computed(() => districtsForCity(addressCity.value))
 const delivery = ref<'home'>('home')
 const paymentMethod = ref<PaymentMethod>('card')

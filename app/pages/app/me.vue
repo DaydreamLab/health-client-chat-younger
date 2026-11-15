@@ -120,7 +120,7 @@
                       :key="city"
                       :value="city"
                     >
-                      {{ city }}
+                      {{ cityLabel(city) }}
                     </option>
                   </select>
                 </label>
@@ -192,14 +192,14 @@
 
 <script setup lang="ts">
 import { CandorApiError } from '~/utils/candor-api'
-import { districtsForCity, TAIWAN_CITIES } from '~/utils/taiwan-regions'
+import { districtsForCity, TAIWAN_CITIES, taiwanCityLabel } from '~/utils/taiwan-regions'
 
 definePageMeta({
   layout: 'user',
   middleware: 'auth'
 })
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const auth = useAuthStore()
 const candor = useCandorApi()
 const { sync: syncGate } = useAuthClientSync()
@@ -220,6 +220,7 @@ const success = ref(false)
 const loadError = ref(false)
 
 const taiwanCities = TAIWAN_CITIES
+const cityLabel = (city: string) => taiwanCityLabel(city, locale.value)
 const addressDistricts = computed(() => districtsForCity(addressCity.value))
 
 watch(addressCity, () => {

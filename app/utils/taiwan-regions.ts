@@ -26,8 +26,45 @@ export const TAIWAN_REGIONS: Record<string, readonly string[]> = {
 
 export const TAIWAN_CITIES = Object.keys(TAIWAN_REGIONS)
 
+/**
+ * Official English names (MOI / Taiwan postal romanization).
+ * Keys match TAIWAN_REGIONS (Chinese values sent to the API).
+ */
+export const TAIWAN_CITY_EN: Record<string, string> = {
+  台北市: 'Taipei City',
+  新北市: 'New Taipei City',
+  基隆市: 'Keelung City',
+  桃園市: 'Taoyuan City',
+  新竹市: 'Hsinchu City',
+  新竹縣: 'Hsinchu County',
+  苗栗縣: 'Miaoli County',
+  台中市: 'Taichung City',
+  彰化縣: 'Changhua County',
+  南投縣: 'Nantou County',
+  雲林縣: 'Yunlin County',
+  嘉義市: 'Chiayi City',
+  嘉義縣: 'Chiayi County',
+  台南市: 'Tainan City',
+  高雄市: 'Kaohsiung City',
+  屏東縣: 'Pingtung County',
+  宜蘭縣: 'Yilan County',
+  花蓮縣: 'Hualien County',
+  台東縣: 'Taitung County',
+  澎湖縣: 'Penghu County',
+  金門縣: 'Kinmen County',
+  連江縣: 'Lienchiang County'
+}
+
 export function districtsForCity(city: string): readonly string[] {
   return TAIWAN_REGIONS[city] ?? []
+}
+
+/** Display label for a city; API value stays Chinese. */
+export function taiwanCityLabel(city: string, locale: string): string {
+  if (locale === 'en' || locale.startsWith('en-')) {
+    return TAIWAN_CITY_EN[city] ?? city
+  }
+  return city
 }
 
 /** Compose API recipient.address: 縣市 + 鄉鎮市區 + 詳細地址 */

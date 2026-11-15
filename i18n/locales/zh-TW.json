@@ -224,8 +224,14 @@
     "title": "專屬客製：頂級「功能級醫學保健品」",
     "body": "拋棄盲目補充。依據您的血檢與對談結果，為您精準挑選醫療等級的高效配方（如：Hemagenics 鐵蛋白複方、綜合活性 B 群等），對症下藥。",
     "hemagenics": "Hemagenics 鐵蛋白複方",
+    "hemagenicsAudience": "缺鐵性貧血、鐵蛋白過低者",
+    "hemagenicsDetail": "添加 Metafolin®，專利活性葉酸，高利用率，促進紅血球成熟 — 採用胺基酸螯合鐵，不易造成便秘",
     "glycinate": "Iron Glycinate 甘胺酸鐵",
-    "bComplex": "Active B complex 綜合活性B群"
+    "glycinateAudience": "長期素食者、孕哺乳期媽咪",
+    "glycinateDetail": "高吸收、不卡關，溫和不刺激的『胺基酸防護鐵』，讓你輕鬆補足紅潤好氣色！",
+    "bComplex": "Active B complex 綜合活性B群",
+    "bComplexAudience": "高壓力族群、精神不振者、飲食不均衡者、各族群適用",
+    "bComplexDetail": "採最符合人體生物利用率的活化形式 — 添加 Quatrefolic® 專利活性葉酸、MecobalActive® 專利活性 B12、苯磷硫胺，幫助醣類代謝、抗氧化、抗發炎"
   },
   "youngerLabs": {
     "title": "手邊沒有血檢報告嗎？交給 Younger 專業團隊！",
@@ -326,7 +332,16 @@
     "recordTitle": "跟著你的資料走",
     "recordHint": "對談紀錄、血檢報告與專屬客製方案，全數安全留存在您的帳號裡，長效追蹤您的健康變化。",
     "wearableTitle": "穿戴裝置全日健康數據追蹤",
-    "wearableHint": "即將上線，支援所有穿戴裝置，為您整合每日健康數據與提供提醒並應用 **OCR 解析** 做您最佳的智能健康助理"
+    "wearableHint": "即將上線，支援所有穿戴裝置，為您整合每日健康數據與提供提醒並應用 **OCR 解析** 做您最佳的智能健康助理",
+    "frameAllergyQ": "是否有以下過敏食物？（可複選）",
+    "frameAllergyA": "花生、蝦蟹貝類、魚類",
+    "frameBloodQ": "是否有血檢或健檢報告？",
+    "frameBloodHint": "如果去做一次檢查，之後可以更清楚各項指標。",
+    "frameBloodCta": "去做檢查，看清各項指標",
+    "frameBloodA": "無",
+    "frameSleepIntro": "感謝您提供這些資訊。根據您剛才提到選擇「睡眠」作為改善方向，我想更進一步了解您的具體狀況。",
+    "frameSleepQ": "您目前的睡眠困擾主要是什麼呢？",
+    "frameSleepA": "難以入睡"
   },
   "login": {
     "title": "登入後資料才對得到人",
