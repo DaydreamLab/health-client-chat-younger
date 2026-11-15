@@ -61,6 +61,42 @@ test('EN home at 390px: promo titles fully visible and pace last line shown', as
     expect(metrics!.copyScrollHeight, `"${title}" copy overflow`).toBeLessThanOrEqual(metrics!.copyClientHeight + 1)
     expect(metrics!.titleTop).toBeGreaterThanOrEqual(metrics!.copyTop - 1)
     expect(metrics!.titleBottom).toBeLessThanOrEqual(metrics!.copyBottom + 1)
+
+    const textOverflow = await carousel.evaluate((root, expected) => {
+      const titles = [...root.querySelectorAll('[data-testid="home-promo-title"]')] as HTMLElement[]
+      const heading = titles.find((el) => {
+        if (el.textContent?.trim() !== expected) {
+          return false
+        }
+        const box = el.getBoundingClientRect()
+        return box.width > 0 && box.height > 0
+      })
+      const slide = heading?.closest('[data-testid="home-promo-slide"]') as HTMLElement | null
+      if (!slide) {
+        return null
+      }
+      const nodes = [
+        slide.querySelector('[data-testid="home-promo-title"]'),
+        slide.querySelector('[data-testid="home-promo-audience"]'),
+        slide.querySelector('[data-testid="home-promo-detail"]')
+      ] as (HTMLElement | null)[]
+      return nodes.map((el) => {
+        if (!el) {
+          return { ok: false }
+        }
+        return {
+          ok: el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1,
+          scrollWidth: el.scrollWidth,
+          clientWidth: el.clientWidth,
+          scrollHeight: el.scrollHeight,
+          clientHeight: el.clientHeight
+        }
+      })
+    }, title)
+    expect(textOverflow).not.toBeNull()
+    for (const row of textOverflow!) {
+      expect(row.ok, `"${title}" child overflow ${JSON.stringify(row)}`).toBe(true)
+    }
   }
 
   await page.getByTestId('home-trust').scrollIntoViewIfNeeded()

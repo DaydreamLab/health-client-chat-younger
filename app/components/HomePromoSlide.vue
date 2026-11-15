@@ -66,13 +66,13 @@ const photoObjectClass = computed(() => {
         {{ t(titleKey) }}
       </h3>
       <p
-        class="inline-flex w-fit max-w-full rounded-sm bg-gradient-to-r from-[#0a7ea4] to-[#2bb3c9] px-2.5 py-1 text-[0.7rem] font-medium leading-snug text-white sm:px-3 sm:text-sm"
+        class="w-fit max-w-full rounded-sm bg-gradient-to-r from-[#0a7ea4] to-[#2bb3c9] px-2.5 py-1 text-[0.7rem] font-medium leading-snug break-words text-white sm:px-3 sm:text-sm"
         data-testid="home-promo-audience"
       >
         {{ t(audienceKey) }}
       </p>
       <p
-        class="max-w-xl text-[0.7rem] leading-5 text-[#0a4f8c] sm:text-xs sm:leading-5 md:text-sm md:leading-6"
+        class="max-w-xl text-[0.7rem] leading-5 break-words text-[#0a4f8c] sm:text-xs sm:leading-5 md:text-sm md:leading-6"
         data-testid="home-promo-detail"
       >
         {{ t(detailKey) }}
