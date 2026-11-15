@@ -19,22 +19,9 @@
       class="mt-6"
       skeleton-variant="form"
       skeleton-test-id="expert-booking-confirm-auth-skeleton"
+      login-test-id="expert-booking-confirm-login"
       test-id="expert-booking-confirm-auth-shell"
     >
-      <template #guest>
-        <div class="mt-4 text-center">
-          <p class="font-semibold text-highlighted">
-            {{ $t('expertBooking.guestRequired') }}
-          </p>
-          <AppButton
-            class="mt-4"
-            :to="loginTo"
-          >
-            {{ $t('expertBooking.goLogin') }}
-          </AppButton>
-        </div>
-      </template>
-
       <div
         v-if="!hasDraft"
         class="mt-4 space-y-4 text-center"

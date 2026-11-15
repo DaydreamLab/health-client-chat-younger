@@ -19,37 +19,9 @@
       class="mt-6"
       skeleton-variant="form"
       skeleton-test-id="expert-booking-auth-skeleton"
+      login-test-id="expert-booking-login"
       test-id="expert-booking-auth-shell"
     >
-      <template #guest>
-        <!-- F-02：未登入會員 -->
-        <div
-          class="mt-4 flex flex-col items-center gap-3 text-center"
-          data-testid="expert-booking-auth-gate"
-        >
-          <span class="flex size-14 items-center justify-center rounded-full bg-amber-500/15 text-amber-700 ring-1 ring-amber-500/30">
-            <UIcon
-              name="i-lucide-lock"
-              class="size-7"
-            />
-          </span>
-          <h1 class="text-xl font-semibold text-highlighted">
-            {{ $t('expertBooking.guestRequired') }}
-          </h1>
-          <p class="max-w-sm text-sm leading-6 text-muted">
-            {{ $t('expertBooking.guestRequiredHint') }}
-          </p>
-          <AppButton
-            class="mt-2 w-full max-w-xs"
-            variant="outline"
-            :to="loginTo"
-            data-testid="expert-booking-go-login"
-          >
-            {{ $t('expertBooking.goLogin') }}
-          </AppButton>
-        </div>
-      </template>
-
       <!-- F-03：說明＋表單同頁 -->
       <div
         class="space-y-8"
@@ -412,10 +384,6 @@ const pageTitle = computed(() =>
   productState.value === 'ready' && product.value
     ? productName.value
     : t('expertBooking.title')
-)
-
-const loginTo = computed(() =>
-  `${localePath('/login')}?redirect=${encodeURIComponent(localePath('/expert-booking'))}&mode=login`
 )
 
 function seedFormFromStore() {

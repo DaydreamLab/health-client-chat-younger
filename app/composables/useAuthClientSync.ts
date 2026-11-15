@@ -3,8 +3,8 @@
  * Keep auth-dependent UI locked until the client has re-read the token so
  * hydration matches SSR and members are not stuck behind the guest gate.
  *
- * Prefer MemberAuthShell: skeleton while !settled, then guest gate or member slot.
- * Do not use memberGateLocked to render the guest gate during !settled — that
+ * Prefer MemberAuthShell: skeleton while !settled, then AuthLoginForm (stay) or member slot.
+ * Do not use memberGateLocked to render the guest login during !settled — that
  * flashes login UI for members on cold open / F5.
  */
 export function useAuthClientSync() {

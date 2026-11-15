@@ -23,7 +23,7 @@ const DYNAMIC_PATHS = [
   {
     name: 'orders',
     path: '/app/orders/ord-spa-1',
-    guestTestId: 'order-detail-auth-gate',
+    guestTestId: 'login-form',
     memberTestId: 'order-detail'
   },
   {

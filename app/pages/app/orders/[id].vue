@@ -2,13 +2,7 @@
   <MemberAuthShell
     skeleton-variant="detail"
     skeleton-test-id="order-detail-auth-skeleton"
-    :title="$t('orders.guestRequired')"
-    :hint="$t('orders.guestRequiredHint')"
-    icon="i-lucide-package"
-    gate-test-id="order-detail-auth-gate"
     login-test-id="order-detail-login"
-    register-test-id="order-detail-register"
-    back-to-chat-test-id="order-detail-back-chat"
     test-id="order-detail-auth-shell"
   >
     <MemberLoadingState

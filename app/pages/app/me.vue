@@ -12,13 +12,7 @@
     <MemberAuthShell
       skeleton-variant="form"
       skeleton-test-id="profile-auth-skeleton"
-      :title="$t('profile.guestRequired')"
-      :hint="$t('profile.guestRequiredHint')"
-      icon="i-lucide-user-round"
-      gate-test-id="profile-auth-gate"
       login-test-id="profile-login"
-      register-test-id="profile-register"
-      back-to-chat-test-id="profile-back-chat"
       test-id="profile-auth-shell"
     >
       <form

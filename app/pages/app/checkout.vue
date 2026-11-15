@@ -228,17 +228,17 @@
             test-id="checkout-auth-skeleton"
           />
 
-          <MemberAuthGate
+          <div
             v-else-if="!auth.isMember"
-            class="mt-6"
-            :title="$t('checkout.memberRequired')"
-            :hint="$t('checkout.memberRequiredHint')"
-            icon="i-lucide-clipboard-list"
-            test-id="checkout-auth-gate"
-            login-test-id="checkout-login"
-            register-test-id="checkout-register"
-            back-to-chat-test-id="checkout-back-chat"
-          />
+            class="mx-auto mt-6 w-full max-w-md"
+            data-testid="checkout-login"
+          >
+            <AuthLoginForm
+              stay
+              :show-description="false"
+              :show-guest-link="false"
+            />
+          </div>
 
           <template v-else-if="isExpertPlan">
             <h2 class="mt-6 text-sm font-medium text-highlighted">
@@ -1402,7 +1402,7 @@ async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
       pageGate.value = 'conversation_missing'
       recommendation.value = null
     }
-    // Guest without conversation still falls through to MemberAuthGate.
+    // Guest without conversation still falls through to AuthLoginForm.
     listPending.value = false
     packagePending.value = false
     return
