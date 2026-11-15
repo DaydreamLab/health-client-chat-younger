@@ -278,6 +278,229 @@ test.describe('member order detail', () => {
     await expect(page.getByTestId('health-stat-goals')).not.toContainText('sleep')
     await expect(page.getByTestId('health-stat-goals')).not.toContainText('immune_boost')
   })
+
+  test('report card collapses in place and opens a reading window', async ({ page, goto }) => {
+    const reportId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+    const results = Array.from({ length: 24 }, (_, index) => {
+      const value = 40 + index
+      const outOfRange = value > 40
+      return {
+        id: `result-e2e-${index}`,
+        raw_name: `Marker ${index}`,
+        name_zh: `指標 ${index}`,
+        name_zh_source: 'ai' as const,
+        raw_value: String(value),
+        value_numeric: value,
+        unit: 'U/L',
+        ref_low: 10,
+        ref_high: 40,
+        critical_high: 60,
+        needs_review: false,
+        range_status: outOfRange ? 'high' as const : 'normal' as const,
+        ...(outOfRange
+          ? {
+              description: `指標 ${index} 是常見檢驗項目。`,
+              possible_causes: `偏高可能與生活型態有關（${index}）。`,
+              possible_risks: `偏高時可能需要留意相關健康狀態（${index}）。`
+            }
+          : {})
+      }
+    })
+    // Match list with or without pagination query (?limit=5&offset=0).
+    await page.route((url) => {
+      const path = url.pathname.replace(/\/$/, '')
+      return path.endsWith('/health-reports')
+    }, async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback()
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            // Page of 5 + total>5 → pager; latest expanded + collapsed rows keep main scrollable on lg.
+            reports: [
+              {
+                id: reportId,
+                status: 'needs_review',
+                created_at: '2026-10-02T07:39:00Z'
+              },
+              ...Array.from({ length: 4 }, (_, index) => ({
+                id: `cccccccc-cccc-cccc-cccc-ccccccccccc${index}`,
+                status: 'ready',
+                created_at: `2026-09-0${index + 1}T08:00:00Z`
+              }))
+            ],
+            total: 12
+          }
+        })
+      })
+    })
+    await page.route(`**/api/v1/health-reports/${reportId}`, async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback()
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            id: reportId,
+            status: 'needs_review',
+            results
+          }
+        })
+      })
+    })
+
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await goto('/app', { waitUntil: 'hydration' })
+
+    const card = page.getByTestId(`health-report-${reportId}`)
+    await expect(card.getByText('報告樣式1')).toHaveCount(0)
+    await expect(card.getByText('報告樣式2')).toHaveCount(0)
+    await expect(page.getByTestId(`health-report-cards-${reportId}`)).toHaveCount(0)
+    await expect(card.getByTestId('health-report-view-cards')).toHaveAttribute('aria-pressed', 'true')
+    await expect(card.getByTestId('health-report-expand')).toHaveText('展開報告')
+    await expect(card.getByTestId('health-report-detail')).toBeVisible()
+    await expect(card.getByTestId('report-result-card-result-e2e-0')).toBeVisible()
+    await expect(card.getByTestId('report-result-card-result-e2e-0')).toContainText('指標 0')
+    await expect(card.getByTestId('report-result-card-position-result-e2e-0')).toBeVisible()
+    await expect(card.getByTestId('report-result-card-status-result-e2e-0')).toHaveText('最佳')
+    await expect(card.getByTestId('report-result-card-status-result-e2e-1')).toHaveText('提醒')
+    await expect(card.getByTestId('report-result-card-status-result-e2e-21')).toHaveText('警戒')
+    await expect(card.getByTestId('report-result-info-result-e2e-1')).toBeVisible()
+    await expect(card.getByTestId('report-result-card-result-e2e-1')).not.toContainText('這是什麼')
+    await expect(card.getByTestId('report-result-raw-name-result-e2e-1')).toContainText('Marker 1')
+
+    await card.getByTestId('report-result-info-result-e2e-1').click()
+    const infoDialog = page.getByRole('dialog')
+    await expect(infoDialog).toBeVisible()
+    await expect(infoDialog.getByTestId('report-result-interpretation-result-e2e-1')).toContainText('這是什麼')
+    await expect(infoDialog.getByTestId('report-result-interpretation-result-e2e-1')).toContainText('可能原因')
+    await expect(infoDialog.getByTestId('report-result-interpretation-result-e2e-1')).toContainText('可能風險')
+    await page.keyboard.press('Escape')
+    await expect(infoDialog).toHaveCount(0)
+
+    const shell = await page.evaluate(() => {
+      const sidebar = document.getElementById('user-sidebar')
+      const main = document.querySelector('main')
+      const mainStyle = main ? getComputedStyle(main) : null
+      return {
+        windowScroll: window.scrollY,
+        sidebarTop: sidebar?.getBoundingClientRect().top ?? -1,
+        sidebarHeight: sidebar?.getBoundingClientRect().height ?? 0,
+        mainOverflowY: mainStyle?.overflowY ?? '',
+        mainScrollbar: mainStyle?.scrollbarWidth ?? '',
+        mainClient: main?.clientHeight ?? 0,
+        mainScroll: main?.scrollHeight ?? 0
+      }
+    })
+    expect(shell.windowScroll).toBe(0)
+    expect(shell.sidebarTop).toBe(0)
+    expect(shell.sidebarHeight).toBe(800)
+    expect(shell.mainOverflowY).toBe('auto')
+    expect(shell.mainScrollbar).toBe('none')
+    expect(shell.mainScroll).toBeGreaterThan(shell.mainClient)
+
+    const mainScrollTop = await page.locator('main').evaluate((el) => {
+      el.scrollTop = 240
+      return el.scrollTop
+    })
+    const afterScroll = await page.evaluate(() => ({
+      windowScroll: window.scrollY,
+      sidebarTop: document.getElementById('user-sidebar')?.getBoundingClientRect().top ?? -1
+    }))
+    expect(mainScrollTop).toBeGreaterThan(0)
+    expect(afterScroll.windowScroll).toBe(0)
+    expect(afterScroll.sidebarTop).toBe(0)
+
+    const cardMetrics = await card.evaluate((el) => {
+      const scroller = el.querySelector('[data-testid="report-result-cards-scroller"]')
+      const style = getComputedStyle(el)
+      return {
+        height: el.getBoundingClientRect().height,
+        maxHeight: Number.parseFloat(style.maxHeight),
+        scrollHeight: scroller?.scrollHeight ?? 0,
+        clientHeight: scroller?.clientHeight ?? 0,
+        overflowY: scroller ? getComputedStyle(scroller).overflowY : ''
+      }
+    })
+    expect(cardMetrics.maxHeight).toBeGreaterThan(0)
+    expect(cardMetrics.height).toBeLessThanOrEqual(cardMetrics.maxHeight + 1)
+    expect(cardMetrics.scrollHeight).toBeGreaterThan(cardMetrics.clientHeight)
+    expect(cardMetrics.overflowY).toMatch(/auto|scroll/)
+
+    await card.getByTestId('health-report-toggle').click()
+    await expect(card.getByTestId('health-report-detail')).toHaveCount(0)
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+
+    await card.getByRole('button', { name: '展開', exact: true }).click()
+    await expect(card.getByTestId('health-report-detail')).toBeVisible()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+
+    await card.getByTestId('health-report-expand').click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByRole('heading', { name: '報告判讀' })).toBeVisible()
+    await expect(dialog).not.toContainText('展開報告')
+    const sheetToggle = await dialog.getByTestId('health-report-view').boundingBox()
+    const sheetClose = await dialog.locator('[data-slot="close"]').boundingBox()
+    expect(sheetToggle).not.toBeNull()
+    expect(sheetClose).not.toBeNull()
+    expect((sheetToggle?.x ?? 0) + (sheetToggle?.width ?? 0)).toBeLessThan(sheetClose?.x ?? 0)
+    await expect(dialog.getByTestId('health-report-view-cards')).toHaveAttribute('aria-pressed', 'true')
+    await expect(dialog.getByTestId('report-result-card-result-e2e-0')).toBeVisible()
+    await expect(dialog.getByRole('columnheader')).toHaveCount(0)
+    await expect(dialog.getByText('數值依參考區間著色')).toBeVisible()
+
+    const sheetMetrics = await dialog.evaluate(async (el) => {
+      await Promise.all(el.getAnimations().map(animation => animation.finished))
+      const scroller = el.querySelector('[data-testid="report-result-cards-scroller"]')
+      return {
+        height: el.getBoundingClientRect().height,
+        scrollHeight: scroller?.scrollHeight ?? 0,
+        clientHeight: scroller?.clientHeight ?? 0,
+        overflowY: scroller ? getComputedStyle(scroller).overflowY : ''
+      }
+    })
+    const viewport = page.viewportSize()
+    expect(viewport).not.toBeNull()
+    const viewportHeight = viewport?.height ?? 0
+    expect(sheetMetrics.height).toBeGreaterThan(viewportHeight - 48 - 8)
+    expect(sheetMetrics.height).toBeLessThan(viewportHeight - 48 + 8)
+    expect(sheetMetrics.scrollHeight).toBeGreaterThan(sheetMetrics.clientHeight)
+    expect(sheetMetrics.overflowY).toMatch(/auto|scroll/)
+
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+    await expect(card.getByTestId('health-report-detail')).toBeVisible()
+
+    await card.getByTestId('health-report-view-table').click()
+    await expect(card.getByTestId('report-result-strip-result-e2e-0')).toBeVisible()
+    await expect(card.getByTestId('report-result-strip-position-result-e2e-0')).toBeVisible()
+    await expect(card.getByTestId('report-result-strip-status-result-e2e-0')).toHaveText('最佳')
+    await expect(card.getByTestId('report-result-card-result-e2e-0')).toHaveCount(0)
+    await expect(card.getByTestId('report-result-info-result-e2e-1')).toBeVisible()
+
+    await card.getByTestId('health-report-view-cards').click()
+    await card.getByTestId('health-report-expand').click()
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByTestId('health-report-view-cards')).toHaveAttribute('aria-pressed', 'true')
+    await expect(dialog.getByTestId('report-result-card-result-e2e-0')).toBeVisible()
+    await expect(dialog.getByTestId('report-result-card-status-result-e2e-0')).toHaveText('最佳')
+    await expect(dialog.getByRole('columnheader')).toHaveCount(0)
+
+    await dialog.getByTestId('health-report-view-table').click()
+    await expect(dialog.getByTestId('report-result-strip-result-e2e-0')).toBeVisible()
+    await expect(dialog.getByRole('columnheader')).toHaveCount(0)
+    await expect(dialog.getByTestId('report-result-strip-status-result-e2e-1')).toHaveText('提醒')
+  })
 })
 
 test.describe('member checkout', () => {
