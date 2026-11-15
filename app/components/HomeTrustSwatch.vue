@@ -65,12 +65,12 @@ const recordRows = computed<HealthReportResult[]>(() => [
   <div
     v-else-if="trustKey === 'pace'"
     :key="trustKey"
-    class="app-trust-slide aspect-[2/1] h-auto w-full overflow-hidden rounded-2xl border border-default bg-elevated p-3 sm:p-4 lg:-translate-x-6"
+    class="app-trust-slide h-auto w-full rounded-2xl border border-default bg-elevated p-3 sm:p-4 lg:-translate-x-6"
     data-testid="home-trust-swatch"
     data-trust-frame="pace"
     aria-hidden="true"
   >
-    <div class="flex h-full flex-col gap-2 overflow-hidden text-[0.65rem] leading-4 text-highlighted sm:gap-2.5 sm:text-xs sm:leading-5">
+    <div class="flex flex-col gap-2 text-[0.65rem] leading-4 text-highlighted sm:gap-2.5 sm:text-xs sm:leading-5">
       <div class="flex items-start gap-2">
         <span
           class="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-brand-600 text-[0.55rem] font-semibold text-white"
@@ -108,7 +108,10 @@ const recordRows = computed<HealthReportResult[]>(() => [
           <p>{{ $t('trust.frameSleepQ') }}</p>
         </div>
       </div>
-      <p class="ms-auto max-w-[85%] rounded-lg bg-default px-2.5 py-1.5 shadow-sm">
+      <p
+        class="ms-auto max-w-[85%] rounded-lg bg-default px-2.5 py-1.5 shadow-sm"
+        data-testid="home-trust-pace-last"
+      >
         {{ $t('trust.frameSleepA') }}
       </p>
     </div>
