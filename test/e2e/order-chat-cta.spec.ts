@@ -1,4 +1,5 @@
 import { expect, test } from '@nuxt/test-utils/playwright'
+import { e2eArtifactPath } from './helpers/artifacts-dir'
 import { mockCandorAuth } from './mock-candor-auth'
 
 /**
@@ -29,6 +30,36 @@ const historicalPathSwitchRa = {
         { code: 'b', label: '我想諮詢健康方案', status: 'selected' },
         { code: 'c', label: '幫我看報告', status: 'disabled' }
       ]
+    }
+  }]
+}
+
+/** Beta ORD shape: selected_codes only, no confirm_status on wire. */
+const historicalMultiNoConfirmStatusRa = {
+  schema_version: '0.1',
+  source: 'rule',
+  adaptor: 'fake',
+  degraded: false,
+  error: null,
+  interaction: {
+    round_status: 'historical',
+    outcome: 'option_selected'
+  },
+  actions: [{
+    type: 'choose_option',
+    payload: {
+      kind: 'consultation_goals',
+      mode: 'multi',
+      confirm: true,
+      answer_type: 'multi_enum',
+      options: [
+        { code: 'sleep', label: '睡眠', status: 'selected' },
+        { code: 'weight_loss', label: '減重', status: 'disabled' },
+        { code: 'immune_boost', label: '免疫提升', status: 'disabled' },
+        { code: 'cognitive_function', label: '認知功能', status: 'disabled' },
+        { code: 'gastrointestinal', label: '腸胃道', status: 'disabled' }
+      ],
+      selected: ['sleep']
     }
   }]
 }
@@ -109,13 +140,83 @@ test.describe('order chat CTA history (align /chat)', () => {
 
     await selectedChip.scrollIntoViewIfNeeded()
     await page.screenshot({
-      path: '/opt/cursor/artifacts/order-chat-cta-selected.png',
+      path: e2eArtifactPath('order-chat-cta-selected.png'),
       fullPage: false
     })
 
     await listMd.scrollIntoViewIfNeeded()
     await page.screenshot({
-      path: '/opt/cursor/artifacts/order-chat-markdown.png',
+      path: e2eArtifactPath('order-chat-markdown.png'),
+      fullPage: false
+    })
+  })
+
+  test('multi confirm without confirm_status paints selected (order transcript)', async ({
+    page,
+    goto
+  }) => {
+    test.setTimeout(90_000)
+    await mockCandorAuth(page, { asMember: true, withOrder: true })
+    await page.setViewportSize({ width: 390, height: 844 })
+
+    await page.route(`**/api/v1/order/${ORDER_ID}/message**`, async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback()
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            conversation_id: 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+            messages: [
+              {
+                id: 'om-asst-goals',
+                role: 'assistant',
+                content: '想先了解您希望優先改善的方向是什麼呢？',
+                reply_actions: historicalMultiNoConfirmStatusRa
+              },
+              {
+                id: 'om-user-goals',
+                role: 'user',
+                content: '睡眠'
+              },
+              {
+                id: 'om-asst-next',
+                role: 'assistant',
+                content: '是否有血檢或健檢報告？'
+              }
+            ]
+          }
+        })
+      })
+    })
+
+    await goto(`/app/orders/${ORDER_ID}`, { waitUntil: 'hydration' })
+    await expect(page.getByTestId('order-detail')).toBeVisible({ timeout: 15_000 })
+    await page.getByTestId('order-view-chat').click()
+    await expect(page.getByTestId('order-chat-modal')).toBeVisible()
+    await expect(page.getByTestId('order-chat-messages')).toBeVisible({ timeout: 15_000 })
+
+    const sleepChip = page.getByTestId('chat-quiz-option-sleep')
+    await expect(sleepChip).toBeVisible()
+    await expect(sleepChip).toHaveAttribute('data-cta-status', 'selected')
+    await expect(sleepChip).toHaveClass(/is-selected/)
+
+    const confirmBtn = page.getByTestId('chat-quiz-confirm')
+    await expect(confirmBtn).toBeVisible()
+    await expect(confirmBtn).toHaveAttribute('data-cta-status', 'selected')
+    await expect(confirmBtn).toHaveClass(/is-selected/)
+    await expect(confirmBtn).toBeDisabled()
+
+    await expect(page.getByTestId('chat-quiz-option-weight_loss'))
+      .toHaveAttribute('data-cta-status', 'disabled')
+
+    await confirmBtn.scrollIntoViewIfNeeded()
+    await page.screenshot({
+      path: e2eArtifactPath('order-chat-multi-confirm-selected.png'),
       fullPage: false
     })
   })

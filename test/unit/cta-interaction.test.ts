@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { CandorApiError } from '../../app/utils/candor-api'
 import {
   coerceRetainedStatusForNonLatest,
+  hydrateHistoricalReplyActions,
   isStaleCtaError,
   resolveEntryPathSwitchResolution,
   resolveOptionControlStatus,
@@ -195,6 +196,129 @@ describe('cta-interaction helpers', () => {
     expect(visibility.choices.every(c => c.status === 'disabled')).toBe(true)
     expect(visibility.showUpload).toBe(true)
     expect(visibility.roundStatus).toBe('historical')
+  })
+
+  it('hydrateHistoricalReplyActions stamps confirm_status when core only has selected_codes', () => {
+    // Beta ORD shape: cta_resolution.selected_codes=["sleep"], no confirm_status on wire.
+    const message: ChatMessage = {
+      id: 'asst-goals',
+      role: 'assistant',
+      parts: [{ type: 'text', text: '想先了解您希望優先改善的方向？' }],
+      replyActions: parseReplyActions({
+        schema_version: '0.1',
+        source: 'rule',
+        adaptor: 'rule',
+        degraded: false,
+        error: null,
+        interaction: {
+          round_status: 'historical',
+          outcome: 'option_selected'
+        },
+        actions: [{
+          type: 'choose_option',
+          payload: {
+            kind: 'consultation_goals',
+            mode: 'multi',
+            confirm: true,
+            answer_type: 'multi_enum',
+            options: [
+              { code: 'sleep', label: '睡眠', status: 'selected' },
+              { code: 'weight_loss', label: '減重', status: 'disabled' },
+              { code: 'immune_boost', label: '免疫提升', status: 'disabled' },
+              { code: 'cognitive_function', label: '認知功能', status: 'disabled' },
+              { code: 'gastrointestinal', label: '腸胃道', status: 'disabled' }
+            ],
+            selected: ['sleep']
+            // intentionally no confirm_status
+          }
+        }]
+      })
+    }
+    expect(
+      (message.replyActions!.actions[0]!.payload as { confirm_status?: string }).confirm_status
+    ).toBeUndefined()
+
+    hydrateHistoricalReplyActions(message)
+
+    expect(
+      (message.replyActions!.actions[0]!.payload as { confirm_status?: string }).confirm_status
+    ).toBe('selected')
+    expect(selectedCodesFromReplyActions(message.replyActions)).toEqual(['sleep'])
+
+    const visibility = buildTurnActionsVisibility({
+      message,
+      ctx: { ...baseCtx('later'), conversationPath: 'B' },
+      goalOptions: [],
+      needsMultiConfirm: true
+    })
+    expect(visibility.showConfirm).toBe(true)
+    expect(visibility.confirmStatus).toBe('selected')
+    expect(visibility.choices.find(c => c.code === 'sleep')?.status).toBe('selected')
+    expect(visibility.choices.find(c => c.code === 'weight_loss')?.status).toBe('disabled')
+  })
+
+  it('hydrateHistoricalReplyActions: free_text greys confirm; skips current rounds', () => {
+    const freeText: ChatMessage = {
+      id: 'asst-ft',
+      role: 'assistant',
+      parts: [{ type: 'text', text: '方向？' }],
+      replyActions: parseReplyActions({
+        schema_version: '0.1',
+        source: 'rule',
+        adaptor: 'rule',
+        degraded: false,
+        error: null,
+        interaction: { round_status: 'historical', outcome: 'free_text' },
+        actions: [{
+          type: 'choose_option',
+          payload: {
+            kind: 'consultation_goals',
+            mode: 'multi',
+            confirm: true,
+            options: [
+              { code: 'sleep', label: '睡眠' },
+              { code: 'weight_loss', label: '減重' }
+            ],
+            selected: []
+          }
+        }]
+      })
+    }
+    hydrateHistoricalReplyActions(freeText)
+    expect(
+      (freeText.replyActions!.actions[0]!.payload as { confirm_status?: string }).confirm_status
+    ).toBe('disabled')
+
+    const live: ChatMessage = {
+      id: 'asst-live',
+      role: 'assistant',
+      parts: [{ type: 'text', text: '方向？' }],
+      replyActions: parseReplyActions({
+        schema_version: '0.1',
+        source: 'rule',
+        adaptor: 'rule',
+        degraded: false,
+        error: null,
+        interaction: { round_status: 'current', outcome: null },
+        actions: [{
+          type: 'choose_option',
+          payload: {
+            kind: 'consultation_goals',
+            mode: 'multi',
+            confirm: true,
+            confirm_status: 'current',
+            options: [
+              { code: 'sleep', label: '睡眠', status: 'current' }
+            ],
+            selected: []
+          }
+        }]
+      })
+    }
+    hydrateHistoricalReplyActions(live)
+    expect(
+      (live.replyActions!.actions[0]!.payload as { confirm_status?: string }).confirm_status
+    ).toBe('current')
   })
 
   it('resolveEntryPathSwitchResolution: chip A／C selected; free text all grey', () => {
