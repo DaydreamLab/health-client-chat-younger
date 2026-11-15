@@ -220,4 +220,132 @@ test.describe('order chat CTA history (align /chat)', () => {
       fullPage: false
     })
   })
+
+  /**
+   * Reproduce beta ORD truncate: completion open-head still `current` after
+   *「繼續健康諮詢」— order modal must still show「查看推薦方案」, and later
+   * recommend／checkout turns from the fixture must all render.
+   */
+  test('completion current + later recommend／checkout turns all show', async ({
+    page,
+    goto
+  }) => {
+    test.setTimeout(90_000)
+    await mockCandorAuth(page, { asMember: true, withOrder: true })
+    await page.setViewportSize({ width: 390, height: 844 })
+
+    const openHeadCompletionCurrent = {
+      schema_version: '0.1',
+      source: 'semantic_judgment',
+      adaptor: 'fake',
+      degraded: false,
+      error: null,
+      interaction: {
+        round_status: 'current',
+        outcome: null
+      },
+      actions: [
+        {
+          type: 'offer_recommend',
+          payload: {
+            mode: 'view_recommendations',
+            label: '查看推薦方案',
+            path: '/app/recommendations',
+            status: 'current'
+          }
+        },
+        {
+          type: 'choose_option',
+          payload: {
+            kind: 'continue_consultation',
+            mode: 'single',
+            confirm: false,
+            options: [
+              { code: 'continue', label: '繼續健康諮詢', status: 'current' }
+            ]
+          }
+        }
+      ]
+    }
+
+    await page.route(`**/api/v1/order/${ORDER_ID}/message**`, async (route) => {
+      if (route.request().method() !== 'GET') {
+        await route.fallback()
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'success',
+          data: {
+            conversation_id: 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+            messages: [
+              {
+                id: 'om-asst-lab',
+                role: 'assistant',
+                content: '是否有血檢或健檢報告？'
+              },
+              {
+                id: 'om-user-lab',
+                role: 'user',
+                content: '無'
+              },
+              {
+                id: 'om-asst-complete',
+                role: 'assistant',
+                content: '如果去做一次檢查，之後可以更清楚各項指標。',
+                reply_actions: openHeadCompletionCurrent
+              },
+              {
+                id: 'om-user-reco',
+                role: 'user',
+                content: '查看推薦方案'
+              },
+              {
+                id: 'om-asst-checkout',
+                role: 'assistant',
+                content: '方案已就緒，可前往結帳完成訂單。'
+              },
+              {
+                id: 'om-user-checkout',
+                role: 'user',
+                content: '前往結帳'
+              }
+            ]
+          }
+        })
+      })
+    })
+
+    await goto(`/app/orders/${ORDER_ID}`, { waitUntil: 'hydration' })
+    await expect(page.getByTestId('order-detail')).toBeVisible({ timeout: 15_000 })
+    await page.getByTestId('order-view-chat').click()
+    await expect(page.getByTestId('order-chat-modal')).toBeVisible()
+    const list = page.getByTestId('order-chat-messages')
+    await expect(list).toBeVisible({ timeout: 15_000 })
+
+    // Before fix: only「繼續健康諮詢」chip; offer_recommend dropped by readonly+current.
+    await expect(list.getByText('繼續健康諮詢')).toBeVisible()
+    const viewReco = page.getByTestId('chat-view-recommend')
+    await expect(viewReco).toBeVisible()
+    await expect(viewReco).toBeDisabled()
+
+    // Later recommend／checkout turns must not be truncated from the list.
+    await expect(list.getByText('查看推薦方案', { exact: true }).last()).toBeVisible()
+    await expect(list).toContainText('方案已就緒，可前往結帳完成訂單。')
+    await expect(list.getByText('前往結帳', { exact: true })).toBeVisible()
+
+    await viewReco.scrollIntoViewIfNeeded()
+    await page.screenshot({
+      path: e2eArtifactPath('order-chat-completion-with-recommend.png'),
+      fullPage: false
+    })
+
+    await list.getByText('前往結帳', { exact: true }).scrollIntoViewIfNeeded()
+    await page.screenshot({
+      path: e2eArtifactPath('order-chat-complete-through-checkout.png'),
+      fullPage: false
+    })
+  })
 })

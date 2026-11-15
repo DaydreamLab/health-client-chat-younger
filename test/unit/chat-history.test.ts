@@ -573,4 +573,76 @@ describe('orderMessagesToChatMessages / order transcript CTAs', () => {
     expect(visibility.choices).toEqual([])
     expect(visibility.fromReplyActions).toBe(false)
   })
+
+  /**
+   * Beta ORD-261115-000001 shape: completion open-head still `current`
+   * (cta_resolution never written after「查看推薦方案」navigate). Order modal
+   * must still paint offer_recommend beside continue_consultation.
+   */
+  const openHeadCompletionCurrent = {
+    schema_version: '0.1',
+    source: 'semantic_judgment',
+    adaptor: 'fake',
+    degraded: false,
+    error: null,
+    interaction: {
+      round_status: 'current' as const,
+      outcome: null
+    },
+    actions: [
+      {
+        type: 'offer_recommend',
+        payload: {
+          mode: 'view_recommendations',
+          label: '查看推薦方案',
+          path: '/app/recommendations',
+          status: 'current'
+        }
+      },
+      {
+        type: 'choose_option',
+        payload: {
+          kind: 'continue_consultation',
+          mode: 'single',
+          confirm: false,
+          options: [
+            { code: 'continue', label: '繼續健康諮詢', status: 'current' }
+          ]
+        }
+      }
+    ]
+  }
+
+  it('order transcript: open-head current completion still shows 查看推薦方案', () => {
+    const mapped = orderMessagesToChatMessages([
+      {
+        id: 'om-complete',
+        role: 'assistant',
+        content: '如果去做一次檢查，之後可以更清楚各項指標。',
+        reply_actions: openHeadCompletionCurrent
+      },
+      { id: 'om-user-reco', role: 'user', content: '查看推薦方案' },
+      {
+        id: 'om-asst-checkout',
+        role: 'assistant',
+        content: '方案已就緒，可前往結帳完成訂單。'
+      },
+      { id: 'om-user-checkout', role: 'user', content: '前往結帳' }
+    ])
+    expect(mapped).toHaveLength(4)
+    expect(mapped.map(m => m.id)).toEqual([
+      'om-complete',
+      'om-user-reco',
+      'om-asst-checkout',
+      'om-user-checkout'
+    ])
+
+    const visibility = buildOrderTranscriptTurnActions(mapped[0]!, mapped)
+    expect(visibility.showViewRecommend).toBe(true)
+    expect(visibility.roundStatus).toBe('historical')
+    const continueChip = visibility.choices.find(c => c.code === 'continue'
+      || c.label === '繼續健康諮詢')
+    expect(continueChip).toBeTruthy()
+    expect(continueChip?.status).toBe('disabled')
+  })
 })
