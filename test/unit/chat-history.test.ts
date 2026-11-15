@@ -4,9 +4,12 @@ import {
   mergeServerHistoryWithLocalUserMessages,
   normalizeStoredChatMessage,
   normalizeStoredChatMessages,
+  orderMessagesToChatMessages,
   parseConversationMessagesResult,
   parseHistoryMessage
 } from '../../app/utils/chat-history'
+import { buildOrderTranscriptTurnActions } from '../../app/utils/chat-turn-actions'
+import { selectedCodesFromReplyActions } from '../../app/utils/cta-interaction'
 import type { ChatMessage } from '../../app/utils/first-order'
 import {
   buildTurnActionsVisibility,
@@ -317,5 +320,77 @@ describe('mergeServerHistoryWithLocalUserMessages', () => {
     ]
     const merged = mergeServerHistoryWithLocalUserMessages(local, server)
     expect(merged.map(m => m.id)).toEqual(['greet', 'u-shared', 'u-only', 'a1'])
+  })
+})
+
+describe('orderMessagesToChatMessages / order transcript CTAs', () => {
+  const historicalPathSwitch = {
+    schema_version: '0.1',
+    source: 'path_entry',
+    adaptor: 'fake',
+    degraded: false,
+    error: null,
+    interaction: {
+      round_status: 'historical',
+      outcome: 'option_selected'
+    },
+    actions: [{
+      type: 'choose_option',
+      payload: {
+        kind: 'path_switch',
+        mode: 'single',
+        confirm: false,
+        options: [
+          { code: 'a', label: '我想聊聊', status: 'disabled' },
+          { code: 'b', label: '我想諮詢健康方案', status: 'selected' },
+          { code: 'c', label: '幫我看報告', status: 'disabled' }
+        ]
+      }
+    }]
+  }
+
+  it('maps GET /order/{id}/message reply_actions onto ChatMessage (same as history)', () => {
+    const mapped = orderMessagesToChatMessages([
+      {
+        id: 'om-asst',
+        role: 'assistant',
+        content: '第一行\n\n第二行',
+        reply_actions: historicalPathSwitch
+      },
+      { id: 'om-user', role: 'user', content: '我想諮詢健康方案' }
+    ])
+    expect(mapped).toHaveLength(2)
+    expect(mapped[0]!.replyActions).toBeTruthy()
+    expect(isUsableReplyActions(mapped[0]!.replyActions)).toBe(true)
+    expect(mapped[0]!.parts[0]?.text).toBe('第一行\n\n第二行')
+    expect(selectedCodesFromReplyActions(mapped[0]!.replyActions)).toEqual(['b'])
+  })
+
+  it('buildOrderTranscriptTurnActions keeps selected／disabled chips (paint-only)', () => {
+    const messages = orderMessagesToChatMessages([
+      {
+        id: 'om-asst',
+        role: 'assistant',
+        content: '你想先從哪裡開始？',
+        reply_actions: historicalPathSwitch
+      },
+      { id: 'om-user', role: 'user', content: '我想諮詢健康方案' }
+    ])
+    const visibility = buildOrderTranscriptTurnActions(messages[0]!, messages)
+    expect(visibility.roundStatus).toBe('historical')
+    expect(visibility.choices).toHaveLength(3)
+    expect(visibility.choices.find(c => c.code === 'b')?.status).toBe('selected')
+    expect(visibility.choices.find(c => c.code === 'a')?.status).toBe('disabled')
+    expect(visibility.choices.find(c => c.code === 'c')?.status).toBe('disabled')
+  })
+
+  it('omits reply_actions when API row has none (no invented CTAs)', () => {
+    const mapped = orderMessagesToChatMessages([
+      { id: 'plain', role: 'assistant', content: '純文字' }
+    ])
+    expect(mapped[0]!.replyActions).toBeUndefined()
+    const visibility = buildOrderTranscriptTurnActions(mapped[0]!, mapped)
+    expect(visibility.choices).toEqual([])
+    expect(visibility.fromReplyActions).toBe(false)
   })
 })

@@ -10,6 +10,7 @@ import {
   orderRecordFromCandorSummary
 } from '~/utils/first-order'
 import type { OrderCreated, OrderPaymentCreated } from '~/utils/candor-api'
+import { orderMessagesToChatMessages } from '~/utils/chat-history'
 
 export function useFirstOrderApi() {
   const ordersStore = useOrdersStore()
@@ -138,11 +139,8 @@ export function useFirstOrderApi() {
     if (token) {
       try {
         const payload = await candor.getOrderMessages(id)
-        return payload.messages.map(message => ({
-          id: message.id,
-          role: message.role === 'user' ? 'user' as const : 'assistant' as const,
-          parts: [{ type: 'text' as const, text: message.content }]
-        }))
+        // Keep reply_actions／options so order transcript CTAs match /chat history.
+        return orderMessagesToChatMessages(payload.messages)
       } catch {
         // fall through to local
       }

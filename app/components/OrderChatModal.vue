@@ -59,37 +59,11 @@
           >
             {{ $t('orders.chatEmpty') }}
           </p>
-          <ul
+          <ChatTranscriptMessages
             v-else
-            class="space-y-3"
-            data-testid="order-chat-messages"
-          >
-            <li
-              v-for="message in messages"
-              :key="message.id"
-              class="flex items-end gap-2"
-              :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
-            >
-              <AssistantMark
-                v-if="message.role === 'assistant'"
-                class="mb-0.5"
-              />
-              <div
-                class="max-w-[90%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed"
-                :class="message.role === 'user'
-                  ? 'bg-primary text-white'
-                  : 'border border-default bg-default text-highlighted'"
-              >
-                <p class="mb-1 text-[11px] font-medium opacity-70">
-                  {{ message.role === 'user' ? $t('orders.chatRoleUser') : $t('orders.chatRoleAssistant') }}
-                </p>
-                <ChatMarkdown
-                  :text="messageText(message)"
-                  :tone="message.role === 'user' ? 'on-primary' : 'default'"
-                />
-              </div>
-            </li>
-          </ul>
+            :messages="messages"
+            list-test-id="order-chat-messages"
+          />
         </div>
       </article>
     </div>
@@ -115,14 +89,6 @@ const titleId = 'order-chat-modal-title'
 const pending = ref(false)
 const error = ref('')
 const messages = ref<ChatMessage[]>([])
-
-function messageText(message: ChatMessage) {
-  return message.parts
-    .filter(part => part.type === 'text' && part.text)
-    .map(part => part.text)
-    .join('\n')
-    .trim()
-}
 
 async function loadMessages() {
   if (!props.orderId) {

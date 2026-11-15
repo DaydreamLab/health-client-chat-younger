@@ -173,6 +173,26 @@ export function historyMessageToChatMessage(row: ConversationHistoryMessage): Ch
 }
 
 /**
+ * Map GET /order/{id}/message rows onto ChatMessage.
+ * Same CTA path as conversation history (`reply_actions` → TurnActions).
+ * Tolerant of partial payloads; omits rows that fail parseHistoryMessage.
+ */
+export function orderMessagesToChatMessages(rawMessages: unknown): ChatMessage[] {
+  if (!Array.isArray(rawMessages)) {
+    return []
+  }
+  const out: ChatMessage[] = []
+  for (const item of rawMessages) {
+    const row = parseHistoryMessage(item)
+    if (!row) {
+      continue
+    }
+    out.push(historyMessageToChatMessage(row))
+  }
+  return out
+}
+
+/**
  * Normalize a message restored from journey localStorage so `replyActions`
  * is always a parsed ReplyActions object (or omitted).
  */
