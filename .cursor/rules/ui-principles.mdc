@@ -15,3 +15,5 @@ alwaysApply: false
 - 區塊標題已經說明清楚，就不要再加副標或說明文字。
 - 同一類資訊用分組、間距、對齊表達，不另加小標籤。
 - 只有在排版無法表達、使用者會誤解時，才加說明。
+
+畫面去 AI 味／設計潤飾時，另見 [`.cursor/skills/unslop/SKILL.md`](../skills/unslop/SKILL.md)（含 Candor 補充）。
