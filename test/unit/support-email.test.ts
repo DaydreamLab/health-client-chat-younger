@@ -45,7 +45,6 @@ describe('supportEmailLinkModel (footer line visibility)', () => {
 describe('support email wiring (no hardcoded inbox)', () => {
   const nuxtConfig = readFileSync(resolve('nuxt.config.ts'), 'utf8')
   const defaultLayout = readFileSync(resolve('app/layouts/default.vue'), 'utf8')
-  const index2Layout = readFileSync(resolve('app/layouts/index2.vue'), 'utf8')
   const about = readFileSync(resolve('app/pages/about.vue'), 'utf8')
   const link = readFileSync(resolve('app/components/SupportEmailLink.vue'), 'utf8')
   const zh = readFileSync(resolve('i18n/locales/zh-TW.json'), 'utf8')
@@ -63,8 +62,7 @@ describe('support email wiring (no hardcoded inbox)', () => {
     expect(link).toMatch(/v-if="mailtoHref"/)
     expect(defaultLayout).toMatch(/SupportEmailLink/)
     expect(defaultLayout).not.toMatch(/footer\.email/)
-    expect(index2Layout).toMatch(/SupportEmailLink/)
-    expect(index2Layout).toMatch(/showSupportEmail/)
+    expect(defaultLayout).toMatch(/isIndex2/)
     expect(about).toMatch(/normalizeSupportEmail/)
     expect(about).toMatch(/SupportEmailLink/)
     expect(about).toMatch(/data-testid="about-contact"/)

@@ -19,15 +19,15 @@
               data-testid="brand-hero"
               class="text-lg font-medium tracking-wide"
             >
-              {{ $t('homeV2.hero.eyebrow') }}
+              {{ $t('hero.eyebrow') }}
             </p>
             <h1 class="mt-3 whitespace-pre-line text-[clamp(1.5rem,calc((100vw-2.5rem)/11),1.875rem)] font-semibold tracking-tight min-[375px]:text-4xl sm:text-5xl">
-              {{ $t('homeV2.hero.title') }}
+              {{ $t('hero.title') }}
             </h1>
             <!-- eslint-disable vue/no-v-html -->
             <p
               class="mt-4 whitespace-pre-line text-xs text-white/85 min-[375px]:text-sm"
-              v-html="renderInline($t('homeV2.hero.description'))"
+              v-html="renderInline($t('hero.description'))"
             />
             <!-- eslint-enable vue/no-v-html -->
             <div class="app-hero-actions mt-7">
@@ -36,7 +36,15 @@
                 :to="localePath('/chat')"
                 data-testid="hero-cta-chat"
               >
-                {{ $t('homeV2.hero.ctaChat') }}
+                {{ $t('hero.ctaChat') }}
+              </AppButton>
+              <AppButton
+                class="px-4"
+                :to="localePath('/chat')"
+                variant="outline"
+                data-testid="hero-cta-upload"
+              >
+                {{ $t('hero.ctaUpload') }}
               </AppButton>
               <AppButton
                 class="px-4"
@@ -44,7 +52,7 @@
                 variant="outline"
                 data-testid="hero-cta-plans"
               >
-                {{ $t('homeV2.hero.ctaPlans') }}
+                {{ $t('hero.ctaPlans') }}
               </AppButton>
             </div>
           </div>
@@ -55,7 +63,7 @@
     <section class="bg-brand-100 dark:bg-brand-900">
       <div class="mx-auto max-w-6xl px-4 pt-10 pb-16 sm:px-6 sm:pt-12 sm:pb-24">
         <h2 class="text-center text-2xl font-bold text-highlighted sm:text-3xl">
-          {{ $t('homeV2.steps.title') }}
+          {{ $t('steps.title') }}
         </h2>
         <ol
           class="app-home-rail mt-8"
@@ -76,53 +84,39 @@
               </span>
             </div>
             <h3 class="app-home-rail-title text-2xl font-semibold text-highlighted">
-              {{ $t(`homeV2.steps.${step}Title`) }}
+              {{ $t(`steps.${step}Title`) }}
             </h3>
-            <p class="app-home-rail-hint mt-2 whitespace-pre-line text-sm leading-6 text-muted">
-              {{ $t(`homeV2.steps.${step}Hint`) }}
-            </p>
+            <!-- eslint-disable vue/no-v-html -->
+            <p
+              class="app-home-rail-hint mt-2 whitespace-pre-line text-sm leading-6 text-muted"
+              v-html="renderInline($t(`steps.${step}Hint`))"
+            />
+            <!-- eslint-enable vue/no-v-html -->
             <div
               class="app-home-rail-frame"
               aria-hidden="true"
             >
               <template v-if="step === 'one'">
                 <p class="app-home-frame-user">
-                  {{ $t('homeV2.steps.oneFrameUser') }}
+                  {{ $t('steps.oneFrameUser') }}
                 </p>
                 <p class="app-home-frame-assistant">
-                  {{ $t('homeV2.steps.oneFrameAssistant') }}
+                  {{ $t('steps.oneFrameAssistant') }}
                 </p>
               </template>
               <template v-else-if="step === 'two'">
-                <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted">
-                  <span class="inline-flex items-center gap-1.5">
-                    <span
-                      class="size-2 shrink-0 rounded-full bg-success"
-                      aria-hidden="true"
-                    />
-                    {{ $t('homeV2.steps.twoFrameOk') }}
-                  </span>
-                  <span class="inline-flex items-center gap-1.5">
-                    <span
-                      class="size-2 shrink-0 rounded-full bg-warning"
-                      aria-hidden="true"
-                    />
-                    {{ $t('homeV2.steps.twoFrameWarn') }}
-                  </span>
-                  <span class="inline-flex items-center gap-1.5">
-                    <span
-                      class="size-2 shrink-0 rounded-full bg-error"
-                      aria-hidden="true"
-                    />
-                    {{ $t('homeV2.steps.twoFrameAlert') }}
-                  </span>
-                </div>
+                <p class="app-home-frame-plan">
+                  {{ $t('steps.twoFramePlan') }}
+                </p>
+                <p class="app-home-frame-lock">
+                  {{ $t('steps.twoFrameLock') }}
+                </p>
               </template>
               <p
                 v-else
                 class="app-home-frame-status"
               >
-                {{ $t('homeV2.steps.threeFrameStatus') }}
+                {{ $t('steps.threeFrameStatus') }}
               </p>
               <div
                 v-if="index === stepIndex"
@@ -142,16 +136,52 @@
 
     <section
       class="pb-12 sm:pb-16"
-      :aria-label="$t('homeV2.promo.title')"
+      :aria-label="$t('promo.title')"
     >
       <div class="mx-auto max-w-6xl px-4 pt-8 pb-4 text-center sm:px-6 sm:pt-10">
-        <h2 class="text-2xl font-bold text-highlighted sm:text-3xl">
-          {{ $t('homeV2.promo.title') }}
+        <p class="text-sm font-medium text-primary">
+          {{ $t('promo.label') }}
+        </p>
+        <h2 class="mt-2 text-2xl font-bold text-highlighted sm:text-3xl">
+          {{ $t('promo.title') }}
         </h2>
         <p class="mx-auto mt-2 max-w-2xl text-sm leading-6 text-muted">
-          {{ $t('homeV2.promo.body') }}
+          {{ $t('promo.body') }}
         </p>
       </div>
+      <UCarousel
+        v-slot="{ item }"
+        loop
+        arrows
+        dots
+        :autoplay="{ delay: 4000, stopOnMouseEnter: true }"
+        :items="promoSlides"
+        :prev="{ color: 'neutral', variant: 'solid' }"
+        :next="{ color: 'neutral', variant: 'solid' }"
+        :ui="{
+          item: 'basis-full overflow-hidden ps-0',
+          container: 'ms-0',
+          prev: 'start-3 sm:start-4',
+          next: 'end-3 sm:end-4',
+          dot: 'bg-primary/30 data-[state=active]:bg-primary'
+        }"
+        class="w-full"
+        data-testid="home-carousel"
+      >
+        <NuxtLink
+          :to="plansHref"
+          class="block"
+        >
+          <HomePromoSlide
+            :src="item.src"
+            :alt="item.alt"
+            :text-side="item.textSide"
+            :title-key="item.titleKey"
+            :audience-key="item.audienceKey"
+            :detail-key="item.detailKey"
+          />
+        </NuxtLink>
+      </UCarousel>
     </section>
 
     <HomeReportPreview />
@@ -163,8 +193,27 @@
     >
       <div class="mx-auto max-w-6xl px-4 sm:px-6">
         <h2 class="text-center text-2xl font-bold text-highlighted sm:text-3xl">
-          {{ $t('homeV2.plans.title') }}
+          {{ $t('plans.title') }}
         </h2>
+        <div class="mx-auto mt-6 max-w-xl rounded-xl border border-default bg-elevated p-6 text-left">
+          <p class="text-lg font-semibold text-highlighted">
+            {{ $t('plans.offerName') }}
+          </p>
+          <p class="mt-1 text-sm text-muted">
+            {{ $t('plans.offerPrice') }}
+          </p>
+          <ul class="mt-4 list-disc space-y-2 ps-5 text-sm leading-6 text-highlighted">
+            <li
+              v-for="key in planOfferFeatureKeys"
+              :key="key"
+            >
+              {{ $t(`plans.${key}`) }}
+            </li>
+          </ul>
+          <p class="mt-4 text-xs leading-5 text-muted">
+            {{ $t('plans.offerNote') }}
+          </p>
+        </div>
 
         <p
           v-if="packagesError"
@@ -178,7 +227,7 @@
           class="mt-6 text-center text-sm text-muted"
           data-testid="packages-loading"
         >
-          {{ $t('homeV2.plans.loading') }}
+          {{ $t('plans.loading') }}
         </p>
         <UPricingPlans
           v-else
@@ -186,19 +235,12 @@
           class="mx-auto mt-6 w-full max-w-3xl"
           data-testid="index2-pricing-plans"
         />
-
-        <p
-          class="mx-auto mt-6 max-w-3xl text-center text-xs leading-5 text-muted"
-          data-testid="index2-disclaimer"
-        >
-          {{ $t('homeV2.plans.disclaimer') }}
-        </p>
       </div>
     </section>
 
     <section
       class="py-12 sm:py-16"
-      :aria-label="$t('homeV2.trust.title')"
+      :aria-label="$t('trust.title')"
       data-testid="home-trust"
     >
       <div class="mx-auto max-w-6xl px-4 sm:px-6">
@@ -214,7 +256,7 @@
           />
           <div>
             <h2 class="text-2xl font-bold text-highlighted sm:text-3xl">
-              {{ $t('homeV2.trust.title') }}
+              {{ $t('trust.title') }}
             </h2>
             <ol class="mt-8 space-y-6">
               <li
@@ -240,11 +282,14 @@
                     class="text-xl font-bold motion-reduce:text-highlighted"
                     :class="index === trustIndex ? 'text-highlighted' : 'text-muted'"
                   >
-                    {{ $t(`homeV2.trust.${item.key}Title`) }}
+                    {{ $t(`trust.${item.key}Title`) }}
                   </h3>
-                  <p class="mt-1 text-sm leading-6 text-muted">
-                    {{ $t(`homeV2.trust.${item.key}Hint`) }}
-                  </p>
+                  <!-- eslint-disable vue/no-v-html -->
+                  <p
+                    class="mt-1 text-sm leading-6 text-muted"
+                    v-html="renderInline($t(`trust.${item.key}Hint`))"
+                  />
+                  <!-- eslint-enable vue/no-v-html -->
                 </div>
               </li>
             </ol>
@@ -263,7 +308,7 @@
           :to="localePath('/chat')"
           data-testid="home-reviews-cta"
         >
-          {{ $t('homeV2.reviews.cta') }}
+          {{ $t('reviews.cta') }}
         </AppButton>
         <AppButton
           class="w-full px-8 sm:flex-1"
@@ -271,7 +316,7 @@
           :to="plansHref"
           data-testid="home-early-bird-cta"
         >
-          {{ $t('homeV2.reviews.ctaPlans') }}
+          {{ $t('reviews.ctaEarlyBird') }}
         </AppButton>
       </div>
     </section>
@@ -281,12 +326,8 @@
 <script setup lang="ts">
 import type { PricingPlanProps } from '@nuxt/ui'
 import type { PublicPackage } from '~/utils/candor-api'
-import { resolveListPrice } from '~/utils/package-plan-display'
+import { resolveListPrice, resolvePlanDescription } from '~/utils/package-plan-display'
 import { formatTwd } from '~/utils/first-order'
-
-definePageMeta({
-  layout: 'index2'
-})
 
 const { t, locale } = useI18n()
 const localePath = useLocalePath()
@@ -294,7 +335,7 @@ const config = useRuntimeConfig()
 
 useSeoMeta({
   title: () => t('meta.title'),
-  description: () => t('homeV2.meta.description'),
+  description: () => t('meta.description'),
   robots: 'noindex, nofollow'
 })
 
@@ -315,14 +356,14 @@ const heroSrc = publicAsset('hero-banner.jpg')
 const journey = useJourneyStore()
 const candor = useCandorApi()
 const stepKeys = ['one', 'two', 'three'] as const
-const planFeatureKeys = ['feature1', 'feature2', 'feature3'] as const
-const advisorFeatureKeys = ['advisorFeature1', 'advisorFeature2'] as const
-
+const planOfferFeatureKeys = ['offerFeature1', 'offerFeature2', 'offerFeature3'] as const
 const trustItems = [
+  // TODO: 待確認 — 第 1 點「業界首創」用詞待團隊確認
   { key: 'data', src: publicAsset('home/trust-data.png') },
   { key: 'pace', src: publicAsset('home/trust-pace.png') },
   { key: 'advisor', src: publicAsset('home/trust-advisor.png') },
   { key: 'record', src: publicAsset('home/trust-record.png') },
+  // TODO: 待確認 — 第 5 點穿戴裝置全日健康數據追蹤待團隊確認
   { key: 'wearable', src: publicAsset('home/trust-record.png') }
 ] as const
 const trustIndex = ref(0)
@@ -344,10 +385,74 @@ function advanceStep(event: AnimationEvent) {
 }
 
 const plansHref = computed(() => `${localePath('/index2')}#plans`)
+const promoSlides = computed(() => [
+  {
+    src: publicAsset('home/hemagenics-iron.jpg'),
+    alt: t('promo.hemagenics'),
+    textSide: 'right' as const,
+    titleKey: 'promo.hemagenics',
+    audienceKey: 'promo.hemagenicsAudience',
+    detailKey: 'promo.hemagenicsDetail'
+  },
+  {
+    src: publicAsset('home/iron-glycinate.jpg'),
+    alt: t('promo.glycinate'),
+    textSide: 'left' as const,
+    titleKey: 'promo.glycinate',
+    audienceKey: 'promo.glycinateAudience',
+    detailKey: 'promo.glycinateDetail'
+  },
+  {
+    src: publicAsset('home/active-b-complex.jpg'),
+    alt: t('promo.bComplex'),
+    textSide: 'right' as const,
+    titleKey: 'promo.bComplex',
+    audienceKey: 'promo.bComplexAudience',
+    detailKey: 'promo.bComplexDetail'
+  }
+])
 
 const packages = ref<PublicPackage[]>([])
 const packagesPending = ref(true)
 const packagesError = ref<string | null>(null)
+const featureKeyGroups: Record<string, readonly string[]> = {
+  basic: ['basicFeature1', 'basicFeature2', 'basicFeature3'],
+  advance: ['advanceFeature1', 'advanceFeature2', 'advanceFeature3']
+}
+
+function packageHasCatalogFields(pkg: PublicPackage) {
+  return 'original_price' in pkg
+    || 'features' in pkg
+    || 'features_en' in pkg
+    || 'badge' in pkg
+    || 'badge_en' in pkg
+    || 'highlight' in pkg
+}
+
+function resolvePlanFeatures(pkg: PublicPackage) {
+  const fromApi = locale.value === 'en' ? pkg.features_en : pkg.features
+  if (fromApi?.length) {
+    return fromApi
+  }
+  const featureKeys = featureKeyGroups[pkg.code]
+  return featureKeys?.map(key => t(`plans.${key}`)) ?? []
+}
+
+function resolvePlanBadge(pkg: PublicPackage, recommendedFallback: boolean) {
+  if (packageHasCatalogFields(pkg)) {
+    const raw = locale.value === 'en' ? pkg.badge_en : pkg.badge
+    const text = raw?.trim()
+    return text || undefined
+  }
+  return recommendedFallback ? t('shop.recommended') : undefined
+}
+
+function resolvePlanHighlight(pkg: PublicPackage, recommendedFallback: boolean) {
+  if (pkg.highlight !== undefined && pkg.highlight !== null) {
+    return pkg.highlight
+  }
+  return recommendedFallback
+}
 
 function packageTitle(pkg: PublicPackage) {
   if (locale.value === 'en' && pkg.name_en) {
@@ -364,66 +469,35 @@ function selectPackage(code: string) {
   journey.selectedPackageCode = code
 }
 
-const pricingPlans = computed<PricingPlanProps[]>(() => {
-  const packagePlans = packages.value.map((pkg, index) => {
-    const listPrice = resolveListPrice(pkg)
-    const highlight = index === 0
-    return {
-      title: packageTitle(pkg),
-      price: formatTwd(listPrice ?? pkg.price),
-      discount: listPrice == null ? undefined : formatTwd(pkg.price),
-      billingCycle: t('homeV2.plans.billingCycle'),
-      features: planFeatureKeys.map(key => t(`homeV2.plans.${key}`)),
-      ui: {
-        featureTitle: 'whitespace-normal overflow-visible text-clip text-pretty',
-        root: highlight ? 'ring-[3px]' : 'ring-2',
-        title: 'whitespace-normal text-pretty',
-        priceWrapper: 'flex flex-wrap items-baseline gap-1',
-        price: 'order-1',
-        billing: 'order-2 shrink-0',
-        discount: 'order-3',
-        billingCycle: 'text-muted text-xs font-medium whitespace-nowrap'
-      },
-      badge: t('homeV2.plans.earlyBirdBadge'),
-      highlight,
-      button: {
-        'label': t('homeV2.plans.cta'),
-        'to': chatPath(pkg.code),
-        'variant': highlight ? 'solid' : 'outline',
-        'onClick': () => selectPackage(pkg.code),
-        'data-testid': `package-${pkg.code}`
-      } as PricingPlanProps['button']
-    }
-  })
-
-  const advisorBilling = t('homeV2.plans.advisorBilling').trim()
-  const advisorPlan: PricingPlanProps = {
-    title: t('homeV2.plans.advisorTitle'),
-    price: t('homeV2.plans.advisorPrice'),
-    billingCycle: advisorBilling || undefined,
-    features: advisorFeatureKeys.map(key => t(`homeV2.plans.${key}`)),
+const pricingPlans = computed<PricingPlanProps[]>(() => packages.value.map((pkg, index) => {
+  const recommendedFallback = index === packages.value.length - 1
+  const listPrice = resolveListPrice(pkg)
+  const highlight = resolvePlanHighlight(pkg, recommendedFallback)
+  return {
+    title: packageTitle(pkg),
+    description: resolvePlanDescription(pkg, locale.value, t),
+    price: formatTwd(listPrice ?? pkg.price),
+    discount: listPrice == null ? undefined : formatTwd(pkg.price),
+    billingCycle: t('plans.billingCycle'),
+    features: resolvePlanFeatures(pkg),
     ui: {
       featureTitle: 'whitespace-normal overflow-visible text-clip text-pretty',
-      root: 'ring-2',
-      title: 'whitespace-normal text-pretty',
-      priceWrapper: 'flex flex-wrap items-baseline gap-1',
+      root: highlight ? 'ring-[3px]' : 'ring-2',
       price: 'order-1',
-      billing: 'order-2 shrink-0',
-      billingCycle: 'text-muted text-xs font-medium whitespace-nowrap'
+      discount: 'order-2',
+      billing: 'order-3'
     },
-    highlight: false,
+    badge: resolvePlanBadge(pkg, recommendedFallback),
+    highlight,
     button: {
-      'label': t('homeV2.plans.advisorCta'),
-      'to': localePath('/expert-booking'),
-      'variant': 'outline',
-      'data-testid': 'package-advisor-booking'
+      'label': t('plans.cta'),
+      'to': chatPath(pkg.code),
+      'variant': highlight ? 'solid' : 'outline',
+      'onClick': () => selectPackage(pkg.code),
+      'data-testid': `package-${pkg.code}`
     } as PricingPlanProps['button']
   }
-
-  // Prefer a single early-bird package card + advisor card (aligned width).
-  const primary = packagePlans[0]
-  return primary ? [primary, advisorPlan] : [advisorPlan]
-})
+}))
 
 onMounted(async () => {
   packagesPending.value = true
@@ -432,7 +506,7 @@ onMounted(async () => {
     const result = await candor.listPackagePlans()
     packages.value = result.package_plans
   } catch {
-    packagesError.value = t('homeV2.plans.loadError')
+    packagesError.value = t('plans.loadError')
   } finally {
     packagesPending.value = false
   }
