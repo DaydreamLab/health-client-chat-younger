@@ -116,12 +116,13 @@
     <footer
       v-if="!isChat"
       class="bg-brand-900 text-white dark:bg-brand-950"
+      :data-testid="isIndex2 ? 'index2-footer' : undefined"
     >
       <div class="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-14">
         <div class="grid gap-10 lg:grid-cols-4 lg:gap-8">
           <div>
             <NuxtLink
-              :to="localePath('/')"
+              :to="homePath"
               class="inline-flex rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
               :aria-label="$t('nav.home')"
             >
@@ -174,7 +175,10 @@
                 class="mt-4 space-y-1"
               >
                 <SupportEmailLink class="block" />
-                <p class="text-sm text-white/70">
+                <p
+                  v-if="!isIndex2"
+                  class="text-sm text-white/70"
+                >
                   {{ $t('footer.hours') }}
                 </p>
               </div>
@@ -192,7 +196,10 @@
               class="text-white/50"
             />
           </div>
-          <div class="flex items-center gap-4 text-white/70">
+          <div
+            v-if="!isIndex2"
+            class="flex items-center gap-4 text-white/70"
+          >
             <span
               role="img"
               :aria-label="$t('footer.socialInstagram')"
@@ -281,51 +288,126 @@ type FooterColumn = {
   contact: boolean
 }
 
-const footerColumns = computed((): FooterColumn[] => [
-  {
-    title: t('footer.explore'),
-    items: [
-      { label: t('footer.explorePlans') },
-      { label: t('footer.exploreChat') },
-      { label: t('footer.exploreHealth') }
-    ],
-    contact: false
-  },
-  {
-    title: t('footer.support'),
-    items: [
-      { label: t('footer.supportFaq') },
-      { label: t('footer.supportContact') },
-      { label: t('footer.supportOrders') }
-    ],
-    contact: true
-  },
-  {
-    title: t('footer.about'),
-    items: [
+const isIndex2 = computed(() => {
+  const path = route.path
+  return path === '/index2'
+    || path === '/index2/'
+    || path === '/en/index2'
+    || path === '/en/index2/'
+})
+const homePath = computed(() => isIndex2.value ? localePath('/index2') : localePath('/'))
+
+const footerColumns = computed((): FooterColumn[] => {
+  if (isIndex2.value) {
+    return [
       {
-        label: t('footer.aboutUs'),
-        to: localePath('/about'),
-        testId: 'footer-about'
+        title: t('footer.explore'),
+        items: [
+          {
+            label: t('footer.explorePlans'),
+            to: `${homePath.value}#plans`,
+            testId: 'footer-explore-plans'
+          },
+          {
+            label: t('footer.exploreChat'),
+            to: localePath('/chat'),
+            testId: 'footer-explore-chat'
+          },
+          {
+            label: t('footer.exploreHealth'),
+            to: localePath('/app'),
+            testId: 'footer-explore-health'
+          }
+        ],
+        contact: false
       },
       {
-        label: t('footer.privacy'),
-        to: localePath('/privacy'),
-        testId: 'footer-privacy'
+        title: t('footer.support'),
+        items: [
+          {
+            label: t('footer.supportOrders'),
+            to: localePath('/app/orders'),
+            testId: 'footer-support-orders'
+          }
+        ],
+        contact: true
       },
       {
-        label: t('footer.terms'),
-        to: localePath('/terms'),
-        testId: 'footer-terms'
+        title: t('footer.about'),
+        items: [
+          {
+            label: t('footer.aboutUs'),
+            to: localePath('/about'),
+            testId: 'footer-about'
+          },
+          {
+            label: t('footer.privacy'),
+            to: localePath('/privacy'),
+            testId: 'footer-privacy'
+          },
+          {
+            label: t('footer.terms'),
+            to: localePath('/terms'),
+            testId: 'footer-terms'
+          }
+        ],
+        contact: false
       }
-    ],
-    contact: false
+    ]
   }
-])
+
+  return [
+    {
+      title: t('footer.explore'),
+      items: [
+        { label: t('footer.explorePlans') },
+        { label: t('footer.exploreChat') },
+        { label: t('footer.exploreHealth') }
+      ],
+      contact: false
+    },
+    {
+      title: t('footer.support'),
+      items: [
+        { label: t('footer.supportFaq') },
+        { label: t('footer.supportContact') },
+        { label: t('footer.supportOrders') }
+      ],
+      contact: true
+    },
+    {
+      title: t('footer.about'),
+      items: [
+        {
+          label: t('footer.aboutUs'),
+          to: localePath('/about'),
+          testId: 'footer-about'
+        },
+        {
+          label: t('footer.privacy'),
+          to: localePath('/privacy'),
+          testId: 'footer-privacy'
+        },
+        {
+          label: t('footer.terms'),
+          to: localePath('/terms'),
+          testId: 'footer-terms'
+        }
+      ],
+      contact: false
+    }
+  ]
+})
 const mobileNavOpen = ref(false)
 
 const isChat = computed(() => route.path.includes('/chat'))
-const isHome = computed(() => route.path === '/' || route.path === '/en' || route.path === '/en/')
+const isHome = computed(() => {
+  const path = route.path
+  return path === '/'
+    || path === '/en'
+    || path === '/en/'
+    || isIndex2.value
+})
 const isLogin = computed(() => route.path.includes('/login'))
 const heroAtTop = ref(true)
 const scrollSentinel = ref<HTMLElement | null>(null)
@@ -351,7 +433,7 @@ onBeforeUnmount(() => {
 
 const homeNavItems = computed(() => {
   const items: Array<{ label: string, to: string, testId?: string }> = [
-    { label: t('nav.plans'), to: `${localePath('/')}#plans` },
+    { label: t('nav.plans'), to: `${homePath.value}#plans` },
     { label: t('nav.chat'), to: localePath('/chat') }
   ]
 
