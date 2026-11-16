@@ -1,4 +1,5 @@
 import { expect, test } from '@nuxt/test-utils/playwright'
+import { e2eArtifactPath } from './helpers/artifacts-dir'
 import { mockCandorAuth } from './mock-candor-auth'
 
 /**
@@ -192,7 +193,7 @@ test.describe('CTA grey retain (design B v3)', () => {
 
     await page.locator('[data-testid="chat-quiz-option-b"]').scrollIntoViewIfNeeded()
     await page.screenshot({
-      path: '/opt/cursor/artifacts/cta-grey-retain-selected.png',
+      path: e2eArtifactPath('cta-grey-retain-selected.png'),
       fullPage: false
     })
 
@@ -202,7 +203,7 @@ test.describe('CTA grey retain (design B v3)', () => {
     await expect(storedCard).toHaveAttribute('data-vitals-status', 'selected')
     await storedCard.scrollIntoViewIfNeeded()
     await page.screenshot({
-      path: '/opt/cursor/artifacts/cta-grey-retain-vitals-stored.png',
+      path: e2eArtifactPath('cta-grey-retain-vitals-stored.png'),
       fullPage: false
     })
 
@@ -212,7 +213,7 @@ test.describe('CTA grey retain (design B v3)', () => {
     await expect(emptyCard).toHaveText('')
     await emptyCard.scrollIntoViewIfNeeded()
     await page.screenshot({
-      path: '/opt/cursor/artifacts/cta-grey-retain-vitals-empty.png',
+      path: e2eArtifactPath('cta-grey-retain-vitals-empty.png'),
       fullPage: false
     })
 
@@ -228,14 +229,14 @@ test.describe('CTA grey retain (design B v3)', () => {
     await expect(currentSleep).toHaveAttribute('data-cta-status', 'disabled')
     await currentSleep.scrollIntoViewIfNeeded()
     await page.screenshot({
-      path: '/opt/cursor/artifacts/cta-grey-retain-typing-grey.png',
+      path: e2eArtifactPath('cta-grey-retain-typing-grey.png'),
       fullPage: false
     })
 
     // Free-text historical all-grey chips (path round already disabled).
     await page.getByTestId('chat-quiz-option-a').scrollIntoViewIfNeeded()
     await page.screenshot({
-      path: '/opt/cursor/artifacts/cta-grey-retain-grey.png',
+      path: e2eArtifactPath('cta-grey-retain-grey.png'),
       fullPage: false
     })
   })
@@ -434,7 +435,7 @@ test.describe('CTA grey retain (design B v3)', () => {
 
       await retained.scrollIntoViewIfNeeded()
       await page.screenshot({
-        path: `/opt/cursor/artifacts/cta-grey-retain-route-${route.code}-settled.png`,
+        path: e2eArtifactPath(`cta-grey-retain-route-${route.code}-settled.png`),
         fullPage: false
       })
     })
@@ -593,7 +594,7 @@ test.describe('CTA grey retain (design B v3)', () => {
 
       await retained.scrollIntoViewIfNeeded()
       await page.screenshot({
-        path: `/opt/cursor/artifacts/cta-grey-retain-route-${route.code}-reload.png`,
+        path: e2eArtifactPath(`cta-grey-retain-route-${route.code}-reload.png`),
         fullPage: false
       })
     })
