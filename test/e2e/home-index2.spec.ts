@@ -1,10 +1,23 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from '@nuxt/test-utils/playwright'
 import { mkdirSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { mockCandorAuth } from './mock-candor-auth'
 
-const ARTIFACTS = '/opt/cursor/artifacts'
-mkdirSync(ARTIFACTS, { recursive: true })
+/** Lazy: only called from the screenshot test, never at module load. */
+function ensureIndex2ArtifactsDir(): string {
+  const preferred = process.env.ARTIFACTS?.trim()
+    || join('test-results', 'index2-screenshots')
+  try {
+    mkdirSync(preferred, { recursive: true })
+    return preferred
+  } catch {
+    const fallback = join(tmpdir(), 'index2-screenshots')
+    mkdirSync(fallback, { recursive: true })
+    return fallback
+  }
+}
 
 test.beforeEach(async ({ page }) => {
   await mockCandorAuth(page)
@@ -19,8 +32,9 @@ async function waitForCarouselSettle(page: Page) {
 }
 
 async function shotIndex2(page: Page, name: string) {
+  const dir = ensureIndex2ArtifactsDir()
   await page.screenshot({
-    path: `${ARTIFACTS}/${name}.png`,
+    path: join(dir, `${name}.png`),
     fullPage: true
   })
 }
