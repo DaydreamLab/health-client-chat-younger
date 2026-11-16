@@ -1,20 +1,20 @@
 /**
  * Design v4 F-01～F-21 in-app screenshots (F-22／F-23 email as static HTML).
- * Artifacts: /opt/cursor/artifacts/F-XX-*.png
+ * Artifacts via e2eArtifactsDir (ARTIFACTS / PLAYWRIGHT_ARTIFACTS_DIR / test-results).
  */
 import type { Page } from '@playwright/test'
 import { expect, test } from '@nuxt/test-utils/playwright'
-import { mkdirSync, writeFileSync, copyFileSync, existsSync } from 'node:fs'
+import { writeFileSync, copyFileSync, existsSync } from 'node:fs'
+import { join } from 'node:path'
+import { e2eArtifactPath, e2eArtifactsDir } from './helpers/artifacts-dir'
 import { mockCandorAuth } from './mock-candor-auth'
 
-const OUT = '/opt/cursor/artifacts'
 const DESIGN_SHOTS = '/tmp/design-v4/shots'
-mkdirSync(OUT, { recursive: true })
 
 async function shot(page: Page, name: string) {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.screenshot({
-    path: `${OUT}/${name}.png`,
+    path: e2eArtifactPath(`${name}.png`),
     fullPage: true
   })
 }
@@ -374,8 +374,9 @@ test.describe('expert-plan v4 screenshots', () => {
     }
     const missing = Object.values(map).filter(src => !existsSync(`${DESIGN_SHOTS}/${src}`))
     test.skip(missing.length > 0, `design shots missing under ${DESIGN_SHOTS}`)
+    const out = e2eArtifactsDir()
     for (const [outName, src] of Object.entries(map)) {
-      copyFileSync(`${DESIGN_SHOTS}/${src}`, `${OUT}/${outName}.png`)
+      copyFileSync(`${DESIGN_SHOTS}/${src}`, join(out, `${outName}.png`))
     }
   })
 
@@ -387,11 +388,12 @@ test.describe('expert-plan v4 screenshots', () => {
       <p>${body}</p>
       <p>Candor 團隊 敬上</p>
     </body></html>`
-    writeFileSync(`${OUT}/F-22-email-refund-approved.html`, email(
+    const out = e2eArtifactsDir()
+    writeFileSync(join(out, 'F-22-email-refund-approved.html'), email(
       '【Candor】您的退款申請已通過',
       '您申請的訂單 CD20261103001 退款已通過，退款金額 NT$6,000 將退回原付款信用卡，實際入帳時間依發卡銀行作業為準。專家定稿的方案仍可在訂單頁查看。'
     ))
-    writeFileSync(`${OUT}/F-23-email-refund-rejected.html`, email(
+    writeFileSync(join(out, 'F-23-email-refund-rejected.html'), email(
       '【Candor】您的退款申請未通過',
       '您申請的訂單 CD20261103001 退款未通過，原因：範例拒絕原因。如有疑問請聯絡客服。'
     ))
