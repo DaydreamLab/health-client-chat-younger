@@ -73,10 +73,16 @@ describe('support email wiring (no hardcoded inbox)', () => {
     expect(en).not.toMatch(/"email":\s*"service/)
   })
 
-  it('beta workflow sets the inbox; prod generate omits it', () => {
+  it('beta workflow sets the inbox; prod generate reads vars (no hardcoded inbox)', () => {
     expect(betaWorkflow).toMatch(
       /NUXT_PUBLIC_SUPPORT_EMAIL:\s*candor-ai@daydream-lab\.com/
     )
-    expect(prodWorkflow).not.toMatch(/NUXT_PUBLIC_SUPPORT_EMAIL/)
+    expect(prodWorkflow).toMatch(
+      /NUXT_PUBLIC_SUPPORT_EMAIL:\s*\$\{\{\s*vars\.NUXT_PUBLIC_SUPPORT_EMAIL\s*\}\}/
+    )
+    // Prod must not hardcode any mailbox string (only vars injection).
+    expect(prodWorkflow).not.toMatch(
+      /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i
+    )
   })
 })
