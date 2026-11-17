@@ -303,52 +303,11 @@
             v-for="item in selectedPackage.items"
             :key="item.sellable_item_id"
           >
-            <button
-              type="button"
-              class="flex w-full items-start gap-3 px-5 py-4 text-start transition hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40"
-              :data-testid="`sellable-item-${item.code || item.sellable_item_id}`"
-              @click="detail = item"
-            >
-              <span class="mt-0.5 size-10 shrink-0 overflow-hidden rounded-xl bg-primary/10 text-primary">
-                <img
-                  v-if="item.image_url"
-                  :src="item.image_url"
-                  :alt="item.name || ''"
-                  class="size-full object-cover"
-                  loading="lazy"
-                  data-testid="sellable-item-image"
-                >
-                <span
-                  v-else
-                  class="flex size-full items-center justify-center"
-                >
-                  <UIcon
-                    name="i-lucide-pill"
-                    class="size-5"
-                  />
-                </span>
-              </span>
-              <span class="min-w-0 flex-1">
-                <span class="flex flex-wrap items-center gap-2">
-                  <span class="font-medium text-highlighted">
-                    {{ item.name }}
-                  </span>
-                  <span
-                    class="app-badge"
-                    :class="item.is_core ? 'app-badge-demo' : 'app-badge-pending'"
-                    :data-testid="`sellable-item-kind-${item.code || item.sellable_item_id}`"
-                  >
-                    {{ item.is_core ? $t('recommendation.itemKindCore') : $t('recommendation.itemKindFunctional') }}
-                  </span>
-                </span>
-              </span>
-              <span
-                class="app-badge app-badge-pending shrink-0"
-                :data-testid="`sellable-item-dose-${item.code || item.sellable_item_id}`"
-              >
-                {{ doseLabel(item) }}
-              </span>
-            </button>
+            <RecommendationPackageItemRow
+              :item="item"
+              interactive
+              @select="detail = item"
+            />
           </li>
         </ul>
       </section>
@@ -524,6 +483,7 @@ import {
   minExpertPlanPrice
 } from '~/utils/recommendation-path-prices'
 import { recommendationRequestFromJourney } from '~/utils/recommendation-request'
+import { packageItemDoseLabel } from '~/utils/recommendation-package-item'
 
 definePageMeta({
   layout: 'user',
@@ -632,15 +592,8 @@ function copyFor(sellableItemId: string): RecommendationCopy | undefined {
   return copyBySellableItemId.value.get(sellableItemId)
 }
 
-function formatDoseCount(value: number): string {
-  if (Number.isInteger(value)) {
-    return String(value)
-  }
-  return String(value)
-}
-
 function doseLabel(item: RecommendationPackageItem): string {
-  return t('recommendation.doseLocked', { count: formatDoseCount(item.daily_dose) })
+  return packageItemDoseLabel(t, item.daily_dose)
 }
 
 watch(selectedPackageCode, (code) => {

@@ -337,10 +337,10 @@
             </p>
             <div
               v-else-if="selectedPackage"
-              class="mt-3 rounded-xl border border-default bg-default/40 p-4"
+              class="mt-3 overflow-hidden rounded-xl border border-default bg-default/40"
               data-testid="checkout-package-summary"
             >
-              <div class="flex items-start justify-between gap-2">
+              <div class="flex items-start justify-between gap-2 px-4 pt-4 pb-3">
                 <p class="font-medium text-highlighted">
                   {{ selectedPackage.package_plan_name }}
                 </p>
@@ -349,17 +349,19 @@
                 </p>
               </div>
               <ul
-                v-if="packageItemLabels.length"
-                class="mt-3 space-y-1"
+                v-if="packageItems.length"
+                class="divide-y divide-default border-t border-default"
                 data-testid="checkout-package-items"
               >
                 <li
-                  v-for="row in packageItemLabels"
-                  :key="row.key"
-                  class="text-sm text-muted"
-                  :data-testid="`checkout-package-item-${row.key}`"
+                  v-for="item in packageItems"
+                  :key="item.sellable_item_id || item.code"
                 >
-                  {{ row.label }}
+                  <RecommendationPackageItemRow
+                    :item="item"
+                    prefer-code-fallback
+                    dense
+                  />
                 </li>
               </ul>
             </div>
@@ -786,7 +788,7 @@ import {
   resolveCheckoutKind,
   type CheckoutKind
 } from '~/utils/bottle-addon'
-import { packageItemDisplayLabels } from '~/utils/checkout-package-items'
+import { visiblePackageItems } from '~/utils/recommendation-package-item'
 import {
   resolveExpertPlanTitle,
   resolveIncludedPackagePlanName
@@ -918,8 +920,8 @@ const packages = computed(() => recommendation.value?.packages ?? [])
 const selectedPackage = computed(() =>
   packages.value.find(pkg => pkg.package_plan_code === selectedPackageCode.value) ?? null
 )
-const packageItemLabels = computed(() =>
-  packageItemDisplayLabels(selectedPackage.value?.items)
+const packageItems = computed(() =>
+  visiblePackageItems(selectedPackage.value?.items)
 )
 /** Package amount only — prefer `ai.price` from preview, else plan／package price. */
 const packageSubtotal = computed(() => {

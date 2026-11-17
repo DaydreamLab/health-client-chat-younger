@@ -1177,7 +1177,7 @@ export async function mockCandorAuth(page: Page, options: CandorMockOptions = {}
         daily_servings_max: 2,
         score_raw: 1,
         is_core: true,
-        image_url: null
+        image_url: 'https://cdn.example/catalog/vitamin_d.png'
       },
       {
         rank: 2,
