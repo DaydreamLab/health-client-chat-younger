@@ -28,7 +28,17 @@
             <p class="font-medium text-highlighted">
               {{ $t('recommendation.pathAiTitle') }}
             </p>
-            <p class="mt-2 text-sm text-muted">
+            <p
+              v-if="aiFromPrice != null"
+              class="mt-2 text-lg font-semibold text-primary"
+              data-testid="recommendation-path-ai-price"
+            >
+              {{ $t('recommendation.pathPriceFrom', { price: formatTwd(aiFromPrice) }) }}
+            </p>
+            <p
+              class="text-sm text-muted"
+              :class="aiFromPrice != null ? 'mt-1' : 'mt-2'"
+            >
               {{ $t('recommendation.pathAiBody') }}
             </p>
           </label>
@@ -50,10 +60,17 @@
             <p class="font-medium text-highlighted">
               {{ $t('recommendation.pathExpertTitle') }}
             </p>
-            <p class="mt-2 text-lg font-semibold text-primary">
-              {{ $t('recommendation.pathExpertPrice') }}
+            <p
+              v-if="expertFromPrice != null"
+              class="mt-2 text-lg font-semibold text-primary"
+              data-testid="recommendation-path-expert-price"
+            >
+              {{ $t('recommendation.pathPriceFrom', { price: formatTwd(expertFromPrice) }) }}
             </p>
-            <p class="mt-1 text-sm text-muted">
+            <p
+              class="text-sm text-muted"
+              :class="expertFromPrice != null ? 'mt-1' : 'mt-2'"
+            >
               {{ $t('recommendation.pathExpertBody') }}
             </p>
           </label>
@@ -502,6 +519,10 @@ import {
   retainAddonSelection
 } from '~/utils/bottle-addon'
 import { formatTwd } from '~/utils/first-order'
+import {
+  minAiPackagePlanPrice,
+  minExpertPlanPrice
+} from '~/utils/recommendation-path-prices'
 import { recommendationRequestFromJourney } from '~/utils/recommendation-request'
 
 definePageMeta({
@@ -523,6 +544,9 @@ const reportResults = ref<HealthReportResult[]>([])
 const recoPending = ref(false)
 const recoError = ref('')
 const recommendation = ref<RecommendationResponse | null>(null)
+/** Path-choice「NT$X 起」— null when catalog missing／failed (hide price row). */
+const aiFromPrice = ref<number | null>(null)
+const expertFromPrice = ref<number | null>(null)
 const selectedPackageCode = ref('')
 /** Restore prior checks from journey so re-recommend／remount keep selection. */
 const selectedBottleAddonCodes = ref<string[]>(
@@ -646,6 +670,22 @@ async function loadReport() {
   }
 }
 
+/** Path cards: prices from public catalogs; never fall back to hardcoded copy. */
+async function loadPathPrices() {
+  try {
+    const result = await candor.listPackagePlans()
+    aiFromPrice.value = minAiPackagePlanPrice(result.package_plans)
+  } catch {
+    aiFromPrice.value = null
+  }
+  try {
+    const result = await candor.listExpertPlans()
+    expertFromPrice.value = minExpertPlanPrice(result.expert_plans)
+  } catch {
+    expertFromPrice.value = null
+  }
+}
+
 function rememberAddonNames(addons: RecommendationBottleAddon[]) {
   const next = new Map(addonNameByCode.value)
   for (const addon of addons) {
@@ -754,5 +794,6 @@ watch(pathChoice, async (choice) => {
 
 onMounted(() => {
   void loadReport()
+  void loadPathPrices()
 })
 </script>

@@ -47,6 +47,7 @@ export type PackagePlansMockMode
     | 'no-strikethrough'
     | 'description-en'
     | 'description-en-null'
+    | 'empty'
 
 const expertPlanBasic = {
   id: 'ep-basic',
@@ -364,6 +365,9 @@ const descriptionEnDistinctPackagePlans = [
 ]
 
 function packagePlansForMode(mode: PackagePlansMockMode = 'legacy') {
+  if (mode === 'empty') {
+    return []
+  }
   if (mode === 'catalog') {
     return catalogPackagePlans
   }
