@@ -348,9 +348,20 @@
                   {{ $t('recommendation.perMonth', { price: formatTwd(packageSubtotal) }) }}
                 </p>
               </div>
-              <p class="mt-1 text-sm text-muted">
-                {{ $t('recommendation.itemCountHint', { count: selectedPackage.items.length }) }}
-              </p>
+              <ul
+                v-if="packageItemLabels.length"
+                class="mt-3 space-y-1"
+                data-testid="checkout-package-items"
+              >
+                <li
+                  v-for="row in packageItemLabels"
+                  :key="row.key"
+                  class="text-sm text-muted"
+                  :data-testid="`checkout-package-item-${row.key}`"
+                >
+                  {{ row.label }}
+                </li>
+              </ul>
             </div>
 
             <section
@@ -775,6 +786,7 @@ import {
   resolveCheckoutKind,
   type CheckoutKind
 } from '~/utils/bottle-addon'
+import { packageItemDisplayLabels } from '~/utils/checkout-package-items'
 import {
   resolveExpertPlanTitle,
   resolveIncludedPackagePlanName
@@ -905,6 +917,9 @@ const selectedPlan = computed(() =>
 const packages = computed(() => recommendation.value?.packages ?? [])
 const selectedPackage = computed(() =>
   packages.value.find(pkg => pkg.package_plan_code === selectedPackageCode.value) ?? null
+)
+const packageItemLabels = computed(() =>
+  packageItemDisplayLabels(selectedPackage.value?.items)
 )
 /** Package amount only — prefer `ai.price` from preview, else plan／package price. */
 const packageSubtotal = computed(() => {
