@@ -356,7 +356,7 @@ const heroSrc = publicAsset('hero-banner.jpg')
 const journey = useJourneyStore()
 const candor = useCandorApi()
 const stepKeys = ['one', 'two', 'three'] as const
-const planOfferFeatureKeys = ['offerFeature1', 'offerFeature2', 'offerFeature3'] as const
+const planOfferFeatureKeys = ['offerFeature1', 'offerFeature3'] as const
 const trustItems = [
   // TODO: 待確認 — 第 1 點「業界首創」用詞待團隊確認
   { key: 'data', src: publicAsset('home/trust-data.png') },

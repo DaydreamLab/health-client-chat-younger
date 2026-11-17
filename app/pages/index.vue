@@ -515,7 +515,7 @@ const homeGoalCodes = [
   'gastrointestinal'
 ] as const
 const reviewKeys = ['one', 'two', 'three', 'four', 'five'] as const
-const planOfferFeatureKeys = ['offerFeature1', 'offerFeature2', 'offerFeature3'] as const
+const planOfferFeatureKeys = ['offerFeature1', 'offerFeature3'] as const
 // Younger 實體檢測。預設關閉；開啟後才顯示該區與 Banner「預約 Younger 實體血檢」。
 const showYoungerLabs = false
 // 顧客好評先隱藏，文案保留在 i18n，最底部按鈕仍顯示。
