@@ -17,7 +17,7 @@ async function seedJourneyConversation(page: Page) {
 }
 
 test.describe('checkout package item list (kind=package)', () => {
-  test('lists sellable item names from preview.ai.items', async ({ page, goto }) => {
+  test('lists rows with image, core badge, and daily dose from preview.ai.items', async ({ page, goto }) => {
     await mockCandorAuth(page, { asMember: true, expertReview: 'none' })
     await seedJourneyConversation(page)
     await goto('/app/checkout?kind=package&package_plan_code=basic&composition_hash=sha256:basic', {
@@ -27,10 +27,24 @@ test.describe('checkout package item list (kind=package)', () => {
     await expect(summary).toBeVisible({ timeout: 25_000 })
     await expect(summary).toContainText('基礎保養')
     await expect(summary).not.toContainText('共')
+
     const items = page.getByTestId('checkout-package-items')
     await expect(items).toBeVisible()
     await expect(items).toContainText('維生素 D')
     await expect(items).toContainText('鐵蛋白調理')
+
+    const vitD = page.getByTestId('sellable-item-vitamin_d')
+    await expect(vitD).toBeVisible()
+    await expect(vitD.getByTestId('sellable-item-image')).toBeVisible()
+    await expect(page.getByTestId('sellable-item-kind-vitamin_d')).toContainText('核心')
+    await expect(page.getByTestId('sellable-item-dose-vitamin_d')).toContainText('每日 1 顆')
+
+    const iron = page.getByTestId('sellable-item-iron')
+    await expect(iron).toBeVisible()
+    await expect(iron.getByTestId('sellable-item-image-fallback')).toBeVisible()
+    await expect(page.getByTestId('sellable-item-kind-iron')).toContainText('功能型')
+    await expect(page.getByTestId('sellable-item-dose-iron')).toContainText('每日 1 顆')
+
     await page.setViewportSize({ width: 390, height: 844 })
     const shotPath = e2eArtifactPath('checkout-package-items-390.png')
     await page.screenshot({ path: shotPath, fullPage: false })
@@ -87,7 +101,8 @@ test.describe('checkout package item list (kind=package)', () => {
                   code: 'vitamin_d',
                   name: null,
                   daily_dose: 1,
-                  is_core: true
+                  is_core: true,
+                  image_url: 'https://cdn.example/catalog/vitamin_d.png'
                 },
                 {
                   rank: 2,
@@ -95,7 +110,8 @@ test.describe('checkout package item list (kind=package)', () => {
                   code: 'iron',
                   name: '   ',
                   daily_dose: 1,
-                  is_core: false
+                  is_core: false,
+                  image_url: null
                 }
               ],
               bottle_addons: [],
@@ -120,5 +136,7 @@ test.describe('checkout package item list (kind=package)', () => {
     await expect(items).toContainText('vitamin_d')
     await expect(items).toContainText('iron')
     await expect(items).not.toContainText('維生素 D')
+    await expect(page.getByTestId('sellable-item-vitamin_d').getByTestId('sellable-item-image')).toBeVisible()
+    await expect(page.getByTestId('sellable-item-iron').getByTestId('sellable-item-image-fallback')).toBeVisible()
   })
 })
