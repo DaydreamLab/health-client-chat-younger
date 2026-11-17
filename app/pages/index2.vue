@@ -356,7 +356,7 @@ const heroSrc = publicAsset('hero-banner.jpg')
 const journey = useJourneyStore()
 const candor = useCandorApi()
 const stepKeys = ['one', 'two', 'three'] as const
-const planOfferFeatureKeys = ['offerFeature1', 'offerFeature2', 'offerFeature3'] as const
+const planOfferFeatureKeys = ['offerFeature1', 'offerFeature3'] as const
 const trustItems = [
   // TODO: 待確認 — 第 1 點「業界首創」用詞待團隊確認
   { key: 'data', src: publicAsset('home/trust-data.png') },
@@ -416,7 +416,7 @@ const packages = ref<PublicPackage[]>([])
 const packagesPending = ref(true)
 const packagesError = ref<string | null>(null)
 const featureKeyGroups: Record<string, readonly string[]> = {
-  basic: ['basicFeature1', 'basicFeature2', 'basicFeature3'],
+  basic: ['basicFeature1', 'basicFeature3'],
   advance: ['advanceFeature1', 'advanceFeature2', 'advanceFeature3']
 }
 
