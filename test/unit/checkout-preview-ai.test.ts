@@ -53,6 +53,7 @@ describe('checkout preview ai.items (spec 33 / core #143)', () => {
     expect(pkg.price).toBe(1980)
     expect(pkg.items).toEqual(items)
     expect(pkg.items[0]?.code).toBe('vitamin_d')
+    expect(pkg.items[0]?.name).toBe('維生素 D')
     expect(pkg.items[0]?.score_raw).toBe(1)
     expect(pkg.composition_hash).toBe('sha256:basic')
   })
