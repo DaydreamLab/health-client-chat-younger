@@ -623,7 +623,7 @@ const packages = ref<PublicPackage[]>([])
 const packagesPending = ref(true)
 const packagesError = ref<string | null>(null)
 const featureKeyGroups: Record<string, readonly string[]> = {
-  basic: ['basicFeature1', 'basicFeature2', 'basicFeature3'],
+  basic: ['basicFeature1', 'basicFeature3'],
   advance: ['advanceFeature1', 'advanceFeature2', 'advanceFeature3']
 }
 
