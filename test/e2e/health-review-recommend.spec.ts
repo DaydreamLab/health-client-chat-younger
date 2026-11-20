@@ -156,6 +156,8 @@ test.describe('health page + order → expert-cases', () => {
     await expect(page.getByTestId('health-review-records')).toHaveCount(0)
     await expect(page.getByTestId('health-review-view-recommend')).toHaveCount(0)
     await expect(page.getByTestId('health-view-recommend')).toHaveCount(0)
+    await expect(page.getByTestId('health-submit-expert-review')).toHaveCount(0)
+    await expect(page.getByText('取得專屬保健品方案')).toHaveCount(0)
     await expect(page.getByTestId('health-reports')).toBeVisible()
   })
 

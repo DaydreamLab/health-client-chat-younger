@@ -14,6 +14,9 @@ describe('/app page shares my-health + login form', () => {
       'utf8'
     )
     expect(health).toMatch(/data-testid="health-body"/)
+    expect(health).not.toMatch(/health-submit-expert-review/)
+    expect(health).not.toMatch(/headerCta/)
+    expect(health).not.toMatch(/chat\.submitExpertReview/)
     expect(health).not.toMatch(/MemberAuthGate/)
     expect(health).not.toMatch(/definePageMeta/)
     expect(appIndex).toMatch(/MemberMyHealth/)
