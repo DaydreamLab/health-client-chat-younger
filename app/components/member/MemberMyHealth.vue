@@ -1,19 +1,8 @@
 <template>
   <div class="space-y-6">
-    <div class="flex flex-wrap items-center gap-2">
-      <h1 class="text-2xl font-semibold text-highlighted">
-        {{ $t('member.title') }}
-      </h1>
-      <AppButton
-        v-if="auth.isMember && headerCta === 'submit'"
-        :to="localePath('/chat')"
-        variant="primary"
-        class="ms-auto"
-        data-testid="health-submit-expert-review"
-      >
-        {{ $t('chat.submitExpertReview') }}
-      </AppButton>
-    </div>
+    <h1 class="text-2xl font-semibold text-highlighted">
+      {{ $t('member.title') }}
+    </h1>
 
     <div
       class="flex flex-col gap-6 lg:flex-row lg:items-start"
@@ -423,20 +412,6 @@ const canReportsPrev = computed(() => reportsOffset.value > 0)
 const canReportsNext = computed(
   () => reportsOffset.value + REPORTS_PAGE_SIZE < reportsTotal.value
 )
-
-/** Header only keeps「提交專家判讀」; reviewed → expert-cases via order detail, not a page header CTA. */
-const headerCta = computed<'submit' | 'none'>(() => {
-  if (!auth.isMember) {
-    return 'none'
-  }
-  if (
-    journey.expertReviewStatus === 'reviewed'
-    || journey.expertReviewStatus === 'awaiting_review'
-  ) {
-    return 'none'
-  }
-  return 'submit'
-})
 
 type ReportViewMode = 'table' | 'cards'
 /** Default to former「樣式2」card grid with rail markers. */

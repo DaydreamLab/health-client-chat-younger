@@ -326,6 +326,9 @@ test('member health profile clear wipes summary card', async ({ page, goto }) =>
   await mockCandorAuth(page, { asMember: true, basicProfileComplete: true })
   await goto('/app', { waitUntil: 'hydration' })
 
+  await expect(page.getByTestId('health-body')).toBeVisible()
+  await expect(page.getByTestId('health-submit-expert-review')).toHaveCount(0)
+  await expect(page.getByText('取得專屬保健品方案')).toHaveCount(0)
   await expect(page.getByTestId('health-profile-cards')).toBeVisible()
   await expect(page.getByTestId('health-stat-sex')).toContainText(/女|Female/)
   await expect(page.getByTestId('health-stat-age')).toContainText(/35/)
