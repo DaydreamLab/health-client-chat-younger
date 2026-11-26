@@ -174,6 +174,115 @@ test('agent v2 projects ask_goal chips from actions', async ({ page, goto }) => 
   await expect(page.getByTestId('chat-quiz-option-sleep')).toHaveClass(/is-selected/)
 })
 
+test('agent v2 member upload uses v1 health-reports then refreshes v2 (no v1 conversation)', async ({
+  page,
+  goto
+}) => {
+  await mockAgentV2Api(page, 'collecting_actions')
+
+  const uploadedReportId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+  let sawV1Conversation = false
+  let sawHealthReportPost = false
+  let v2MessageAfterUpload = false
+
+  await page.route('**/api/v1/conversation**', async (route) => {
+    sawV1Conversation = true
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'failed',
+        error_message: 'v2 must not call v1 conversation',
+        error_code: 'forbidden'
+      })
+    })
+  })
+
+  await page.route('**/api/v1/health-reports**', async (route) => {
+    const request = route.request()
+    const method = request.method()
+    const path = new URL(request.url()).pathname.replace(/\/$/, '')
+    const ok = (data: unknown, status = 200) => route.fulfill({
+      status,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'success', data })
+    })
+
+    if (method === 'POST' && path.endsWith('/health-reports')) {
+      sawHealthReportPost = true
+      await ok({
+        id: uploadedReportId,
+        status: 'ready',
+        page_count: 1
+      }, 201)
+      return
+    }
+
+    if (method === 'GET' && path.endsWith(`/health-reports/${uploadedReportId}`)) {
+      await ok({
+        id: uploadedReportId,
+        status: 'ready',
+        page_count: 1,
+        results: [{
+          id: 'result-upload-1',
+          raw_name: 'Vitamin D3',
+          name_zh: '維生素 D3',
+          value_numeric: 31.8,
+          unit: 'ng/mL',
+          ref_low: 50,
+          ref_high: 80,
+          range_status: 'low'
+        }]
+      })
+      return
+    }
+
+    if (method === 'GET' && path.endsWith('/health-reports')) {
+      await ok({ reports: [], total: 0 })
+      return
+    }
+
+    await route.fallback()
+  })
+
+  // After upload, v2 sendMessage should fire (bindAgentV2Report ack).
+  await page.route('**/api/v2/conversations/*/messages', async (route) => {
+    if (route.request().method() === 'POST' && sawHealthReportPost) {
+      v2MessageAfterUpload = true
+    }
+    await route.fallback()
+  })
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await goto('/chat/v2', { waitUntil: 'hydration' })
+
+  await expect(page.getByTestId('chat-transcript')).toBeVisible({ timeout: 15_000 })
+  await page.getByTestId('chat-input').fill('我要上傳')
+  await page.getByTestId('chat-send').click()
+
+  const uploadBtn = page.getByTestId('chat-message-upload')
+  await expect(uploadBtn).toBeVisible({ timeout: 15_000 })
+  await expect(uploadBtn).toBeEnabled()
+
+  // Attach menu → PDF path (member).
+  await uploadBtn.click()
+  await expect(page.getByTestId('chat-attach-pdf')).toBeVisible({ timeout: 5_000 })
+  await page.getByTestId('chat-attach-pdf').click()
+
+  // Feed a fake PDF file into the hidden input (opened by pickPdf).
+  await page.getByTestId('chat-upload-input').setInputFiles({
+    name: 'report.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.from('%PDF-1.4 fake')
+  })
+
+  await expect(page.getByTestId('chat-report-dock')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
+  await expect.poll(() => sawHealthReportPost).toBe(true)
+  await expect.poll(() => v2MessageAfterUpload).toBe(true)
+  expect(sawV1Conversation).toBe(false)
+})
+
 test('existing home and chat surfaces have no agent v2 entry', async ({ page, goto }) => {
   await mockAgentV2Api(page, 'ready')
   await goto('/', { waitUntil: 'hydration' })
