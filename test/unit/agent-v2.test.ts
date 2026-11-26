@@ -216,6 +216,13 @@ describe('agent-v2 helpers', () => {
     )
     expect(preferOwn[0]!.replyActions?.actions[0]?.type).toBe('ask_goal')
 
+    // Irice 17:04 GET hydrate: no fallback → top-level pending ignored.
+    const getHydrate = hydrateAgentV2Messages(
+      [{ id: 'a1', role: 'assistant', text: '歡迎' }],
+      null
+    )
+    expect(getHydrate[0]!.replyActions).toBeNull()
+
     const withCitations = hydrateAgentV2Messages([
       {
         id: 'a1',
@@ -353,6 +360,9 @@ describe('agent-v2 isolation wiring', () => {
     expect(chatPanel).toMatch(/failedAgentV2Retry/)
     expect(chatPanel).toMatch(/retryFailedAgentV2/)
     expect(chatPanel).toMatch(/pushAgentV2FailedBubble/)
+    // Irice 17:04: GET = per-message only; create may use bundle actions fallback.
+    expect(chatPanel).toMatch(/useBundleActionsFallback:\s*true/)
+    expect(chatPanel).toMatch(/GET hydrate: per-message actions only/)
     const api = readFileSync(resolve('app/composables/useAgentV2Api.ts'), 'utf8')
     expect(api).toMatch(/createConversation\(\): Promise<AgentV2ConversationBundle>/)
     expect(api).toMatch(/normalizeBundle/)

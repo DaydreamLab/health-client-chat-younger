@@ -417,9 +417,10 @@ export interface AgentV2HydratedMessage {
 }
 
 /**
- * Restore transcript CTAs after create／GET.
- * Prefer each message's own `actions`; if none carry actions, attach
- * `fallbackActions` (bundle-level) to the last assistant bubble only.
+ * Restore transcript CTAs from messages.
+ * Irice 17:04: GET hydrate uses **each message's own `actions` only** —
+ * never top-level pending `actions`. Create may pass `fallbackActions` when
+ * the greeting message omits per-message actions (LC4 additive shape).
  * Never invent buttons from reply text.
  */
 export function hydrateAgentV2Messages(
