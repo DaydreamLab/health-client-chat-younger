@@ -79,8 +79,21 @@ export type AgentV2ProjectedActionKey = (typeof AGENT_V2_PROJECTED_ACTION_KEYS)[
 /** Existing recommendations entry used by /chat offer_recommend. */
 export const AGENT_V2_RECOMMENDATIONS_PATH = '/app/recommendations'
 
+/** Query key carrying v2 conversation context into recommendations／checkout (LY4). */
+export const AGENT_V2_CONVERSATION_QUERY_KEY = 'agent_v2_conversation_id'
+
 /** localStorage key for the open v2 conversation id (isolated from journey). */
 export const AGENT_V2_CONVERSATION_STORAGE_KEY = 'candor.agent.v2.conversationId'
+
+/** Read v2 conversation id from a route query (never treat it as a v1 conversation id). */
+export function agentV2ConversationIdFromQuery(query: Record<string, unknown> | {
+  [key: string]: unknown
+}): string | null {
+  const raw = query[AGENT_V2_CONVERSATION_QUERY_KEY]
+  const value = Array.isArray(raw) ? raw[0] : raw
+  const id = String(value ?? '').trim()
+  return id || null
+}
 
 const DEFAULT_VITALS_FIELDS: VitalsField[] = ['age', 'height', 'weight']
 
