@@ -236,15 +236,8 @@ describe('agent-v2 helpers', () => {
     expect(isAgentV2ProfileCtaChooseOption({ kind: 'free' })).toBe(false)
   })
 
-  it('contract: ask_report keeps option_codes; lab_report chips submit cta_answer', () => {
-    // Exact candor-core #222 fixture tests/fixtures/agent_v2/lab_report_cta_payload.json
-    const askReportAction = {
-      key: AGENT_V2_ASK_REPORT_KEY,
-      label: '上傳健檢報告',
-      payload: {
-        option_codes: ['within_6m', 'within_1y', '1_to_3y', 'over_3y', 'none']
-      }
-    }
+  it('contract: lab_report chips alone; ask_report empty payload projects upload', () => {
+    // Question turn: choose_option only (no ask_report → no bubble upload).
     const labReportPayload = {
       kind: 'lab_report',
       mode: 'single',
@@ -264,22 +257,18 @@ describe('agent-v2 helpers', () => {
       action_key: 'choose_option'
     }
 
-    const projected = agentV2ActionsToReplyActions([
-      askReportAction,
+    const questionTurn = agentV2ActionsToReplyActions([
       {
         key: AGENT_V2_CHOOSE_OPTION_KEY,
         label: '是否有血檢或健檢報告？',
         payload: labReportPayload
       }
     ])
-    expect(projected).not.toBeNull()
-    expect(projected!.actions).toEqual([
-      { type: 'ask_report', payload: askReportAction.payload },
-      {
-        type: 'choose_option',
-        payload: labReportPayload
-      }
+    expect(questionTurn).not.toBeNull()
+    expect(questionTurn!.actions).toEqual([
+      { type: 'choose_option', payload: labReportPayload }
     ])
+    expect(questionTurn!.actions.some(action => action.type === 'ask_report')).toBe(false)
 
     expect(isAgentV2ProfileCtaChooseOption(labReportPayload)).toBe(true)
     expect(resolveAgentV2ProfileCtaGapCode(labReportPayload)).toBe('lab_report')
@@ -288,12 +277,12 @@ describe('agent-v2 helpers', () => {
       key: AGENT_V2_CHOOSE_OPTION_KEY,
       label: '是否有血檢或健檢報告？',
       payload: labReportPayload
-    }, { content: '無', value: 'none' })).toEqual({
-      content: '無',
+    }, { content: '半年內', value: 'within_6m' })).toEqual({
+      content: '半年內',
       cta_answer: {
         action_key: 'choose_option',
         gap_code: 'lab_report',
-        value: 'none'
+        value: 'within_6m'
       }
     })
 
@@ -309,6 +298,18 @@ describe('agent-v2 helpers', () => {
         value: 'none'
       }
     })
+
+    // After within_*：ask_report alone with empty payload still paints upload.
+    const uploadTurn = agentV2ActionsToReplyActions([
+      {
+        key: AGENT_V2_ASK_REPORT_KEY,
+        label: '上傳健檢報告',
+        payload: {}
+      }
+    ])
+    expect(uploadTurn!.actions).toEqual([
+      { type: 'ask_report', payload: {} }
+    ])
   })
 
   it('contract: real-shape CTA payloads submit cta_answer with gap_code／action_key／value', () => {

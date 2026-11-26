@@ -55,17 +55,10 @@ const sexActions: MockAction[] = [
 ]
 
 /**
- * Exact core fixture tests/fixtures/agent_v2/lab_report_cta_payload.json
- * (candor-core #222 / CtaActionFactory::askLabReport).
+ * Report question turn (Irice 23:30): ONLY choose_option kind=lab_report.
+ * No ask_report → no bubble upload until after within_* answers.
  */
 const reportAskActions: MockAction[] = [
-  {
-    key: 'ask_report',
-    label: '上傳健檢報告',
-    payload: {
-      option_codes: ['within_6m', 'within_1y', '1_to_3y', 'over_3y', 'none']
-    }
-  },
   {
     key: 'choose_option',
     label: '是否有血檢或健檢報告？',
@@ -87,6 +80,15 @@ const reportAskActions: MockAction[] = [
       ],
       action_key: 'choose_option'
     }
+  }
+]
+
+/** After within_6m／within_1y／1_to_3y: ask_report alone (empty payload). */
+const askReportOnlyActions: MockAction[] = [
+  {
+    key: 'ask_report',
+    label: '上傳健檢報告',
+    payload: {}
   }
 ]
 
@@ -126,7 +128,7 @@ const labFollowupActions: MockAction[] = [
  * `collecting_actions` = collecting with ask_vitals／ask_report／confirm_report_date.
  * `goals` = ask_goals; CTA answers advance to sex → vitals (cta_answer path).
  * `sex` = real-shape sex choose_option first (kind:"sex"); answers → vitals.
- * `report` = real-shape ask_report + lab_report chips; none／over_3y → lab_followup.
+ * `report` = lab_report chips only; within_* → ask_report alone; none／over_3y → lab_followup.
  * `fail_once` = first POST messages returns 500; subsequent succeed (LY5 retry).
  */
 export async function mockAgentV2Api(
@@ -273,7 +275,13 @@ export async function mockAgentV2Api(
           nextActions: labFollowupActions
         }
       }
-      // within_*／1_to_3y: report satisfied; no LabFollowup (v1 labFollowupAfterAnswer → null).
+      // within_6m／within_1y／1_to_3y → ask_report alone (upload CTA).
+      if (value === 'within_6m' || value === 'within_1y' || value === '1_to_3y') {
+        return {
+          replyText: '好的，請上傳您的報告。',
+          nextActions: askReportOnlyActions
+        }
+      }
       return {
         replyText: '已記下報告狀況。',
         nextActions: []
