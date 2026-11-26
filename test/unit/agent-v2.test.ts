@@ -232,6 +232,19 @@ describe('agent-v2 isolation wiring', () => {
     expect(chatPanel).toMatch(/LY1：goals／multi chips paint/)
   })
 
+  it('enables member upload on mode=v2 without v1 conversation bind', () => {
+    const offerBlock = chatPanel.match(
+      /const canOfferUpload = computed\(\(\) =>\n(?:.*\n){1,6}\)/
+    )?.[0] ?? ''
+    expect(offerBlock).toContain('canOfferUpload')
+    expect(offerBlock).not.toContain('isAgentV2')
+    expect(chatPanel).toMatch(/bindAgentV2Report/)
+    expect(chatPanel).toMatch(/v2: upload via v1 HealthReport API only/)
+    expect(chatPanel).toMatch(
+      /async function bindAndInterpret[\s\S]*?if \(isAgentV2\.value\) \{[\s\S]*?await bindAgentV2Report/
+    )
+  })
+
   it('leaves the default /chat page on the v1 ChatPanel path (no mode=v2)', () => {
     expect(chat).toMatch(/<ChatPanel\s*\/>/)
     expect(chat).not.toMatch(/mode=["']v2["']/)
