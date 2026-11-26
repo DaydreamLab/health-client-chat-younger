@@ -14,7 +14,7 @@
 
 環境：`runtimeConfig.public.apiBase` ← `NUXT_PUBLIC_API_BASE`（預設 `http://localhost:8080/api/v1`）。Agent v2 base 由 `apiBase` 將 `/api/v1` 換成 `/api/v2`。功能開關：`runtimeConfig.public.agentV2Enabled` ← `NUXT_PUBLIC_AGENT_V2_ENABLED=1`（預設關；開啟後 `/chat/v2` 可用，關閉時該路由 404）。
 
-Agent v2 `actions[]` → FE：`agentV2ActionsToReplyActions` 只投影已知 key（`ask_vitals`／`ask_report`／`ask_goal`／`choose_option`／`confirm_report_date`／`offer_recommend`）成既有 `reply_actions` 供 `TurnActions`／`AskVitalsCard` 繪製；未知 key 忽略。`confirm_report_date` 點擊走 `POST …/actions`（只寫 v2 meta）。Profile／goals／上傳寫入仍走既有 v1 API，再打 v2 message／action refresh（LY2–LY3）；**不**假寫 v1 conversation。
+Agent v2 `actions[]` → FE：`agentV2ActionsToReplyActions` 只投影已知 key（`ask_vitals`／`ask_report`／`ask_goal`／`choose_option`／`confirm_report_date`／`offer_recommend`）成既有 `reply_actions` 供 `TurnActions`／`AskVitalsCard` 繪製；未知 key 忽略。`confirm_report_date` 點擊走 `POST …/actions`（只寫 v2 meta）。上傳走 `POST /health-reports`（LY2）。Profile／goals CTA：`POST /profile/answers`（**不**帶 `conversation_id`；goals 假設 `gap_code=goals`）→ 再 `POST /api/v2/.../messages` refresh；**不**呼叫 `POST /conversation/{id}/goals`、**不**假寫 v1 conversation。
 
 ## Token
 
