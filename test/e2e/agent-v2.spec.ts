@@ -174,6 +174,73 @@ test('agent v2 projects ask_goal chips from actions', async ({ page, goto }) => 
   await expect(page.getByTestId('chat-quiz-option-sleep')).toHaveClass(/is-selected/)
 })
 
+test('agent v2 goals confirm POSTs /profile/answers then refreshes v2 (no v1 conversation)', async ({
+  page,
+  goto
+}) => {
+  await mockAgentV2Api(page, 'goals')
+
+  let profileAnswerBody: Record<string, unknown> | null = null
+  let sawV1Conversation = false
+  let v2RefreshAfterGoals = false
+
+  await page.route('**/api/v1/conversation**', async (route) => {
+    sawV1Conversation = true
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'failed',
+        error_message: 'v2 must not call v1 conversation',
+        error_code: 'forbidden'
+      })
+    })
+  })
+
+  await page.route('**/api/v1/profile/answers', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.fallback()
+      return
+    }
+    profileAnswerBody = route.request().postDataJSON() as Record<string, unknown>
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'success',
+        data: {
+          saved: true,
+          profile_gaps: [],
+          next_question: { done: true }
+        }
+      })
+    })
+  })
+
+  await page.route('**/api/v2/conversations/*/messages', async (route) => {
+    if (route.request().method() === 'POST' && profileAnswerBody) {
+      v2RefreshAfterGoals = true
+    }
+    await route.fallback()
+  })
+
+  await goto('/chat/v2', { waitUntil: 'hydration' })
+  await expect(page.getByTestId('chat-transcript')).toBeVisible({ timeout: 15_000 })
+  await page.getByTestId('chat-input').fill('選目標')
+  await page.getByTestId('chat-send').click()
+
+  await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
+  await page.getByTestId('chat-quiz-option-sleep').click()
+  await page.getByTestId('chat-quiz-confirm').click()
+
+  await expect.poll(() => profileAnswerBody !== null).toBe(true)
+  expect(profileAnswerBody?.gap_code).toBe('goals')
+  expect(profileAnswerBody?.value).toEqual(['sleep'])
+  expect(profileAnswerBody?.conversation_id).toBeUndefined()
+  await expect.poll(() => v2RefreshAfterGoals).toBe(true)
+  expect(sawV1Conversation).toBe(false)
+})
+
 test('agent v2 member upload uses v1 health-reports then refreshes v2 (no v1 conversation)', async ({
   page,
   goto

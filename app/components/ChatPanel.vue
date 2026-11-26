@@ -2663,16 +2663,54 @@ async function runProfileThenStream() {
   await streamPending()
 }
 
+/**
+ * LY3: write profile／goals via v1 Profile API (no conversation_id), then
+ * refresh the v2 agent so probe_requirements sees the new data.
+ */
+async function refreshAgentV2AfterProfileWrite(userDisplay: string) {
+  await sendAgentV2Text(userDisplay)
+}
+
+async function submitAgentV2ProfileAnswer(input: {
+  gapCode: string
+  value: string | number | boolean | string[] | null
+  display: string
+  host?: ChatMessage
+}) {
+  pending.value = true
+  try {
+    const result = await candor.submitProfileAnswer({
+      gap_code: input.gapCode,
+      value: input.value,
+      source_message_id: input.host?.id ?? null
+    })
+    if (!result.saved) {
+      agentV2Messages.value.push(
+        makeMessage('assistant', ('prompt' in result && result.prompt)
+          ? String(result.prompt)
+          : t('chat.streamError'))
+      )
+      pending.value = false
+      return false
+    }
+    // sendAgentV2Text manages pending; clear so it can run.
+    pending.value = false
+    await refreshAgentV2AfterProfileWrite(input.display)
+    return true
+  } catch {
+    agentV2Messages.value.push(makeMessage('assistant', t('chat.streamError')))
+    pending.value = false
+    return false
+  }
+}
+
 async function onVitalsSubmit(values: Partial<Record<VitalsField, number>>) {
   if (pending.value || readonly.value || escalated.value) {
     return
   }
-  // LY1：paint AskVitals; LY3 wires v1 profile write + v2 refresh (no v1 conversation).
-  if (isAgentV2.value) {
-    return
-  }
   // Vitals card only paints on the latest bubble's own ask_vitals (no bank lift).
-  const host = [...journey.messages].reverse().find(m => m.role === 'assistant')
+  const hostList = isAgentV2.value ? agentV2Messages.value : journey.messages
+  const host = [...hostList].reverse().find(m => m.role === 'assistant')
   if (!host) {
     return
   }
@@ -2694,6 +2732,64 @@ async function onVitalsSubmit(values: Partial<Record<VitalsField, number>>) {
   const display = String(n)
   const remaining = fields.filter(f => f !== field)
   const gapCode = vitalsGapCodeForField(field, fields, actions.vitalsGapCode)
+
+  if (isAgentV2.value) {
+    pending.value = true
+    try {
+      const result = await candor.submitProfileAnswer({
+        gap_code: gapCode,
+        value: n,
+        source_message_id: host.id
+      })
+      if (!result.saved) {
+        appendMessage('user', display)
+        agentV2Messages.value.push(makeMessage(
+          'assistant',
+          ('prompt' in result && result.prompt) ? String(result.prompt) : t('chat.streamError')
+        ))
+        pending.value = false
+        return
+      }
+      if (remaining.length > 0 && host.replyActions) {
+        appendMessage('user', display)
+        host.replyActions = {
+          ...host.replyActions,
+          actions: host.replyActions.actions.map((action) => {
+            if (action.type !== 'ask_vitals') {
+              return action
+            }
+            const payload = (action.payload && typeof action.payload === 'object')
+              ? { ...action.payload as Record<string, unknown> }
+              : {}
+            return {
+              ...action,
+              payload: {
+                ...payload,
+                fields: remaining,
+                gap_code: null
+              }
+            }
+          })
+        }
+        pending.value = false
+        return
+      }
+      if (host.replyActions) {
+        resolveReplyActionsAsHistorical(host, {
+          outcome: 'option_selected',
+          vitalsStored: { value: n }
+        })
+      }
+      // Final field: sendAgentV2Text appends the user bubble + refreshes probe.
+      pending.value = false
+      await refreshAgentV2AfterProfileWrite(display)
+    } catch {
+      appendMessage('user', display)
+      agentV2Messages.value.push(makeMessage('assistant', t('chat.streamError')))
+      pending.value = false
+    }
+    return
+  }
 
   appendMessage('user', display)
   pending.value = true
@@ -2873,7 +2969,6 @@ function onChoice(option: GreetingOption, hostMessage?: ChatMessage) {
       void postAgentV2ActionKey(AGENT_V2_CONFIRM_REPORT_DATE_KEY, option.label)
       return
     }
-    // Multi-select chips (goals／profile): toggle selection only; confirm → LY3 write.
     const host = hostMessage
       ?? [...agentV2Messages.value].reverse().find(message => message.role === 'assistant')
     const exclusive = host ? exclusiveCodesFor(host) : ['none', 'none_of_above']
@@ -2895,9 +2990,22 @@ function onChoice(option: GreetingOption, hostMessage?: ChatMessage) {
         : [...withoutNone, option.code]
       return
     }
-    // Single-select profile chips (e.g. sex): select only in LY1; LY3 posts profile API.
+    // Single-select profile chips (e.g. sex): POST /profile/answers then v2 refresh.
     if (projection?.chooseOption?.kind === 'profile') {
-      selectedCodes.value = [option.code]
+      const gapCode = String(projection.chooseOption.gap_code || 'sex')
+      void submitAgentV2ProfileAnswer({
+        gapCode,
+        value: option.code,
+        display: option.label,
+        host
+      }).then((ok) => {
+        if (ok && host) {
+          retainOrClearHostActions(host, {
+            outcome: 'option_selected',
+            selectedCodes: [option.code]
+          })
+        }
+      })
       return
     }
     // Unknown chip: echo as v2 user text (never v1 stream／ensureConversation).
@@ -3014,8 +3122,40 @@ async function confirmMultiSelection() {
     return
   }
 
-  // LY1：goals／multi chips paint + select; LY3 writes v1 profile／goals then v2 refresh.
   if (isAgentV2.value) {
+    const host = [...agentV2Messages.value].reverse().find(message => message.role === 'assistant')
+    const projection = host ? turnActionsFor(host).replyProjection : null
+    const isGoals = Boolean(
+      projection?.askGoal
+      || projection?.chooseOption?.kind === 'consultation_goals'
+      || goalSelectActive.value
+    )
+    const labels = (host ? choicesFor(host) : goalOptions.value)
+      .filter(o => selectedCodes.value.includes(o.code))
+      .map(o => o.label)
+    const display = labels.join('、') || selectedCodes.value.join('、')
+    const goalsSnapshot = [...selectedCodes.value]
+    // Assumed gap_code for user-level goals write (no v1 conversation).
+    // Verify against core LC4: may be `goals` or `consultation_goals`.
+    const gapCode = isGoals
+      ? String(projection?.chooseOption?.gap_code || 'goals')
+      : String(projection?.chooseOption?.gap_code || 'profile')
+    const ok = await submitAgentV2ProfileAnswer({
+      gapCode,
+      value: goalsSnapshot,
+      display,
+      host
+    })
+    if (ok) {
+      selectedCodes.value = []
+      goalSelectActive.value = false
+      if (host) {
+        retainOrClearHostActions(host, {
+          outcome: 'option_selected',
+          selectedCodes: goalsSnapshot
+        })
+      }
+    }
     return
   }
 

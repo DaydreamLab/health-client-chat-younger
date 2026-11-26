@@ -228,8 +228,21 @@ describe('agent-v2 isolation wiring', () => {
     expect(chatPanel).toMatch(/applyReplyActionsInteraction/)
     expect(chatPanel).toMatch(/postAgentV2ActionKey/)
     expect(chatPanel).toMatch(/AGENT_V2_CONFIRM_REPORT_DATE_KEY/)
-    expect(chatPanel).toMatch(/LY1：paint AskVitals/)
-    expect(chatPanel).toMatch(/LY1：goals／multi chips paint/)
+    expect(chatPanel).toMatch(/submitAgentV2ProfileAnswer/)
+  })
+
+  it('writes profile／goals via v1 Profile API then refreshes v2 (LY3)', () => {
+    expect(chatPanel).toMatch(/submitAgentV2ProfileAnswer/)
+    expect(chatPanel).toMatch(/refreshAgentV2AfterProfileWrite/)
+    expect(chatPanel).toMatch(/gap_code: gapCode/)
+    expect(chatPanel).toMatch(/Assumed gap_code for user-level goals write/)
+    // Goals confirm path must not call setConversationGoals / ensureConversation.
+    const goalsWriteIdx = chatPanel.indexOf('Assumed gap_code for user-level goals write')
+    expect(goalsWriteIdx).toBeGreaterThan(0)
+    const slice = chatPanel.slice(goalsWriteIdx, goalsWriteIdx + 800)
+    expect(slice).toContain('submitAgentV2ProfileAnswer')
+    expect(slice).not.toContain('setConversationGoals')
+    expect(slice).not.toContain('ensureConversation')
   })
 
   it('enables member upload on mode=v2 without v1 conversation bind', () => {
