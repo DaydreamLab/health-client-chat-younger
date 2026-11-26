@@ -23,25 +23,63 @@ test('agent v2 ready state shows offer_recommend from actions on /chat/v2', asyn
   await expect(page.getByTestId('agent-v2-page')).toBeVisible()
   await expect(page.getByTestId('chat-transcript')).toBeVisible({ timeout: 15_000 })
 
-  const input = page.getByTestId('chat-input')
-  await expect(input).toBeEnabled({ timeout: 15_000 })
-  await input.fill('我想取得方案')
-  await page.getByTestId('chat-send').click()
-
+  // LY5: greeting + actions hydrate on create (no need to send first).
   const offer = page.getByTestId('chat-view-recommend')
   await expect(offer).toBeVisible({ timeout: 15_000 })
   await expect(offer).toHaveText('取得專屬保健品方案')
   await expect(page.getByTestId('chat-last-reply')).toContainText('三要件')
+
+  const input = page.getByTestId('chat-input')
+  await expect(input).toBeEnabled({ timeout: 15_000 })
+  await input.fill('我想取得方案')
+  await page.getByTestId('chat-send').click()
+  await expect(page.getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
 
   await page.screenshot({
     path: e2eArtifactPath('agent-v2-ready-390.png'),
     fullPage: true
   })
 
-  await offer.click()
+  await page.getByTestId('chat-view-recommend').click()
   await expect(page).toHaveURL(/\/app\/recommendations/, { timeout: 15_000 })
   await expect(page).toHaveURL(/agent_v2_conversation_id=/, { timeout: 5_000 })
   await expect(page).toHaveURL(/flow=standard/)
+})
+
+test('agent v2 reload restores greeting actions from GET hydrate', async ({
+  page,
+  goto
+}) => {
+  await mockAgentV2Api(page, 'ready')
+  await goto('/chat/v2', { waitUntil: 'hydration' })
+  await expect(page.getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
+
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.getByTestId('agent-v2-page')).toBeVisible()
+  await expect(page.getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('chat-last-reply')).toContainText('三要件')
+})
+
+test('agent v2 failed message shows retry CTA and recovers', async ({
+  page,
+  goto
+}) => {
+  await mockAgentV2Api(page, 'fail_once')
+  await goto('/chat/v2', { waitUntil: 'hydration' })
+  await expect(page.getByTestId('chat-input')).toBeEnabled({ timeout: 15_000 })
+
+  await page.getByTestId('chat-input').fill('這次會失敗一次')
+  await page.getByTestId('chat-send').click()
+
+  const retry = page.getByTestId('chat-report-retry')
+  await expect(retry).toBeVisible({ timeout: 15_000 })
+  await expect(retry).toHaveText('再試一次')
+  await retry.click()
+
+  await expect(page.getByTestId('chat-transcript')).toContainText('已收到', {
+    timeout: 15_000
+  })
+  await expect(page.getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
 })
 
 test('agent v2 shows ReportDataDock with explainHighlights when a report exists', async ({

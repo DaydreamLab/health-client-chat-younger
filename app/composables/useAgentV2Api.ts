@@ -70,7 +70,10 @@ function normalizeMessage(raw: unknown, index: number): AgentV2Message | null {
     return null
   }
   const id = String((raw as { id?: unknown }).id ?? `msg-${index}`).trim() || `msg-${index}`
-  return { id, role, text }
+  const actions = normalizeAgentV2Actions((raw as { actions?: unknown }).actions)
+  return actions.length > 0
+    ? { id, role, text, actions }
+    : { id, role, text }
 }
 
 function normalizeMessages(raw: unknown): AgentV2Message[] {
@@ -85,6 +88,19 @@ function normalizeMessages(raw: unknown): AgentV2Message[] {
     }
   })
   return out
+}
+
+function normalizeBundle(data: {
+  conversation: unknown
+  messages?: unknown
+  actions?: unknown
+}): AgentV2ConversationBundle {
+  const actions = normalizeAgentV2Actions(data.actions)
+  return {
+    conversation: normalizeConversation(data.conversation),
+    messages: normalizeMessages(data.messages),
+    ...(actions.length > 0 ? { actions } : {})
+  }
 }
 
 function normalizeTurn(raw: unknown): AgentV2TurnResult {
@@ -161,23 +177,29 @@ export function useAgentV2Api() {
     }
   }
 
-  async function createConversation(): Promise<AgentV2Conversation> {
-    const data = await request<{ conversation: unknown }>('/conversations', {
+  /**
+   * LY5: create may include greeting `messages` + pending `actions` (LC4+).
+   * Older cores return only `{ conversation }` — FE tolerates empty transcript.
+   */
+  async function createConversation(): Promise<AgentV2ConversationBundle> {
+    const data = await request<{
+      conversation: unknown
+      messages?: unknown
+      actions?: unknown
+    }>('/conversations', {
       method: 'POST',
       body: {}
     })
-    return normalizeConversation(data.conversation)
+    return normalizeBundle(data)
   }
 
   async function getConversation(id: string): Promise<AgentV2ConversationBundle> {
     const data = await request<{
       conversation: unknown
       messages?: unknown
+      actions?: unknown
     }>(`/conversations/${encodeURIComponent(id)}`)
-    return {
-      conversation: normalizeConversation(data.conversation),
-      messages: normalizeMessages(data.messages)
-    }
+    return normalizeBundle(data)
   }
 
   async function sendMessage(id: string, text: string): Promise<AgentV2TurnResult> {
