@@ -317,15 +317,15 @@ test('agent v2 ask_goals shows zh labels, multi-select, and confirm', async ({ p
   await expect(page.getByTestId('chat-quiz-confirm')).toBeEnabled()
 })
 
-test('agent v2 goals confirm POSTs /profile/answers then refreshes v2 (no v1 conversation)', async ({
+test('agent v2 CTA answers POST messages with cta_answer (never /profile/answers)', async ({
   page,
   goto
 }) => {
   await mockAgentV2Api(page, 'goals')
 
-  let profileAnswerBody: Record<string, unknown> | null = null
+  let sawProfileAnswers = false
   let sawV1Conversation = false
-  let v2RefreshAfterGoals = false
+  const messageBodies: Array<Record<string, unknown>> = []
 
   await page.route('**/api/v1/conversation**', async (route) => {
     sawV1Conversation = true
@@ -341,28 +341,23 @@ test('agent v2 goals confirm POSTs /profile/answers then refreshes v2 (no v1 con
   })
 
   await page.route('**/api/v1/profile/answers', async (route) => {
-    if (route.request().method() !== 'POST') {
-      await route.fallback()
-      return
+    if (route.request().method() === 'POST') {
+      sawProfileAnswers = true
     }
-    profileAnswerBody = route.request().postDataJSON() as Record<string, unknown>
     await route.fulfill({
-      status: 200,
+      status: 500,
       contentType: 'application/json',
       body: JSON.stringify({
-        status: 'success',
-        data: {
-          saved: true,
-          profile_gaps: [],
-          next_question: { done: true }
-        }
+        status: 'failed',
+        error_message: 'v2 must not call profile/answers',
+        error_code: 'forbidden'
       })
     })
   })
 
   await page.route('**/api/v2/conversations/*/messages', async (route) => {
-    if (route.request().method() === 'POST' && profileAnswerBody) {
-      v2RefreshAfterGoals = true
+    if (route.request().method() === 'POST') {
+      messageBodies.push(route.request().postDataJSON() as Record<string, unknown>)
     }
     await route.fallback()
   })
@@ -370,18 +365,146 @@ test('agent v2 goals confirm POSTs /profile/answers then refreshes v2 (no v1 con
   await goto('/chat/v2', { waitUntil: 'hydration' })
   await expect(page.getByTestId('chat-transcript')).toBeVisible({ timeout: 15_000 })
 
+  // Goals: zh labels → confirm → user bubble + cta_answer message.
   await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
   await expect(page.getByTestId('chat-quiz-option-sleep')).toHaveText('睡眠')
   await page.getByTestId('chat-quiz-option-sleep').click()
   await page.getByTestId('chat-quiz-option-weight_loss').click()
   await page.getByTestId('chat-quiz-confirm').click()
 
-  await expect.poll(() => profileAnswerBody !== null).toBe(true)
-  expect(profileAnswerBody?.gap_code).toBe('goals')
-  expect(profileAnswerBody?.value).toEqual(['sleep', 'weight_loss'])
-  expect(profileAnswerBody?.conversation_id).toBeUndefined()
-  await expect.poll(() => v2RefreshAfterGoals).toBe(true)
+  await expect.poll(() => messageBodies.length).toBe(1)
+  expect(messageBodies[0]).toEqual({
+    content: '睡眠、減重',
+    cta_answer: {
+      action_key: 'ask_goals',
+      gap_code: 'goals',
+      value: ['sleep', 'weight_loss']
+    }
+  })
+  await expect(page.getByTestId('chat-transcript')).toContainText('睡眠、減重', {
+    timeout: 15_000
+  })
+  // Next CTA: sex with zh labels; prior goals CTA grey-retained (only one active).
+  await expect(page.getByTestId('chat-quiz-option-male')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('chat-quiz-option-male')).toHaveText('生理男')
+  await expect(page.getByTestId('chat-quiz-option-female')).toHaveText('生理女')
+  await expect(page.getByTestId('chat-quiz-option-male')).toBeEnabled()
+  await expect(page.getByTestId('chat-quiz-option-sleep')).toBeDisabled()
+  await expect(page.getByTestId('chat-quiz-confirm')).toBeDisabled()
+
+  // Sex pick → second cta_answer message.
+  await page.getByTestId('chat-quiz-option-male').click()
+  await expect.poll(() => messageBodies.length).toBe(2)
+  expect(messageBodies[1]).toEqual({
+    content: '生理男',
+    cta_answer: {
+      action_key: 'choose_option',
+      gap_code: 'sex',
+      value: 'male'
+    }
+  })
+  await expect(page.getByTestId('chat-transcript')).toContainText('生理男', {
+    timeout: 15_000
+  })
+
+  // Vitals age → third cta_answer message.
+  const ageCard = page.getByTestId('chat-last-reply').getByTestId('chat-vitals-card')
+  await expect(ageCard).toBeVisible({ timeout: 15_000 })
+  await page.getByTestId('chat-last-reply').getByTestId('chat-vitals-confirm').click()
+  await expect.poll(() => messageBodies.length).toBe(3)
+  const vitalsBody = messageBodies[2]!
+  expect(vitalsBody.content).toMatch(/^\d+$/)
+  expect(vitalsBody.cta_answer).toMatchObject({
+    action_key: 'ask_vitals',
+    gap_code: 'age'
+  })
+  expect(typeof (vitalsBody.cta_answer as { value: unknown }).value).toBe('number')
+  await expect(page.getByTestId('chat-transcript')).toContainText(String(vitalsBody.content), {
+    timeout: 15_000
+  })
+  // Next vitals CTA (height) is the active current card on the latest reply.
+  const heightCard = page.getByTestId('chat-last-reply').getByTestId('chat-vitals-card')
+  await expect(heightCard).toBeVisible({ timeout: 15_000 })
+  await expect(heightCard).toHaveAttribute('data-vitals-field', 'height')
+  await expect(heightCard).toHaveClass(/is-current/)
+
+  expect(sawProfileAnswers).toBe(false)
   expect(sawV1Conversation).toBe(false)
+})
+
+test('agent v2 hydrate keeps zh CTA labels; multi-select confirm still works', async ({
+  page,
+  goto
+}) => {
+  await mockAgentV2Api(page, 'goals')
+
+  let sawProfileAnswers = false
+  const messageBodies: Array<Record<string, unknown>> = []
+  await page.route('**/api/v1/profile/answers', async (route) => {
+    if (route.request().method() === 'POST') {
+      sawProfileAnswers = true
+    }
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'failed',
+        error_message: 'v2 must not call profile/answers',
+        error_code: 'forbidden'
+      })
+    })
+  })
+  await page.route('**/api/v2/conversations/*/messages', async (route) => {
+    if (route.request().method() === 'POST') {
+      messageBodies.push(route.request().postDataJSON() as Record<string, unknown>)
+    }
+    await route.fallback()
+  })
+
+  await goto('/chat/v2', { waitUntil: 'hydration' })
+  await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('chat-quiz-option-sleep')).toHaveText('睡眠')
+  await expect(page.getByTestId('chat-quiz-confirm')).toBeVisible()
+
+  // Refresh while still on goals: zh labels + multi-select + confirm still work.
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.getByTestId('agent-v2-page')).toBeVisible()
+  await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('chat-quiz-option-sleep')).toHaveText('睡眠')
+  await expect(page.getByTestId('chat-quiz-option-weight_loss')).toHaveText('減重')
+  await expect(page.getByTestId('chat-quiz-option-immune_boost')).toHaveText('免疫提升')
+  await expect(page.getByTestId('chat-quiz-confirm')).toBeVisible()
+  await page.getByTestId('chat-quiz-option-sleep').click()
+  await page.getByTestId('chat-quiz-option-weight_loss').click()
+  await expect(page.getByTestId('chat-quiz-option-sleep')).toHaveClass(/is-selected/)
+  await expect(page.getByTestId('chat-quiz-option-weight_loss')).toHaveClass(/is-selected/)
+  await page.getByTestId('chat-quiz-confirm').click()
+
+  await expect(page.getByTestId('chat-quiz-option-male')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('chat-quiz-option-male')).toHaveText('生理男')
+  await expect(page.getByTestId('chat-quiz-option-sleep')).toBeDisabled()
+
+  // GET hydrate after answer: next CTA still zh (not codes).
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.getByTestId('agent-v2-page')).toBeVisible()
+  await expect(page.getByTestId('chat-quiz-option-male')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('chat-quiz-option-male')).toHaveText('生理男')
+  await expect(page.getByTestId('chat-quiz-option-female')).toHaveText('生理女')
+  await expect(page.getByTestId('chat-transcript')).toContainText('睡眠、減重')
+  await expect(page.getByTestId('chat-quiz-option-male')).toBeEnabled()
+
+  // After hydrate, sex pick still posts cta_answer (not profile/answers).
+  await page.getByTestId('chat-quiz-option-female').click()
+  await expect.poll(() => messageBodies.length).toBe(2)
+  expect(messageBodies[1]).toEqual({
+    content: '生理女',
+    cta_answer: {
+      action_key: 'choose_option',
+      gap_code: 'sex',
+      value: 'female'
+    }
+  })
+  expect(sawProfileAnswers).toBe(false)
 })
 
 test('agent v2 member upload uses v1 health-reports then refreshes v2 (no v1 conversation)', async ({

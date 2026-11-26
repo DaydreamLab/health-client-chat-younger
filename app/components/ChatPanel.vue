@@ -498,6 +498,9 @@ import {
   resolveAskInterpretI18nKey
 } from '~/utils/stream-message'
 import {
+  AGENT_V2_ASK_GOALS_KEY,
+  AGENT_V2_ASK_VITALS_KEY,
+  AGENT_V2_CHOOSE_OPTION_KEY,
   AGENT_V2_CONFIRM_REPORT_DATE_KEY,
   AGENT_V2_CONVERSATION_QUERY_KEY,
   AGENT_V2_CONVERSATION_STORAGE_KEY,
@@ -509,6 +512,7 @@ import {
   isConfirmReportDateAction,
   pickReadyHealthReportId,
   type AgentV2ConversationBundle,
+  type AgentV2CtaAnswer,
   type AgentV2TurnResult
 } from '~/utils/agent-v2'
 import { storeToRefs } from 'pinia'
@@ -1307,7 +1311,10 @@ async function bootAgentV2() {
   }
 }
 
-async function sendAgentV2Text(text: string, opts: { alreadyAppendedUser?: boolean } = {}) {
+async function sendAgentV2Text(
+  text: string,
+  opts: { alreadyAppendedUser?: boolean, ctaAnswer?: AgentV2CtaAnswer } = {}
+) {
   if (!text || pending.value || !agentV2ConversationId.value) {
     return
   }
@@ -1316,40 +1323,45 @@ async function sendAgentV2Text(text: string, opts: { alreadyAppendedUser?: boole
   let liveId: string | null = null
   try {
     // LY6: optional SSE when NUXT_PUBLIC_AGENT_V2_STREAMING=1; else sync.
-    const turn = await agentV2Api.sendMessageMaybeStream(conversationId, text, {
-      onDelta: (chunk) => {
-        if (!liveId) {
-          if (!opts.alreadyAppendedUser) {
-            agentV2Messages.value.push(makeMessage('user', text))
-            opts.alreadyAppendedUser = true
+    const turn = await agentV2Api.sendMessageMaybeStream(
+      conversationId,
+      text,
+      {
+        onDelta: (chunk) => {
+          if (!liveId) {
+            if (!opts.alreadyAppendedUser) {
+              agentV2Messages.value.push(makeMessage('user', text))
+              opts.alreadyAppendedUser = true
+            }
+            const live = makeMessage('assistant', chunk)
+            liveId = live.id
+            liveAssistantId.value = live.id
+            agentV2Messages.value.push(live)
+            return
           }
-          const live = makeMessage('assistant', chunk)
-          liveId = live.id
-          liveAssistantId.value = live.id
-          agentV2Messages.value.push(live)
-          return
-        }
-        const live = agentV2Messages.value.find(item => item.id === liveId)
-        if (live) {
-          const prev = messageText(live)
-          setMessageText(live.id, prev + chunk)
+          const live = agentV2Messages.value.find(item => item.id === liveId)
+          if (live) {
+            const prev = messageText(live)
+            setMessageText(live.id, prev + chunk)
+          }
+        },
+        onReplace: (full) => {
+          if (!liveId) {
+            if (!opts.alreadyAppendedUser) {
+              agentV2Messages.value.push(makeMessage('user', text))
+              opts.alreadyAppendedUser = true
+            }
+            const live = makeMessage('assistant', full)
+            liveId = live.id
+            liveAssistantId.value = live.id
+            agentV2Messages.value.push(live)
+            return
+          }
+          setMessageText(liveId, full)
         }
       },
-      onReplace: (full) => {
-        if (!liveId) {
-          if (!opts.alreadyAppendedUser) {
-            agentV2Messages.value.push(makeMessage('user', text))
-            opts.alreadyAppendedUser = true
-          }
-          const live = makeMessage('assistant', full)
-          liveId = live.id
-          liveAssistantId.value = live.id
-          agentV2Messages.value.push(live)
-          return
-        }
-        setMessageText(liveId, full)
-      }
-    })
+      { ctaAnswer: opts.ctaAnswer }
+    )
     if (liveId) {
       // Drop the live bubble; applyAgentV2Turn will append the final assistant.
       const idx = agentV2Messages.value.findIndex(item => item.id === liveId)
@@ -2383,8 +2395,20 @@ function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyA
     goalSelectActive.value = true
     const opts = visibility.choices.length ? visibility.choices : (choose?.options ?? [])
     if (opts.length) {
-      goalOptions.value = opts
-      message.options = opts
+      // Prefer core labels; i18n fallback when label is missing or equals code.
+      const localized = opts.map((option) => {
+        if (option.label && option.label !== option.code) {
+          return option
+        }
+        const key = `homeGoals.${option.code}`
+        const translated = t(key)
+        return {
+          ...option,
+          label: translated !== key ? translated : (option.label || option.code)
+        }
+      })
+      goalOptions.value = localized
+      message.options = localized
     }
     quizActive.value = false
     activeQuestion.value = null
@@ -2861,44 +2885,34 @@ async function runProfileThenStream() {
 }
 
 /**
- * LY3: write profile／goals via v1 Profile API (no conversation_id), then
- * refresh the v2 agent so probe_requirements sees the new data.
+ * Irice 20:39: every v2 CTA answer is a normal send-message turn with
+ * `{ content, cta_answer }` — never POST /profile/answers in mode=v2.
  */
-async function refreshAgentV2AfterProfileWrite(userDisplay: string) {
-  await sendAgentV2Text(userDisplay)
-}
-
-async function submitAgentV2ProfileAnswer(input: {
+async function submitAgentV2CtaAnswer(input: {
+  content: string
+  actionKey: string
   gapCode: string
-  value: string | number | boolean | string[] | null
-  display: string
+  value: AgentV2CtaAnswer['value']
   host?: ChatMessage
+  selectedCodes?: string[]
+  vitalsStored?: { value: number } | null
 }) {
-  pending.value = true
-  try {
-    const result = await candor.submitProfileAnswer({
-      gap_code: input.gapCode,
-      value: input.value,
-      source_message_id: input.host?.id ?? null
+  if (input.host) {
+    retainOrClearHostActions(input.host, {
+      outcome: 'option_selected',
+      selectedCodes: input.selectedCodes,
+      vitalsStored: input.vitalsStored ?? undefined
     })
-    if (!result.saved) {
-      agentV2Messages.value.push(
-        makeMessage('assistant', ('prompt' in result && result.prompt)
-          ? String(result.prompt)
-          : t('chat.streamError'))
-      )
-      pending.value = false
-      return false
-    }
-    // sendAgentV2Text manages pending; clear so it can run.
-    pending.value = false
-    await refreshAgentV2AfterProfileWrite(input.display)
-    return true
-  } catch {
-    agentV2Messages.value.push(makeMessage('assistant', t('chat.streamError')))
-    pending.value = false
-    return false
   }
+  selectedCodes.value = []
+  goalSelectActive.value = false
+  await sendAgentV2Text(input.content, {
+    ctaAnswer: {
+      action_key: input.actionKey,
+      gap_code: input.gapCode,
+      value: input.value
+    }
+  })
 }
 
 async function onVitalsSubmit(values: Partial<Record<VitalsField, number>>) {
@@ -2927,67 +2941,24 @@ async function onVitalsSubmit(values: Partial<Record<VitalsField, number>>) {
   }
   // User bubble: bare integer (unit stays on the card, not in payload).
   const display = String(n)
-  const remaining = fields.filter(f => f !== field)
   const gapCode = vitalsGapCodeForField(field, fields, actions.vitalsGapCode)
 
   if (isAgentV2.value) {
-    pending.value = true
-    try {
-      const result = await candor.submitProfileAnswer({
-        gap_code: gapCode,
-        value: n,
-        source_message_id: host.id
-      })
-      if (!result.saved) {
-        appendMessage('user', display)
-        agentV2Messages.value.push(makeMessage(
-          'assistant',
-          ('prompt' in result && result.prompt) ? String(result.prompt) : t('chat.streamError')
-        ))
-        pending.value = false
-        return
-      }
-      if (remaining.length > 0 && host.replyActions) {
-        appendMessage('user', display)
-        host.replyActions = {
-          ...host.replyActions,
-          actions: host.replyActions.actions.map((action) => {
-            if (action.type !== 'ask_vitals') {
-              return action
-            }
-            const payload = (action.payload && typeof action.payload === 'object')
-              ? { ...action.payload as Record<string, unknown> }
-              : {}
-            return {
-              ...action,
-              payload: {
-                ...payload,
-                fields: remaining,
-                gap_code: null
-              }
-            }
-          })
-        }
-        pending.value = false
-        return
-      }
-      if (host.replyActions) {
-        resolveReplyActionsAsHistorical(host, {
-          outcome: 'option_selected',
-          vitalsStored: { value: n }
-        })
-      }
-      // Final field: sendAgentV2Text appends the user bubble + refreshes probe.
-      pending.value = false
-      await refreshAgentV2AfterProfileWrite(display)
-    } catch {
-      appendMessage('user', display)
-      agentV2Messages.value.push(makeMessage('assistant', t('chat.streamError')))
-      pending.value = false
-    }
+    const vitalsAction = host.replyActions?.actions.find(action => action.type === 'ask_vitals')
+    const vitalsPayload = vitalsAction ? askVitalsPayload(vitalsAction) : null
+    const actionKey = String(vitalsPayload?.action_key || AGENT_V2_ASK_VITALS_KEY)
+    await submitAgentV2CtaAnswer({
+      content: display,
+      actionKey,
+      gapCode,
+      value: n,
+      host,
+      vitalsStored: { value: n }
+    })
     return
   }
 
+  const remaining = fields.filter(f => f !== field)
   appendMessage('user', display)
   pending.value = true
   try {
@@ -3187,21 +3158,19 @@ function onChoice(option: GreetingOption, hostMessage?: ChatMessage) {
         : [...withoutNone, option.code]
       return
     }
-    // Single-select profile chips (e.g. sex): POST /profile/answers then v2 refresh.
+    // Single-select profile chips (e.g. sex): send-message + cta_answer.
     if (projection?.chooseOption?.kind === 'profile') {
       const gapCode = String(projection.chooseOption.gap_code || 'sex')
-      void submitAgentV2ProfileAnswer({
+      const actionKey = String(
+        projection.chooseOption.action_key || AGENT_V2_CHOOSE_OPTION_KEY
+      )
+      void submitAgentV2CtaAnswer({
+        content: option.label,
+        actionKey,
         gapCode,
         value: option.code,
-        display: option.label,
-        host
-      }).then((ok) => {
-        if (ok && host) {
-          retainOrClearHostActions(host, {
-            outcome: 'option_selected',
-            selectedCodes: [option.code]
-          })
-        }
+        host,
+        selectedCodes: [option.code]
       })
       return
     }
@@ -3335,27 +3304,21 @@ async function confirmMultiSelection() {
       .map(o => o.label)
     const display = labels.join('、') || selectedCodes.value.join('、')
     const goalsSnapshot = [...selectedCodes.value]
-    // Assumed gap_code for user-level goals write (no v1 conversation).
-    // Verify against core LC4: may be `goals` or `consultation_goals`.
     const gapCode = isGoals
       ? String(projection?.chooseOption?.gap_code || 'goals')
       : String(projection?.chooseOption?.gap_code || 'profile')
-    const ok = await submitAgentV2ProfileAnswer({
+    const actionKey = String(
+      projection?.chooseOption?.action_key
+      || (isGoals ? AGENT_V2_ASK_GOALS_KEY : AGENT_V2_CHOOSE_OPTION_KEY)
+    )
+    await submitAgentV2CtaAnswer({
+      content: display,
+      actionKey,
       gapCode,
       value: goalsSnapshot,
-      display,
-      host
+      host,
+      selectedCodes: goalsSnapshot
     })
-    if (ok) {
-      selectedCodes.value = []
-      goalSelectActive.value = false
-      if (host) {
-        retainOrClearHostActions(host, {
-          outcome: 'option_selected',
-          selectedCodes: goalsSnapshot
-        })
-      }
-    }
     return
   }
 
