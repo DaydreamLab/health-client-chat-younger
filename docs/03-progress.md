@@ -82,7 +82,7 @@
 | Profile 問卷 | `/chat` | 可用 | 已接 | 完成 |
 | 對話（建立／綁定／目標／價格帶／SSE） | `/chat` | 可用 | 已接 | 完成 |
 | AI 諮詢（標準建議與結帳） | `/chat-ai` → `/app/recommendations?flow=standard` | 可用 | 已接 | 完成 |
-| Agent v2 對話（隔離；feature flag） | `/chat/v2`（`NUXT_PUBLIC_AGENT_V2_ENABLED=1`；預設關；重用 `ChatPanel`；無既有頁入口） | 殼（mock／e2e） | 接線中（等 core v2 PR；FE：`useAgentV2Api` → `/api/v2/conversations`） | Beta |
+| Agent v2 對話（隔離；feature flag） | `/chat/v2`（`NUXT_PUBLIC_AGENT_V2_ENABLED=1`；預設關；重用 `ChatPanel`／`TurnActions`／`AskVitals`；無既有頁入口） | 殼（mock／e2e；LY1 actions 投影） | 接線中（core LC1+；FE：`useAgentV2Api` → `/api/v2`；actions→reply_actions） | Beta |
 | 同步訊息（非 SSE） | — | 無 | Mock | Backlog |
 | 建議／價格帶／建單（品項顯示 `image_url`） | `/app/recommendations`（AI／專家二選）／定稿唯讀 `/app/expert-cases/{conversation_id}`（入口：訂單「查看定稿方案」；健康頁不列案件、無頁首 CTA） | 可用 | 已接 | 完成 |
 | 血檢主檔列表 | — | 無 | 接線中 | Backlog |

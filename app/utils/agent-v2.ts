@@ -1,5 +1,8 @@
 /** Candor agent v2 (isolated) — types and pure helpers. */
 
+import type { ReplyActions, ReplyAction, VitalsField } from './reply-actions'
+import { defaultConsultationGoalOptions } from './consultation-goal-defaults'
+
 export const AGENT_V2_REQUIREMENTS = ['profile', 'report', 'goals'] as const
 
 export type AgentV2Requirement = (typeof AGENT_V2_REQUIREMENTS)[number]
@@ -9,6 +12,8 @@ export type AgentV2ActionKey = string
 export interface AgentV2Action {
   key: AgentV2ActionKey
   label: string
+  /** Optional structured payload from core emit_actions／propose_* (LC4+). */
+  payload?: Record<string, unknown> | null
 }
 
 export interface AgentV2Reply {
@@ -25,12 +30,16 @@ export interface AgentV2Message {
   id: string
   role: 'user' | 'assistant'
   text: string
+  /** Optional per-message actions when core hydrates them (LY5). */
+  actions?: AgentV2Action[]
 }
 
 /** POST/GET create + fetch envelope (data). */
 export interface AgentV2ConversationBundle {
   conversation: AgentV2Conversation
   messages?: AgentV2Message[]
+  /** Create-time greeting actions (LY5); absent on older cores. */
+  actions?: AgentV2Action[]
 }
 
 /** POST messages / actions turn result. */
@@ -43,12 +52,55 @@ export interface AgentV2TurnResult {
 }
 
 export const AGENT_V2_OFFER_RECOMMEND_KEY = 'offer_recommend'
+export const AGENT_V2_ASK_VITALS_KEY = 'ask_vitals'
+export const AGENT_V2_ASK_REPORT_KEY = 'ask_report'
+export const AGENT_V2_ASK_GOAL_KEY = 'ask_goal'
+export const AGENT_V2_CHOOSE_OPTION_KEY = 'choose_option'
+export const AGENT_V2_CONFIRM_REPORT_DATE_KEY = 'confirm_report_date'
+/** Soft retry after a failed turn (LY5); ignored until wired. */
+export const AGENT_V2_RETRY_KEY = 'retry'
+
+/**
+ * Known FE-projected keys (design §2／§7／§11 + spec 35).
+ * Unknown keys are ignored (never invent buttons from reply text).
+ */
+export const AGENT_V2_PROJECTED_ACTION_KEYS = [
+  AGENT_V2_OFFER_RECOMMEND_KEY,
+  AGENT_V2_ASK_VITALS_KEY,
+  AGENT_V2_ASK_REPORT_KEY,
+  AGENT_V2_ASK_GOAL_KEY,
+  AGENT_V2_CHOOSE_OPTION_KEY,
+  AGENT_V2_CONFIRM_REPORT_DATE_KEY,
+  AGENT_V2_RETRY_KEY
+] as const
+
+export type AgentV2ProjectedActionKey = (typeof AGENT_V2_PROJECTED_ACTION_KEYS)[number]
 
 /** Existing recommendations entry used by /chat offer_recommend. */
 export const AGENT_V2_RECOMMENDATIONS_PATH = '/app/recommendations'
 
 /** localStorage key for the open v2 conversation id (isolated from journey). */
 export const AGENT_V2_CONVERSATION_STORAGE_KEY = 'candor.agent.v2.conversationId'
+
+const DEFAULT_VITALS_FIELDS: VitalsField[] = ['age', 'height', 'weight']
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function asVitalsFields(raw: unknown): VitalsField[] {
+  if (!Array.isArray(raw)) {
+    return []
+  }
+  const allowed = new Set<string>(['age', 'height', 'weight'])
+  const out: VitalsField[] = []
+  for (const item of raw) {
+    if (typeof item === 'string' && allowed.has(item) && !out.includes(item as VitalsField)) {
+      out.push(item as VitalsField)
+    }
+  }
+  return out
+}
 
 export function isAgentV2EnabledFlag(value: unknown): boolean {
   return value === true || value === '1' || value === 1
@@ -94,7 +146,9 @@ export function normalizeAgentV2Actions(raw: unknown): AgentV2Action[] {
     if (!key || !label) {
       continue
     }
-    out.push({ key, label })
+    const payloadRaw = (item as { payload?: unknown }).payload
+    const payload = isRecord(payloadRaw) ? payloadRaw : (payloadRaw === null ? null : undefined)
+    out.push(payload !== undefined ? { key, label, payload } : { key, label })
   }
   return out
 }
@@ -110,47 +164,131 @@ export function isOfferRecommendAction(action: Pick<AgentV2Action, 'key'>): bool
   return action.key === AGENT_V2_OFFER_RECOMMEND_KEY
 }
 
-/**
- * Map v2 `actions` → v1 `reply_actions` so ChatPanel／TurnActions can paint
- * the same CTA chrome. Only known keys are projected; unknown keys are ignored
- * (do not invent buttons from reply text).
- */
-export function agentV2ActionsToReplyActions(
-  actions: readonly AgentV2Action[]
-): {
-  schema_version: '0.1'
-  source: 'semantic_judgment'
-  adaptor: 'llm'
-  degraded: false
-  error: null
-  actions: Array<{
-    type: 'offer_recommend'
-    payload: {
-      mode: 'view_recommendations'
-      label: string
-      path: string
-    }
-  }>
-} | null {
-  const offer = actions.find(action => isOfferRecommendAction(action))
-  if (!offer) {
-    return null
-  }
+export function isConfirmReportDateAction(action: Pick<AgentV2Action, 'key'>): boolean {
+  return action.key === AGENT_V2_CONFIRM_REPORT_DATE_KEY
+}
+
+function replyShell(actions: ReplyAction[]): ReplyActions {
   return {
     schema_version: '0.1',
     source: 'semantic_judgment',
     adaptor: 'llm',
     degraded: false,
     error: null,
-    actions: [{
-      type: 'offer_recommend',
-      payload: {
-        mode: 'view_recommendations',
-        label: offer.label,
-        path: AGENT_V2_RECOMMENDATIONS_PATH
-      }
-    }]
+    actions
   }
+}
+
+function projectAskVitals(action: AgentV2Action): ReplyAction {
+  const fields = asVitalsFields(action.payload?.fields)
+  const resolved = fields.length > 0 ? fields : DEFAULT_VITALS_FIELDS
+  const gapCode = typeof action.payload?.gap_code === 'string'
+    ? action.payload.gap_code
+    : null
+  return {
+    type: 'ask_vitals',
+    payload: {
+      fields: resolved,
+      ...(gapCode ? { gap_code: gapCode } : {})
+    }
+  }
+}
+
+function projectAskGoal(action: AgentV2Action): ReplyAction {
+  const codesRaw = action.payload?.goal_codes
+  const goalCodes = Array.isArray(codesRaw)
+    ? codesRaw.filter((code): code is string => typeof code === 'string' && code.trim() !== '')
+    : []
+  return {
+    type: 'ask_goal',
+    payload: goalCodes.length > 0 ? { goal_codes: goalCodes } : {}
+  }
+}
+
+function projectChooseOption(action: AgentV2Action): ReplyAction {
+  const payload = isRecord(action.payload) ? { ...action.payload } : {}
+  // Ensure consultation_goals always has chips when core omits options.
+  if (payload.kind === 'consultation_goals') {
+    const options = Array.isArray(payload.options) ? payload.options : []
+    if (options.length < 2) {
+      payload.options = defaultConsultationGoalOptions()
+      payload.mode = payload.mode ?? 'multi'
+      payload.confirm = payload.confirm !== false
+    }
+  }
+  return {
+    type: 'choose_option',
+    payload
+  }
+}
+
+function projectConfirmReportDate(action: AgentV2Action): ReplyAction {
+  return {
+    type: 'choose_option',
+    payload: {
+      kind: 'free',
+      mode: 'single',
+      confirm: false,
+      options: [{
+        code: AGENT_V2_CONFIRM_REPORT_DATE_KEY,
+        label: action.label || '確認報告日期無誤'
+      }]
+    }
+  }
+}
+
+function projectOfferRecommend(action: AgentV2Action): ReplyAction {
+  return {
+    type: 'offer_recommend',
+    payload: {
+      mode: 'view_recommendations',
+      label: action.label,
+      path: AGENT_V2_RECOMMENDATIONS_PATH
+    }
+  }
+}
+
+function projectOne(action: AgentV2Action): ReplyAction | null {
+  switch (action.key) {
+    case AGENT_V2_OFFER_RECOMMEND_KEY:
+      return projectOfferRecommend(action)
+    case AGENT_V2_ASK_VITALS_KEY:
+      return projectAskVitals(action)
+    case AGENT_V2_ASK_REPORT_KEY:
+      return { type: 'ask_report', payload: {} }
+    case AGENT_V2_ASK_GOAL_KEY:
+      return projectAskGoal(action)
+    case AGENT_V2_CHOOSE_OPTION_KEY:
+      return projectChooseOption(action)
+    case AGENT_V2_CONFIRM_REPORT_DATE_KEY:
+      return projectConfirmReportDate(action)
+    case AGENT_V2_RETRY_KEY:
+      // LY5 paints retry via streamFailed／explicit handler; key alone is not a RA type.
+      return null
+    default:
+      return null
+  }
+}
+
+/**
+ * Map v2 `actions` → v1 `reply_actions` so ChatPanel／TurnActions／AskVitalsCard
+ * can paint the same CTA chrome. Only known keys are projected; unknown keys
+ * are ignored (do not invent buttons from reply text).
+ */
+export function agentV2ActionsToReplyActions(
+  actions: readonly AgentV2Action[]
+): ReplyActions | null {
+  const projected: ReplyAction[] = []
+  for (const action of actions) {
+    const item = projectOne(action)
+    if (item) {
+      projected.push(item)
+    }
+  }
+  if (projected.length === 0) {
+    return null
+  }
+  return replyShell(projected)
 }
 
 const READY_REPORT_STATUSES = new Set(['ready', 'needs_review'])
