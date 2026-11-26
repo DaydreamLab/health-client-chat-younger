@@ -55,7 +55,13 @@ export default defineNuxtConfig({
        * NUXT_PUBLIC_AGENT_V2_ENABLED=1 for beta. When false, middleware 404s
        * the route; no nav entry is wired into existing pages.
        */
-      agentV2Enabled: process.env.NUXT_PUBLIC_AGENT_V2_ENABLED === '1'
+      agentV2Enabled: process.env.NUXT_PUBLIC_AGENT_V2_ENABLED === '1',
+      /**
+       * Optional Agent v2 SSE for POST …/messages/stream (LY6／LC7).
+       * Default off — sync POST …/messages remains the path. When on and the
+       * stream endpoint is missing／non-SSE, FE falls back to sync.
+       */
+      agentV2Streaming: process.env.NUXT_PUBLIC_AGENT_V2_STREAMING === '1'
     }
   },
 

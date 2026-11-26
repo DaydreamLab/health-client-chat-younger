@@ -84,6 +84,14 @@ export interface ChatMessage {
    * Do not silently discard (run15); never invent assistant reply copy.
    */
   streamFailed?: boolean
+  /**
+   * Agent v2 RAG citations from `show_citations` action (LY6). Absent on v1.
+   */
+  agentV2Citations?: Array<{
+    excerpt: string
+    source_url?: string | null
+    score?: number | null
+  }>
 }
 
 export function chatMessageText(message: { parts: Array<{ type: string, text?: string }> }): string {

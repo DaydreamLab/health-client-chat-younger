@@ -82,6 +82,98 @@ test('agent v2 failed message shows retry CTA and recovers', async ({
   await expect(page.getByTestId('chat-view-recommend')).toBeVisible({ timeout: 15_000 })
 })
 
+test('agent v2 shows citations and expert booking from actions (LY6)', async ({
+  page,
+  goto
+}) => {
+  await mockAgentV2Api(page, 'citations')
+  await goto('/chat/v2', { waitUntil: 'hydration' })
+
+  await expect(page.getByTestId('agent-v2-citations')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('agent-v2-citation')).toContainText('維生素 D')
+  await expect(page.getByTestId('chat-expert-booking')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('chat-view-recommend')).toBeVisible()
+})
+
+test('agent v2 dock explainHighlights POSTs explain_highlights action (LY6)', async ({
+  page,
+  goto
+}) => {
+  await mockAgentV2Api(page, 'citations')
+
+  await page.route('**/api/v1/health-reports**', async (route) => {
+    const request = route.request()
+    if (request.method() !== 'GET') {
+      await route.fallback()
+      return
+    }
+    const path = new URL(request.url()).pathname.replace(/\/$/, '')
+    const ok = (data: unknown) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'success', data })
+    })
+    if (path.endsWith('/health-reports')) {
+      await ok({
+        reports: [{
+          id: REPORT_ID,
+          status: 'ready',
+          created_at: '2026-01-01T00:00:00Z',
+          page_count: 1
+        }],
+        total: 1
+      })
+      return
+    }
+    if (path.endsWith(`/health-reports/${REPORT_ID}`)) {
+      await ok({
+        id: REPORT_ID,
+        status: 'ready',
+        page_count: 1,
+        extraction_confidence: 0.9,
+        results: [{
+          id: 'result-v2-explain-1',
+          raw_name: 'Vitamin D3',
+          name_zh: '維生素 D3',
+          value_numeric: 31.8,
+          unit: 'ng/mL',
+          ref_low: 50,
+          ref_high: 80,
+          range_status: 'low'
+        }]
+      })
+      return
+    }
+    await route.fallback()
+  })
+
+  let explainPosted = false
+  page.on('request', (req) => {
+    if (req.method() !== 'POST' || !req.url().includes('/api/v2/conversations/')) {
+      return
+    }
+    if (!req.url().includes('/actions')) {
+      return
+    }
+    try {
+      const body = req.postDataJSON() as { key?: string }
+      if (body?.key === 'explain_highlights') {
+        explainPosted = true
+      }
+    } catch {
+      // ignore
+    }
+  })
+
+  await goto('/chat/v2', { waitUntil: 'hydration' })
+  await expect(page.getByTestId('chat-report-interpret')).toBeVisible({ timeout: 15_000 })
+  await page.getByTestId('chat-report-interpret').click()
+  await expect(page.getByTestId('chat-transcript')).toContainText('報告重點說明', {
+    timeout: 15_000
+  })
+  expect(explainPosted).toBe(true)
+})
+
 test('agent v2 shows ReportDataDock with explainHighlights when a report exists', async ({
   page,
   goto

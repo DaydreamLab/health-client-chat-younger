@@ -3,16 +3,22 @@ import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   AGENT_V2_ASK_GOAL_KEY,
+  AGENT_V2_ASK_GOALS_KEY,
   AGENT_V2_ASK_REPORT_KEY,
   AGENT_V2_ASK_VITALS_KEY,
   AGENT_V2_CHOOSE_OPTION_KEY,
   AGENT_V2_CONFIRM_REPORT_DATE_KEY,
+  AGENT_V2_EXPLAIN_HIGHLIGHTS_KEY,
+  AGENT_V2_OFFER_EXPERT_BOOKING_KEY,
   AGENT_V2_OFFER_RECOMMEND_KEY,
+  AGENT_V2_PROPOSE_EXPERT_BOOKING_KEY,
   AGENT_V2_RECOMMENDATIONS_PATH,
   AGENT_V2_REQUIREMENTS,
+  AGENT_V2_SHOW_CITATIONS_KEY,
   agentV2ActionsToReplyActions,
   agentV2ApiBase,
   agentV2RequirementDone,
+  extractAgentV2Citations,
   hydrateAgentV2Messages,
   isAgentV2EnabledFlag,
   isConfirmReportDateAction,
@@ -21,6 +27,7 @@ import {
   normalizeAgentV2Missing,
   pickReadyHealthReportId
 } from '../../app/utils/agent-v2'
+import { isAgentV2StreamingFlag } from '../../app/utils/agent-v2-stream'
 
 describe('agent-v2 helpers', () => {
   it('parses the feature flag as opt-in (default off)', () => {
@@ -195,6 +202,7 @@ describe('agent-v2 helpers', () => {
       [{ key: AGENT_V2_ASK_REPORT_KEY, label: '上傳健康報告' }]
     )
     expect(viaFallback[0]!.replyActions).toBeNull()
+    expect(viaFallback[0]!.citations).toEqual([])
     expect(viaFallback[1]!.replyActions?.actions[0]?.type).toBe('ask_report')
 
     const preferOwn = hydrateAgentV2Messages(
@@ -214,6 +222,66 @@ describe('agent-v2 helpers', () => {
       null
     )
     expect(getHydrate[0]!.replyActions).toBeNull()
+
+    const withCitations = hydrateAgentV2Messages([
+      {
+        id: 'a1',
+        role: 'assistant',
+        text: '引用',
+        actions: [{
+          key: AGENT_V2_SHOW_CITATIONS_KEY,
+          label: '參考',
+          payload: { hits: [{ excerpt: '一段引用' }] }
+        }]
+      }
+    ])
+    expect(withCitations[0]!.citations).toEqual([{ excerpt: '一段引用' }])
+  })
+
+  it('aliases ask_goals and projects expert／citations (LY6)', () => {
+    expect(AGENT_V2_ASK_GOALS_KEY).toBe('ask_goals')
+    expect(AGENT_V2_EXPLAIN_HIGHLIGHTS_KEY).toBe('explain_highlights')
+    const goals = agentV2ActionsToReplyActions([
+      { key: AGENT_V2_ASK_GOALS_KEY, label: '選擇健康目標' }
+    ])
+    expect(goals?.actions[0]?.type).toBe('ask_goal')
+
+    const expert = agentV2ActionsToReplyActions([
+      { key: AGENT_V2_OFFER_EXPERT_BOOKING_KEY, label: '預約專家' },
+      { key: AGENT_V2_PROPOSE_EXPERT_BOOKING_KEY, label: '專家諮詢' }
+    ])
+    expect(expert?.actions.map(a => a.type)).toEqual([
+      'offer_expert_booking',
+      'offer_expert_booking'
+    ])
+    expect(expert?.actions[0]?.payload).toMatchObject({ mode: 'book_expert' })
+
+    expect(agentV2ActionsToReplyActions([
+      { key: AGENT_V2_SHOW_CITATIONS_KEY, label: '引用', payload: { hits: [] } }
+    ])).toBeNull()
+    expect(extractAgentV2Citations([
+      {
+        key: AGENT_V2_SHOW_CITATIONS_KEY,
+        label: '引用',
+        payload: {
+          hits: [
+            { excerpt: '維生素 D 與骨密度', source_url: 'https://example.com/d', score: 0.9 },
+            { excerpt: ' ' },
+            { excerpt: '第二則' }
+          ]
+        }
+      }
+    ])).toEqual([
+      { excerpt: '維生素 D 與骨密度', source_url: 'https://example.com/d', score: 0.9 },
+      { excerpt: '第二則' }
+    ])
+  })
+
+  it('parses the streaming feature flag as opt-in (default off)', () => {
+    expect(isAgentV2StreamingFlag(undefined)).toBe(false)
+    expect(isAgentV2StreamingFlag('0')).toBe(false)
+    expect(isAgentV2StreamingFlag('1')).toBe(true)
+    expect(isAgentV2StreamingFlag(true)).toBe(true)
   })
 })
 
@@ -298,6 +366,19 @@ describe('agent-v2 isolation wiring', () => {
     const api = readFileSync(resolve('app/composables/useAgentV2Api.ts'), 'utf8')
     expect(api).toMatch(/createConversation\(\): Promise<AgentV2ConversationBundle>/)
     expect(api).toMatch(/normalizeBundle/)
+  })
+
+  it('wires optional streaming, explain_highlights dock, and citations (LY6)', () => {
+    expect(nuxtConfig).toMatch(
+      /agentV2Streaming:\s*process\.env\.NUXT_PUBLIC_AGENT_V2_STREAMING\s*===\s*'1'/
+    )
+    expect(chatPanel).toMatch(/sendMessageMaybeStream/)
+    expect(chatPanel).toMatch(/AGENT_V2_EXPLAIN_HIGHLIGHTS_KEY/)
+    expect(chatPanel).toMatch(/extractAgentV2Citations/)
+    expect(chatPanel).toMatch(/agent-v2-citations/)
+    const api = readFileSync(resolve('app/composables/useAgentV2Api.ts'), 'utf8')
+    expect(api).toMatch(/sendMessageMaybeStream/)
+    expect(api).toMatch(/messages\/stream/)
   })
 
   it('enables member upload on mode=v2 without v1 conversation bind', () => {

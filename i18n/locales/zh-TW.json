@@ -994,6 +994,12 @@
     "resultReadonlyHint": "專家已完成您的方案，內容無法再修改。",
     "openOrder": "查看訂單"
   },
+  "agentV2": {
+    "citationsTitle": "參考資料",
+    "expertBookingFallback": "預約專家諮詢",
+    "streamingFallback": "改用一般回覆"
+  },
+
   "privacy": {
     "metaTitle": "隱私權政策",
     "loading": "載入隱私權政策中…",
