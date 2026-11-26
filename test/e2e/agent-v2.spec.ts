@@ -432,6 +432,88 @@ test('agent v2 CTA answers POST messages with cta_answer (never /profile/answers
   expect(sawV1Conversation).toBe(false)
 })
 
+test('agent v2 report step shows lab_report chips + upload; none sends cta_answer', async ({
+  page,
+  goto
+}) => {
+  await mockAgentV2Api(page, 'report')
+
+  let sawProfileAnswers = false
+  const messageBodies: Array<Record<string, unknown>> = []
+
+  await page.route('**/api/v1/profile/answers', async (route) => {
+    if (route.request().method() === 'POST') {
+      sawProfileAnswers = true
+    }
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'failed',
+        error_message: 'v2 must not call profile/answers',
+        error_code: 'forbidden'
+      })
+    })
+  })
+
+  await page.route('**/api/v2/conversations/*/messages', async (route) => {
+    if (route.request().method() === 'POST') {
+      messageBodies.push(route.request().postDataJSON() as Record<string, unknown>)
+    }
+    await route.fallback()
+  })
+
+  await goto('/chat/v2', { waitUntil: 'hydration' })
+  await expect(page.getByTestId('chat-transcript')).toBeVisible({ timeout: 15_000 })
+
+  const last = page.getByTestId('chat-last-reply')
+  await expect(last).toContainText('是否有血檢或健檢報告？', { timeout: 15_000 })
+
+  // Five zh chips + bubble upload (ask_report), same surface as v1 report bank.
+  await expect(last.getByTestId('chat-quiz-option-within_6m')).toHaveText('半年內')
+  await expect(last.getByTestId('chat-quiz-option-within_1y')).toHaveText('一年內')
+  await expect(last.getByTestId('chat-quiz-option-1_to_3y')).toHaveText('三年內')
+  await expect(last.getByTestId('chat-quiz-option-over_3y')).toHaveText('三年以上')
+  await expect(last.getByTestId('chat-quiz-option-none')).toHaveText('無')
+  await expect(last.getByTestId('chat-message-upload')).toBeVisible()
+  await expect(page.getByTestId('chat-quiz-confirm')).toHaveCount(0)
+
+  // Hydrate keeps zh labels from stored payload (not codes).
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.getByTestId('agent-v2-page')).toBeVisible()
+  const afterReload = page.getByTestId('chat-last-reply')
+  await expect(afterReload).toContainText('是否有血檢或健檢報告？', { timeout: 15_000 })
+  await expect(afterReload.getByTestId('chat-quiz-option-none')).toHaveText('無')
+  await expect(afterReload.getByTestId('chat-quiz-option-within_6m')).toHaveText('半年內')
+  await expect(afterReload.getByTestId('chat-message-upload')).toBeVisible()
+
+  // Pick 「無」 → cta_answer (never plain text / profile/answers).
+  await afterReload.getByTestId('chat-quiz-option-none').click()
+  await expect.poll(() => messageBodies.length).toBe(1)
+  expect(messageBodies[0]).toEqual({
+    content: '無',
+    cta_answer: {
+      action_key: 'choose_option',
+      gap_code: 'lab_report',
+      value: 'none'
+    }
+  })
+  await expect(page.getByTestId('chat-transcript')).toContainText('無', { timeout: 15_000 })
+
+  // Report question must not repeat; next step is LabFollowup (core CtaActionFactory).
+  const next = page.getByTestId('chat-last-reply')
+  await expect(next).toContainText('如果去做一次檢查，之後可以更清楚各項指標。', {
+    timeout: 15_000
+  })
+  await expect(next.getByTestId('chat-quiz-option-none')).toHaveCount(0)
+  await expect(next.getByTestId('chat-quiz-option-within_6m')).toHaveCount(0)
+  await expect(next.getByTestId('chat-quiz-option-upload_report')).toHaveText('上傳近期報告')
+  await expect(next.getByTestId('chat-quiz-option-go_checkup')).toHaveText('去做檢查')
+  await expect(next.getByTestId('chat-quiz-option-continue')).toHaveText('繼續健康諮詢')
+
+  expect(sawProfileAnswers).toBe(false)
+})
+
 test('agent v2 hydrate keeps zh CTA labels; multi-select confirm still works', async ({
   page,
   goto

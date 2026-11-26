@@ -236,6 +236,81 @@ describe('agent-v2 helpers', () => {
     expect(isAgentV2ProfileCtaChooseOption({ kind: 'free' })).toBe(false)
   })
 
+  it('contract: ask_report keeps option_codes; lab_report chips submit cta_answer', () => {
+    // Exact candor-core #222 fixture tests/fixtures/agent_v2/lab_report_cta_payload.json
+    const askReportAction = {
+      key: AGENT_V2_ASK_REPORT_KEY,
+      label: '上傳健檢報告',
+      payload: {
+        option_codes: ['within_6m', 'within_1y', '1_to_3y', 'over_3y', 'none']
+      }
+    }
+    const labReportPayload = {
+      kind: 'lab_report',
+      mode: 'single',
+      confirm: false,
+      gap_code: 'lab_report',
+      answer_type: 'enum',
+      source: 'questionnaire',
+      exclusive_codes: [] as string[],
+      selected: [] as string[],
+      options: [
+        { code: 'within_6m', label: '半年內' },
+        { code: 'within_1y', label: '一年內' },
+        { code: '1_to_3y', label: '三年內' },
+        { code: 'over_3y', label: '三年以上' },
+        { code: 'none', label: '無' }
+      ],
+      action_key: 'choose_option'
+    }
+
+    const projected = agentV2ActionsToReplyActions([
+      askReportAction,
+      {
+        key: AGENT_V2_CHOOSE_OPTION_KEY,
+        label: '是否有血檢或健檢報告？',
+        payload: labReportPayload
+      }
+    ])
+    expect(projected).not.toBeNull()
+    expect(projected!.actions).toEqual([
+      { type: 'ask_report', payload: askReportAction.payload },
+      {
+        type: 'choose_option',
+        payload: labReportPayload
+      }
+    ])
+
+    expect(isAgentV2ProfileCtaChooseOption(labReportPayload)).toBe(true)
+    expect(resolveAgentV2ProfileCtaGapCode(labReportPayload)).toBe('lab_report')
+
+    expect(buildAgentV2CtaSubmitBody({
+      key: AGENT_V2_CHOOSE_OPTION_KEY,
+      label: '是否有血檢或健檢報告？',
+      payload: labReportPayload
+    }, { content: '無', value: 'none' })).toEqual({
+      content: '無',
+      cta_answer: {
+        action_key: 'choose_option',
+        gap_code: 'lab_report',
+        value: 'none'
+      }
+    })
+
+    expect(buildAgentV2ProfileChoiceCtaBody({
+      actionKey: AGENT_V2_CHOOSE_OPTION_KEY,
+      payload: labReportPayload,
+      option: { code: 'none', label: '無' }
+    })).toEqual({
+      content: '無',
+      cta_answer: {
+        action_key: 'choose_option',
+        gap_code: 'lab_report',
+        value: 'none'
+      }
+    })
+  })
+
   it('contract: real-shape CTA payloads submit cta_answer with gap_code／action_key／value', () => {
     type ExpectedCta = {
       content: string
