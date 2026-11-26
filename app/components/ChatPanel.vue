@@ -39,7 +39,7 @@
           {{ $t('chat.reset') }}
         </AppButton>
         <AppButton
-          v-if="!escalated"
+          v-if="!escalated && !isAgentV2"
           variant="outline"
           data-testid="chat-escalate"
           @click="escalate"
@@ -50,7 +50,7 @@
     </header>
 
     <div
-      v-if="escalated && !readonly"
+      v-if="escalated && !readonly && !isAgentV2"
       class="shrink-0 px-4 py-3 sm:px-6"
       data-testid="chat-escalated"
     >
@@ -65,7 +65,7 @@
     </div>
 
     <div
-      v-if="selectedPackage && !readonly"
+      v-if="selectedPackage && !readonly && !isAgentV2"
       class="shrink-0 px-4 py-3 sm:px-6"
       data-testid="chat-selected-plan"
     >
@@ -94,7 +94,7 @@
 
     <div class="relative min-h-0 flex-1">
       <div
-        v-if="showReportStatusBanner"
+        v-if="showReportStatusBanner && !isAgentV2"
         class="absolute left-1/2 top-3 z-20 flex w-[min(48rem,calc(100%-2rem))] -translate-x-1/2 flex-col overflow-hidden rounded-2xl border border-default bg-elevated shadow-lg sm:w-[min(48rem,calc(100%-3rem))]"
         data-testid="chat-report-status-banner"
       >
@@ -141,7 +141,7 @@
         </div>
       </div>
       <ReportDataDock
-        :open="reportDockVisible"
+        :open="!isAgentV2 && reportDockVisible"
         :collapsed="showEmptyReportBar ? true : journey.reportDockCollapsed"
         :prompt="showEmptyReportBar"
         :results="reportResults"
@@ -220,6 +220,7 @@
                 :want-more-tests-url="checkupLinkUrl"
                 :show-view-recommend="showViewRecommendCta(message)"
                 :view-recommend-status="viewRecommendStatusFor(message)"
+                :view-recommend-label="viewRecommendLabelFor(message)"
                 :show-retry="showRetryCta(message)"
                 :retry-label="retryLabelFor(message)"
                 :pending="pending"
@@ -450,6 +451,7 @@ import {
   isPathSwitchOptionCode,
   isUsableReplyActions,
   normalizeChooseOptionMapsTo,
+  offerRecommendPayload,
   parseReplyActions,
   resolvePathSwitchChoiceLabels,
   shouldSkipFollowUpStream,
@@ -471,10 +473,18 @@ import {
   STREAM_INTENT_AFTER_ANSWER,
   resolveAskInterpretI18nKey
 } from '~/utils/stream-message'
+import {
+  AGENT_V2_CONVERSATION_STORAGE_KEY,
+  AGENT_V2_RECOMMENDATIONS_PATH,
+  agentV2ActionsToReplyActions,
+  type AgentV2TurnResult
+} from '~/utils/agent-v2'
 import { storeToRefs } from 'pinia'
 
 const props = defineProps<{
   flow?: 'standard'
+  /** Agent v2: same ChatPanel chrome, `/api/v2` non-streaming backend. */
+  mode?: 'v2'
 }>()
 
 const POLL_INTERVAL_MS = 2000
@@ -500,10 +510,12 @@ const {
 } = storeToRefs(journey)
 const ordersApi = useFirstOrderApi()
 const candor = useCandorApi()
+const agentV2Api = useAgentV2Api()
 
 const isStandardFlow = computed(() =>
   props.flow === 'standard' || route.meta.flow === 'standard'
 )
+const isAgentV2 = computed(() => props.mode === 'v2')
 
 /** Path contract feature flag (`nuxt.config` public.pathContract). */
 const pathContractEnabled = computed(() => config.public.pathContract !== false)
@@ -544,6 +556,9 @@ const photoTrayItems = computed(() =>
 const attachMenuOpen = ref(false)
 const chatInput = useTemplateRef<HTMLTextAreaElement>('chatInput')
 const viewMessages = ref<ChatMessage[]>([])
+/** Isolated transcript for `mode="v2"` (never touches journey store). */
+const agentV2Messages = ref<ChatMessage[]>([])
+const agentV2ConversationId = ref<string | null>(null)
 let pollGeneration = 0
 
 function focusChatInput() {
@@ -587,27 +602,39 @@ function queryOrderId(value: unknown) {
 
 const orderId = computed(() => queryOrderId(route.query.orderId))
 const readonly = computed(() => Boolean(orderId.value))
-const canOfferUpload = computed(() => !readonly.value && !escalated.value && !reportInFlight.value)
+const canOfferUpload = computed(() =>
+  !isAgentV2.value
+  && !readonly.value
+  && !escalated.value
+  && !reportInFlight.value
+)
 const canUpload = computed(() => canOfferUpload.value && auth.isMember)
 const reportPollFailed = computed(() => reportPollStatus.value === 'failed' && !reportInFlight.value)
 const showReportStatusBanner = computed(() =>
-  !readonly.value && (reportInFlight.value || reportPollFailed.value)
+  !isAgentV2.value
+  && !readonly.value
+  && (reportInFlight.value || reportPollFailed.value)
 )
 /** Top bar when this conversation has no ready report yet (not persisted as reportDockOpen). */
 const showEmptyReportBar = computed(() =>
-  !readonly.value
+  !isAgentV2.value
+  && !readonly.value
   && !escalated.value
   && !showReportStatusBanner.value
   // Only a bound report counts as analysis; visiting recommendations must not hide this bar.
   && !(journey.hasAnalysis && journey.reportId)
 )
 const reportDockVisible = computed(() =>
-  showEmptyReportBar.value || journey.reportDockOpen
+  !isAgentV2.value
+  && (showEmptyReportBar.value || journey.reportDockOpen)
 )
 const transcriptNeedsDockPad = computed(() =>
-  showEmptyReportBar.value
-  || showReportStatusBanner.value
-  || (journey.reportDockOpen && journey.reportDockCollapsed)
+  !isAgentV2.value
+  && (
+    showEmptyReportBar.value
+    || showReportStatusBanner.value
+    || (journey.reportDockOpen && journey.reportDockCollapsed)
+  )
 )
 const checkupLinkUrl = computed(() => resolvedCheckupUrl.value.trim())
 const reportStatusLabel = computed(() => {
@@ -633,7 +660,12 @@ const canType = computed(() => {
 
 const selectedPackageCodeFromQuery = computed(() => queryPackageCode(route.query.package))
 
-const messages = computed(() => readonly.value ? viewMessages.value : journey.messages)
+const messages = computed(() => {
+  if (isAgentV2.value) {
+    return agentV2Messages.value
+  }
+  return readonly.value ? viewMessages.value : journey.messages
+})
 
 /**
  * Waiting for 進站三選 on a core greeting (path still null).
@@ -1068,8 +1100,119 @@ function makeMessage(role: ChatMessage['role'], text: string, id?: string, file?
   }
 }
 
+function readAgentV2ConversationId(): string | null {
+  if (!import.meta.client) {
+    return null
+  }
+  return localStorage.getItem(AGENT_V2_CONVERSATION_STORAGE_KEY)
+}
+
+function writeAgentV2ConversationId(id: string | null) {
+  if (!import.meta.client) {
+    return
+  }
+  if (id) {
+    localStorage.setItem(AGENT_V2_CONVERSATION_STORAGE_KEY, id)
+  } else {
+    localStorage.removeItem(AGENT_V2_CONVERSATION_STORAGE_KEY)
+  }
+}
+
+function applyAgentV2Turn(turn: AgentV2TurnResult, opts: { appendUserText?: string } = {}) {
+  agentV2ConversationId.value = turn.conversation_id
+  writeAgentV2ConversationId(turn.conversation_id)
+
+  if (opts.appendUserText) {
+    agentV2Messages.value.push(makeMessage('user', opts.appendUserText))
+  }
+
+  if (turn.reply.text) {
+    const assistant = makeMessage('assistant', turn.reply.text)
+    assistant.replyActions = agentV2ActionsToReplyActions(turn.actions)
+    agentV2Messages.value.push(assistant)
+  } else if (turn.actions.length > 0) {
+    // Actions without reply text: attach to the latest assistant bubble when present.
+    const last = [...agentV2Messages.value].reverse().find(message => message.role === 'assistant')
+    if (last) {
+      last.replyActions = agentV2ActionsToReplyActions(turn.actions)
+    }
+  }
+}
+
+async function bootAgentV2() {
+  pending.value = true
+  try {
+    await auth.ensureSession()
+    const stored = readAgentV2ConversationId()
+    if (stored) {
+      try {
+        const bundle = await agentV2Api.getConversation(stored)
+        agentV2ConversationId.value = bundle.conversation.id
+        writeAgentV2ConversationId(bundle.conversation.id)
+        agentV2Messages.value = (bundle.messages ?? []).map(message =>
+          makeMessage(message.role, message.text, message.id)
+        )
+        return
+      } catch {
+        writeAgentV2ConversationId(null)
+      }
+    }
+
+    const created = await agentV2Api.createConversation()
+    agentV2ConversationId.value = created.id
+    writeAgentV2ConversationId(created.id)
+    agentV2Messages.value = []
+  } catch {
+    if (agentV2Messages.value.length === 0) {
+      agentV2Messages.value.push(makeMessage('assistant', t('chat.conversationError')))
+    }
+  } finally {
+    pending.value = false
+  }
+}
+
+async function sendAgentV2Text(text: string) {
+  if (!text || pending.value || !agentV2ConversationId.value) {
+    return
+  }
+  pending.value = true
+  try {
+    const turn = await agentV2Api.sendMessage(agentV2ConversationId.value, text)
+    applyAgentV2Turn(turn, { appendUserText: text })
+    await nextTick()
+    scrollToLatest('smooth')
+  } catch {
+    agentV2Messages.value.push(makeMessage('assistant', t('chat.streamError')))
+  } finally {
+    pending.value = false
+  }
+}
+
+async function resetAgentV2Conversation() {
+  if (resetting.value) {
+    return
+  }
+  if (!window.confirm(t('chat.resetConfirm'))) {
+    return
+  }
+  resetting.value = true
+  pending.value = false
+  input.value = ''
+  writeAgentV2ConversationId(null)
+  agentV2ConversationId.value = null
+  agentV2Messages.value = []
+  try {
+    await bootAgentV2()
+    await nextTick()
+    scrollToLatest('auto')
+  } finally {
+    resetting.value = false
+  }
+}
+
 function setMessageText(id: string, text: string) {
-  const message = journey.messages.find(item => item.id === id)
+  const list = isAgentV2.value ? agentV2Messages.value : journey.messages
+  const message = list.find(item => item.id === id)
   if (!message) {
     return
   }
@@ -1087,7 +1230,11 @@ function setMessageText(id: string, text: string) {
 
 function appendMessage(role: ChatMessage['role'], text: string, file?: string) {
   const message = makeMessage(role, text, undefined, file)
-  journey.messages.push(message)
+  if (isAgentV2.value) {
+    agentV2Messages.value.push(message)
+  } else {
+    journey.messages.push(message)
+  }
   return message
 }
 
@@ -1153,7 +1300,33 @@ function displayMessageText(message: ChatMessage) {
 }
 
 function showViewRecommendCta(message: ChatMessage) {
+  if (isAgentV2.value) {
+    if (message.id !== lastAssistantId.value) {
+      return false
+    }
+    const ra = message.replyActions
+    return Boolean(
+      ra?.actions.some(action =>
+        action.type === 'offer_recommend'
+        && offerRecommendPayload(action).mode === 'view_recommendations'
+      )
+    )
+  }
   return turnActionsFor(message).showViewRecommend
+}
+
+/** Prefer backend offer_recommend.label (agent v2); v1 falls back to i18n. */
+function viewRecommendLabelFor(message: ChatMessage): string | null {
+  const ra = message.replyActions
+  if (!ra) {
+    return null
+  }
+  const action = ra.actions.find(item => item.type === 'offer_recommend')
+  if (!action) {
+    return null
+  }
+  const label = offerRecommendPayload(action).label?.trim()
+  return label || null
 }
 
 function showRetryCta(message: ChatMessage) {
@@ -1238,6 +1411,10 @@ watch(
 
 async function resetConversation() {
   if (readonly.value || resetting.value) {
+    return
+  }
+  if (isAgentV2.value) {
+    await resetAgentV2Conversation()
     return
   }
   if (!window.confirm(t('chat.resetConfirm'))) {
@@ -2489,6 +2666,11 @@ async function onVitalsSubmit(values: Partial<Record<VitalsField, number>>) {
 }
 
 async function sendText(text: string) {
+  if (isAgentV2.value) {
+    await sendAgentV2Text(text)
+    return
+  }
+
   const plan = planPathEntrySubmit({
     content: text,
     pending: pending.value,
@@ -3446,6 +3628,25 @@ async function goViewRecommend() {
     return
   }
 
+  if (isAgentV2.value) {
+    const conversationId = agentV2ConversationId.value
+    if (!conversationId || pending.value) {
+      return
+    }
+    pending.value = true
+    try {
+      const turn = await agentV2Api.postAction(conversationId, 'offer_recommend')
+      applyAgentV2Turn(turn)
+      // Existing recommendations entry; do not write v1 journey store.
+      await navigateTo(localePath(AGENT_V2_RECOMMENDATIONS_PATH))
+    } catch {
+      agentV2Messages.value.push(makeMessage('assistant', t('chat.streamError')))
+    } finally {
+      pending.value = false
+    }
+    return
+  }
+
   const path = localePath('/app/recommendations')
   const target = isStandardFlow.value ? `${path}?flow=standard` : path
   const redirected = await ensureMemberForReview(target)
@@ -3596,6 +3797,12 @@ async function applyHomeGoal() {
 }
 
 onMounted(async () => {
+  if (isAgentV2.value) {
+    await bootAgentV2()
+    scrollToLatest('auto')
+    return
+  }
+
   if (orderId.value) {
     await loadOrderChat(orderId.value)
     return

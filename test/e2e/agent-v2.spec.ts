@@ -10,29 +10,26 @@ test.beforeEach(async ({ page }) => {
   })
 })
 
-test('agent v2 ready state shows progress and offer_recommend from actions', async ({
+test('agent v2 ready state shows offer_recommend from actions on /chat/v2', async ({
   page,
   goto
 }) => {
   await mockAgentV2Api(page, 'ready')
   await page.setViewportSize({ width: 390, height: 844 })
-  await goto('/app/v2', { waitUntil: 'hydration' })
+  await goto('/chat/v2', { waitUntil: 'hydration' })
 
   await expect(page.getByTestId('agent-v2-page')).toBeVisible()
-  await expect(page.getByTestId('agent-v2-panel')).toBeVisible({ timeout: 15_000 })
-  await expect(page.getByTestId('agent-v2-progress-profile')).toHaveAttribute('data-done', '1')
-  await expect(page.getByTestId('agent-v2-progress-report')).toHaveAttribute('data-done', '1')
-  await expect(page.getByTestId('agent-v2-progress-goals')).toHaveAttribute('data-done', '1')
+  await expect(page.getByTestId('chat-transcript')).toBeVisible({ timeout: 15_000 })
 
-  const input = page.getByTestId('agent-v2-input')
+  const input = page.getByTestId('chat-input')
   await expect(input).toBeEnabled({ timeout: 15_000 })
   await input.fill('我想取得方案')
-  await page.getByTestId('agent-v2-send').click()
+  await page.getByTestId('chat-send').click()
 
-  const offer = page.getByTestId('agent-v2-action-offer_recommend')
+  const offer = page.getByTestId('chat-view-recommend')
   await expect(offer).toBeVisible({ timeout: 15_000 })
   await expect(offer).toHaveText('取得專屬保健品方案')
-  await expect(page.getByTestId('agent-v2-message-assistant').last()).toContainText('三要件')
+  await expect(page.getByTestId('chat-last-reply')).toContainText('三要件')
 
   await page.screenshot({
     path: e2eArtifactPath('agent-v2-ready-390.png'),
@@ -48,27 +45,26 @@ test('agent v2 gathering state has no offer_recommend until backend sends it', a
   goto
 }) => {
   await mockAgentV2Api(page, 'gathering')
-  await goto('/app/v2', { waitUntil: 'hydration' })
+  await goto('/chat/v2', { waitUntil: 'hydration' })
 
-  await expect(page.getByTestId('agent-v2-panel')).toBeVisible({ timeout: 15_000 })
-  await expect(page.getByTestId('agent-v2-progress-profile')).toHaveAttribute('data-done', '0')
-  await expect(page.getByTestId('agent-v2-progress-report')).toHaveAttribute('data-done', '0')
-  await expect(page.getByTestId('agent-v2-progress-goals')).toHaveAttribute('data-done', '0')
+  await expect(page.getByTestId('chat-transcript')).toBeVisible({ timeout: 15_000 })
 
-  await page.getByTestId('agent-v2-input').fill('先聊聊')
-  await page.getByTestId('agent-v2-send').click()
-  await expect(page.getByTestId('agent-v2-message-user').last()).toContainText('先聊聊')
-  await expect(page.getByTestId('agent-v2-action-offer_recommend')).toHaveCount(0)
+  await page.getByTestId('chat-input').fill('先聊聊')
+  await page.getByTestId('chat-send').click()
+  await expect(page.getByTestId('chat-transcript')).toContainText('先聊聊')
+  await expect(page.getByTestId('chat-view-recommend')).toHaveCount(0)
 })
 
 test('existing home and chat surfaces have no agent v2 entry', async ({ page, goto }) => {
   await mockAgentV2Api(page, 'ready')
   await goto('/', { waitUntil: 'hydration' })
   await expect(page.getByTestId('agent-v2-page')).toHaveCount(0)
+  await expect(page.locator('a[href*="/chat/v2"]')).toHaveCount(0)
   await expect(page.locator('a[href*="/app/v2"]')).toHaveCount(0)
 
   await goto('/chat', { waitUntil: 'hydration' })
   await expect(page.getByTestId('chat-transcript')).toBeVisible({ timeout: 20_000 })
+  await expect(page.locator('a[href*="/chat/v2"]')).toHaveCount(0)
   await expect(page.locator('a[href*="/app/v2"]')).toHaveCount(0)
-  await expect(page.getByTestId('agent-v2-panel')).toHaveCount(0)
+  await expect(page.getByTestId('agent-v2-page')).toHaveCount(0)
 })

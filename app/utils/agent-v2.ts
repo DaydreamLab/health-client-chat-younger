@@ -109,3 +109,46 @@ export function agentV2RequirementDone(
 export function isOfferRecommendAction(action: Pick<AgentV2Action, 'key'>): boolean {
   return action.key === AGENT_V2_OFFER_RECOMMEND_KEY
 }
+
+/**
+ * Map v2 `actions` → v1 `reply_actions` so ChatPanel／TurnActions can paint
+ * the same CTA chrome. Only known keys are projected; unknown keys are ignored
+ * (do not invent buttons from reply text).
+ */
+export function agentV2ActionsToReplyActions(
+  actions: readonly AgentV2Action[]
+): {
+  schema_version: '0.1'
+  source: 'semantic_judgment'
+  adaptor: 'llm'
+  degraded: false
+  error: null
+  actions: Array<{
+    type: 'offer_recommend'
+    payload: {
+      mode: 'view_recommendations'
+      label: string
+      path: string
+    }
+  }>
+} | null {
+  const offer = actions.find(action => isOfferRecommendAction(action))
+  if (!offer) {
+    return null
+  }
+  return {
+    schema_version: '0.1',
+    source: 'semantic_judgment',
+    adaptor: 'llm',
+    degraded: false,
+    error: null,
+    actions: [{
+      type: 'offer_recommend',
+      payload: {
+        mode: 'view_recommendations',
+        label: offer.label,
+        path: AGENT_V2_RECOMMENDATIONS_PATH
+      }
+    }]
+  }
+}

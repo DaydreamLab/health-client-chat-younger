@@ -16,7 +16,7 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 | `/chat` | `user` + `chat-layout` | 對話 SSE、目標／價格帶；上傳報告僅 member（guest 導向登入）。推薦槽在尚未建案時為「提交專家判讀」 | guest 可對話；`POST /health-reports` 需 member；會員「提交專家判讀」為 `POST /conversation/{id}/expert-review` |
 | `/chat-ai` | `user` + `chat-layout` | 與 `/chat` 共用對話。標準流程（畫面「標準」）推薦槽為「查看推薦方案」，進入 `/app/recommendations?flow=standard` | 同 `/chat` 對話；建議只打 `POST /recommendations` 後結帳，不呼叫 expert-review |
 | `/app` | `user` + `auth` | 佔位 skeleton 預渲染（`MemberAuthShell`）；`ensureSession` 後 guest（含訪客 token）頁內登入表單（`AuthLoginForm` stay，成功後留在 `/app` 換「我的健康」）、member 顯示 `MemberMyHealth`（profile 摘要卡＋報告列表；**無**專家判讀記錄列、**無**頁首 CTA）。會員殼層 guest 一律共用 `AuthLoginForm`，**不再**用登入提示卡 | `GET /profile`；`GET /health-reports`；登入時 `POST /auth/login`／`register` |
-| `/app/v2` | `user` + `auth` + `agent-v2`（`NUXT_PUBLIC_AGENT_V2_ENABLED=1`；關閉時 client 404） | **Agent v2 隔離對話**（`MemberAuthShell`；元件在 `components/agent-v2/`）。只呈現後端 `missing`／`actions`／`reply`，不從回覆文字猜按鈕。`offer_recommend` → `/app/recommendations`。現有頁面**不**掛 v2 入口 | `POST/GET /api/v2/conversations`；`POST …/messages`；`POST …/actions`（非 streaming；認證同會員 API） |
+| `/chat/v2` | `user` + `chat-layout` + `agent-v2`（`NUXT_PUBLIC_AGENT_V2_ENABLED=1`；關閉時 client 404） | **Agent v2 對話**（重用 `ChatPanel`／輸入框／訊息列／`TurnActions`；`mode="v2"`）。只把後端改接 `/api/v2`（`POST message {text}`、`action {key}`；回傳 `state`／`missing`／`reply`／`actions`），不從回覆文字猜按鈕。`offer_recommend` 按鈕文案用後端 `label`（「取得專屬保健品方案」）→ `/app/recommendations`。現有頁面**不**掛 v2 入口 | `POST/GET /api/v2/conversations`；`POST …/messages`；`POST …/actions`（非 streaming；認證同 guest／會員 token） |
 | `/app/wearables` | `user` + `auth` | 穿戴裝置範例（假資料、`?demo=` 切狀態） | 無 API |
 | `/app/wearables/:deviceId` | `user` + `auth` | 單一裝置趨勢（7／30 天） | 無 API |
 | `/app/renewals` | `user` + `auth` | 待續約即將上線佔位（列表與續約對話暫不從這頁進入） | 無（殼）；client 仍保留 `GET /renewals/due`、`renewal_of_order_id` |
@@ -39,7 +39,7 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 |------|------|
 | `middleware/auth.ts` | client：`ensureSession()`；無 session 時不強制導向 `/login`（core 掛掉時留在頁面） |
 | `middleware/chat-layout.ts` | 固定 `user` layout；client 確保 session |
-| `middleware/agent-v2.ts` | client：`runtimeConfig.public.agentV2Enabled` 為真才放行 `/app/v2`；否則 `404`。SSR／prerender 略過以保留靜態殼 |
+| `middleware/agent-v2.ts` | client：`runtimeConfig.public.agentV2Enabled` 為真才放行 `/chat/v2`；否則 `404`。SSR／prerender 略過以保留靜態殼 |
 
 `auth` **不**要求 `role=member`。建單等會員閘門由畫面／`MemberAuthShell`（或結帳頁同等殼層）處理：guest 顯示共用 `AuthLoginForm`（`stay`，成功後留在原頁），不另跳 `/login`。
 
@@ -47,7 +47,7 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 
 | UI | 主要檔案 |
 |----|----------|
-| Chat | `pages/chat.vue`、`pages/chat-ai.vue`、`components/ChatPanel.vue`、`components/TurnActions.vue` |
+| Chat | `pages/chat/index.vue`、`pages/chat-ai.vue`、`pages/chat/v2.vue`（agent v2；feature flag）、`components/ChatPanel.vue`、`components/TurnActions.vue` |
 
 ## 諮詢對話（`/chat` 與 `/chat-ai`）
 

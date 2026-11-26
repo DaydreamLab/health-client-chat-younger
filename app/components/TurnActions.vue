@@ -36,6 +36,8 @@ const props = defineProps<{
   showViewRecommend: boolean
   /** offer_recommend payload.status — selected when core selected_action_types. */
   viewRecommendStatus?: CtaControlStatus | null
+  /** Backend label; empty → i18n chat.viewRecommend. */
+  viewRecommendLabel?: string | null
   showRetry: boolean
   /** Backend／caller label; empty → i18n chat.reportRetry. */
   retryLabel?: string | null
@@ -158,6 +160,11 @@ const showExpertBookingCta = computed(() => props.showExpertBooking)
 const retryButtonLabel = computed(() => {
   const fromCaller = String(props.retryLabel ?? '').trim()
   return fromCaller || t('chat.reportRetry')
+})
+
+const viewRecommendButtonLabel = computed(() => {
+  const label = props.viewRecommendLabel?.trim()
+  return label || t('chat.viewRecommend')
 })
 
 const expertBookingButtonLabel = computed(() => {
@@ -357,7 +364,7 @@ const hasActions = computed(() =>
           :disabled="viewRecommendLocked"
           @click="emit('recommend')"
         >
-          {{ $t('chat.viewRecommend') }}
+          {{ viewRecommendButtonLabel }}
         </AppButton>
         <AppButton
           v-if="showWantMoreTests && wantMoreTestsUrl"

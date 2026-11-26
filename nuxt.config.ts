@@ -51,7 +51,7 @@ export default defineNuxtConfig({
        */
       pathContract: process.env.NUXT_PUBLIC_PATH_CONTRACT !== '0',
       /**
-       * Candor agent v2 UI (`/app/v2`). Default off. Set
+       * Candor agent v2 UI (`/chat/v2`). Default off. Set
        * NUXT_PUBLIC_AGENT_V2_ENABLED=1 for beta. When false, middleware 404s
        * the route; no nav entry is wired into existing pages.
        */
@@ -76,9 +76,9 @@ export default defineNuxtConfig({
     // router appears to "stay on /". Hard-open still needs the CF Function.
     '/login': { ssr: false },
     '/en/login': { ssr: false },
-    // Agent v2 is auth + client-gated (feature flag). CSR shell like /chat.
-    '/app/v2': { ssr: false },
-    '/en/app/v2': { ssr: false },
+    // Agent v2 is client-gated (feature flag). CSR shell like /chat.
+    '/chat/v2': { ssr: false },
+    '/en/chat/v2': { ssr: false },
     // Dynamic `[param]` shells at `/…/_` — see docs/cloudfront-www-index-rewrite.md.
     ...dynamicShellRouteRules()
     // Do NOT set `/app/**` or `/en/app/**` to prerender:false.
@@ -123,8 +123,8 @@ export default defineNuxtConfig({
         '/en/app/recommendations',
         '/app/me',
         '/en/app/me',
-        '/app/v2',
-        '/en/app/v2',
+        '/chat/v2',
+        '/en/chat/v2',
         '/app/notifications',
         '/en/app/notifications',
         '/app/renewals',
