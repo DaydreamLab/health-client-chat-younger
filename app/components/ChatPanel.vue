@@ -756,10 +756,22 @@ const needsMultiConfirm = computed(() => {
   return lastAssistantProfile.value?.answer_type === 'multi_enum'
 })
 
+/** consultation_goals／ask_goals payload.min (default 1). */
+const goalsMinSelected = computed(() => {
+  const host = isAgentV2.value
+    ? [...agentV2Messages.value].reverse().find(message => message.role === 'assistant')
+    : intakeMessage.value
+  if (!host) {
+    return 1
+  }
+  const min = turnActionsFor(host).replyProjection?.chooseOption?.min
+  return typeof min === 'number' && min >= 1 ? min : 1
+})
+
 const confirmDisabled = computed(() =>
   pending.value
   || selectedCodes.value.length === 0
-  || (goalSelectActive.value && selectedCodes.value.length < 1)
+  || (goalSelectActive.value && selectedCodes.value.length < goalsMinSelected.value)
 )
 
 const turnUiContext = computed((): ChatTurnUiContext => ({
@@ -913,7 +925,11 @@ function selectedCodesFor(message: ChatMessage): string[] {
 }
 
 function showConfirmFor(message: ChatMessage) {
-  if (pathEntryPending.value && message.id === lastAssistantId.value) {
+  // v2 has no path-entry A／B／C overlay — do not hide goals confirm on greeting
+  // (pathEntryPending is true while conversationPath is null and no user turns yet).
+  if (!isAgentV2.value
+    && pathEntryPending.value
+    && message.id === lastAssistantId.value) {
     return false
   }
   return turnActionsFor(message).showConfirm
@@ -3302,6 +3318,9 @@ async function confirmMultiSelection() {
   if (selectedCodes.value.length === 0 || pending.value) {
     return
   }
+  if (goalSelectActive.value && selectedCodes.value.length < goalsMinSelected.value) {
+    return
+  }
 
   if (isAgentV2.value) {
     const host = [...agentV2Messages.value].reverse().find(message => message.role === 'assistant')
@@ -3341,7 +3360,7 @@ async function confirmMultiSelection() {
   }
 
   if (goalSelectActive.value) {
-    if (selectedCodes.value.length < 1) {
+    if (selectedCodes.value.length < goalsMinSelected.value) {
       appendMessage('assistant', t('chat.goalsNeedTwo'))
       return
     }

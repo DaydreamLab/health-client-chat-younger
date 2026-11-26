@@ -292,18 +292,29 @@ test('agent v2 projects ask_vitals／ask_report／confirm_report_date from actio
   })
 })
 
-test('agent v2 projects ask_goal chips from actions', async ({ page, goto }) => {
+test('agent v2 ask_goals shows zh labels, multi-select, and confirm', async ({ page, goto }) => {
   await mockAgentV2Api(page, 'goals')
   await goto('/chat/v2', { waitUntil: 'hydration' })
 
   await expect(page.getByTestId('chat-transcript')).toBeVisible({ timeout: 15_000 })
-  await page.getByTestId('chat-input').fill('選目標')
-  await page.getByTestId('chat-send').click()
+  // Greeting ask_goals: Chinese labels (not raw codes), confirm present.
+  const sleep = page.getByTestId('chat-quiz-option-sleep')
+  const weight = page.getByTestId('chat-quiz-option-weight_loss')
+  await expect(sleep).toBeVisible({ timeout: 15_000 })
+  await expect(sleep).toHaveText('睡眠')
+  await expect(weight).toHaveText('減重')
+  await expect(page.getByTestId('chat-quiz-option-immune_boost')).toHaveText('免疫提升')
+  await expect(page.getByTestId('chat-quiz-option-cognitive_function')).toHaveText('認知功能')
+  await expect(page.getByTestId('chat-quiz-option-gastrointestinal')).toHaveText('腸胃道')
+  await expect(page.getByTestId('chat-quiz-confirm')).toBeVisible()
 
-  await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
-  await expect(page.getByTestId('chat-quiz-confirm')).toBeVisible({ timeout: 15_000 })
-  await page.getByTestId('chat-quiz-option-sleep').click()
-  await expect(page.getByTestId('chat-quiz-option-sleep')).toHaveClass(/is-selected/)
+  // Multi-select: chips toggle until confirm; no submit on chip tap alone.
+  await sleep.click()
+  await expect(sleep).toHaveClass(/is-selected/)
+  await weight.click()
+  await expect(weight).toHaveClass(/is-selected/)
+  await expect(sleep).toHaveClass(/is-selected/)
+  await expect(page.getByTestId('chat-quiz-confirm')).toBeEnabled()
 })
 
 test('agent v2 goals confirm POSTs /profile/answers then refreshes v2 (no v1 conversation)', async ({
@@ -358,16 +369,16 @@ test('agent v2 goals confirm POSTs /profile/answers then refreshes v2 (no v1 con
 
   await goto('/chat/v2', { waitUntil: 'hydration' })
   await expect(page.getByTestId('chat-transcript')).toBeVisible({ timeout: 15_000 })
-  await page.getByTestId('chat-input').fill('選目標')
-  await page.getByTestId('chat-send').click()
 
   await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('chat-quiz-option-sleep')).toHaveText('睡眠')
   await page.getByTestId('chat-quiz-option-sleep').click()
+  await page.getByTestId('chat-quiz-option-weight_loss').click()
   await page.getByTestId('chat-quiz-confirm').click()
 
   await expect.poll(() => profileAnswerBody !== null).toBe(true)
   expect(profileAnswerBody?.gap_code).toBe('goals')
-  expect(profileAnswerBody?.value).toEqual(['sleep'])
+  expect(profileAnswerBody?.value).toEqual(['sleep', 'weight_loss'])
   expect(profileAnswerBody?.conversation_id).toBeUndefined()
   await expect.poll(() => v2RefreshAfterGoals).toBe(true)
   expect(sawV1Conversation).toBe(false)
