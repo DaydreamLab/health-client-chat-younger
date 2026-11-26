@@ -9,6 +9,11 @@ import {
   type AgentV2Message,
   type AgentV2TurnResult
 } from '~/utils/agent-v2'
+import {
+  consumeAgentV2Sse,
+  isAgentV2StreamingFlag,
+  type AgentV2StreamHandlers
+} from '~/utils/agent-v2-stream'
 
 function readToken(): string | null {
   if (!import.meta.client) {
@@ -224,10 +229,52 @@ export function useAgentV2Api() {
     return normalizeTurn(data)
   }
 
+  /**
+   * LY6: optional SSE for messages when NUXT_PUBLIC_AGENT_V2_STREAMING=1.
+   * On 404／non-SSE／network shape mismatch → fall back to sync sendMessage.
+   * Never calls a real model from tests (mocks only).
+   */
+  async function sendMessageMaybeStream(
+    id: string,
+    text: string,
+    handlers: AgentV2StreamHandlers = {}
+  ): Promise<AgentV2TurnResult> {
+    const config = useRuntimeConfig()
+    if (!isAgentV2StreamingFlag(config.public.agentV2Streaming)) {
+      return sendMessage(id, text)
+    }
+
+    const token = readToken()
+    if (!token) {
+      throw new CandorApiError('Missing token', 401, 'unauthorized')
+    }
+
+    const url = `${apiBase()}/conversations/${encodeURIComponent(id)}/messages/stream`
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Accept': 'text/event-stream',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ text })
+      })
+      const streamed = await consumeAgentV2Sse(res, id, handlers)
+      if (streamed) {
+        return streamed
+      }
+    } catch {
+      // Fall through to sync.
+    }
+    return sendMessage(id, text)
+  }
+
   return {
     createConversation,
     getConversation,
     sendMessage,
+    sendMessageMaybeStream,
     postAction
   }
 }

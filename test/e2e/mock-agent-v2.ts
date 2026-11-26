@@ -8,6 +8,7 @@ export type AgentV2MockMode
     | 'collecting_actions'
     | 'goals'
     | 'fail_once'
+    | 'citations'
 
 type MockAction = {
   key: string
@@ -33,12 +34,14 @@ export async function mockAgentV2Api(
   page: Page,
   mode: AgentV2MockMode = 'ready'
 ) {
-  const missing = mode === 'ready' || mode === 'fail_once'
+  const missing = mode === 'ready' || mode === 'fail_once' || mode === 'citations'
     ? []
     : mode === 'goals'
       ? ['goals']
       : ['profile', 'report', 'goals']
-  const state = mode === 'ready' || mode === 'fail_once' ? 'cta_offered' : 'collecting'
+  const state = mode === 'ready' || mode === 'fail_once' || mode === 'citations'
+    ? 'cta_offered'
+    : 'collecting'
 
   // One turn: vitals + upload + date confirm.
   // ask_goal alone would set goalSelectActive and hide upload (same as v1 gate);
@@ -59,19 +62,38 @@ export async function mockAgentV2Api(
 
   const actions: MockAction[] = mode === 'ready' || mode === 'fail_once'
     ? [{ key: 'offer_recommend', label: '取得專屬保健品方案' }]
-    : mode === 'collecting_actions'
-      ? collectingActions
-      : mode === 'goals'
-        ? goalsOnlyActions
-        : []
+    : mode === 'citations'
+      ? [
+          { key: 'offer_recommend', label: '取得專屬保健品方案' },
+          {
+            key: 'show_citations',
+            label: '參考資料',
+            payload: {
+              hits: [
+                {
+                  excerpt: '維生素 D 與骨密度相關',
+                  source_url: 'https://example.com/vit-d'
+                }
+              ]
+            }
+          },
+          { key: 'offer_expert_booking', label: '預約專家諮詢' }
+        ]
+      : mode === 'collecting_actions'
+        ? collectingActions
+        : mode === 'goals'
+          ? goalsOnlyActions
+          : []
 
   const greeting = mode === 'ready' || mode === 'fail_once'
     ? '三要件都齊了。可以取得專屬保健品方案。'
-    : mode === 'collecting_actions'
-      ? '請補齊基本資料與報告。也可先確認報告日期。'
-      : mode === 'goals'
-        ? '請選擇健康目標。'
-        : '先從基本資料、報告與目標開始。'
+    : mode === 'citations'
+      ? '這是帶引用與專家入口的回覆。'
+      : mode === 'collecting_actions'
+        ? '請補齊基本資料與報告。也可先確認報告日期。'
+        : mode === 'goals'
+          ? '請選擇健康目標。'
+          : '先從基本資料、報告與目標開始。'
 
   let messages: MockMessage[] = [
     {
@@ -133,11 +155,13 @@ export async function mockAgentV2Api(
       const text = String(body?.text ?? '').trim() || '（空白）'
       const replyText = mode === 'ready' || mode === 'fail_once'
         ? '已收到。三要件齊全，可取得方案。'
-        : mode === 'collecting_actions'
-          ? '已收到。請用下方按鈕補資料或確認日期。'
-          : mode === 'goals'
-            ? '已收到。請選擇目標後確認。'
-            : '已收到，請繼續補齊三要件。'
+        : mode === 'citations'
+          ? '已收到。請參考下方資料。'
+          : mode === 'collecting_actions'
+            ? '已收到。請用下方按鈕補資料或確認日期。'
+            : mode === 'goals'
+              ? '已收到。請選擇目標後確認。'
+              : '已收到，請繼續補齊三要件。'
       messages = [
         ...messages,
         { id: `m-user-${messages.length}`, role: 'user', text },
@@ -171,13 +195,18 @@ export async function mockAgentV2Api(
           : key
       const replyText = key === 'confirm_report_date'
         ? '謝謝，報告日期已記下（僅 v2 meta，未改 health_reports）。'
-        : `已選擇：${label}`
+        : key === 'explain_highlights'
+          ? '以下是報告重點說明（mock classify／interpret）。'
+          : `已選擇：${label}`
       messages = [
         ...messages,
         {
           id: `m-asst-action-${messages.length}`,
           role: 'assistant',
-          text: replyText
+          text: replyText,
+          ...(key === 'explain_highlights' && mode === 'citations'
+            ? { actions }
+            : {})
         }
       ]
       // After confirm_report_date, drop that CTA; keep collecting actions otherwise.
@@ -185,6 +214,8 @@ export async function mockAgentV2Api(
         lastActions = collectingActions.filter(action => action.key !== 'confirm_report_date')
       } else if (key === 'offer_recommend') {
         lastActions = [{ key: 'offer_recommend', label: '取得專屬保健品方案' }]
+      } else if (key === 'explain_highlights') {
+        lastActions = actions
       }
       await ok({
         conversation_id: conversationId,

@@ -994,6 +994,12 @@
     "resultReadonlyHint": "Your expert plan is complete and can no longer be edited.",
     "openOrder": "View order"
   },
+  "agentV2": {
+    "citationsTitle": "Sources",
+    "expertBookingFallback": "Book an expert consult",
+    "streamingFallback": "Using standard reply"
+  },
+
   "privacy": {
     "metaTitle": "Privacy policy",
     "loading": "Loading privacy policy…",

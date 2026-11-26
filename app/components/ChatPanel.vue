@@ -189,6 +189,29 @@
                 v-else
                 class="text-muted"
               />
+              <ul
+                v-if="message.agentV2Citations?.length"
+                class="mt-3 space-y-2 border-t border-default/40 pt-3 text-xs text-muted"
+                data-testid="agent-v2-citations"
+              >
+                <li class="font-medium text-default">
+                  {{ $t('agentV2.citationsTitle') }}
+                </li>
+                <li
+                  v-for="(cite, citeIdx) in message.agentV2Citations"
+                  :key="`${message.id}-cite-${citeIdx}`"
+                  data-testid="agent-v2-citation"
+                >
+                  <a
+                    v-if="cite.source_url"
+                    :href="cite.source_url"
+                    class="underline underline-offset-2"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >{{ cite.excerpt }}</a>
+                  <span v-else>{{ cite.excerpt }}</span>
+                </li>
+              </ul>
               <p
                 v-if="fileName(message)"
                 class="mt-2 inline-flex items-center gap-1 rounded-lg bg-elevated px-2 py-1 text-xs text-muted"
@@ -450,6 +473,7 @@ import {
   isContinueConsultationOption,
   isPathSwitchOptionCode,
   isUsableReplyActions,
+  isOfferExpertBookingAction,
   normalizeChooseOptionMapsTo,
   offerRecommendPayload,
   parseReplyActions,
@@ -477,8 +501,10 @@ import {
   AGENT_V2_CONFIRM_REPORT_DATE_KEY,
   AGENT_V2_CONVERSATION_QUERY_KEY,
   AGENT_V2_CONVERSATION_STORAGE_KEY,
+  AGENT_V2_EXPLAIN_HIGHLIGHTS_KEY,
   AGENT_V2_RECOMMENDATIONS_PATH,
   agentV2ActionsToReplyActions,
+  extractAgentV2Citations,
   hydrateAgentV2Messages,
   isConfirmReportDateAction,
   pickReadyHealthReportId,
@@ -971,6 +997,14 @@ function showFullTestCta(message: ChatMessage) {
 }
 
 function showExpertBookingCta(message: ChatMessage) {
+  // LY6: v2 ignores pathEntryPending gates — paint when RA has offer_expert_booking.
+  if (isAgentV2.value) {
+    if (message.id !== lastAssistantId.value) {
+      return false
+    }
+    const ra = message.replyActions
+    return Boolean(ra?.actions.some(action => isOfferExpertBookingAction(action)))
+  }
   return turnActionsFor(message).showExpertBooking
 }
 
@@ -1127,19 +1161,28 @@ function applyAgentV2Turn(turn: AgentV2TurnResult, opts: { appendUserText?: stri
   }
 
   const replyActions = agentV2ActionsToReplyActions(turn.actions)
+  const citations = extractAgentV2Citations(turn.actions)
   if (turn.reply.text) {
     const assistant = makeMessage('assistant', turn.reply.text)
     if (replyActions) {
       assistant.replyActions = replyActions
       applyReplyActionsInteraction(assistant, replyActions)
     }
+    if (citations.length > 0) {
+      assistant.agentV2Citations = citations
+    }
     agentV2Messages.value.push(assistant)
-  } else if (replyActions) {
-    // Actions without reply text: attach to the latest assistant bubble when present.
+  } else if (replyActions || citations.length > 0) {
+    // Actions／citations without reply text: attach to the latest assistant bubble.
     const last = [...agentV2Messages.value].reverse().find(message => message.role === 'assistant')
     if (last) {
-      last.replyActions = replyActions
-      applyReplyActionsInteraction(last, replyActions)
+      if (replyActions) {
+        last.replyActions = replyActions
+        applyReplyActionsInteraction(last, replyActions)
+      }
+      if (citations.length > 0) {
+        last.agentV2Citations = citations
+      }
     }
   }
 }
@@ -1159,6 +1202,9 @@ function applyAgentV2Bundle(bundle: AgentV2ConversationBundle) {
     if (row.replyActions) {
       message.replyActions = row.replyActions
       applyReplyActionsInteraction(message, row.replyActions)
+    }
+    if (row.citations.length > 0) {
+      message.agentV2Citations = row.citations
     }
     return message
   })
@@ -1242,20 +1288,66 @@ async function sendAgentV2Text(text: string, opts: { alreadyAppendedUser?: boole
     return
   }
   pending.value = true
+  const conversationId = agentV2ConversationId.value
+  let liveId: string | null = null
   try {
-    const turn = await agentV2Api.sendMessage(agentV2ConversationId.value, text)
+    // LY6: optional SSE when NUXT_PUBLIC_AGENT_V2_STREAMING=1; else sync.
+    const turn = await agentV2Api.sendMessageMaybeStream(conversationId, text, {
+      onDelta: (chunk) => {
+        if (!liveId) {
+          if (!opts.alreadyAppendedUser) {
+            agentV2Messages.value.push(makeMessage('user', text))
+            opts.alreadyAppendedUser = true
+          }
+          const live = makeMessage('assistant', chunk)
+          liveId = live.id
+          liveAssistantId.value = live.id
+          agentV2Messages.value.push(live)
+          return
+        }
+        const live = agentV2Messages.value.find(item => item.id === liveId)
+        if (live) {
+          const prev = messageText(live)
+          setMessageText(live.id, prev + chunk)
+        }
+      },
+      onReplace: (full) => {
+        if (!liveId) {
+          if (!opts.alreadyAppendedUser) {
+            agentV2Messages.value.push(makeMessage('user', text))
+            opts.alreadyAppendedUser = true
+          }
+          const live = makeMessage('assistant', full)
+          liveId = live.id
+          liveAssistantId.value = live.id
+          agentV2Messages.value.push(live)
+          return
+        }
+        setMessageText(liveId, full)
+      }
+    })
+    if (liveId) {
+      // Drop the live bubble; applyAgentV2Turn will append the final assistant.
+      const idx = agentV2Messages.value.findIndex(item => item.id === liveId)
+      if (idx >= 0) {
+        agentV2Messages.value.splice(idx, 1)
+      }
+      liveAssistantId.value = null
+    }
     applyAgentV2Turn(turn, {
       appendUserText: opts.alreadyAppendedUser ? undefined : text
     })
     await nextTick()
     scrollToLatest('smooth')
   } catch {
+    liveAssistantId.value = null
     if (!opts.alreadyAppendedUser) {
       agentV2Messages.value.push(makeMessage('user', text))
     }
     pushAgentV2FailedBubble({ kind: 'message', text })
   } finally {
     pending.value = false
+    liveAssistantId.value = null
   }
 }
 
@@ -3828,8 +3920,8 @@ async function askInterpret() {
   const interpret = t(resolveAskInterpretI18nKey(journey.clarifyingGoals))
   journey.reportInterpretSent = true
   if (isAgentV2.value) {
-    // Same dock CTA copy; send via /api/v2 message — never v1 stream／conversation.
-    await sendAgentV2Text(interpret)
+    // Spec 35: dock「請助理說明重點」→ POST …/actions explain_highlights (not free-text).
+    await postAgentV2ActionKey(AGENT_V2_EXPLAIN_HIGHLIGHTS_KEY, interpret)
     return
   }
   appendMessage('user', interpret)

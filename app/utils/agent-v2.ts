@@ -1,6 +1,7 @@
 /** Candor agent v2 (isolated) — types and pure helpers. */
 
 import type { ReplyActions, ReplyAction, VitalsField } from './reply-actions'
+import { OFFER_EXPERT_BOOKING_DEFAULT_PATH } from './reply-actions'
 import { defaultConsultationGoalOptions } from './consultation-goal-defaults'
 
 export const AGENT_V2_REQUIREMENTS = ['profile', 'report', 'goals'] as const
@@ -55,10 +56,19 @@ export const AGENT_V2_OFFER_RECOMMEND_KEY = 'offer_recommend'
 export const AGENT_V2_ASK_VITALS_KEY = 'ask_vitals'
 export const AGENT_V2_ASK_REPORT_KEY = 'ask_report'
 export const AGENT_V2_ASK_GOAL_KEY = 'ask_goal'
+/** LC4 alias — same projection as ask_goal. */
+export const AGENT_V2_ASK_GOALS_KEY = 'ask_goals'
 export const AGENT_V2_CHOOSE_OPTION_KEY = 'choose_option'
 export const AGENT_V2_CONFIRM_REPORT_DATE_KEY = 'confirm_report_date'
-/** Soft retry after a failed turn (LY5); ignored until wired. */
+/** Dock「請助理說明重點」→ POST …/actions (spec 35). */
+export const AGENT_V2_EXPLAIN_HIGHLIGHTS_KEY = 'explain_highlights'
+/** Soft retry after a failed turn (LY5); ignored in RA projection. */
 export const AGENT_V2_RETRY_KEY = 'retry'
+/** LY6／LC8 — map to existing offer_expert_booking TurnActions. */
+export const AGENT_V2_OFFER_EXPERT_BOOKING_KEY = 'offer_expert_booking'
+export const AGENT_V2_PROPOSE_EXPERT_BOOKING_KEY = 'propose_expert_booking'
+/** LY6／LC7 rag_search result surface (optional). */
+export const AGENT_V2_SHOW_CITATIONS_KEY = 'show_citations'
 
 /**
  * Known FE-projected keys (design §2／§7／§11 + spec 35).
@@ -69,9 +79,14 @@ export const AGENT_V2_PROJECTED_ACTION_KEYS = [
   AGENT_V2_ASK_VITALS_KEY,
   AGENT_V2_ASK_REPORT_KEY,
   AGENT_V2_ASK_GOAL_KEY,
+  AGENT_V2_ASK_GOALS_KEY,
   AGENT_V2_CHOOSE_OPTION_KEY,
   AGENT_V2_CONFIRM_REPORT_DATE_KEY,
-  AGENT_V2_RETRY_KEY
+  AGENT_V2_EXPLAIN_HIGHLIGHTS_KEY,
+  AGENT_V2_RETRY_KEY,
+  AGENT_V2_OFFER_EXPERT_BOOKING_KEY,
+  AGENT_V2_PROPOSE_EXPERT_BOOKING_KEY,
+  AGENT_V2_SHOW_CITATIONS_KEY
 ] as const
 
 export type AgentV2ProjectedActionKey = (typeof AGENT_V2_PROJECTED_ACTION_KEYS)[number]
@@ -261,6 +276,63 @@ function projectOfferRecommend(action: AgentV2Action): ReplyAction {
   }
 }
 
+function projectOfferExpertBooking(action: AgentV2Action): ReplyAction {
+  const pathRaw = action.payload?.path
+  const path = typeof pathRaw === 'string' && pathRaw.trim()
+    ? pathRaw.trim()
+    : OFFER_EXPERT_BOOKING_DEFAULT_PATH
+  return {
+    type: 'offer_expert_booking',
+    payload: {
+      mode: 'book_expert',
+      label: action.label,
+      path
+    }
+  }
+}
+
+/** RAG citation hit from show_citations payload (LC7+; optional). */
+export interface AgentV2Citation {
+  excerpt: string
+  source_url?: string | null
+  score?: number | null
+}
+
+/**
+ * Extract citation hits from `show_citations` actions without inventing UI from reply text.
+ */
+export function extractAgentV2Citations(
+  actions: readonly AgentV2Action[]
+): AgentV2Citation[] {
+  const out: AgentV2Citation[] = []
+  for (const action of actions) {
+    if (action.key !== AGENT_V2_SHOW_CITATIONS_KEY) {
+      continue
+    }
+    const hits = action.payload?.hits
+    if (!Array.isArray(hits)) {
+      continue
+    }
+    for (const hit of hits) {
+      if (!isRecord(hit)) {
+        continue
+      }
+      const excerpt = String(hit.excerpt ?? '').trim()
+      if (!excerpt) {
+        continue
+      }
+      const sourceUrl = typeof hit.source_url === 'string' ? hit.source_url : null
+      const score = typeof hit.score === 'number' ? hit.score : null
+      out.push({
+        excerpt,
+        ...(sourceUrl != null ? { source_url: sourceUrl } : {}),
+        ...(score != null ? { score } : {})
+      })
+    }
+  }
+  return out
+}
+
 function projectOne(action: AgentV2Action): ReplyAction | null {
   switch (action.key) {
     case AGENT_V2_OFFER_RECOMMEND_KEY:
@@ -270,13 +342,19 @@ function projectOne(action: AgentV2Action): ReplyAction | null {
     case AGENT_V2_ASK_REPORT_KEY:
       return { type: 'ask_report', payload: {} }
     case AGENT_V2_ASK_GOAL_KEY:
+    case AGENT_V2_ASK_GOALS_KEY:
       return projectAskGoal(action)
     case AGENT_V2_CHOOSE_OPTION_KEY:
       return projectChooseOption(action)
     case AGENT_V2_CONFIRM_REPORT_DATE_KEY:
       return projectConfirmReportDate(action)
+    case AGENT_V2_OFFER_EXPERT_BOOKING_KEY:
+    case AGENT_V2_PROPOSE_EXPERT_BOOKING_KEY:
+      return projectOfferExpertBooking(action)
+    case AGENT_V2_SHOW_CITATIONS_KEY:
+    case AGENT_V2_EXPLAIN_HIGHLIGHTS_KEY:
     case AGENT_V2_RETRY_KEY:
-      // LY5 paints retry via streamFailed／explicit handler; key alone is not a RA type.
+      // Citations → extractAgentV2Citations; explain／retry are FE-initiated or streamFailed.
       return null
     default:
       return null
@@ -329,12 +407,13 @@ export function pickReadyHealthReportId(
   return null
 }
 
-/** Hydrated chat row after projecting per-message／bundle-level actions (LY5). */
+/** Hydrated chat row after projecting per-message／bundle-level actions (LY5／LY6). */
 export interface AgentV2HydratedMessage {
   id: string
   role: 'user' | 'assistant'
   text: string
   replyActions: ReplyActions | null
+  citations: AgentV2Citation[]
 }
 
 /**
@@ -353,23 +432,29 @@ export function hydrateAgentV2Messages(
     text: message.text,
     replyActions: message.actions?.length
       ? agentV2ActionsToReplyActions(message.actions)
-      : null
+      : null,
+    citations: message.actions?.length
+      ? extractAgentV2Citations(message.actions)
+      : []
   }))
 
-  const anyOwn = rows.some(row => row.replyActions != null)
+  const anyOwn = rows.some(row => row.replyActions != null || row.citations.length > 0)
   if (anyOwn || !fallbackActions?.length) {
     return rows
   }
 
   const projected = agentV2ActionsToReplyActions(fallbackActions)
-  if (!projected) {
-    return rows
-  }
+  const citations = extractAgentV2Citations(fallbackActions)
 
   for (let i = rows.length - 1; i >= 0; i -= 1) {
     const row = rows[i]
     if (row?.role === 'assistant') {
-      row.replyActions = projected
+      if (projected) {
+        row.replyActions = projected
+      }
+      if (citations.length > 0) {
+        row.citations = citations
+      }
       break
     }
   }
