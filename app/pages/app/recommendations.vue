@@ -484,6 +484,10 @@ import {
 } from '~/utils/recommendation-path-prices'
 import { recommendationRequestFromJourney } from '~/utils/recommendation-request'
 import { packageItemDoseLabel } from '~/utils/recommendation-package-item'
+import {
+  AGENT_V2_CONVERSATION_QUERY_KEY,
+  agentV2ConversationIdFromQuery
+} from '~/utils/agent-v2'
 
 definePageMeta({
   layout: 'user',
@@ -492,8 +496,14 @@ definePageMeta({
 
 const { t } = useI18n()
 const localePath = useLocalePath()
+const route = useRoute()
 const journey = useJourneyStore()
 const candor = useCandorApi()
+
+/** LY4: recommendations entered from /chat/v2 offer_recommend. */
+const agentV2ConversationId = computed(() =>
+  agentV2ConversationIdFromQuery(route.query as Record<string, unknown>)
+)
 
 type PathChoice = 'ai' | 'expert'
 
@@ -686,8 +696,10 @@ async function loadAiPackages() {
   try {
     const result = await candor.createRecommendation(
       recommendationRequestFromJourney({
-        conversationId: journey.conversationId,
-        reportId: journey.reportId
+        // v2 context: never pass journey.conversationId (would fake a v1 conv).
+        conversationId: agentV2ConversationId.value ? null : journey.conversationId,
+        reportId: journey.reportId,
+        agentV2ConversationId: agentV2ConversationId.value
       })
     )
     applyPackages(result)
@@ -718,7 +730,10 @@ async function goPackageCheckout() {
       kind: 'package',
       package_plan_code: pkg.package_plan_code,
       composition_hash: pkg.composition_hash,
-      ...(addonCodes.length > 0 ? { addon_codes: addonCodes.join(',') } : {})
+      ...(addonCodes.length > 0 ? { addon_codes: addonCodes.join(',') } : {}),
+      ...(agentV2ConversationId.value
+        ? { [AGENT_V2_CONVERSATION_QUERY_KEY]: agentV2ConversationId.value }
+        : {})
     }
   })
 }

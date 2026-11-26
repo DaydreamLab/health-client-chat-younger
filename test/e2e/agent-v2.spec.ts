@@ -40,6 +40,8 @@ test('agent v2 ready state shows offer_recommend from actions on /chat/v2', asyn
 
   await offer.click()
   await expect(page).toHaveURL(/\/app\/recommendations/, { timeout: 15_000 })
+  await expect(page).toHaveURL(/agent_v2_conversation_id=/, { timeout: 5_000 })
+  await expect(page).toHaveURL(/flow=standard/)
 })
 
 test('agent v2 shows ReportDataDock with explainHighlights when a report exists', async ({

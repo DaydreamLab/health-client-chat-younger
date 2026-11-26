@@ -475,6 +475,7 @@ import {
 } from '~/utils/stream-message'
 import {
   AGENT_V2_CONFIRM_REPORT_DATE_KEY,
+  AGENT_V2_CONVERSATION_QUERY_KEY,
   AGENT_V2_CONVERSATION_STORAGE_KEY,
   AGENT_V2_RECOMMENDATIONS_PATH,
   agentV2ActionsToReplyActions,
@@ -3963,8 +3964,14 @@ async function goViewRecommend() {
     try {
       const turn = await agentV2Api.postAction(conversationId, 'offer_recommend')
       applyAgentV2Turn(turn)
-      // Existing recommendations entry; do not write v1 journey store.
-      await navigateTo(localePath(AGENT_V2_RECOMMENDATIONS_PATH))
+      // LY4: pass v2 conversation id in query — never assign journey.conversationId.
+      await navigateTo({
+        path: localePath(AGENT_V2_RECOMMENDATIONS_PATH),
+        query: {
+          [AGENT_V2_CONVERSATION_QUERY_KEY]: conversationId,
+          flow: 'standard'
+        }
+      })
     } catch {
       agentV2Messages.value.push(makeMessage('assistant', t('chat.streamError')))
     } finally {
