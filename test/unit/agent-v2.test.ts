@@ -2,6 +2,11 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+  AGENT_V2_ASK_GOAL_KEY,
+  AGENT_V2_ASK_REPORT_KEY,
+  AGENT_V2_ASK_VITALS_KEY,
+  AGENT_V2_CHOOSE_OPTION_KEY,
+  AGENT_V2_CONFIRM_REPORT_DATE_KEY,
   AGENT_V2_OFFER_RECOMMEND_KEY,
   AGENT_V2_RECOMMENDATIONS_PATH,
   AGENT_V2_REQUIREMENTS,
@@ -9,6 +14,7 @@ import {
   agentV2ApiBase,
   agentV2RequirementDone,
   isAgentV2EnabledFlag,
+  isConfirmReportDateAction,
   isOfferRecommendAction,
   normalizeAgentV2Actions,
   normalizeAgentV2Missing,
@@ -46,10 +52,20 @@ describe('agent-v2 helpers', () => {
       { key: 'offer_recommend', label: '取得專屬保健品方案' },
       { key: ' ', label: 'x' },
       { key: 'ask_more', label: '再聊聊' },
+      {
+        key: 'ask_vitals',
+        label: '基本身體資料',
+        payload: { fields: ['age', 'height'] }
+      },
       null
     ])).toEqual([
       { key: 'offer_recommend', label: '取得專屬保健品方案' },
-      { key: 'ask_more', label: '再聊聊' }
+      { key: 'ask_more', label: '再聊聊' },
+      {
+        key: 'ask_vitals',
+        label: '基本身體資料',
+        payload: { fields: ['age', 'height'] }
+      }
     ])
   })
 
@@ -65,6 +81,7 @@ describe('agent-v2 helpers', () => {
     expect(AGENT_V2_RECOMMENDATIONS_PATH).toBe('/app/recommendations')
     expect(isOfferRecommendAction({ key: 'offer_recommend' })).toBe(true)
     expect(isOfferRecommendAction({ key: 'other' })).toBe(false)
+    expect(isConfirmReportDateAction({ key: AGENT_V2_CONFIRM_REPORT_DATE_KEY })).toBe(true)
   })
 
   it('maps offer_recommend actions into reply_actions for ChatPanel／TurnActions', () => {
@@ -86,6 +103,59 @@ describe('agent-v2 helpers', () => {
           path: '/app/recommendations'
         }
       }]
+    })
+  })
+
+  it('projects ask_vitals／ask_report／ask_goal／choose_option／confirm_report_date', () => {
+    const projected = agentV2ActionsToReplyActions([
+      { key: AGENT_V2_ASK_VITALS_KEY, label: '身體資料', payload: { fields: ['age'] } },
+      { key: AGENT_V2_ASK_REPORT_KEY, label: '上傳報告' },
+      { key: AGENT_V2_ASK_GOAL_KEY, label: '選擇目標' },
+      {
+        key: AGENT_V2_CHOOSE_OPTION_KEY,
+        label: '性別',
+        payload: {
+          kind: 'profile',
+          gap_code: 'sex',
+          mode: 'single',
+          options: [
+            { code: 'female', label: '女性' },
+            { code: 'male', label: '男性' }
+          ]
+        }
+      },
+      { key: AGENT_V2_CONFIRM_REPORT_DATE_KEY, label: '確認報告日期無誤' }
+    ])
+    expect(projected).not.toBeNull()
+    const types = projected!.actions.map(action => action.type)
+    expect(types).toEqual([
+      'ask_vitals',
+      'ask_report',
+      'ask_goal',
+      'choose_option',
+      'choose_option'
+    ])
+    expect(projected!.actions[0]!.payload).toMatchObject({ fields: ['age'] })
+    expect(projected!.actions[3]!.payload).toMatchObject({
+      kind: 'profile',
+      gap_code: 'sex'
+    })
+    expect(projected!.actions[4]!.payload).toMatchObject({
+      kind: 'free',
+      mode: 'single',
+      options: [{
+        code: AGENT_V2_CONFIRM_REPORT_DATE_KEY,
+        label: '確認報告日期無誤'
+      }]
+    })
+  })
+
+  it('defaults ask_vitals fields when payload omits them', () => {
+    const projected = agentV2ActionsToReplyActions([
+      { key: AGENT_V2_ASK_VITALS_KEY, label: '身體資料' }
+    ])
+    expect(projected!.actions[0]!.payload).toMatchObject({
+      fields: ['age', 'height', 'weight']
     })
   })
 
@@ -152,6 +222,14 @@ describe('agent-v2 isolation wiring', () => {
     expect(chatPanel).not.toMatch(/:open="!isAgentV2\s*&&\s*reportDockVisible"/)
     expect(chatPanel).toMatch(/restoreAgentV2ReportDock/)
     expect(chatPanel).toMatch(/pickReadyHealthReportId/)
+  })
+
+  it('projects expanded v2 actions and guards v1 conversation writes', () => {
+    expect(chatPanel).toMatch(/applyReplyActionsInteraction/)
+    expect(chatPanel).toMatch(/postAgentV2ActionKey/)
+    expect(chatPanel).toMatch(/AGENT_V2_CONFIRM_REPORT_DATE_KEY/)
+    expect(chatPanel).toMatch(/LY1：paint AskVitals/)
+    expect(chatPanel).toMatch(/LY1：goals／multi chips paint/)
   })
 
   it('leaves the default /chat page on the v1 ChatPanel path (no mode=v2)', () => {

@@ -474,9 +474,11 @@ import {
   resolveAskInterpretI18nKey
 } from '~/utils/stream-message'
 import {
+  AGENT_V2_CONFIRM_REPORT_DATE_KEY,
   AGENT_V2_CONVERSATION_STORAGE_KEY,
   AGENT_V2_RECOMMENDATIONS_PATH,
   agentV2ActionsToReplyActions,
+  isConfirmReportDateAction,
   pickReadyHealthReportId,
   type AgentV2TurnResult
 } from '~/utils/agent-v2'
@@ -1120,16 +1122,46 @@ function applyAgentV2Turn(turn: AgentV2TurnResult, opts: { appendUserText?: stri
     agentV2Messages.value.push(makeMessage('user', opts.appendUserText))
   }
 
+  const replyActions = agentV2ActionsToReplyActions(turn.actions)
   if (turn.reply.text) {
     const assistant = makeMessage('assistant', turn.reply.text)
-    assistant.replyActions = agentV2ActionsToReplyActions(turn.actions)
+    if (replyActions) {
+      assistant.replyActions = replyActions
+      applyReplyActionsInteraction(assistant, replyActions)
+    }
     agentV2Messages.value.push(assistant)
-  } else if (turn.actions.length > 0) {
+  } else if (replyActions) {
     // Actions without reply text: attach to the latest assistant bubble when present.
     const last = [...agentV2Messages.value].reverse().find(message => message.role === 'assistant')
     if (last) {
-      last.replyActions = agentV2ActionsToReplyActions(turn.actions)
+      last.replyActions = replyActions
+      applyReplyActionsInteraction(last, replyActions)
     }
+  }
+}
+
+/**
+ * LY1: confirm_report_date posts to `/api/v2/.../actions` only (v2 meta).
+ * Profile／goals／upload writes land in LY2–LY3 — never create a v1 conversation here.
+ */
+async function postAgentV2ActionKey(key: string, displayLabel?: string) {
+  const conversationId = agentV2ConversationId.value
+  if (!conversationId || pending.value) {
+    return
+  }
+  if (displayLabel) {
+    agentV2Messages.value.push(makeMessage('user', displayLabel))
+  }
+  pending.value = true
+  try {
+    const turn = await agentV2Api.postAction(conversationId, key)
+    applyAgentV2Turn(turn)
+    await nextTick()
+    scrollToLatest('smooth')
+  } catch {
+    agentV2Messages.value.push(makeMessage('assistant', t('chat.streamError')))
+  } finally {
+    pending.value = false
   }
 }
 
@@ -2635,6 +2667,10 @@ async function onVitalsSubmit(values: Partial<Record<VitalsField, number>>) {
   if (pending.value || readonly.value || escalated.value) {
     return
   }
+  // LY1：paint AskVitals; LY3 wires v1 profile write + v2 refresh (no v1 conversation).
+  if (isAgentV2.value) {
+    return
+  }
   // Vitals card only paints on the latest bubble's own ask_vitals (no bank lift).
   const host = [...journey.messages].reverse().find(m => m.role === 'assistant')
   if (!host) {
@@ -2830,6 +2866,45 @@ function onChoice(option: GreetingOption, hostMessage?: ChatMessage) {
     return
   }
 
+  if (isAgentV2.value) {
+    // confirm_report_date → POST /api/v2/.../actions (design §7; no health_reports UPDATE).
+    if (option.code === AGENT_V2_CONFIRM_REPORT_DATE_KEY
+      || isConfirmReportDateAction({ key: option.code })) {
+      void postAgentV2ActionKey(AGENT_V2_CONFIRM_REPORT_DATE_KEY, option.label)
+      return
+    }
+    // Multi-select chips (goals／profile): toggle selection only; confirm → LY3 write.
+    const host = hostMessage
+      ?? [...agentV2Messages.value].reverse().find(message => message.role === 'assistant')
+    const exclusive = host ? exclusiveCodesFor(host) : ['none', 'none_of_above']
+    const projection = host ? turnActionsFor(host).replyProjection : null
+    const multi = Boolean(
+      projection?.askGoal
+      || projection?.chooseOption?.kind === 'consultation_goals'
+      || projection?.chooseOption?.mode === 'multi'
+      || projection?.chooseOption?.confirm === true
+    )
+    if (multi) {
+      if (exclusive.includes(option.code)) {
+        selectedCodes.value = [option.code]
+        return
+      }
+      const withoutNone = selectedCodes.value.filter(code => !exclusive.includes(code))
+      selectedCodes.value = withoutNone.includes(option.code)
+        ? withoutNone.filter(code => code !== option.code)
+        : [...withoutNone, option.code]
+      return
+    }
+    // Single-select profile chips (e.g. sex): select only in LY1; LY3 posts profile API.
+    if (projection?.chooseOption?.kind === 'profile') {
+      selectedCodes.value = [option.code]
+      return
+    }
+    // Unknown chip: echo as v2 user text (never v1 stream／ensureConversation).
+    void sendAgentV2Text(option.label)
+    return
+  }
+
   // Path contract: 進站三選（reply_actions codes a／b／c 或 fallback A／B／C）
   if (pathEntryPending.value) {
     const entryPath = normalizeConversationPath(option.code)
@@ -2936,6 +3011,11 @@ function onChoice(option: GreetingOption, hostMessage?: ChatMessage) {
 
 async function confirmMultiSelection() {
   if (selectedCodes.value.length === 0 || pending.value) {
+    return
+  }
+
+  // LY1：goals／multi chips paint + select; LY3 writes v1 profile／goals then v2 refresh.
+  if (isAgentV2.value) {
     return
   }
 

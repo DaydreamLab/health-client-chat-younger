@@ -129,6 +129,51 @@ test('agent v2 gathering state has no offer_recommend until backend sends it', a
   await expect(page.getByTestId('chat-view-recommend')).toHaveCount(0)
 })
 
+test('agent v2 projects ask_vitals／ask_report／confirm_report_date from actions', async ({
+  page,
+  goto
+}) => {
+  await mockAgentV2Api(page, 'collecting_actions')
+  await page.setViewportSize({ width: 390, height: 844 })
+  await goto('/chat/v2', { waitUntil: 'hydration' })
+
+  await expect(page.getByTestId('chat-transcript')).toBeVisible({ timeout: 15_000 })
+  await page.getByTestId('chat-input').fill('開始補資料')
+  await page.getByTestId('chat-send').click()
+
+  // AskVitals card (age picker) from ask_vitals action.
+  await expect(page.getByTestId('chat-vitals-age-picker')).toBeVisible({ timeout: 15_000 })
+  // ask_report paints upload CTA (disabled until LY2 enables canOfferUpload for v2).
+  await expect(page.getByTestId('chat-message-upload')).toBeVisible({ timeout: 15_000 })
+  // confirm_report_date chip → POST /actions only.
+  const confirmDate = page.getByTestId('chat-quiz-option-confirm_report_date')
+  await expect(confirmDate).toBeVisible({ timeout: 15_000 })
+  await confirmDate.click()
+  await expect(page.getByTestId('chat-transcript')).toContainText('報告日期已記下', {
+    timeout: 15_000
+  })
+  await expect(page.getByTestId('chat-view-recommend')).toHaveCount(0)
+
+  await page.screenshot({
+    path: e2eArtifactPath('agent-v2-collecting-actions-390.png'),
+    fullPage: true
+  })
+})
+
+test('agent v2 projects ask_goal chips from actions', async ({ page, goto }) => {
+  await mockAgentV2Api(page, 'goals')
+  await goto('/chat/v2', { waitUntil: 'hydration' })
+
+  await expect(page.getByTestId('chat-transcript')).toBeVisible({ timeout: 15_000 })
+  await page.getByTestId('chat-input').fill('選目標')
+  await page.getByTestId('chat-send').click()
+
+  await expect(page.getByTestId('chat-quiz-option-sleep')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('chat-quiz-confirm')).toBeVisible({ timeout: 15_000 })
+  await page.getByTestId('chat-quiz-option-sleep').click()
+  await expect(page.getByTestId('chat-quiz-option-sleep')).toHaveClass(/is-selected/)
+})
+
 test('existing home and chat surfaces have no agent v2 entry', async ({ page, goto }) => {
   await mockAgentV2Api(page, 'ready')
   await goto('/', { waitUntil: 'hydration' })
