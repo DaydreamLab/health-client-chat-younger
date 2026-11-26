@@ -1129,5 +1129,17 @@
     "labelZh": "中文",
     "ariaEn": "Language: EN",
     "ariaZh": "語言：繁中"
+  },
+  "agentV2": {
+    "title": "Health consult",
+    "placeholder": "Type anything you want to add…",
+    "send": "Send",
+    "pending": "Preparing a reply",
+    "errorGeneric": "Something went wrong. Please try again shortly.",
+    "requirements": {
+      "profile": "Profile",
+      "report": "Report",
+      "goals": "Goals"
+    }
   }
 }

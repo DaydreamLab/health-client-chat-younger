@@ -49,7 +49,13 @@ export default defineNuxtConfig({
        * completion CTA gates, upload→C, A turn guides. Set
        * NUXT_PUBLIC_PATH_CONTRACT=0 to disable without rebuild of defaults.
        */
-      pathContract: process.env.NUXT_PUBLIC_PATH_CONTRACT !== '0'
+      pathContract: process.env.NUXT_PUBLIC_PATH_CONTRACT !== '0',
+      /**
+       * Candor agent v2 UI (`/app/v2`). Default off. Set
+       * NUXT_PUBLIC_AGENT_V2_ENABLED=1 for beta. When false, middleware 404s
+       * the route; no nav entry is wired into existing pages.
+       */
+      agentV2Enabled: process.env.NUXT_PUBLIC_AGENT_V2_ENABLED === '1'
     }
   },
 
@@ -70,6 +76,9 @@ export default defineNuxtConfig({
     // router appears to "stay on /". Hard-open still needs the CF Function.
     '/login': { ssr: false },
     '/en/login': { ssr: false },
+    // Agent v2 is auth + client-gated (feature flag). CSR shell like /chat.
+    '/app/v2': { ssr: false },
+    '/en/app/v2': { ssr: false },
     // Dynamic `[param]` shells at `/…/_` — see docs/cloudfront-www-index-rewrite.md.
     ...dynamicShellRouteRules()
     // Do NOT set `/app/**` or `/en/app/**` to prerender:false.
@@ -114,6 +123,8 @@ export default defineNuxtConfig({
         '/en/app/recommendations',
         '/app/me',
         '/en/app/me',
+        '/app/v2',
+        '/en/app/v2',
         '/app/notifications',
         '/en/app/notifications',
         '/app/renewals',
