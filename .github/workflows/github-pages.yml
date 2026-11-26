@@ -48,6 +48,8 @@ jobs:
           NUXT_PUBLIC_FE_SHA: ${{ github.sha }}
           # Beta support inbox (Irice: beta uses this; prod omits).
           NUXT_PUBLIC_SUPPORT_EMAIL: candor-ai@daydream-lab.com
+          # Agent v2 /app/v2 畫面（僅 beta；prod 不設，預設關）。
+          NUXT_PUBLIC_AGENT_V2_ENABLED: '1'
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
