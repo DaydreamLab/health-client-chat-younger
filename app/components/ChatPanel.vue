@@ -605,9 +605,9 @@ function queryOrderId(value: unknown) {
 
 const orderId = computed(() => queryOrderId(route.query.orderId))
 const readonly = computed(() => Boolean(orderId.value))
+/** Upload CTA／composer attach: allowed on /chat and /chat/v2 (member gate via canUpload). */
 const canOfferUpload = computed(() =>
-  !isAgentV2.value
-  && !readonly.value
+  !readonly.value
   && !escalated.value
   && !reportInFlight.value
 )
@@ -3391,7 +3391,10 @@ async function confirmPhotoTray() {
   reportRetryId.value = null
 
   try {
-    await ensureConversation()
+    // v2: upload via v1 HealthReport API only — no ensureConversation／attachReport.
+    if (!isAgentV2.value) {
+      await ensureConversation()
+    }
     const uploaded = await candor.uploadHealthReportFiles(compressed)
     journey.reportId = uploaded.id
     reportPollStatus.value = uploaded.status || 'uploaded'
@@ -3475,7 +3478,40 @@ async function streamReportUploadedAck(): Promise<{ ok: boolean, assistantId: st
   return streamPending()
 }
 
+/**
+ * LY2: after member upload via v1 HealthReport API, open the shared dock and
+ * refresh the v2 agent (probe sees the new report). Never attachReport /
+ * ensureConversation / v1 stream.
+ */
+async function bindAgentV2Report(reportId: string) {
+  journey.reportId = reportId
+  journey.hasAnalysis = true
+  reportAskActive.value = false
+  journey.reportInterpretSent = false
+  reportRetryId.value = null
+  reportPollStatus.value = null
+  openReportDock()
+
+  if (!reportResults.value.length) {
+    try {
+      const fresh = await candor.getHealthReport(reportId)
+      rememberReport(fresh)
+    } catch {
+      // dock may stay empty until reopen
+    }
+  }
+
+  // Tell the v2 loop a report is ready (core probe_requirements on next turn).
+  const ack = t('chat.reportUploadedAck')
+  await sendAgentV2Text(ack)
+}
+
 async function bindAndInterpret(reportId: string) {
+  if (isAgentV2.value) {
+    await bindAgentV2Report(reportId)
+    return
+  }
+
   const conversationId = await ensureConversation()
   let attached = false
   let attachAck: Awaited<ReturnType<typeof candor.attachReport>> | null = null
@@ -3608,7 +3644,10 @@ async function onFile(event: Event) {
   reportRetryId.value = null
 
   try {
-    await ensureConversation()
+    // v2: upload via v1 HealthReport API only — no ensureConversation／attachReport.
+    if (!isAgentV2.value) {
+      await ensureConversation()
+    }
     const uploaded = await candor.uploadHealthReport(file)
     journey.reportId = uploaded.id
     reportPollStatus.value = uploaded.status || 'uploaded'
