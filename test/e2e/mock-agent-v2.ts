@@ -8,6 +8,7 @@ export type AgentV2MockMode
     | 'collecting_actions'
     | 'goals'
     | 'sex'
+    | 'report'
     | 'fail_once'
     | 'citations'
 
@@ -54,12 +55,67 @@ const sexActions: MockAction[] = [
 ]
 
 /**
+ * Real core report-bank shape (v1 reply_actions + action_key):
+ * ask_report option_codes + choose_option kind:lab_report with zh chips.
+ */
+const reportAskActions: MockAction[] = [
+  {
+    key: 'ask_report',
+    label: '是否有血檢或健檢報告？',
+    payload: {
+      option_codes: ['within_6m', 'within_1y', '1_to_3y', 'over_3y', 'none']
+    }
+  },
+  {
+    key: 'choose_option',
+    label: '是否有血檢或健檢報告？',
+    payload: {
+      kind: 'lab_report',
+      mode: 'single',
+      confirm: false,
+      gap_code: 'lab_report',
+      action_key: 'choose_option',
+      answer_type: 'enum',
+      source: 'questionnaire',
+      exclusive_codes: [],
+      selected: [],
+      options: [
+        { code: 'within_6m', label: '半年內' },
+        { code: 'within_1y', label: '一年內' },
+        { code: '1_to_3y', label: '三年內' },
+        { code: 'over_3y', label: '三年以上' },
+        { code: 'none', label: '無' }
+      ]
+    }
+  }
+]
+
+/** v1 LabFollowup after lab_report none／over_3y (upload + book a lab test). */
+const labFollowupActions: MockAction[] = [
+  {
+    key: 'choose_option',
+    label: '上傳報告或去做檢查',
+    payload: {
+      kind: 'lab_followup',
+      mode: 'single',
+      confirm: false,
+      action_key: 'choose_option',
+      options: [
+        { code: 'upload', label: '上傳報告', maps_to: 'ask_report' },
+        { code: 'go_checkup', label: '我想檢查', maps_to: 'offer_checkup' }
+      ]
+    }
+  }
+]
+
+/**
  * Mock `/api/v2/conversations*` only. Does not call a real model.
  * `ready` = three requirements done + offer_recommend action.
  * `gathering` = missing all three, no CTAs.
  * `collecting_actions` = collecting with ask_vitals／ask_report／confirm_report_date.
  * `goals` = ask_goals; CTA answers advance to sex → vitals (cta_answer path).
  * `sex` = real-shape sex choose_option first (kind:"sex"); answers → vitals.
+ * `report` = real-shape ask_report + lab_report chips; none／over_3y → lab_followup.
  * `fail_once` = first POST messages returns 500; subsequent succeed (LY5 retry).
  */
 export async function mockAgentV2Api(
@@ -72,7 +128,9 @@ export async function mockAgentV2Api(
       ? ['goals']
       : mode === 'sex'
         ? ['profile']
-        : ['profile', 'report', 'goals']
+        : mode === 'report'
+          ? ['report']
+          : ['profile', 'report', 'goals']
   let state = mode === 'ready' || mode === 'fail_once' || mode === 'citations'
     ? 'cta_offered'
     : 'collecting'
@@ -150,7 +208,9 @@ export async function mockAgentV2Api(
           ? goalsOnlyActions
           : mode === 'sex'
             ? sexActions
-            : []
+            : mode === 'report'
+              ? reportAskActions
+              : []
 
   const greeting = mode === 'ready' || mode === 'fail_once'
     ? '三要件都齊了。可以取得專屬保健品方案。'
@@ -162,7 +222,9 @@ export async function mockAgentV2Api(
           ? '請選擇健康目標。'
           : mode === 'sex'
             ? '請問生理性別？'
-            : '先從基本資料、報告與目標開始。'
+            : mode === 'report'
+              ? '是否有血檢或健檢報告？'
+              : '先從基本資料、報告與目標開始。'
 
   let messages: MockMessage[] = [
     {
@@ -187,6 +249,31 @@ export async function mockAgentV2Api(
       return {
         replyText: '已記下目標。請問生理性別？',
         nextActions: sexActions
+      }
+    }
+
+    if (gapCode === 'lab_report') {
+      const value = String(cta?.value ?? '')
+      missing = missing.filter(item => item !== 'report')
+      if (value === 'none' || value === 'over_3y') {
+        return {
+          replyText: '目前沒有近期報告的話，可以上傳舊報告，或去做一次檢查。',
+          nextActions: labFollowupActions
+        }
+      }
+      if (value === 'within_6m' || value === 'within_1y') {
+        return {
+          replyText: '好的，請上傳您的報告。',
+          nextActions: [{
+            key: 'ask_report',
+            label: '上傳健康報告',
+            payload: { option_codes: ['upload'] }
+          }]
+        }
+      }
+      return {
+        replyText: '已記下報告狀況。',
+        nextActions: []
       }
     }
 
@@ -265,6 +352,12 @@ export async function mockAgentV2Api(
       return {
         replyText: '已收到。請問生理性別？',
         nextActions: lastActions.length > 0 ? lastActions : sexActions
+      }
+    }
+    if (mode === 'report') {
+      return {
+        replyText: '是否有血檢或健檢報告？',
+        nextActions: lastActions.length > 0 ? lastActions : reportAskActions
       }
     }
     return {

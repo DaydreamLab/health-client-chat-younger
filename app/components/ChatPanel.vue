@@ -706,7 +706,10 @@ const messages = computed(() => {
  * greeting.reply_actions path_switch. Legacy／hydrate with user turns → no overlay.
  */
 const pathEntryPending = computed(() =>
-  pathContractEnabled.value
+  // v2 has no A／B／C entry path; do not treat a path-less greeting as
+  // path-entry (that would suppress ask_report bubble upload).
+  !isAgentV2.value
+  && pathContractEnabled.value
   && !readonly.value
   && !isStandardFlow.value
   && conversationPath.value == null
@@ -715,6 +718,12 @@ const pathEntryPending = computed(() =>
 )
 
 const labReportQuizActive = computed(() => {
+  // v2 report bank paints ask_report upload + lab_report chips together (same
+  // dual-action shape as core); do not suppress upload the way path-contract
+  // v1 does while the quiz is open. v1 /chat behavior stays unchanged.
+  if (isAgentV2.value) {
+    return false
+  }
   if (!pathContractEnabled.value || !reportAskActive.value) {
     return false
   }

@@ -122,6 +122,9 @@ export function resolveAgentV2ProfileCtaGapCode(payload: {
     if (kind === 'profile') {
       return 'sex'
     }
+    if (kind === 'lab_report') {
+      return 'lab_report'
+    }
     if (AGENT_V2_PROFILE_CTA_GAP_CODES.has(kind)) {
       return kind
     }
@@ -131,19 +134,24 @@ export function resolveAgentV2ProfileCtaGapCode(payload: {
 
 /**
  * True when a choose_option payload should submit as v2 `{ content, cta_answer }`
- * (single-select profile chips). Non-gap kinds (free／continue／goals multi, etc.)
- * are excluded — goals use the confirm path; vitals use ask_vitals.
+ * (single-select profile／lab_report chips). Non-gap kinds (free／continue／goals
+ * multi, etc.) are excluded — goals use the confirm path; vitals use ask_vitals.
+ * `lab_report` is a required-ask single-tap chip (same cta_answer path as sex).
  */
 export function isAgentV2ProfileCtaChooseOption(payload: {
   gap_code?: unknown
   gaps?: unknown
   kind?: unknown
 } | null | undefined): boolean {
+  const kind = typeof payload?.kind === 'string' ? payload.kind.trim() : ''
   const gapCode = resolveAgentV2ProfileCtaGapCode(payload)
-  if (!gapCode || gapCode === 'lab_report' || gapCode === 'goals') {
+  // Report bank chips (kind／gap_code lab_report) → cta_answer, never plain text.
+  if (gapCode === 'lab_report' || kind === 'lab_report') {
+    return true
+  }
+  if (!gapCode || gapCode === 'goals') {
     return false
   }
-  const kind = typeof payload?.kind === 'string' ? payload.kind.trim() : ''
   if (kind && NON_GAP_CHOOSE_OPTION_KINDS.has(kind)) {
     return false
   }
@@ -585,7 +593,10 @@ function projectOne(action: AgentV2Action): ReplyAction | null {
     case AGENT_V2_ASK_VITALS_KEY:
       return projectAskVitals(action)
     case AGENT_V2_ASK_REPORT_KEY:
-      return { type: 'ask_report', payload: {} }
+      return {
+        type: 'ask_report',
+        payload: isRecord(action.payload) ? { ...action.payload } : {}
+      }
     case AGENT_V2_ASK_GOAL_KEY:
       return projectAskGoal(action)
     case AGENT_V2_ASK_GOALS_KEY:
