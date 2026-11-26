@@ -7,6 +7,7 @@ export type AgentV2MockMode
     | 'ready'
     | 'collecting_actions'
     | 'goals'
+    | 'sex'
     | 'fail_once'
     | 'citations'
 
@@ -29,14 +30,19 @@ type MockCtaAnswer = {
   value?: unknown
 }
 
-/** Sex choose_option after goals confirm (zh labels in payload). */
+/**
+ * Real core sex CTA shape (not kind:'profile'):
+ * kind:"sex", gaps:["sex"], gap_code, action_key + zh option labels.
+ */
 const sexActions: MockAction[] = [
   {
     key: 'choose_option',
     label: '生理性別',
     payload: {
-      kind: 'profile',
+      kind: 'sex',
+      gaps: ['sex'],
       gap_code: 'sex',
+      action_key: 'choose_option',
       mode: 'single',
       confirm: false,
       options: [
@@ -53,6 +59,7 @@ const sexActions: MockAction[] = [
  * `gathering` = missing all three, no CTAs.
  * `collecting_actions` = collecting with ask_vitals／ask_report／confirm_report_date.
  * `goals` = ask_goals; CTA answers advance to sex → vitals (cta_answer path).
+ * `sex` = real-shape sex choose_option first (kind:"sex"); answers → vitals.
  * `fail_once` = first POST messages returns 500; subsequent succeed (LY5 retry).
  */
 export async function mockAgentV2Api(
@@ -63,7 +70,9 @@ export async function mockAgentV2Api(
     ? [] as string[]
     : mode === 'goals'
       ? ['goals']
-      : ['profile', 'report', 'goals']
+      : mode === 'sex'
+        ? ['profile']
+        : ['profile', 'report', 'goals']
   let state = mode === 'ready' || mode === 'fail_once' || mode === 'citations'
     ? 'cta_offered'
     : 'collecting'
@@ -88,7 +97,9 @@ export async function mockAgentV2Api(
       label: '選擇健康目標',
       payload: {
         kind: 'consultation_goals',
+        gaps: ['goals'],
         gap_code: 'goals',
+        action_key: 'ask_goals',
         min: 1,
         options: [
           { code: 'sleep', label: '睡眠' },
@@ -105,7 +116,12 @@ export async function mockAgentV2Api(
     {
       key: 'ask_vitals',
       label: '基本身體資料',
-      payload: { fields: ['age'], gap_code: 'age' }
+      payload: {
+        fields: ['age'],
+        gaps: ['age'],
+        gap_code: 'age',
+        action_key: 'ask_vitals'
+      }
     }
   ]
 
@@ -132,7 +148,9 @@ export async function mockAgentV2Api(
         ? collectingActions
         : mode === 'goals'
           ? goalsOnlyActions
-          : []
+          : mode === 'sex'
+            ? sexActions
+            : []
 
   const greeting = mode === 'ready' || mode === 'fail_once'
     ? '三要件都齊了。可以取得專屬保健品方案。'
@@ -142,7 +160,9 @@ export async function mockAgentV2Api(
         ? '請補齊基本資料與報告。也可先確認報告日期。'
         : mode === 'goals'
           ? '請選擇健康目標。'
-          : '先從基本資料、報告與目標開始。'
+          : mode === 'sex'
+            ? '請問生理性別？'
+            : '先從基本資料、報告與目標開始。'
 
   let messages: MockMessage[] = [
     {
@@ -185,7 +205,12 @@ export async function mockAgentV2Api(
           nextActions: [{
             key: 'ask_vitals',
             label: '基本身體資料',
-            payload: { fields: ['height'], gap_code: 'height' }
+            payload: {
+              fields: ['height'],
+              gaps: ['height'],
+              gap_code: 'height',
+              action_key: 'ask_vitals'
+            }
           }]
         }
       }
@@ -195,7 +220,12 @@ export async function mockAgentV2Api(
           nextActions: [{
             key: 'ask_vitals',
             label: '基本身體資料',
-            payload: { fields: ['weight'], gap_code: 'weight' }
+            payload: {
+              fields: ['weight'],
+              gaps: ['weight'],
+              gap_code: 'weight',
+              action_key: 'ask_vitals'
+            }
           }]
         }
       }
@@ -229,6 +259,12 @@ export async function mockAgentV2Api(
       return {
         replyText: '已收到。請選擇目標後確認。',
         nextActions: lastActions.length > 0 ? lastActions : goalsOnlyActions
+      }
+    }
+    if (mode === 'sex') {
+      return {
+        replyText: '已收到。請問生理性別？',
+        nextActions: lastActions.length > 0 ? lastActions : sexActions
       }
     }
     return {

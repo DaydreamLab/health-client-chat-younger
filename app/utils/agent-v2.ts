@@ -1,7 +1,10 @@
 /** Candor agent v2 (isolated) — types and pure helpers. */
 
 import type { ReplyActions, ReplyAction, VitalsField } from './reply-actions'
-import { OFFER_EXPERT_BOOKING_DEFAULT_PATH } from './reply-actions'
+import {
+  NON_GAP_CHOOSE_OPTION_KINDS,
+  OFFER_EXPERT_BOOKING_DEFAULT_PATH
+} from './reply-actions'
 import { defaultConsultationGoalOptions } from './consultation-goal-defaults'
 
 export const AGENT_V2_REQUIREMENTS = ['profile', 'report', 'goals'] as const
@@ -77,6 +80,108 @@ export function buildAgentV2CtaMessageBody(
   }
 }
 
+/**
+ * Profile CTA gap codes (sex／vitals／goals). Core may send `kind` equal to the
+ * gap (e.g. `kind: "sex"`) rather than `kind: "profile"`.
+ */
+export const AGENT_V2_PROFILE_CTA_GAP_CODES = new Set([
+  'sex',
+  'age',
+  'height',
+  'weight',
+  'goals',
+  'vitals'
+])
+
+/**
+ * Resolve `gap_code` for a v2 profile CTA payload.
+ * Prefer `gap_code`; fall back to `gaps[0]`; then `kind` when it names a known
+ * gap (older core sex CTA: `kind: "sex"` without `gap_code`).
+ * Legacy `kind: "profile"` without gap_code defaults to `sex`.
+ */
+export function resolveAgentV2ProfileCtaGapCode(payload: {
+  gap_code?: unknown
+  gaps?: unknown
+  kind?: unknown
+} | null | undefined): string | null {
+  if (!payload || typeof payload !== 'object') {
+    return null
+  }
+  if (typeof payload.gap_code === 'string' && payload.gap_code.trim()) {
+    return payload.gap_code.trim()
+  }
+  if (Array.isArray(payload.gaps)) {
+    for (const item of payload.gaps) {
+      if (typeof item === 'string' && item.trim()) {
+        return item.trim()
+      }
+    }
+  }
+  if (typeof payload.kind === 'string' && payload.kind.trim()) {
+    const kind = payload.kind.trim()
+    if (kind === 'profile') {
+      return 'sex'
+    }
+    if (AGENT_V2_PROFILE_CTA_GAP_CODES.has(kind)) {
+      return kind
+    }
+  }
+  return null
+}
+
+/**
+ * True when a choose_option payload should submit as v2 `{ content, cta_answer }`
+ * (single-select profile chips). Non-gap kinds (free／continue／goals multi, etc.)
+ * are excluded — goals use the confirm path; vitals use ask_vitals.
+ */
+export function isAgentV2ProfileCtaChooseOption(payload: {
+  gap_code?: unknown
+  gaps?: unknown
+  kind?: unknown
+} | null | undefined): boolean {
+  const gapCode = resolveAgentV2ProfileCtaGapCode(payload)
+  if (!gapCode || gapCode === 'lab_report' || gapCode === 'goals') {
+    return false
+  }
+  const kind = typeof payload?.kind === 'string' ? payload.kind.trim() : ''
+  if (kind && NON_GAP_CHOOSE_OPTION_KINDS.has(kind)) {
+    return false
+  }
+  return true
+}
+
+/**
+ * Build the outgoing v2 message body for a single-select profile chip
+ * (real core shapes: `kind: "sex"` + `gap_code`／`gaps`／`action_key`).
+ */
+export function buildAgentV2ProfileChoiceCtaBody(input: {
+  actionKey: string
+  payload: {
+    gap_code?: unknown
+    gaps?: unknown
+    kind?: unknown
+    action_key?: unknown
+  }
+  option: { code: string, label: string }
+}): { content: string, cta_answer: AgentV2CtaAnswer } | null {
+  if (!isAgentV2ProfileCtaChooseOption(input.payload)) {
+    return null
+  }
+  const gapCode = resolveAgentV2ProfileCtaGapCode(input.payload)
+  if (!gapCode) {
+    return null
+  }
+  const actionKey = typeof input.payload.action_key === 'string'
+    && input.payload.action_key.trim()
+    ? input.payload.action_key.trim()
+    : input.actionKey
+  return buildAgentV2CtaMessageBody(input.option.label, {
+    action_key: actionKey,
+    gap_code: gapCode,
+    value: input.option.code
+  })
+}
+
 export const AGENT_V2_OFFER_RECOMMEND_KEY = 'offer_recommend'
 export const AGENT_V2_ASK_VITALS_KEY = 'ask_vitals'
 export const AGENT_V2_ASK_REPORT_KEY = 'ask_report'
@@ -88,6 +193,71 @@ export const AGENT_V2_ASK_GOAL_KEY = 'ask_goal'
 export const AGENT_V2_ASK_GOALS_KEY = 'ask_goals'
 export const AGENT_V2_CHOOSE_OPTION_KEY = 'choose_option'
 export const AGENT_V2_CONFIRM_REPORT_DATE_KEY = 'confirm_report_date'
+
+/**
+ * Contract helper: run a real-shape v2 CTA action + answer through the same
+ * body-building path ChatPanel uses for profile／goals／vitals submits.
+ */
+export function buildAgentV2CtaSubmitBody(
+  action: AgentV2Action,
+  answer: { content: string, value: AgentV2CtaAnswer['value'] }
+): { content: string, cta_answer: AgentV2CtaAnswer } | null {
+  const payload = action.payload && typeof action.payload === 'object'
+    ? action.payload
+    : {}
+  if (action.key === AGENT_V2_ASK_GOALS_KEY
+    || (payload as { kind?: unknown }).kind === 'consultation_goals') {
+    const gapCode = resolveAgentV2ProfileCtaGapCode({
+      ...payload,
+      kind: 'goals',
+      gap_code: (payload as { gap_code?: unknown }).gap_code ?? 'goals'
+    }) || 'goals'
+    const actionKey = typeof (payload as { action_key?: unknown }).action_key === 'string'
+      && String((payload as { action_key?: unknown }).action_key).trim()
+      ? String((payload as { action_key: string }).action_key).trim()
+      : action.key
+    return buildAgentV2CtaMessageBody(answer.content, {
+      action_key: actionKey,
+      gap_code: gapCode,
+      value: answer.value
+    })
+  }
+  if (action.key === AGENT_V2_ASK_VITALS_KEY) {
+    const gapCode = resolveAgentV2ProfileCtaGapCode(payload)
+      || (Array.isArray((payload as { fields?: unknown }).fields)
+        && typeof (payload as { fields: unknown[] }).fields[0] === 'string'
+        ? String((payload as { fields: string[] }).fields[0])
+        : null)
+    if (!gapCode) {
+      return null
+    }
+    const actionKey = typeof (payload as { action_key?: unknown }).action_key === 'string'
+      && String((payload as { action_key?: unknown }).action_key).trim()
+      ? String((payload as { action_key: string }).action_key).trim()
+      : action.key
+    return buildAgentV2CtaMessageBody(answer.content, {
+      action_key: actionKey,
+      gap_code: gapCode,
+      value: answer.value
+    })
+  }
+  if (action.key === AGENT_V2_CHOOSE_OPTION_KEY
+    || isAgentV2ProfileCtaChooseOption(payload)) {
+    const optionCode = typeof answer.value === 'string'
+      ? answer.value
+      : String(answer.value)
+    return buildAgentV2ProfileChoiceCtaBody({
+      actionKey: action.key,
+      payload: {
+        ...payload,
+        action_key: (payload as { action_key?: unknown }).action_key ?? action.key
+      },
+      option: { code: optionCode, label: answer.content }
+    })
+  }
+  return null
+}
+
 /** Dock「請助理說明重點」→ POST …/actions (spec 35). */
 export const AGENT_V2_EXPLAIN_HIGHLIGHTS_KEY = 'explain_highlights'
 /** Soft retry after a failed turn (LY5); ignored in RA projection. */

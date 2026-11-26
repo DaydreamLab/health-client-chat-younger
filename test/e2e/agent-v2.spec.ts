@@ -507,6 +507,65 @@ test('agent v2 hydrate keeps zh CTA labels; multi-select confirm still works', a
   expect(sawProfileAnswers).toBe(false)
 })
 
+test('agent v2 sex CTA (kind:sex) answers with cta_answer, never plain text', async ({
+  page,
+  goto
+}) => {
+  // Real core shape: kind:"sex" + gaps + gap_code (not kind:"profile").
+  await mockAgentV2Api(page, 'sex')
+
+  const messageBodies: Array<Record<string, unknown>> = []
+  let sawProfileAnswers = false
+
+  await page.route('**/api/v1/profile/answers', async (route) => {
+    if (route.request().method() === 'POST') {
+      sawProfileAnswers = true
+    }
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'failed',
+        error_message: 'v2 must not call profile/answers',
+        error_code: 'forbidden'
+      })
+    })
+  })
+
+  await page.route('**/api/v2/conversations/*/messages', async (route) => {
+    if (route.request().method() === 'POST') {
+      messageBodies.push(route.request().postDataJSON() as Record<string, unknown>)
+    }
+    await route.fallback()
+  })
+
+  await goto('/chat/v2', { waitUntil: 'hydration' })
+  await expect(page.getByTestId('chat-quiz-option-male')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('chat-quiz-option-male')).toHaveText('生理男')
+  await expect(page.getByTestId('chat-quiz-option-female')).toHaveText('生理女')
+
+  await page.getByTestId('chat-quiz-option-male').click()
+  await expect.poll(() => messageBodies.length).toBe(1)
+  expect(messageBodies[0]).toEqual({
+    content: '生理男',
+    cta_answer: {
+      action_key: 'choose_option',
+      gap_code: 'sex',
+      value: 'male'
+    }
+  })
+  // Must not fall through to plain-text { text } / { content } without cta_answer.
+  expect(messageBodies[0]).not.toHaveProperty('text')
+  await expect(page.getByTestId('chat-transcript')).toContainText('生理男', {
+    timeout: 15_000
+  })
+  // Next CTA advances (profile written via cta_answer) — vitals age card.
+  await expect(
+    page.getByTestId('chat-last-reply').getByTestId('chat-vitals-card')
+  ).toBeVisible({ timeout: 15_000 })
+  expect(sawProfileAnswers).toBe(false)
+})
+
 test('agent v2 member upload uses v1 health-reports then refreshes v2 (no v1 conversation)', async ({
   page,
   goto

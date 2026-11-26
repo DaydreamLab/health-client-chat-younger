@@ -80,6 +80,11 @@ export interface ChooseOptionPayload {
   options?: ChatMessageOption[] | null
   selected?: string[] | null
   gap_code?: string | null
+  /**
+   * Core profile CTA may list open gaps (e.g. `gaps: ["sex"]`) alongside
+   * `kind: "sex"`. Used as gap_code fallback when `gap_code` is absent.
+   */
+  gaps?: string[] | null
   answer_type?: string | null
   exclusive_codes?: string[] | null
   /** Confirm button status when multi／goals confirm is shown. */
@@ -595,11 +600,18 @@ export function isOpenGapCtaAction(
     if (payload.gap_code === 'lab_report') {
       return false
     }
+    // Core may send kind:"sex" (not kind:"profile") with gap_code／gaps.
+    const resolvedGap = payload.gap_code
+      || (payload.gaps?.length ? payload.gaps[0] : null)
+      || (payload.kind && payload.kind !== 'profile' ? payload.kind : null)
     if (openProfileGaps === undefined) {
-      return Boolean(payload.kind === 'profile' || payload.gap_code)
+      return Boolean(payload.kind === 'profile' || resolvedGap)
     }
-    if (payload.kind === 'profile' || payload.gap_code) {
-      return Boolean(payload.gap_code && openProfileGaps.includes(payload.gap_code))
+    if (payload.kind === 'profile' || resolvedGap) {
+      const gap = payload.gap_code
+        || (payload.gaps?.length ? payload.gaps[0] : null)
+        || (payload.kind === 'profile' ? null : payload.kind)
+      return Boolean(gap && openProfileGaps.includes(gap))
     }
     return false
   }
@@ -727,6 +739,9 @@ export function chooseOptionPayload(action: ReplyAction): ChooseOptionPayload {
       ? p.selected.filter((c): c is string => typeof c === 'string')
       : [],
     gap_code: typeof p.gap_code === 'string' ? p.gap_code : null,
+    gaps: Array.isArray(p.gaps)
+      ? p.gaps.filter((g): g is string => typeof g === 'string' && g.trim() !== '')
+      : null,
     answer_type: typeof p.answer_type === 'string' ? p.answer_type : null,
     exclusive_codes: Array.isArray(p.exclusive_codes)
       ? p.exclusive_codes.filter((c): c is string => typeof c === 'string')
@@ -1001,7 +1016,12 @@ export function projectReplyActionsToCtas(input: ProjectReplyActionsInput): Repl
 
   if (chooseOption) {
     const answerType = chooseOption.answer_type
-    const chipsHidden = chooseOption.kind === 'profile'
+    // Hide chips for free-text／int profile asks (sex enum chips stay visible
+    // even when core sends kind:"sex" instead of kind:"profile").
+    const profileLike = chooseOption.kind === 'profile'
+      || Boolean(chooseOption.gap_code)
+      || Boolean(chooseOption.gaps?.length)
+    const chipsHidden = profileLike
       && (answerType === 'int' || answerType === 'text')
     if (!chipsHidden) {
       choices = chooseOption.options ?? []

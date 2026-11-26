@@ -474,6 +474,7 @@ import {
   isPathSwitchOptionCode,
   isUsableReplyActions,
   isOfferExpertBookingAction,
+  NON_GAP_CHOOSE_OPTION_KINDS,
   normalizeChooseOptionMapsTo,
   offerRecommendPayload,
   parseReplyActions,
@@ -507,10 +508,13 @@ import {
   AGENT_V2_EXPLAIN_HIGHLIGHTS_KEY,
   AGENT_V2_RECOMMENDATIONS_PATH,
   agentV2ActionsToReplyActions,
+  buildAgentV2ProfileChoiceCtaBody,
   extractAgentV2Citations,
   hydrateAgentV2Messages,
+  isAgentV2ProfileCtaChooseOption,
   isConfirmReportDateAction,
   pickReadyHealthReportId,
+  resolveAgentV2ProfileCtaGapCode,
   type AgentV2ConversationBundle,
   type AgentV2CtaAnswer,
   type AgentV2TurnResult
@@ -2448,25 +2452,32 @@ function applyReplyActionsInteraction(message: ChatMessage, replyActions: ReplyA
     return
   }
 
-  // Profile chips (incl. transitional gap_code=lab_report → POST /profile/answers).
-  if (choose?.kind === 'profile' && choose.gap_code) {
+  // Profile chips: decide by gap_code／gaps／kind (core may send kind:"sex",
+  // not kind:"profile"). Transitional gap_code=lab_report → POST /profile/answers.
+  const nonGapKind = Boolean(
+    choose?.kind && NON_GAP_CHOOSE_OPTION_KINDS.has(String(choose.kind))
+  )
+  const profileGapCode = choose && !nonGapKind
+    ? (choose.gap_code?.trim() || resolveAgentV2ProfileCtaGapCode(choose))
+    : null
+  if (choose && profileGapCode) {
     const answerType = (choose.answer_type || 'enum') as ProfileAnswerType
     message.turnType = 'profile'
     message.profileQuestion = {
-      gap_code: choose.gap_code,
+      gap_code: profileGapCode,
       answer_type: answerType
     }
     message.options = choose.options ?? []
     activeQuestion.value = {
       done: false,
-      gap_code: choose.gap_code,
+      gap_code: profileGapCode,
       prompt: '',
       answer_type: answerType,
       options: choose.options ?? []
     }
     quizActive.value = true
     goalSelectActive.value = false
-    if (choose.gap_code === 'lab_report') {
+    if (profileGapCode === 'lab_report') {
       reportAskActive.value = true
     }
     return
@@ -3159,20 +3170,25 @@ function onChoice(option: GreetingOption, hostMessage?: ChatMessage) {
       return
     }
     // Single-select profile chips (e.g. sex): send-message + cta_answer.
-    if (projection?.chooseOption?.kind === 'profile') {
-      const gapCode = String(projection.chooseOption.gap_code || 'sex')
-      const actionKey = String(
-        projection.chooseOption.action_key || AGENT_V2_CHOOSE_OPTION_KEY
-      )
-      void submitAgentV2CtaAnswer({
-        content: option.label,
-        actionKey,
-        gapCode,
-        value: option.code,
-        host,
-        selectedCodes: [option.code]
+    // Decide by gap_code／gaps／kind — not kind==="profile" (core sends kind:"sex").
+    const choose = projection?.chooseOption
+    if (choose && isAgentV2ProfileCtaChooseOption(choose)) {
+      const body = buildAgentV2ProfileChoiceCtaBody({
+        actionKey: String(choose.action_key || AGENT_V2_CHOOSE_OPTION_KEY),
+        payload: choose,
+        option
       })
-      return
+      if (body) {
+        void submitAgentV2CtaAnswer({
+          content: body.content,
+          actionKey: body.cta_answer.action_key,
+          gapCode: body.cta_answer.gap_code,
+          value: body.cta_answer.value,
+          host,
+          selectedCodes: [option.code]
+        })
+        return
+      }
     }
     // Unknown chip: echo as v2 user text (never v1 stream／ensureConversation).
     void sendAgentV2Text(option.label)
@@ -3304,11 +3320,15 @@ async function confirmMultiSelection() {
       .map(o => o.label)
     const display = labels.join('、') || selectedCodes.value.join('、')
     const goalsSnapshot = [...selectedCodes.value]
+    const choose = projection?.chooseOption
+    const goalsGapPayload = choose
+      ? { ...choose, kind: choose.kind || 'goals', gap_code: choose.gap_code || 'goals' }
+      : { kind: 'goals', gap_code: 'goals' }
     const gapCode = isGoals
-      ? String(projection?.chooseOption?.gap_code || 'goals')
-      : String(projection?.chooseOption?.gap_code || 'profile')
+      ? String(resolveAgentV2ProfileCtaGapCode(goalsGapPayload) || 'goals')
+      : String(resolveAgentV2ProfileCtaGapCode(choose) || 'profile')
     const actionKey = String(
-      projection?.chooseOption?.action_key
+      choose?.action_key
       || (isGoals ? AGENT_V2_ASK_GOALS_KEY : AGENT_V2_CHOOSE_OPTION_KEY)
     )
     await submitAgentV2CtaAnswer({

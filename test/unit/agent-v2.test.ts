@@ -19,14 +19,18 @@ import {
   agentV2ApiBase,
   agentV2RequirementDone,
   buildAgentV2CtaMessageBody,
+  buildAgentV2CtaSubmitBody,
+  buildAgentV2ProfileChoiceCtaBody,
   extractAgentV2Citations,
   hydrateAgentV2Messages,
   isAgentV2EnabledFlag,
+  isAgentV2ProfileCtaChooseOption,
   isConfirmReportDateAction,
   isOfferRecommendAction,
   normalizeAgentV2Actions,
   normalizeAgentV2Missing,
-  pickReadyHealthReportId
+  pickReadyHealthReportId,
+  resolveAgentV2ProfileCtaGapCode
 } from '../../app/utils/agent-v2'
 import { isAgentV2StreamingFlag } from '../../app/utils/agent-v2-stream'
 
@@ -124,7 +128,8 @@ describe('agent-v2 helpers', () => {
         key: AGENT_V2_CHOOSE_OPTION_KEY,
         label: '性別',
         payload: {
-          kind: 'profile',
+          kind: 'sex',
+          gaps: ['sex'],
           gap_code: 'sex',
           mode: 'single',
           options: [
@@ -149,7 +154,8 @@ describe('agent-v2 helpers', () => {
       action_key: AGENT_V2_ASK_VITALS_KEY
     })
     expect(projected!.actions[3]!.payload).toMatchObject({
-      kind: 'profile',
+      kind: 'sex',
+      gaps: ['sex'],
       gap_code: 'sex',
       action_key: AGENT_V2_CHOOSE_OPTION_KEY
     })
@@ -198,6 +204,212 @@ describe('agent-v2 helpers', () => {
         action_key: 'ask_vitals',
         gap_code: 'age',
         value: 36
+      }
+    })
+  })
+
+  it('resolves profile CTA gap_code from gap_code／gaps／kind (not kind===profile)', () => {
+    expect(resolveAgentV2ProfileCtaGapCode({
+      kind: 'sex',
+      gaps: ['sex'],
+      gap_code: 'sex'
+    })).toBe('sex')
+    expect(resolveAgentV2ProfileCtaGapCode({
+      kind: 'sex',
+      gaps: ['sex']
+    })).toBe('sex')
+    expect(resolveAgentV2ProfileCtaGapCode({ kind: 'sex' })).toBe('sex')
+    expect(resolveAgentV2ProfileCtaGapCode({ kind: 'profile' })).toBe('sex')
+    expect(resolveAgentV2ProfileCtaGapCode({
+      kind: 'free',
+      gap_code: 'sex'
+    })).toBe('sex')
+    expect(isAgentV2ProfileCtaChooseOption({
+      kind: 'sex',
+      gaps: ['sex'],
+      gap_code: 'sex'
+    })).toBe(true)
+    expect(isAgentV2ProfileCtaChooseOption({
+      kind: 'consultation_goals',
+      gap_code: 'goals'
+    })).toBe(false)
+    expect(isAgentV2ProfileCtaChooseOption({ kind: 'free' })).toBe(false)
+  })
+
+  it('contract: real-shape CTA payloads submit cta_answer with gap_code／action_key／value', () => {
+    type ExpectedCta = {
+      content: string
+      cta_answer: {
+        action_key: string
+        gap_code: string
+        value: unknown
+      }
+    }
+    const cases: Array<{
+      action: Parameters<typeof buildAgentV2CtaSubmitBody>[0]
+      answer: Parameters<typeof buildAgentV2CtaSubmitBody>[1]
+      expected: ExpectedCta
+    }> = [
+      {
+        action: {
+          key: AGENT_V2_CHOOSE_OPTION_KEY,
+          label: '生理性別',
+          payload: {
+            kind: 'sex',
+            gaps: ['sex'],
+            gap_code: 'sex',
+            action_key: 'choose_option',
+            mode: 'single',
+            options: [
+              { code: 'male', label: '生理男' },
+              { code: 'female', label: '生理女' }
+            ]
+          }
+        },
+        answer: { content: '生理男', value: 'male' },
+        expected: {
+          content: '生理男',
+          cta_answer: {
+            action_key: 'choose_option',
+            gap_code: 'sex',
+            value: 'male'
+          }
+        }
+      },
+      {
+        action: {
+          key: AGENT_V2_CHOOSE_OPTION_KEY,
+          label: '生理性別',
+          payload: {
+            kind: 'sex',
+            gaps: ['sex'],
+            // older core: no gap_code
+            action_key: 'choose_option',
+            mode: 'single',
+            options: [{ code: 'female', label: '生理女' }]
+          }
+        },
+        answer: { content: '生理女', value: 'female' },
+        expected: {
+          content: '生理女',
+          cta_answer: {
+            action_key: 'choose_option',
+            gap_code: 'sex',
+            value: 'female'
+          }
+        }
+      },
+      {
+        action: {
+          key: AGENT_V2_ASK_GOALS_KEY,
+          label: '選擇健康目標',
+          payload: {
+            kind: 'consultation_goals',
+            gaps: ['goals'],
+            gap_code: 'goals',
+            action_key: 'ask_goals',
+            min: 1,
+            options: [
+              { code: 'sleep', label: '睡眠' },
+              { code: 'weight_loss', label: '減重' }
+            ]
+          }
+        },
+        answer: { content: '睡眠、減重', value: ['sleep', 'weight_loss'] },
+        expected: {
+          content: '睡眠、減重',
+          cta_answer: {
+            action_key: 'ask_goals',
+            gap_code: 'goals',
+            value: ['sleep', 'weight_loss']
+          }
+        }
+      },
+      {
+        action: {
+          key: AGENT_V2_ASK_VITALS_KEY,
+          label: '基本身體資料',
+          payload: {
+            fields: ['age'],
+            gaps: ['age'],
+            gap_code: 'age',
+            action_key: 'ask_vitals'
+          }
+        },
+        answer: { content: '36', value: 36 },
+        expected: {
+          content: '36',
+          cta_answer: {
+            action_key: 'ask_vitals',
+            gap_code: 'age',
+            value: 36
+          }
+        }
+      },
+      {
+        action: {
+          key: AGENT_V2_ASK_VITALS_KEY,
+          label: '基本身體資料',
+          payload: {
+            fields: ['height'],
+            gaps: ['height'],
+            gap_code: 'height',
+            action_key: 'ask_vitals'
+          }
+        },
+        answer: { content: '170', value: 170 },
+        expected: {
+          content: '170',
+          cta_answer: {
+            action_key: 'ask_vitals',
+            gap_code: 'height',
+            value: 170
+          }
+        }
+      },
+      {
+        action: {
+          key: AGENT_V2_ASK_VITALS_KEY,
+          label: '基本身體資料',
+          payload: {
+            fields: ['weight'],
+            gaps: ['weight'],
+            gap_code: 'weight',
+            action_key: 'ask_vitals'
+          }
+        },
+        answer: { content: '65', value: 65 },
+        expected: {
+          content: '65',
+          cta_answer: {
+            action_key: 'ask_vitals',
+            gap_code: 'weight',
+            value: 65
+          }
+        }
+      }
+    ]
+
+    for (const row of cases) {
+      expect(buildAgentV2CtaSubmitBody(row.action, row.answer)).toEqual(row.expected)
+    }
+
+    // Chip path helper matches submit body for real sex shape.
+    expect(buildAgentV2ProfileChoiceCtaBody({
+      actionKey: AGENT_V2_CHOOSE_OPTION_KEY,
+      payload: {
+        kind: 'sex',
+        gaps: ['sex'],
+        gap_code: 'sex',
+        action_key: 'choose_option'
+      },
+      option: { code: 'male', label: '生理男' }
+    })).toEqual({
+      content: '生理男',
+      cta_answer: {
+        action_key: 'choose_option',
+        gap_code: 'sex',
+        value: 'male'
       }
     })
   })
@@ -440,13 +652,18 @@ describe('agent-v2 isolation wiring', () => {
     expect(goalsWriteIdx).toBeGreaterThan(0)
     const confirmIdx = chatPanel.indexOf('async function confirmMultiSelection()')
     expect(confirmIdx).toBeGreaterThan(0)
-    const slice = chatPanel.slice(confirmIdx, confirmIdx + 1200)
+    const slice = chatPanel.slice(confirmIdx, confirmIdx + 2000)
     expect(slice).toContain('submitAgentV2CtaAnswer')
     expect(slice).not.toContain('submitProfileAnswer')
     expect(slice).not.toContain('setConversationGoals')
     expect(slice).not.toContain('ensureConversation')
-    // Single-choice sex path also uses cta_answer.
+    // Single-choice sex path uses gap_code／cta body helper (not kind==='profile').
+    expect(chatPanel).toMatch(/isAgentV2ProfileCtaChooseOption/)
+    expect(chatPanel).toMatch(/buildAgentV2ProfileChoiceCtaBody/)
     expect(chatPanel).toMatch(/Single-select profile chips[\s\S]*submitAgentV2CtaAnswer/)
+    expect(chatPanel).not.toMatch(
+      /Single-select profile chips[\s\S]*kind === ['"]profile['"]/
+    )
     // Vitals v2 path uses cta_answer, not submitProfileAnswer.
     const vitalsIdx = chatPanel.indexOf('async function onVitalsSubmit')
     const vitalsSlice = chatPanel.slice(vitalsIdx, vitalsIdx + 1800)
