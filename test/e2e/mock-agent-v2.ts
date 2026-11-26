@@ -55,13 +55,13 @@ const sexActions: MockAction[] = [
 ]
 
 /**
- * Real core report-bank shape (v1 reply_actions + action_key):
- * ask_report option_codes + choose_option kind:lab_report with zh chips.
+ * Exact core fixture tests/fixtures/agent_v2/lab_report_cta_payload.json
+ * (candor-core #222 / CtaActionFactory::askLabReport).
  */
 const reportAskActions: MockAction[] = [
   {
     key: 'ask_report',
-    label: '是否有血檢或健檢報告？',
+    label: '上傳健檢報告',
     payload: {
       option_codes: ['within_6m', 'within_1y', '1_to_3y', 'over_3y', 'none']
     }
@@ -74,7 +74,6 @@ const reportAskActions: MockAction[] = [
       mode: 'single',
       confirm: false,
       gap_code: 'lab_report',
-      action_key: 'choose_option',
       answer_type: 'enum',
       source: 'questionnaire',
       exclusive_codes: [],
@@ -85,25 +84,37 @@ const reportAskActions: MockAction[] = [
         { code: '1_to_3y', label: '三年內' },
         { code: 'over_3y', label: '三年以上' },
         { code: 'none', label: '無' }
-      ]
+      ],
+      action_key: 'choose_option'
     }
   }
 ]
 
-/** v1 LabFollowup after lab_report none／over_3y (upload + book a lab test). */
+/**
+ * Exact CtaActionFactory::labFollowup() after none／over_3y
+ * (prompt = conversation_copy prompt.checkup_suggest).
+ */
+const LAB_FOLLOWUP_PROMPT = '如果去做一次檢查，之後可以更清楚各項指標。'
 const labFollowupActions: MockAction[] = [
   {
     key: 'choose_option',
-    label: '上傳報告或去做檢查',
+    label: '我想做檢查，確認各項指標',
     payload: {
       kind: 'lab_followup',
       mode: 'single',
       confirm: false,
-      action_key: 'choose_option',
       options: [
-        { code: 'upload', label: '上傳報告', maps_to: 'ask_report' },
-        { code: 'go_checkup', label: '我想檢查', maps_to: 'offer_checkup' }
-      ]
+        { code: 'upload_report', label: '上傳近期報告', maps_to: 'ask_report' },
+        { code: 'go_checkup', label: '去做檢查', maps_to: 'offer_checkup' },
+        { code: 'continue', label: '繼續健康諮詢', maps_to: 'continue_consultation' }
+      ],
+      selected: [],
+      gap_code: null,
+      answer_type: null,
+      exclusive_codes: [],
+      source: 'lab_followup',
+      checkup: { type: 'offer_checkup' },
+      action_key: 'choose_option'
     }
   }
 ]
@@ -255,22 +266,14 @@ export async function mockAgentV2Api(
     if (gapCode === 'lab_report') {
       const value = String(cta?.value ?? '')
       missing = missing.filter(item => item !== 'report')
-      if (value === 'none' || value === 'over_3y') {
+      // none／no／over_3y → same-turn LabFollowup (CtaActionFactory::needsLabFollowup).
+      if (value === 'none' || value === 'no' || value === 'over_3y') {
         return {
-          replyText: '目前沒有近期報告的話，可以上傳舊報告，或去做一次檢查。',
+          replyText: LAB_FOLLOWUP_PROMPT,
           nextActions: labFollowupActions
         }
       }
-      if (value === 'within_6m' || value === 'within_1y') {
-        return {
-          replyText: '好的，請上傳您的報告。',
-          nextActions: [{
-            key: 'ask_report',
-            label: '上傳健康報告',
-            payload: { option_codes: ['upload'] }
-          }]
-        }
-      }
+      // within_*／1_to_3y: report satisfied; no LabFollowup (v1 labFollowupAfterAnswer → null).
       return {
         replyText: '已記下報告狀況。',
         nextActions: []

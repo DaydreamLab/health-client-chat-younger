@@ -237,15 +237,19 @@ describe('agent-v2 helpers', () => {
   })
 
   it('contract: ask_report keeps option_codes; lab_report chips submit cta_answer', () => {
-    const askReportPayload = {
-      option_codes: ['within_6m', 'within_1y', '1_to_3y', 'over_3y', 'none']
+    // Exact candor-core #222 fixture tests/fixtures/agent_v2/lab_report_cta_payload.json
+    const askReportAction = {
+      key: AGENT_V2_ASK_REPORT_KEY,
+      label: '上傳健檢報告',
+      payload: {
+        option_codes: ['within_6m', 'within_1y', '1_to_3y', 'over_3y', 'none']
+      }
     }
     const labReportPayload = {
       kind: 'lab_report',
       mode: 'single',
       confirm: false,
       gap_code: 'lab_report',
-      action_key: 'choose_option',
       answer_type: 'enum',
       source: 'questionnaire',
       exclusive_codes: [] as string[],
@@ -256,15 +260,12 @@ describe('agent-v2 helpers', () => {
         { code: '1_to_3y', label: '三年內' },
         { code: 'over_3y', label: '三年以上' },
         { code: 'none', label: '無' }
-      ]
+      ],
+      action_key: 'choose_option'
     }
 
     const projected = agentV2ActionsToReplyActions([
-      {
-        key: AGENT_V2_ASK_REPORT_KEY,
-        label: '是否有血檢或健檢報告？',
-        payload: askReportPayload
-      },
+      askReportAction,
       {
         key: AGENT_V2_CHOOSE_OPTION_KEY,
         label: '是否有血檢或健檢報告？',
@@ -273,13 +274,10 @@ describe('agent-v2 helpers', () => {
     ])
     expect(projected).not.toBeNull()
     expect(projected!.actions).toEqual([
-      { type: 'ask_report', payload: askReportPayload },
+      { type: 'ask_report', payload: askReportAction.payload },
       {
         type: 'choose_option',
-        payload: {
-          ...labReportPayload,
-          action_key: 'choose_option'
-        }
+        payload: labReportPayload
       }
     ])
 
