@@ -241,10 +241,51 @@ describe('agent-v2 helpers', () => {
   it('aliases ask_goals and projects expert／citations (LY6)', () => {
     expect(AGENT_V2_ASK_GOALS_KEY).toBe('ask_goals')
     expect(AGENT_V2_EXPLAIN_HIGHLIGHTS_KEY).toBe('explain_highlights')
+    // ask_goals (core GreetingComposer) → consultation_goals choose_option (v1 TurnActions).
     const goals = agentV2ActionsToReplyActions([
+      {
+        key: AGENT_V2_ASK_GOALS_KEY,
+        label: '選擇健康目標',
+        payload: {
+          kind: 'consultation_goals',
+          min: 1,
+          options: [
+            { code: 'sleep', label: '睡眠' },
+            { code: 'weight_loss', label: '減重' },
+            { code: 'immune_boost', label: '免疫提升' },
+            { code: 'cognitive_function', label: '認知功能' },
+            { code: 'gastrointestinal', label: '腸胃道' }
+          ]
+        }
+      }
+    ])
+    expect(goals?.actions[0]?.type).toBe('choose_option')
+    expect(goals?.actions[0]?.payload).toMatchObject({
+      kind: 'consultation_goals',
+      mode: 'multi',
+      confirm: true,
+      min: 1,
+      options: [
+        { code: 'sleep', label: '睡眠' },
+        { code: 'weight_loss', label: '減重' },
+        { code: 'immune_boost', label: '免疫提升' },
+        { code: 'cognitive_function', label: '認知功能' },
+        { code: 'gastrointestinal', label: '腸胃道' }
+      ]
+    })
+    // Bare ask_goals (no options) still projects multi＋confirm consultation_goals.
+    const bareGoals = agentV2ActionsToReplyActions([
       { key: AGENT_V2_ASK_GOALS_KEY, label: '選擇健康目標' }
     ])
-    expect(goals?.actions[0]?.type).toBe('ask_goal')
+    expect(bareGoals?.actions[0]?.type).toBe('choose_option')
+    expect(bareGoals?.actions[0]?.payload).toMatchObject({
+      kind: 'consultation_goals',
+      mode: 'multi',
+      confirm: true
+    })
+    expect(
+      (bareGoals?.actions[0]?.payload as { options?: { code: string }[] })?.options?.length
+    ).toBeGreaterThanOrEqual(2)
 
     const expert = agentV2ActionsToReplyActions([
       { key: AGENT_V2_OFFER_EXPERT_BOOKING_KEY, label: '預約專家' },

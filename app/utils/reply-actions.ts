@@ -84,6 +84,11 @@ export interface ChooseOptionPayload {
   exclusive_codes?: string[] | null
   /** Confirm button status when multi／goals confirm is shown. */
   confirm_status?: CtaControlStatus | null
+  /**
+   * Minimum selections before confirm (consultation_goals / ask_goals).
+   * Absent → treat as 1 (ConsultationGoal::MIN_SELECTED).
+   */
+  min?: number | null
 }
 
 export interface AskGoalPayload {
@@ -691,6 +696,19 @@ export function shouldSkipFollowUpStream(input: {
   return false
 }
 
+function asPositiveInt(raw: unknown): number | null {
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw >= 1) {
+    return Math.floor(raw)
+  }
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    const n = Number(raw)
+    if (Number.isFinite(n) && n >= 1) {
+      return Math.floor(n)
+    }
+  }
+  return null
+}
+
 export function chooseOptionPayload(action: ReplyAction): ChooseOptionPayload {
   const p = isRecord(action.payload) ? action.payload : {}
   return {
@@ -706,7 +724,8 @@ export function chooseOptionPayload(action: ReplyAction): ChooseOptionPayload {
     exclusive_codes: Array.isArray(p.exclusive_codes)
       ? p.exclusive_codes.filter((c): c is string => typeof c === 'string')
       : undefined,
-    confirm_status: parseCtaControlStatus(p.confirm_status)
+    confirm_status: parseCtaControlStatus(p.confirm_status),
+    min: asPositiveInt(p.min)
   }
 }
 

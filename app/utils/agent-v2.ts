@@ -56,7 +56,10 @@ export const AGENT_V2_OFFER_RECOMMEND_KEY = 'offer_recommend'
 export const AGENT_V2_ASK_VITALS_KEY = 'ask_vitals'
 export const AGENT_V2_ASK_REPORT_KEY = 'ask_report'
 export const AGENT_V2_ASK_GOAL_KEY = 'ask_goal'
-/** LC4 alias — same projection as ask_goal. */
+/**
+ * Core GreetingComposer key. Payload is consultation_goals catalog
+ * (`kind`／`min`／`options[{code,label}]`) → project as choose_option (v1 TurnActions).
+ */
 export const AGENT_V2_ASK_GOALS_KEY = 'ask_goals'
 export const AGENT_V2_CHOOSE_OPTION_KEY = 'choose_option'
 export const AGENT_V2_CONFIRM_REPORT_DATE_KEY = 'confirm_report_date'
@@ -233,15 +236,52 @@ function projectAskGoal(action: AgentV2Action): ReplyAction {
   }
 }
 
+/**
+ * Core GreetingComposer `ask_goals` payload:
+ * `{ kind: consultation_goals, min, options: [{ code, label }] }`.
+ * Project as the same `choose_option` shape v1 `/chat` uses so TurnActions
+ * keeps zh labels, multi-select, and a confirm button.
+ */
+function projectAskGoals(action: AgentV2Action): ReplyAction {
+  const raw = isRecord(action.payload) ? action.payload : {}
+  const optionsRaw = Array.isArray(raw.options) ? raw.options : []
+  const options = optionsRaw.length >= 2
+    ? optionsRaw
+    : defaultConsultationGoalOptions()
+  const minRaw = raw.min
+  const min = typeof minRaw === 'number' && Number.isFinite(minRaw) && minRaw >= 1
+    ? Math.floor(minRaw)
+    : 1
+  const gapCode = typeof raw.gap_code === 'string' ? raw.gap_code : undefined
+  return projectChooseOption({
+    key: AGENT_V2_CHOOSE_OPTION_KEY,
+    label: action.label,
+    payload: {
+      kind: 'consultation_goals',
+      mode: 'multi',
+      confirm: true,
+      min,
+      options,
+      ...(gapCode ? { gap_code: gapCode } : {})
+    }
+  })
+}
+
 function projectChooseOption(action: AgentV2Action): ReplyAction {
   const payload = isRecord(action.payload) ? { ...action.payload } : {}
   // Ensure consultation_goals always has chips when core omits options.
+  // Always force multi + confirm (never degrade to single-tap), matching v1.
   if (payload.kind === 'consultation_goals') {
     const options = Array.isArray(payload.options) ? payload.options : []
     if (options.length < 2) {
       payload.options = defaultConsultationGoalOptions()
-      payload.mode = payload.mode ?? 'multi'
-      payload.confirm = payload.confirm !== false
+    }
+    payload.mode = 'multi'
+    payload.confirm = true
+    if (typeof payload.min !== 'number' || !Number.isFinite(payload.min) || payload.min < 1) {
+      payload.min = 1
+    } else {
+      payload.min = Math.floor(payload.min)
     }
   }
   return {
@@ -342,8 +382,9 @@ function projectOne(action: AgentV2Action): ReplyAction | null {
     case AGENT_V2_ASK_REPORT_KEY:
       return { type: 'ask_report', payload: {} }
     case AGENT_V2_ASK_GOAL_KEY:
-    case AGENT_V2_ASK_GOALS_KEY:
       return projectAskGoal(action)
+    case AGENT_V2_ASK_GOALS_KEY:
+      return projectAskGoals(action)
     case AGENT_V2_CHOOSE_OPTION_KEY:
       return projectChooseOption(action)
     case AGENT_V2_CONFIRM_REPORT_DATE_KEY:

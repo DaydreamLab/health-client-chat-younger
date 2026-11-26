@@ -56,8 +56,23 @@ export async function mockAgentV2Api(
     { key: 'confirm_report_date', label: '確認報告日期無誤' }
   ]
 
+  // Mirrors candor-core GreetingComposer ask_goals payload (ConsultationGoal catalog).
   const goalsOnlyActions: MockAction[] = [
-    { key: 'ask_goal', label: '選擇健康目標' }
+    {
+      key: 'ask_goals',
+      label: '選擇健康目標',
+      payload: {
+        kind: 'consultation_goals',
+        min: 1,
+        options: [
+          { code: 'sleep', label: '睡眠' },
+          { code: 'weight_loss', label: '減重' },
+          { code: 'immune_boost', label: '免疫提升' },
+          { code: 'cognitive_function', label: '認知功能' },
+          { code: 'gastrointestinal', label: '腸胃道' }
+        ]
+      }
+    }
   ]
 
   const actions: MockAction[] = mode === 'ready' || mode === 'fail_once'
