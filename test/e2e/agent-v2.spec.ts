@@ -432,7 +432,71 @@ test('agent v2 CTA answers POST messages with cta_answer (never /profile/answers
   expect(sawV1Conversation).toBe(false)
 })
 
-test('agent v2 report step shows lab_report chips + upload; none sends cta_answer', async ({
+test('agent v2 report question shows chips only (no upload)', async ({
+  page,
+  goto
+}) => {
+  await mockAgentV2Api(page, 'report')
+  await goto('/chat/v2', { waitUntil: 'hydration' })
+  await expect(page.getByTestId('chat-transcript')).toBeVisible({ timeout: 15_000 })
+
+  const last = page.getByTestId('chat-last-reply')
+  await expect(last).toContainText('是否有血檢或健檢報告？', { timeout: 15_000 })
+  await expect(last.getByTestId('chat-quiz-option-within_6m')).toHaveText('半年內')
+  await expect(last.getByTestId('chat-quiz-option-within_1y')).toHaveText('一年內')
+  await expect(last.getByTestId('chat-quiz-option-1_to_3y')).toHaveText('三年內')
+  await expect(last.getByTestId('chat-quiz-option-over_3y')).toHaveText('三年以上')
+  await expect(last.getByTestId('chat-quiz-option-none')).toHaveText('無')
+  await expect(last.getByTestId('chat-message-upload')).toHaveCount(0)
+  await expect(page.getByTestId('chat-quiz-confirm')).toHaveCount(0)
+
+  // Hydrate keeps zh labels; still no upload without ask_report.
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.getByTestId('agent-v2-page')).toBeVisible()
+  const afterReload = page.getByTestId('chat-last-reply')
+  await expect(afterReload).toContainText('是否有血檢或健檢報告？', { timeout: 15_000 })
+  await expect(afterReload.getByTestId('chat-quiz-option-within_6m')).toHaveText('半年內')
+  await expect(afterReload.getByTestId('chat-message-upload')).toHaveCount(0)
+})
+
+test('agent v2 report within_6m shows ask_report upload alone', async ({
+  page,
+  goto
+}) => {
+  await mockAgentV2Api(page, 'report')
+  const messageBodies: Array<Record<string, unknown>> = []
+  await page.route('**/api/v2/conversations/*/messages', async (route) => {
+    if (route.request().method() === 'POST') {
+      messageBodies.push(route.request().postDataJSON() as Record<string, unknown>)
+    }
+    await route.fallback()
+  })
+
+  await goto('/chat/v2', { waitUntil: 'hydration' })
+  const last = page.getByTestId('chat-last-reply')
+  await expect(last.getByTestId('chat-quiz-option-within_6m')).toBeVisible({ timeout: 15_000 })
+  await expect(last.getByTestId('chat-message-upload')).toHaveCount(0)
+
+  await last.getByTestId('chat-quiz-option-within_6m').click()
+  await expect.poll(() => messageBodies.length).toBe(1)
+  expect(messageBodies[0]).toEqual({
+    content: '半年內',
+    cta_answer: {
+      action_key: 'choose_option',
+      gap_code: 'lab_report',
+      value: 'within_6m'
+    }
+  })
+
+  const next = page.getByTestId('chat-last-reply')
+  await expect(next).toContainText('請上傳您的報告', { timeout: 15_000 })
+  await expect(next.getByTestId('chat-message-upload')).toBeVisible()
+  await expect(next.getByTestId('chat-quiz-option-within_6m')).toHaveCount(0)
+  await expect(next.getByTestId('chat-quiz-option-none')).toHaveCount(0)
+  await expect(next.getByTestId('chat-quiz-option-upload_report')).toHaveCount(0)
+})
+
+test('agent v2 report none sends cta_answer then LabFollowup (no re-ask)', async ({
   page,
   goto
 }) => {
@@ -464,31 +528,11 @@ test('agent v2 report step shows lab_report chips + upload; none sends cta_answe
   })
 
   await goto('/chat/v2', { waitUntil: 'hydration' })
-  await expect(page.getByTestId('chat-transcript')).toBeVisible({ timeout: 15_000 })
-
   const last = page.getByTestId('chat-last-reply')
-  await expect(last).toContainText('是否有血檢或健檢報告？', { timeout: 15_000 })
+  await expect(last.getByTestId('chat-quiz-option-none')).toBeVisible({ timeout: 15_000 })
+  await expect(last.getByTestId('chat-message-upload')).toHaveCount(0)
 
-  // Five zh chips + bubble upload (ask_report), same surface as v1 report bank.
-  await expect(last.getByTestId('chat-quiz-option-within_6m')).toHaveText('半年內')
-  await expect(last.getByTestId('chat-quiz-option-within_1y')).toHaveText('一年內')
-  await expect(last.getByTestId('chat-quiz-option-1_to_3y')).toHaveText('三年內')
-  await expect(last.getByTestId('chat-quiz-option-over_3y')).toHaveText('三年以上')
-  await expect(last.getByTestId('chat-quiz-option-none')).toHaveText('無')
-  await expect(last.getByTestId('chat-message-upload')).toBeVisible()
-  await expect(page.getByTestId('chat-quiz-confirm')).toHaveCount(0)
-
-  // Hydrate keeps zh labels from stored payload (not codes).
-  await page.reload({ waitUntil: 'domcontentloaded' })
-  await expect(page.getByTestId('agent-v2-page')).toBeVisible()
-  const afterReload = page.getByTestId('chat-last-reply')
-  await expect(afterReload).toContainText('是否有血檢或健檢報告？', { timeout: 15_000 })
-  await expect(afterReload.getByTestId('chat-quiz-option-none')).toHaveText('無')
-  await expect(afterReload.getByTestId('chat-quiz-option-within_6m')).toHaveText('半年內')
-  await expect(afterReload.getByTestId('chat-message-upload')).toBeVisible()
-
-  // Pick 「無」 → cta_answer (never plain text / profile/answers).
-  await afterReload.getByTestId('chat-quiz-option-none').click()
+  await last.getByTestId('chat-quiz-option-none').click()
   await expect.poll(() => messageBodies.length).toBe(1)
   expect(messageBodies[0]).toEqual({
     content: '無',
@@ -500,13 +544,13 @@ test('agent v2 report step shows lab_report chips + upload; none sends cta_answe
   })
   await expect(page.getByTestId('chat-transcript')).toContainText('無', { timeout: 15_000 })
 
-  // Report question must not repeat; next step is LabFollowup (core CtaActionFactory).
   const next = page.getByTestId('chat-last-reply')
   await expect(next).toContainText('如果去做一次檢查，之後可以更清楚各項指標。', {
     timeout: 15_000
   })
   await expect(next.getByTestId('chat-quiz-option-none')).toHaveCount(0)
   await expect(next.getByTestId('chat-quiz-option-within_6m')).toHaveCount(0)
+  await expect(next.getByTestId('chat-message-upload')).toHaveCount(0)
   await expect(next.getByTestId('chat-quiz-option-upload_report')).toHaveText('上傳近期報告')
   await expect(next.getByTestId('chat-quiz-option-go_checkup')).toHaveText('去做檢查')
   await expect(next.getByTestId('chat-quiz-option-continue')).toHaveText('繼續健康諮詢')
