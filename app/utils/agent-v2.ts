@@ -152,3 +152,28 @@ export function agentV2ActionsToReplyActions(
     }]
   }
 }
+
+const READY_REPORT_STATUSES = new Set(['ready', 'needs_review'])
+
+/**
+ * Pick a report id for the /chat ReportDataDock on agent v2.
+ * Prefer an existing bound id; otherwise the first ready／needs_review row
+ * from GET /health-reports. Does not invent conversation state.
+ */
+export function pickReadyHealthReportId(
+  boundReportId: string | null | undefined,
+  reports: ReadonlyArray<{ id?: string | null, status?: string | null }>
+): string | null {
+  const bound = String(boundReportId ?? '').trim()
+  if (bound) {
+    return bound
+  }
+  for (const row of reports) {
+    const id = String(row.id ?? '').trim()
+    const status = String(row.status ?? '').trim()
+    if (id && READY_REPORT_STATUSES.has(status)) {
+      return id
+    }
+  }
+  return null
+}

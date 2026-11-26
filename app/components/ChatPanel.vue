@@ -94,7 +94,7 @@
 
     <div class="relative min-h-0 flex-1">
       <div
-        v-if="showReportStatusBanner && !isAgentV2"
+        v-if="showReportStatusBanner"
         class="absolute left-1/2 top-3 z-20 flex w-[min(48rem,calc(100%-2rem))] -translate-x-1/2 flex-col overflow-hidden rounded-2xl border border-default bg-elevated shadow-lg sm:w-[min(48rem,calc(100%-3rem))]"
         data-testid="chat-report-status-banner"
       >
@@ -141,7 +141,7 @@
         </div>
       </div>
       <ReportDataDock
-        :open="!isAgentV2 && reportDockVisible"
+        :open="reportDockVisible"
         :collapsed="showEmptyReportBar ? true : journey.reportDockCollapsed"
         :prompt="showEmptyReportBar"
         :results="reportResults"
@@ -477,6 +477,7 @@ import {
   AGENT_V2_CONVERSATION_STORAGE_KEY,
   AGENT_V2_RECOMMENDATIONS_PATH,
   agentV2ActionsToReplyActions,
+  pickReadyHealthReportId,
   type AgentV2TurnResult
 } from '~/utils/agent-v2'
 import { storeToRefs } from 'pinia'
@@ -611,30 +612,23 @@ const canOfferUpload = computed(() =>
 const canUpload = computed(() => canOfferUpload.value && auth.isMember)
 const reportPollFailed = computed(() => reportPollStatus.value === 'failed' && !reportInFlight.value)
 const showReportStatusBanner = computed(() =>
-  !isAgentV2.value
-  && !readonly.value
-  && (reportInFlight.value || reportPollFailed.value)
+  !readonly.value && (reportInFlight.value || reportPollFailed.value)
 )
 /** Top bar when this conversation has no ready report yet (not persisted as reportDockOpen). */
 const showEmptyReportBar = computed(() =>
-  !isAgentV2.value
-  && !readonly.value
+  !readonly.value
   && !escalated.value
   && !showReportStatusBanner.value
   // Only a bound report counts as analysis; visiting recommendations must not hide this bar.
   && !(journey.hasAnalysis && journey.reportId)
 )
 const reportDockVisible = computed(() =>
-  !isAgentV2.value
-  && (showEmptyReportBar.value || journey.reportDockOpen)
+  showEmptyReportBar.value || journey.reportDockOpen
 )
 const transcriptNeedsDockPad = computed(() =>
-  !isAgentV2.value
-  && (
-    showEmptyReportBar.value
-    || showReportStatusBanner.value
-    || (journey.reportDockOpen && journey.reportDockCollapsed)
-  )
+  showEmptyReportBar.value
+  || showReportStatusBanner.value
+  || (journey.reportDockOpen && journey.reportDockCollapsed)
 )
 const checkupLinkUrl = computed(() => resolvedCheckupUrl.value.trim())
 const reportStatusLabel = computed(() => {
@@ -1203,10 +1197,78 @@ async function resetAgentV2Conversation() {
   agentV2Messages.value = []
   try {
     await bootAgentV2()
+    // Keep the report dock (same as /chat reset does not wipe analysis).
+    await restoreAgentV2ReportDock()
     await nextTick()
     scrollToLatest('auto')
   } finally {
     resetting.value = false
+  }
+}
+
+/**
+ * Show ReportDataDock on /chat/v2 the same way as /chat when a report exists.
+ * Uses journey report fields + GET /health-reports／{id} only — never
+ * ensureConversation / attachReport / stream (no v1 conversation writes).
+ */
+async function restoreAgentV2ReportDock() {
+  if (readonly.value) {
+    return
+  }
+
+  // Read report fields from localStorage snapshot only (same key as /chat).
+  // Do not call ensureConversation — v2 must not create／stream v1 turns.
+  journey.hydrate()
+
+  let reportId = pickReadyHealthReportId(journey.reportId, [])
+  if (!reportId) {
+    try {
+      const list = await candor.listHealthReports({ limit: 5, offset: 0 })
+      reportId = pickReadyHealthReportId(null, list.reports ?? [])
+    } catch {
+      reportId = null
+    }
+  }
+  if (!reportId) {
+    return
+  }
+
+  try {
+    const report = await candor.getHealthReport(reportId)
+    rememberReport(report)
+
+    if (report.status === 'ready' || report.status === 'needs_review') {
+      // Report UI fields only — do not touch conversationId / messages.
+      journey.reportId = reportId
+      journey.hasAnalysis = true
+      journey.reportDockOpen = true
+      journey.reportDockCollapsed = true
+      return
+    }
+
+    if (report.status === 'failed') {
+      journey.reportId = reportId
+      reportPollStatus.value = 'failed'
+      reportRetryId.value = reportId
+      return
+    }
+
+    journey.reportId = reportId
+    reportInFlight.value = true
+    reportPollStatus.value = report.status
+    const terminal = await pollReport(reportId)
+    reportInFlight.value = false
+    if (terminal && (terminal.status === 'ready' || terminal.status === 'needs_review')) {
+      rememberReport(terminal)
+      journey.hasAnalysis = true
+      journey.reportDockOpen = true
+      journey.reportDockCollapsed = true
+    } else if (terminal?.status === 'failed') {
+      reportPollStatus.value = 'failed'
+      reportRetryId.value = reportId
+    }
+  } catch {
+    // keep dock closed when the read API fails
   }
 }
 
@@ -3428,6 +3490,11 @@ async function askInterpret() {
   // Source: journey.clarifyingGoals（chip／自由文字選完改善方向後寫入）.
   const interpret = t(resolveAskInterpretI18nKey(journey.clarifyingGoals))
   journey.reportInterpretSent = true
+  if (isAgentV2.value) {
+    // Same dock CTA copy; send via /api/v2 message — never v1 stream／conversation.
+    await sendAgentV2Text(interpret)
+    return
+  }
   appendMessage('user', interpret)
   pendingUserContent.value = interpret
   pendingIntent.value = 'interpret'
@@ -3799,6 +3866,9 @@ async function applyHomeGoal() {
 onMounted(async () => {
   if (isAgentV2.value) {
     await bootAgentV2()
+    // Report dock parity with /chat: read existing report via v1 health-reports APIs.
+    // Do not ensureConversation / hydrate conversation transcript into the v2 UI.
+    await restoreAgentV2ReportDock()
     scrollToLatest('auto')
     return
   }

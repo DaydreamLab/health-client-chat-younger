@@ -11,7 +11,8 @@ import {
   isAgentV2EnabledFlag,
   isOfferRecommendAction,
   normalizeAgentV2Actions,
-  normalizeAgentV2Missing
+  normalizeAgentV2Missing,
+  pickReadyHealthReportId
 } from '../../app/utils/agent-v2'
 
 describe('agent-v2 helpers', () => {
@@ -87,6 +88,22 @@ describe('agent-v2 helpers', () => {
       }]
     })
   })
+
+  it('picks a ready health report id for the shared ReportDataDock', () => {
+    expect(pickReadyHealthReportId('bound-1', [
+      { id: 'other', status: 'ready' }
+    ])).toBe('bound-1')
+    expect(pickReadyHealthReportId(null, [
+      { id: 'proc', status: 'processing' },
+      { id: 'ready-1', status: 'ready' }
+    ])).toBe('ready-1')
+    expect(pickReadyHealthReportId('', [
+      { id: 'nr', status: 'needs_review' }
+    ])).toBe('nr')
+    expect(pickReadyHealthReportId(null, [
+      { id: 'fail', status: 'failed' }
+    ])).toBeNull()
+  })
 })
 
 describe('agent-v2 isolation wiring', () => {
@@ -128,5 +145,21 @@ describe('agent-v2 isolation wiring', () => {
   it('removed custom agent-v2 UI components and /app/v2 page', () => {
     expect(() => readFileSync(resolve('app/pages/app/v2.vue'), 'utf8')).toThrow()
     expect(() => readFileSync(resolve('app/components/agent-v2/AgentV2Panel.vue'), 'utf8')).toThrow()
+  })
+
+  it('keeps ReportDataDock mounted for mode=v2 (same open binding as /chat)', () => {
+    expect(chatPanel).toMatch(/<ReportDataDock[\s\S]*?:open="reportDockVisible"/)
+    expect(chatPanel).not.toMatch(/:open="!isAgentV2\s*&&\s*reportDockVisible"/)
+    expect(chatPanel).toMatch(/restoreAgentV2ReportDock/)
+    expect(chatPanel).toMatch(/pickReadyHealthReportId/)
+  })
+
+  it('leaves the default /chat page on the v1 ChatPanel path (no mode=v2)', () => {
+    expect(chat).toMatch(/<ChatPanel\s*\/>/)
+    expect(chat).not.toMatch(/mode=["']v2["']/)
+    // v1 mount still goes through ensureConversation + restoreReportSession
+    expect(chatPanel).toMatch(/await ensureConversation\(\)/)
+    expect(chatPanel).toMatch(/await restoreReportSession\(\)/)
+    expect(chatPanel).toMatch(/if \(isAgentV2\.value\) \{[\s\S]*?await bootAgentV2\(\)/)
   })
 })
