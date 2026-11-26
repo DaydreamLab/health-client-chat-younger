@@ -1144,15 +1144,22 @@ function applyAgentV2Turn(turn: AgentV2TurnResult, opts: { appendUserText?: stri
   }
 }
 
-/** LY5: project greeting／history actions onto ChatMessage bubbles. */
-function applyAgentV2Bundle(bundle: AgentV2ConversationBundle) {
+/**
+ * LY5: project greeting／history actions onto ChatMessage bubbles.
+ * Irice 17:04: GET hydrate = per-message actions only (no top-level pending).
+ * Create may use bundle-level actions when greeting omits message.actions.
+ */
+function applyAgentV2Bundle(
+  bundle: AgentV2ConversationBundle,
+  opts: { useBundleActionsFallback?: boolean } = {}
+) {
   agentV2ConversationId.value = bundle.conversation.id
   writeAgentV2ConversationId(bundle.conversation.id)
   failedAgentV2Retry.value = null
 
   const hydrated = hydrateAgentV2Messages(
     bundle.messages ?? [],
-    bundle.actions
+    opts.useBundleActionsFallback ? bundle.actions : null
   )
   agentV2Messages.value = hydrated.map((row) => {
     const message = makeMessage(row.role, row.text, row.id)
@@ -1218,6 +1225,7 @@ async function bootAgentV2() {
     if (stored) {
       try {
         const bundle = await agentV2Api.getConversation(stored)
+        // GET hydrate: per-message actions only (Irice 17:04).
         applyAgentV2Bundle(bundle)
         return
       } catch {
@@ -1225,9 +1233,9 @@ async function bootAgentV2() {
       }
     }
 
-    // LY5: create may include greeting messages + pending actions (LC4+).
+    // Create: allow top-level actions when greeting message omits them (LC4+).
     const created = await agentV2Api.createConversation()
-    applyAgentV2Bundle(created)
+    applyAgentV2Bundle(created, { useBundleActionsFallback: true })
   } catch {
     if (agentV2Messages.value.length === 0) {
       agentV2Messages.value.push(makeMessage('assistant', t('chat.conversationError')))
