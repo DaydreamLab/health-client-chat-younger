@@ -18,6 +18,7 @@ import {
   agentV2ActionsToReplyActions,
   agentV2ApiBase,
   agentV2RequirementDone,
+  buildAgentV2CtaMessageBody,
   extractAgentV2Citations,
   hydrateAgentV2Messages,
   isAgentV2EnabledFlag,
@@ -143,10 +144,14 @@ describe('agent-v2 helpers', () => {
       'choose_option',
       'choose_option'
     ])
-    expect(projected!.actions[0]!.payload).toMatchObject({ fields: ['age'] })
+    expect(projected!.actions[0]!.payload).toMatchObject({
+      fields: ['age'],
+      action_key: AGENT_V2_ASK_VITALS_KEY
+    })
     expect(projected!.actions[3]!.payload).toMatchObject({
       kind: 'profile',
-      gap_code: 'sex'
+      gap_code: 'sex',
+      action_key: AGENT_V2_CHOOSE_OPTION_KEY
     })
     expect(projected!.actions[4]!.payload).toMatchObject({
       kind: 'free',
@@ -155,6 +160,45 @@ describe('agent-v2 helpers', () => {
         code: AGENT_V2_CONFIRM_REPORT_DATE_KEY,
         label: '確認報告日期無誤'
       }]
+    })
+  })
+
+  it('builds CTA send-message bodies with content + cta_answer', () => {
+    expect(buildAgentV2CtaMessageBody('睡眠、減重', {
+      action_key: 'ask_goals',
+      gap_code: 'goals',
+      value: ['sleep', 'weight_loss']
+    })).toEqual({
+      content: '睡眠、減重',
+      cta_answer: {
+        action_key: 'ask_goals',
+        gap_code: 'goals',
+        value: ['sleep', 'weight_loss']
+      }
+    })
+    expect(buildAgentV2CtaMessageBody('生理男', {
+      action_key: 'choose_option',
+      gap_code: 'sex',
+      value: 'male'
+    })).toEqual({
+      content: '生理男',
+      cta_answer: {
+        action_key: 'choose_option',
+        gap_code: 'sex',
+        value: 'male'
+      }
+    })
+    expect(buildAgentV2CtaMessageBody('36', {
+      action_key: 'ask_vitals',
+      gap_code: 'age',
+      value: 36
+    })).toEqual({
+      content: '36',
+      cta_answer: {
+        action_key: 'ask_vitals',
+        gap_code: 'age',
+        value: 36
+      }
     })
   })
 
@@ -265,6 +309,8 @@ describe('agent-v2 helpers', () => {
       mode: 'multi',
       confirm: true,
       min: 1,
+      gap_code: 'goals',
+      action_key: AGENT_V2_ASK_GOALS_KEY,
       options: [
         { code: 'sleep', label: '睡眠' },
         { code: 'weight_loss', label: '減重' },
@@ -281,7 +327,9 @@ describe('agent-v2 helpers', () => {
     expect(bareGoals?.actions[0]?.payload).toMatchObject({
       kind: 'consultation_goals',
       mode: 'multi',
-      confirm: true
+      confirm: true,
+      gap_code: 'goals',
+      action_key: AGENT_V2_ASK_GOALS_KEY
     })
     expect(
       (bareGoals?.actions[0]?.payload as { options?: { code: string }[] })?.options?.length
@@ -378,21 +426,39 @@ describe('agent-v2 isolation wiring', () => {
     expect(chatPanel).toMatch(/applyReplyActionsInteraction/)
     expect(chatPanel).toMatch(/postAgentV2ActionKey/)
     expect(chatPanel).toMatch(/AGENT_V2_CONFIRM_REPORT_DATE_KEY/)
-    expect(chatPanel).toMatch(/submitAgentV2ProfileAnswer/)
+    expect(chatPanel).toMatch(/submitAgentV2CtaAnswer/)
   })
 
-  it('writes profile／goals via v1 Profile API then refreshes v2 (LY3)', () => {
-    expect(chatPanel).toMatch(/submitAgentV2ProfileAnswer/)
-    expect(chatPanel).toMatch(/refreshAgentV2AfterProfileWrite/)
-    expect(chatPanel).toMatch(/gap_code: gapCode/)
-    expect(chatPanel).toMatch(/Assumed gap_code for user-level goals write/)
-    // Goals confirm path must not call setConversationGoals / ensureConversation.
-    const goalsWriteIdx = chatPanel.indexOf('Assumed gap_code for user-level goals write')
+  it('sends v2 CTA answers as messages with cta_answer (no profile/answers)', () => {
+    expect(chatPanel).toMatch(/submitAgentV2CtaAnswer/)
+    expect(chatPanel).toMatch(/ctaAnswer/)
+    expect(chatPanel).toMatch(/cta_answer/)
+    expect(chatPanel).not.toMatch(/submitAgentV2ProfileAnswer/)
+    expect(chatPanel).not.toMatch(/refreshAgentV2AfterProfileWrite/)
+    // Goals confirm path must not call setConversationGoals / ensureConversation / profile answers.
+    const goalsWriteIdx = chatPanel.indexOf('if (isAgentV2.value) {\n    const host = [...agentV2Messages.value]')
     expect(goalsWriteIdx).toBeGreaterThan(0)
-    const slice = chatPanel.slice(goalsWriteIdx, goalsWriteIdx + 800)
-    expect(slice).toContain('submitAgentV2ProfileAnswer')
+    const confirmIdx = chatPanel.indexOf('async function confirmMultiSelection()')
+    expect(confirmIdx).toBeGreaterThan(0)
+    const slice = chatPanel.slice(confirmIdx, confirmIdx + 1200)
+    expect(slice).toContain('submitAgentV2CtaAnswer')
+    expect(slice).not.toContain('submitProfileAnswer')
     expect(slice).not.toContain('setConversationGoals')
     expect(slice).not.toContain('ensureConversation')
+    // Single-choice sex path also uses cta_answer.
+    expect(chatPanel).toMatch(/Single-select profile chips[\s\S]*submitAgentV2CtaAnswer/)
+    // Vitals v2 path uses cta_answer, not submitProfileAnswer.
+    const vitalsIdx = chatPanel.indexOf('async function onVitalsSubmit')
+    const vitalsSlice = chatPanel.slice(vitalsIdx, vitalsIdx + 1800)
+    expect(vitalsSlice).toContain('submitAgentV2CtaAnswer')
+    expect(vitalsSlice).toContain('AGENT_V2_ASK_VITALS_KEY')
+    // First submitProfileAnswer in onVitalsSubmit must be the v1 branch only.
+    const v2ReturnIdx = vitalsSlice.indexOf('return\n  }\n\n  const remaining')
+    expect(v2ReturnIdx).toBeGreaterThan(0)
+    expect(vitalsSlice.slice(0, v2ReturnIdx)).not.toContain('submitProfileAnswer')
+    const api = readFileSync(resolve('app/composables/useAgentV2Api.ts'), 'utf8')
+    expect(api).toMatch(/buildAgentV2CtaMessageBody/)
+    expect(api).toMatch(/ctaAnswer/)
   })
 
   it('hydrates greeting／actions on create／GET and wires retry CTA (LY5)', () => {

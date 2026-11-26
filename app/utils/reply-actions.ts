@@ -89,6 +89,11 @@ export interface ChooseOptionPayload {
    * Absent → treat as 1 (ConsultationGoal::MIN_SELECTED).
    */
   min?: number | null
+  /**
+   * Original agent-v2 action key (e.g. ask_goals／choose_option) for cta_answer.
+   * Absent on v1 reply_actions.
+   */
+  action_key?: string | null
 }
 
 export interface AskGoalPayload {
@@ -102,6 +107,8 @@ export interface AskVitalsPayload {
   status?: CtaControlStatus | null
   has_stored_value?: boolean | null
   stored_value?: number | null
+  /** Original agent-v2 action key (ask_vitals) for cta_answer. */
+  action_key?: string | null
 }
 
 export interface OfferCheckupPayload {
@@ -725,7 +732,8 @@ export function chooseOptionPayload(action: ReplyAction): ChooseOptionPayload {
       ? p.exclusive_codes.filter((c): c is string => typeof c === 'string')
       : undefined,
     confirm_status: parseCtaControlStatus(p.confirm_status),
-    min: asPositiveInt(p.min)
+    min: asPositiveInt(p.min),
+    action_key: typeof p.action_key === 'string' ? p.action_key : null
   }
 }
 
@@ -758,7 +766,8 @@ export function askVitalsPayload(action: ReplyAction): AskVitalsPayload {
     gap_code: typeof p.gap_code === 'string' ? p.gap_code : null,
     status: parseCtaControlStatus(p.status),
     has_stored_value: typeof p.has_stored_value === 'boolean' ? p.has_stored_value : null,
-    stored_value: asStoredNumber(p.stored_value)
+    stored_value: asStoredNumber(p.stored_value),
+    action_key: typeof p.action_key === 'string' ? p.action_key : null
   }
 }
 

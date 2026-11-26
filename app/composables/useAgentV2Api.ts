@@ -2,10 +2,12 @@ import { CandorApiError, TOKEN_STORAGE_KEY } from '~/utils/candor-api'
 import type { ApiFailed, ApiSuccess } from '~/utils/candor-api'
 import {
   agentV2ApiBase,
+  buildAgentV2CtaMessageBody,
   normalizeAgentV2Actions,
   normalizeAgentV2Missing,
   type AgentV2Conversation,
   type AgentV2ConversationBundle,
+  type AgentV2CtaAnswer,
   type AgentV2Message,
   type AgentV2TurnResult
 } from '~/utils/agent-v2'
@@ -207,12 +209,19 @@ export function useAgentV2Api() {
     return normalizeBundle(data)
   }
 
-  async function sendMessage(id: string, text: string): Promise<AgentV2TurnResult> {
+  async function sendMessage(
+    id: string,
+    text: string,
+    opts: { ctaAnswer?: AgentV2CtaAnswer } = {}
+  ): Promise<AgentV2TurnResult> {
+    const body = opts.ctaAnswer
+      ? buildAgentV2CtaMessageBody(text, opts.ctaAnswer)
+      : { text }
     const data = await request<unknown>(
       `/conversations/${encodeURIComponent(id)}/messages`,
       {
         method: 'POST',
-        body: { text }
+        body
       }
     )
     return normalizeTurn(data)
@@ -237,11 +246,12 @@ export function useAgentV2Api() {
   async function sendMessageMaybeStream(
     id: string,
     text: string,
-    handlers: AgentV2StreamHandlers = {}
+    handlers: AgentV2StreamHandlers = {},
+    opts: { ctaAnswer?: AgentV2CtaAnswer } = {}
   ): Promise<AgentV2TurnResult> {
     const config = useRuntimeConfig()
     if (!isAgentV2StreamingFlag(config.public.agentV2Streaming)) {
-      return sendMessage(id, text)
+      return sendMessage(id, text, opts)
     }
 
     const token = readToken()
@@ -250,6 +260,9 @@ export function useAgentV2Api() {
     }
 
     const url = `${apiBase()}/conversations/${encodeURIComponent(id)}/messages/stream`
+    const body = opts.ctaAnswer
+      ? buildAgentV2CtaMessageBody(text, opts.ctaAnswer)
+      : { text }
     try {
       const res = await fetch(url, {
         method: 'POST',
@@ -258,7 +271,7 @@ export function useAgentV2Api() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ text })
+        body: JSON.stringify(body)
       })
       const streamed = await consumeAgentV2Sse(res, id, handlers)
       if (streamed) {
@@ -267,7 +280,7 @@ export function useAgentV2Api() {
     } catch {
       // Fall through to sync.
     }
-    return sendMessage(id, text)
+    return sendMessage(id, text, opts)
   }
 
   return {

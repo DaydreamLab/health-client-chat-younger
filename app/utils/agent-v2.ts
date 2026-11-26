@@ -52,6 +52,31 @@ export interface AgentV2TurnResult {
   actions: AgentV2Action[]
 }
 
+/**
+ * CTA answer attached to a normal v2 send-message turn (Irice 20:39).
+ * Replaces the former v2 `POST /profile/answers` path.
+ */
+export interface AgentV2CtaAnswer {
+  action_key: string
+  gap_code: string
+  value: string | number | boolean | string[] | Record<string, unknown> | null
+}
+
+/** Body for a CTA answer turn on `POST …/messages` (and stream). */
+export function buildAgentV2CtaMessageBody(
+  content: string,
+  ctaAnswer: AgentV2CtaAnswer
+): { content: string, cta_answer: AgentV2CtaAnswer } {
+  return {
+    content,
+    cta_answer: {
+      action_key: ctaAnswer.action_key,
+      gap_code: ctaAnswer.gap_code,
+      value: ctaAnswer.value
+    }
+  }
+}
+
 export const AGENT_V2_OFFER_RECOMMEND_KEY = 'offer_recommend'
 export const AGENT_V2_ASK_VITALS_KEY = 'ask_vitals'
 export const AGENT_V2_ASK_REPORT_KEY = 'ask_report'
@@ -220,6 +245,7 @@ function projectAskVitals(action: AgentV2Action): ReplyAction {
     type: 'ask_vitals',
     payload: {
       fields: resolved,
+      action_key: action.key,
       ...(gapCode ? { gap_code: gapCode } : {})
     }
   }
@@ -252,9 +278,11 @@ function projectAskGoals(action: AgentV2Action): ReplyAction {
   const min = typeof minRaw === 'number' && Number.isFinite(minRaw) && minRaw >= 1
     ? Math.floor(minRaw)
     : 1
-  const gapCode = typeof raw.gap_code === 'string' ? raw.gap_code : undefined
+  const gapCode = typeof raw.gap_code === 'string' && raw.gap_code.trim()
+    ? raw.gap_code
+    : 'goals'
   return projectChooseOption({
-    key: AGENT_V2_CHOOSE_OPTION_KEY,
+    key: action.key,
     label: action.label,
     payload: {
       kind: 'consultation_goals',
@@ -262,13 +290,17 @@ function projectAskGoals(action: AgentV2Action): ReplyAction {
       confirm: true,
       min,
       options,
-      ...(gapCode ? { gap_code: gapCode } : {})
+      gap_code: gapCode,
+      action_key: action.key
     }
   })
 }
 
 function projectChooseOption(action: AgentV2Action): ReplyAction {
   const payload = isRecord(action.payload) ? { ...action.payload } : {}
+  if (typeof payload.action_key !== 'string' || !String(payload.action_key).trim()) {
+    payload.action_key = action.key
+  }
   // Ensure consultation_goals always has chips when core omits options.
   // Always force multi + confirm (never degrade to single-tap), matching v1.
   if (payload.kind === 'consultation_goals') {
@@ -282,6 +314,9 @@ function projectChooseOption(action: AgentV2Action): ReplyAction {
       payload.min = 1
     } else {
       payload.min = Math.floor(payload.min)
+    }
+    if (typeof payload.gap_code !== 'string' || !String(payload.gap_code).trim()) {
+      payload.gap_code = 'goals'
     }
   }
   return {
