@@ -19,7 +19,9 @@ export default defineConfig<ConfigOptions>({
       rootDir,
       dev: true,
       env: {
-        NUXT_TEST_BUILD_DIR: buildDir
+        NUXT_TEST_BUILD_DIR: buildDir,
+        // Opt-in agent v2 route for e2e; production default remains off.
+        NUXT_PUBLIC_AGENT_V2_ENABLED: '1'
       },
       nuxtConfig: {
         buildDir

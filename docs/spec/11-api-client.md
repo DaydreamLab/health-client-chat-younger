@@ -9,9 +9,10 @@
 | Base URL、`$fetch`、Bearer、SSE | `app/composables/useCandorApi.ts` |
 | DTO、`CandorApiError`、`TOKEN_STORAGE_KEY` | `app/utils/candor-api.ts` |
 | 建單／列表封裝 | `app/composables/useFirstOrderApi.ts` |
+| Agent v2（`/api/v2`，非 streaming） | `app/composables/useAgentV2Api.ts`、`app/utils/agent-v2.ts` |
 | Session | `app/stores/auth.ts` |
 
-環境：`runtimeConfig.public.apiBase` ← `NUXT_PUBLIC_API_BASE`（預設 `http://localhost:8080/api/v1`）。
+環境：`runtimeConfig.public.apiBase` ← `NUXT_PUBLIC_API_BASE`（預設 `http://localhost:8080/api/v1`）。Agent v2 base 由 `apiBase` 將 `/api/v1` 換成 `/api/v2`。功能開關：`runtimeConfig.public.agentV2Enabled` ← `NUXT_PUBLIC_AGENT_V2_ENABLED=1`（預設關）。
 
 ## Token
 

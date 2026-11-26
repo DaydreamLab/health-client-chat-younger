@@ -1129,5 +1129,17 @@
     "labelZh": "中文",
     "ariaEn": "Language: EN",
     "ariaZh": "語言：繁中"
+  },
+  "agentV2": {
+    "title": "健康諮詢",
+    "placeholder": "想補充什麼可以直接打在這裡…",
+    "send": "送出",
+    "pending": "正在整理回覆",
+    "errorGeneric": "暫時無法完成操作，請稍後再試。",
+    "requirements": {
+      "profile": "基本資料",
+      "report": "報告",
+      "goals": "目標"
+    }
   }
 }
