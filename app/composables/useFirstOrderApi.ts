@@ -85,7 +85,9 @@ export function useFirstOrderApi() {
         address: input.recipient.address,
         ...(input.recipient.email ? { email: input.recipient.email } : {})
       },
-      ...(input.conversationId ? { conversation_id: input.conversationId } : {}),
+      ...(input.agentV2ConversationId
+        ? { agent_v2_conversation_id: input.agentV2ConversationId }
+        : (input.conversationId ? { conversation_id: input.conversationId } : {})),
       ...(input.recommendationRunId ? { recommendation_run_id: input.recommendationRunId } : {})
     })
     const order = orderRecordFromCandorCreated(created, input)

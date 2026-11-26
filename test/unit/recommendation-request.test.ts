@@ -23,4 +23,17 @@ describe('recommendationRequestFromJourney', () => {
       report_id: 'report-1'
     })
   })
+
+  it('uses agent_v2_conversation_id + report_id and never conversation_id (LY4)', () => {
+    expect(recommendationRequestFromJourney({
+      conversationId: 'v1-should-ignore',
+      reportId: 'report-1',
+      agentV2ConversationId: 'v2-conv-1'
+    })).toEqual({
+      enrich: 'template',
+      limit: 30,
+      report_id: 'report-1',
+      agent_v2_conversation_id: 'v2-conv-1'
+    })
+  })
 })

@@ -416,6 +416,8 @@ export function useCandorApi() {
     createRecommendation: (body: {
       report_id?: string
       conversation_id?: string
+      /** LY4 agent v2 context (core LC5); never a v1 conversation id. */
+      agent_v2_conversation_id?: string
       limit?: number
       enrich?: 'template' | 'llm'
       profile?: {
@@ -645,7 +647,9 @@ export function useCandorApi() {
       ),
 
     getCheckoutPreview: (params: {
-      conversationId: string
+      conversationId?: string | null
+      /** LY4 agent v2 context (core LC5); mutually exclusive with v1 conversation. */
+      agentV2ConversationId?: string | null
       mode: 'ai' | 'expert'
       packagePlanCode?: string
       /** Selected bottle_addon codes (repeated query `addon_codes`). */
@@ -654,7 +658,12 @@ export function useCandorApi() {
       request<CheckoutPreview>('/checkout/preview', {
         method: 'GET',
         query: {
-          conversation_id: params.conversationId,
+          ...(params.agentV2ConversationId?.trim()
+            ? { agent_v2_conversation_id: params.agentV2ConversationId.trim() }
+            : {}),
+          ...(params.conversationId?.trim() && !params.agentV2ConversationId?.trim()
+            ? { conversation_id: params.conversationId.trim() }
+            : {}),
           mode: params.mode,
           ...(params.packagePlanCode
             ? { package_plan_code: params.packagePlanCode }

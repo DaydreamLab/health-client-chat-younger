@@ -566,6 +566,8 @@ export interface OrderCreateRequest {
     email?: string | null
   }
   conversation_id?: string
+  /** LY4 agent v2 context (core LC5); never a v1 conversation id. */
+  agent_v2_conversation_id?: string
   recommendation_run_id?: string
   renewal_of_order_id?: string
   report_id?: string

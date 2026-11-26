@@ -20,7 +20,7 @@ i18n：`prefix_except_default`；下表路徑為預設語系（無 `/en` 前綴�
 | `/app/wearables` | `user` + `auth` | 穿戴裝置範例（假資料、`?demo=` 切狀態） | 無 API |
 | `/app/wearables/:deviceId` | `user` + `auth` | 單一裝置趨勢（7／30 天） | 無 API |
 | `/app/renewals` | `user` + `auth` | 待續約即將上線佔位（列表與續約對話暫不從這頁進入） | 無（殼）；client 仍保留 `GET /renewals/due`、`renewal_of_order_id` |
-| `/app/recommendations` | `user` + `auth` | 只做「AI 方案／專家方案」二選；選 AI 後 `POST /recommendations` 載入方案再進結帳；選專家方案進 `?kind=expert_plan` 結帳。不查 expert-review、不定稿唯讀 | `POST /recommendations`（選 AI 時）；結帳另頁 |
+| `/app/recommendations` | `user` + `auth` | 只做「AI 方案／專家方案」二選；選 AI 後 `POST /recommendations` 載入方案再進結帳；選專家方案進 `?kind=expert_plan` 結帳。不查 expert-review、不定稿唯讀。從 `/chat/v2` 進入時帶 `agent_v2_conversation_id`（**不**寫入 journey.conversationId）；建議請求用 `report_id`＋`agent_v2_conversation_id` | `POST /recommendations`（選 AI 時；v2 脈絡可含 `agent_v2_conversation_id`）；結帳另頁 |
 | `/app/expert-cases/[id]` | `user` + `auth` | 專家案件定稿唯讀（`id`＝案件 conversation id）。付費案可連訂單 | `GET /conversation/{id}/expert-review`；有 `order_id` 時另 `GET /order/{id}/finalized-plan`、`GET /order/{id}` |
 | `/app/checkout` | `user` + `auth` | AI／專家共用結帳（`?kind=package`｜`?kind=expert_plan`）；靜態／首屏 skeleton，`ensureSession` 後 guest 顯示頁內 `AuthLoginForm`（stay，成功後留在結帳頁），member 才預覽／建單；專家卡顯示內含保健品方案名（有 `package_plan_name_*`／code 才顯示）；缺 `conversation_id` 時 AI 顯示諮詢紀錄錯誤＋回對話；`questionnaire_incomplete`／`conversation_already_ordered`／`existing_order` repay／`conversation_order_closed`（開新對話）gate | `GET /checkout/preview`（AI 品項用 `ai.items`）、`POST /orders`、`PATCH /users/me`；登入時 `POST /auth/login`／`register` |
 | `/app/orders` | `user` + `auth` | 訂單列表；靜態／首屏 skeleton，`ensureSession` 後 guest 顯示頁內 `AuthLoginForm`（stay，成功後留在本頁）、member 才載入列表（`MemberAuthShell`） | `GET /orders`；登入時 `POST /auth/login`／`register` |

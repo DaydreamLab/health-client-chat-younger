@@ -331,6 +331,8 @@ export interface CreateOrderInput {
   compositionHash?: string
   reportId?: string | null
   conversationId?: string | null
+  /** LY4 agent v2 context — never a v1 conversation id. */
+  agentV2ConversationId?: string | null
   recommendationRunId?: string | null
 }
 

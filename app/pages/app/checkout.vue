@@ -793,6 +793,7 @@ import {
   resolveExpertPlanTitle,
   resolveIncludedPackagePlanName
 } from '~/utils/expert-plan-display'
+import { agentV2ConversationIdFromQuery } from '~/utils/agent-v2'
 
 definePageMeta({
   layout: 'user',
@@ -827,6 +828,11 @@ const checkoutKind = computed<CheckoutKind>(() => resolveCheckoutKind({
   package_plan_code: route.query.package_plan_code
 }))
 const isExpertPlan = computed(() => checkoutKind.value === 'expert_plan')
+
+/** LY4: checkout entered from /chat/v2 → recommendations (never a v1 conversation id). */
+const agentV2ConversationId = computed(() =>
+  agentV2ConversationIdFromQuery(route.query as Record<string, unknown>)
+)
 
 const pageGate = ref<PageGate>('none')
 const checkoutLockReason = ref<CheckoutLockReason | null>(null)
@@ -1413,7 +1419,8 @@ async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
   // cancelled rows so reload can restore checks.
 
   const conversationId = journey.conversationId?.trim() ?? ''
-  if (!conversationId) {
+  const v2ConversationId = agentV2ConversationId.value
+  if (!conversationId && !v2ConversationId) {
     if (isExpertPlan.value) {
       listError.value = t('expertPlans.conversationRequired')
     } else if (auth.isMember) {
@@ -1422,6 +1429,14 @@ async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
       recommendation.value = null
     }
     // Guest without conversation still falls through to AuthLoginForm.
+    listPending.value = false
+    packagePending.value = false
+    return
+  }
+
+  // Expert plan still requires a v1 conversation (LY6 may add v2 expert propose).
+  if (isExpertPlan.value && !conversationId) {
+    listError.value = t('expertPlans.conversationRequired')
     listPending.value = false
     packagePending.value = false
     return
@@ -1452,7 +1467,8 @@ async function loadCheckoutPreview(options: { skipPreselect?: boolean } = {}) {
           .filter(code => eligibleBottleAddonCodes.value.includes(code))
 
     const preview = await candor.getCheckoutPreview({
-      conversationId,
+      conversationId: v2ConversationId ? null : conversationId,
+      agentV2ConversationId: v2ConversationId,
       mode: isExpertPlan.value ? 'expert' : 'ai',
       packagePlanCode: isExpertPlan.value ? undefined : packagePlanCode,
       ...(addonCodes.length > 0 ? { addonCodes } : {})
@@ -1664,7 +1680,8 @@ async function onPay(event: Event) {
       messages: JSON.parse(JSON.stringify(journey.snapshotMessages())) as ChatMessage[],
       compositionHash: pkg.composition_hash,
       reportId: recommendation.value?.report_id ?? journey.reportId,
-      conversationId: journey.conversationId,
+      conversationId: agentV2ConversationId.value ? null : journey.conversationId,
+      agentV2ConversationId: agentV2ConversationId.value,
       recommendationRunId: recommendation.value?.run_id
     })
 
