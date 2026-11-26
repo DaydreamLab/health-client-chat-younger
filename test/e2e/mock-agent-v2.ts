@@ -2,7 +2,12 @@ import type { Page } from '@playwright/test'
 
 const conversationId = 'v2cccccccc-cccc-cccc-cccc-cccccccccccc'
 
-export type AgentV2MockMode = 'gathering' | 'ready' | 'collecting_actions' | 'goals'
+export type AgentV2MockMode
+  = 'gathering'
+    | 'ready'
+    | 'collecting_actions'
+    | 'goals'
+    | 'fail_once'
 
 type MockAction = {
   key: string
@@ -10,22 +15,30 @@ type MockAction = {
   payload?: Record<string, unknown>
 }
 
+type MockMessage = {
+  id: string
+  role: 'user' | 'assistant'
+  text: string
+  actions?: MockAction[]
+}
+
 /**
  * Mock `/api/v2/conversations*` only. Does not call a real model.
  * `ready` = three requirements done + offer_recommend action.
  * `gathering` = missing all three, no CTAs.
  * `collecting_actions` = collecting with ask_vitals／ask_report／ask_goal／confirm_report_date.
+ * `fail_once` = first POST messages returns 500; subsequent succeed (LY5 retry).
  */
 export async function mockAgentV2Api(
   page: Page,
   mode: AgentV2MockMode = 'ready'
 ) {
-  const missing = mode === 'ready'
+  const missing = mode === 'ready' || mode === 'fail_once'
     ? []
     : mode === 'goals'
       ? ['goals']
       : ['profile', 'report', 'goals']
-  const state = mode === 'ready' ? 'cta_offered' : 'collecting'
+  const state = mode === 'ready' || mode === 'fail_once' ? 'cta_offered' : 'collecting'
 
   // One turn: vitals + upload + date confirm.
   // ask_goal alone would set goalSelectActive and hide upload (same as v1 gate);
@@ -44,7 +57,7 @@ export async function mockAgentV2Api(
     { key: 'ask_goal', label: '選擇健康目標' }
   ]
 
-  const actions: MockAction[] = mode === 'ready'
+  const actions: MockAction[] = mode === 'ready' || mode === 'fail_once'
     ? [{ key: 'offer_recommend', label: '取得專屬保健品方案' }]
     : mode === 'collecting_actions'
       ? collectingActions
@@ -52,7 +65,7 @@ export async function mockAgentV2Api(
         ? goalsOnlyActions
         : []
 
-  const greeting = mode === 'ready'
+  const greeting = mode === 'ready' || mode === 'fail_once'
     ? '三要件都齊了。可以取得專屬保健品方案。'
     : mode === 'collecting_actions'
       ? '請補齊基本資料與報告。也可先確認報告日期。'
@@ -60,10 +73,16 @@ export async function mockAgentV2Api(
         ? '請選擇健康目標。'
         : '先從基本資料、報告與目標開始。'
 
-  let messages: Array<{ id: string, role: 'user' | 'assistant', text: string }> = [
-    { id: 'm-asst-1', role: 'assistant', text: greeting }
+  let messages: MockMessage[] = [
+    {
+      id: 'm-asst-1',
+      role: 'assistant',
+      text: greeting,
+      ...(actions.length > 0 ? { actions } : {})
+    }
   ]
   let lastActions = actions
+  let messagesFailRemaining = mode === 'fail_once' ? 1 : 0
 
   await page.route('**/api/v2/conversations**', async (route) => {
     const request = route.request()
@@ -77,14 +96,27 @@ export async function mockAgentV2Api(
       body: JSON.stringify({ status: 'success', data })
     })
 
-    // POST /api/v2/conversations
+    const fail = (status: number, errorCode: string, message: string) =>
+      route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          status: 'failed',
+          error_code: errorCode,
+          error_message: message
+        })
+      })
+
+    // POST /api/v2/conversations — LY5 greeting + actions on create
     if (method === 'POST' && /\/api\/v2\/conversations\/?$/.test(path)) {
       await ok({
         conversation: {
           id: conversationId,
           state,
           missing
-        }
+        },
+        messages,
+        actions: lastActions
       })
       return
     }
@@ -92,9 +124,14 @@ export async function mockAgentV2Api(
     // POST …/messages
     const messagesMatch = path.match(/\/api\/v2\/conversations\/([^/]+)\/messages\/?$/)
     if (method === 'POST' && messagesMatch) {
+      if (messagesFailRemaining > 0) {
+        messagesFailRemaining -= 1
+        await fail(500, 'upstream_error', 'mock fail once')
+        return
+      }
       const body = request.postDataJSON() as { text?: string }
       const text = String(body?.text ?? '').trim() || '（空白）'
-      const replyText = mode === 'ready'
+      const replyText = mode === 'ready' || mode === 'fail_once'
         ? '已收到。三要件齊全，可取得方案。'
         : mode === 'collecting_actions'
           ? '已收到。請用下方按鈕補資料或確認日期。'
@@ -107,7 +144,8 @@ export async function mockAgentV2Api(
         {
           id: `m-asst-${messages.length + 1}`,
           role: 'assistant',
-          text: replyText
+          text: replyText,
+          ...(actions.length > 0 ? { actions } : {})
         }
       ]
       lastActions = actions
@@ -158,7 +196,7 @@ export async function mockAgentV2Api(
       return
     }
 
-    // GET /api/v2/conversations/{id}
+    // GET /api/v2/conversations/{id} — LY5 hydrate with per-message／bundle actions
     const getMatch = path.match(/\/api\/v2\/conversations\/([^/]+)\/?$/)
     if (method === 'GET' && getMatch) {
       await ok({
@@ -167,7 +205,8 @@ export async function mockAgentV2Api(
           state,
           missing
         },
-        messages
+        messages,
+        actions: lastActions
       })
       return
     }

@@ -13,6 +13,7 @@ import {
   agentV2ActionsToReplyActions,
   agentV2ApiBase,
   agentV2RequirementDone,
+  hydrateAgentV2Messages,
   isAgentV2EnabledFlag,
   isConfirmReportDateAction,
   isOfferRecommendAction,
@@ -174,6 +175,46 @@ describe('agent-v2 helpers', () => {
       { id: 'fail', status: 'failed' }
     ])).toBeNull()
   })
+
+  it('hydrates greeting／history actions onto the last assistant (LY5)', () => {
+    const withOwn = hydrateAgentV2Messages([
+      {
+        id: 'g1',
+        role: 'assistant',
+        text: '你好',
+        actions: [{ key: AGENT_V2_OFFER_RECOMMEND_KEY, label: '取得專屬保健品方案' }]
+      }
+    ])
+    expect(withOwn[0]!.replyActions?.actions[0]?.type).toBe('offer_recommend')
+
+    const viaFallback = hydrateAgentV2Messages(
+      [
+        { id: 'u1', role: 'user', text: 'hi' },
+        { id: 'a1', role: 'assistant', text: '歡迎' }
+      ],
+      [{ key: AGENT_V2_ASK_REPORT_KEY, label: '上傳健康報告' }]
+    )
+    expect(viaFallback[0]!.replyActions).toBeNull()
+    expect(viaFallback[1]!.replyActions?.actions[0]?.type).toBe('ask_report')
+
+    const preferOwn = hydrateAgentV2Messages(
+      [{
+        id: 'a1',
+        role: 'assistant',
+        text: '已有',
+        actions: [{ key: AGENT_V2_ASK_GOAL_KEY, label: '目標' }]
+      }],
+      [{ key: AGENT_V2_OFFER_RECOMMEND_KEY, label: '方案' }]
+    )
+    expect(preferOwn[0]!.replyActions?.actions[0]?.type).toBe('ask_goal')
+
+    // Irice 17:04 GET hydrate: no fallback → top-level pending ignored.
+    const getHydrate = hydrateAgentV2Messages(
+      [{ id: 'a1', role: 'assistant', text: '歡迎' }],
+      null
+    )
+    expect(getHydrate[0]!.replyActions).toBeNull()
+  })
 })
 
 describe('agent-v2 isolation wiring', () => {
@@ -243,6 +284,20 @@ describe('agent-v2 isolation wiring', () => {
     expect(slice).toContain('submitAgentV2ProfileAnswer')
     expect(slice).not.toContain('setConversationGoals')
     expect(slice).not.toContain('ensureConversation')
+  })
+
+  it('hydrates greeting／actions on create／GET and wires retry CTA (LY5)', () => {
+    expect(chatPanel).toMatch(/applyAgentV2Bundle/)
+    expect(chatPanel).toMatch(/hydrateAgentV2Messages/)
+    expect(chatPanel).toMatch(/failedAgentV2Retry/)
+    expect(chatPanel).toMatch(/retryFailedAgentV2/)
+    expect(chatPanel).toMatch(/pushAgentV2FailedBubble/)
+    // Irice 17:04: GET = per-message only; create may use bundle actions fallback.
+    expect(chatPanel).toMatch(/useBundleActionsFallback:\s*true/)
+    expect(chatPanel).toMatch(/GET hydrate: per-message actions only/)
+    const api = readFileSync(resolve('app/composables/useAgentV2Api.ts'), 'utf8')
+    expect(api).toMatch(/createConversation\(\): Promise<AgentV2ConversationBundle>/)
+    expect(api).toMatch(/normalizeBundle/)
   })
 
   it('enables member upload on mode=v2 without v1 conversation bind', () => {

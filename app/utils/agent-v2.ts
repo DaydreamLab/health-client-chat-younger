@@ -328,3 +328,51 @@ export function pickReadyHealthReportId(
   }
   return null
 }
+
+/** Hydrated chat row after projecting per-message／bundle-level actions (LY5). */
+export interface AgentV2HydratedMessage {
+  id: string
+  role: 'user' | 'assistant'
+  text: string
+  replyActions: ReplyActions | null
+}
+
+/**
+ * Restore transcript CTAs from messages.
+ * Irice 17:04: GET hydrate uses **each message's own `actions` only** —
+ * never top-level pending `actions`. Create may pass `fallbackActions` when
+ * the greeting message omits per-message actions (LC4 additive shape).
+ * Never invent buttons from reply text.
+ */
+export function hydrateAgentV2Messages(
+  messages: readonly AgentV2Message[],
+  fallbackActions?: readonly AgentV2Action[] | null
+): AgentV2HydratedMessage[] {
+  const rows: AgentV2HydratedMessage[] = messages.map(message => ({
+    id: message.id,
+    role: message.role,
+    text: message.text,
+    replyActions: message.actions?.length
+      ? agentV2ActionsToReplyActions(message.actions)
+      : null
+  }))
+
+  const anyOwn = rows.some(row => row.replyActions != null)
+  if (anyOwn || !fallbackActions?.length) {
+    return rows
+  }
+
+  const projected = agentV2ActionsToReplyActions(fallbackActions)
+  if (!projected) {
+    return rows
+  }
+
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    const row = rows[i]
+    if (row?.role === 'assistant') {
+      row.replyActions = projected
+      break
+    }
+  }
+  return rows
+}

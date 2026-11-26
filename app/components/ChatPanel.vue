@@ -479,8 +479,10 @@ import {
   AGENT_V2_CONVERSATION_STORAGE_KEY,
   AGENT_V2_RECOMMENDATIONS_PATH,
   agentV2ActionsToReplyActions,
+  hydrateAgentV2Messages,
   isConfirmReportDateAction,
   pickReadyHealthReportId,
+  type AgentV2ConversationBundle,
   type AgentV2TurnResult
 } from '~/utils/agent-v2'
 import { storeToRefs } from 'pinia'
@@ -1118,6 +1120,7 @@ function writeAgentV2ConversationId(id: string | null) {
 function applyAgentV2Turn(turn: AgentV2TurnResult, opts: { appendUserText?: string } = {}) {
   agentV2ConversationId.value = turn.conversation_id
   writeAgentV2ConversationId(turn.conversation_id)
+  failedAgentV2Retry.value = null
 
   if (opts.appendUserText) {
     agentV2Messages.value.push(makeMessage('user', opts.appendUserText))
@@ -1142,15 +1145,63 @@ function applyAgentV2Turn(turn: AgentV2TurnResult, opts: { appendUserText?: stri
 }
 
 /**
+ * LY5: project greeting／history actions onto ChatMessage bubbles.
+ * Irice 17:04: GET hydrate = per-message actions only (no top-level pending).
+ * Create may use bundle-level actions when greeting omits message.actions.
+ */
+function applyAgentV2Bundle(
+  bundle: AgentV2ConversationBundle,
+  opts: { useBundleActionsFallback?: boolean } = {}
+) {
+  agentV2ConversationId.value = bundle.conversation.id
+  writeAgentV2ConversationId(bundle.conversation.id)
+  failedAgentV2Retry.value = null
+
+  const hydrated = hydrateAgentV2Messages(
+    bundle.messages ?? [],
+    opts.useBundleActionsFallback ? bundle.actions : null
+  )
+  agentV2Messages.value = hydrated.map((row) => {
+    const message = makeMessage(row.role, row.text, row.id)
+    if (row.replyActions) {
+      message.replyActions = row.replyActions
+      applyReplyActionsInteraction(message, row.replyActions)
+    }
+    return message
+  })
+}
+
+function pushAgentV2FailedBubble(retry: {
+  kind: 'message' | 'action'
+  text?: string
+  key?: string
+}) {
+  const failed = makeMessage('assistant', t('chat.streamError'))
+  clearChatMessageActions(failed)
+  failed.streamFailed = true
+  agentV2Messages.value.push(failed)
+  failedAgentV2Retry.value = {
+    kind: retry.kind,
+    text: retry.text,
+    key: retry.key,
+    assistantId: failed.id
+  }
+}
+
+/**
  * LY1: confirm_report_date posts to `/api/v2/.../actions` only (v2 meta).
  * Profile／goals／upload writes land in LY2–LY3 — never create a v1 conversation here.
  */
-async function postAgentV2ActionKey(key: string, displayLabel?: string) {
+async function postAgentV2ActionKey(
+  key: string,
+  displayLabel?: string,
+  opts: { alreadyAppendedUser?: boolean } = {}
+) {
   const conversationId = agentV2ConversationId.value
   if (!conversationId || pending.value) {
     return
   }
-  if (displayLabel) {
+  if (displayLabel && !opts.alreadyAppendedUser) {
     agentV2Messages.value.push(makeMessage('user', displayLabel))
   }
   pending.value = true
@@ -1160,7 +1211,7 @@ async function postAgentV2ActionKey(key: string, displayLabel?: string) {
     await nextTick()
     scrollToLatest('smooth')
   } catch {
-    agentV2Messages.value.push(makeMessage('assistant', t('chat.streamError')))
+    pushAgentV2FailedBubble({ kind: 'action', key })
   } finally {
     pending.value = false
   }
@@ -1174,21 +1225,17 @@ async function bootAgentV2() {
     if (stored) {
       try {
         const bundle = await agentV2Api.getConversation(stored)
-        agentV2ConversationId.value = bundle.conversation.id
-        writeAgentV2ConversationId(bundle.conversation.id)
-        agentV2Messages.value = (bundle.messages ?? []).map(message =>
-          makeMessage(message.role, message.text, message.id)
-        )
+        // GET hydrate: per-message actions only (Irice 17:04).
+        applyAgentV2Bundle(bundle)
         return
       } catch {
         writeAgentV2ConversationId(null)
       }
     }
 
+    // Create: allow top-level actions when greeting message omits them (LC4+).
     const created = await agentV2Api.createConversation()
-    agentV2ConversationId.value = created.id
-    writeAgentV2ConversationId(created.id)
-    agentV2Messages.value = []
+    applyAgentV2Bundle(created, { useBundleActionsFallback: true })
   } catch {
     if (agentV2Messages.value.length === 0) {
       agentV2Messages.value.push(makeMessage('assistant', t('chat.conversationError')))
@@ -1198,20 +1245,49 @@ async function bootAgentV2() {
   }
 }
 
-async function sendAgentV2Text(text: string) {
+async function sendAgentV2Text(text: string, opts: { alreadyAppendedUser?: boolean } = {}) {
   if (!text || pending.value || !agentV2ConversationId.value) {
     return
   }
   pending.value = true
   try {
     const turn = await agentV2Api.sendMessage(agentV2ConversationId.value, text)
-    applyAgentV2Turn(turn, { appendUserText: text })
+    applyAgentV2Turn(turn, {
+      appendUserText: opts.alreadyAppendedUser ? undefined : text
+    })
     await nextTick()
     scrollToLatest('smooth')
   } catch {
-    agentV2Messages.value.push(makeMessage('assistant', t('chat.streamError')))
+    if (!opts.alreadyAppendedUser) {
+      agentV2Messages.value.push(makeMessage('user', text))
+    }
+    pushAgentV2FailedBubble({ kind: 'message', text })
   } finally {
     pending.value = false
+  }
+}
+
+/** LY5: re-run failed v2 message／action from the error bubble「再試一次」. */
+async function retryFailedAgentV2(message: ChatMessage) {
+  if (!message.streamFailed || pending.value || readonly.value) {
+    return
+  }
+  const retry = failedAgentV2Retry.value
+  if (!retry || retry.assistantId !== message.id) {
+    return
+  }
+  const idx = agentV2Messages.value.findIndex(item => item.id === message.id)
+  if (idx >= 0) {
+    agentV2Messages.value.splice(idx, 1)
+  }
+  failedAgentV2Retry.value = null
+
+  if (retry.kind === 'message' && retry.text) {
+    await sendAgentV2Text(retry.text, { alreadyAppendedUser: true })
+    return
+  }
+  if (retry.kind === 'action' && retry.key) {
+    await postAgentV2ActionKey(retry.key, undefined, { alreadyAppendedUser: true })
   }
 }
 
@@ -1436,6 +1512,10 @@ function retryLabelFor(message: ChatMessage) {
 
 function onRetryCta(message: ChatMessage) {
   if (message.streamFailed) {
+    if (isAgentV2.value) {
+      void retryFailedAgentV2(message)
+      return
+    }
     void retryFailedStream(message)
     return
   }
@@ -2521,6 +2601,14 @@ function restorePendingUserIfMissing(pendingContent: string) {
 const failedStreamRetry = ref<{
   content: string
   intent: string | null
+  assistantId: string
+} | null>(null)
+
+/** LY5: last failed v2 message／action so the error bubble can「再試一次」. */
+const failedAgentV2Retry = ref<{
+  kind: 'message' | 'action'
+  text?: string
+  key?: string
   assistantId: string
 } | null>(null)
 
